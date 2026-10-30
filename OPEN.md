@@ -62,6 +62,7 @@ Read on a real device, outside any document of its maker.
 | goodwe-et | 36015 / 36017 energy unit: kWh assumed, the projects use Wh. |
 | evracing-evse-wb-din | 2005 bit 7: "PWM debug" in the datasheet, a 0.01 A mode in the projects. |
 | sma-hybrid | DC input 3 (30967) on newer Smart Energy models. |
+| webasto-next | Currents 1008 / 1010 / 1012: function 03 (OpenEMS) or 04 (evcc). |
 
 ## Decisions
 
