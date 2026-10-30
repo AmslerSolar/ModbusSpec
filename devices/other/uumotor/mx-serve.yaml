@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Uumotor MX_SERVE-RS485 Protocol (translated English manual, V3.03-1).
+
+modbusspec: 0
+id: uumotor-mx-serve
+manufacturer: Uumotor
+name: MX SERVE dual brushless motor driver
+kind: other
+
+sources:
+- title: MX_SERVE-RS485 Protocol, Translated English Manual (MX SERVE Dual Brushless Driver RS485 Protocol)
+  version: V3.03-1
+  url: https://www.uumotor.com/wp-content/uploads/2025/06/MX_SERVE_Dual_Brushless_Driver_RS485_Protocol_v3.03.pdf
+  sha256: 9b08bb62e10b1e08e433985978cfe3c93fc7f17c287fe7f1c81b672cba4b64e6
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 7
+    max_gap: 0
+    min_interval_ms: 20
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: error_code, label: Fault code, table: holding, address: 0, type: u16, enum: fault, poll: fast}
+  - {key: temperature, label: Temperature, table: holding, address: 1, type: s16, unit: °C, poll: fast}
+  - {key: x.supply_voltage, label: Power-supply voltage, table: holding, address: 2, type: s16, unit: V, scale: 0.1, poll: fast}
+  - {key: x.motor2_current, label: Motor 2 current, table: holding, address: 3, type: s16, unit: A, scale: 0.1, poll: fast}
+  - {key: x.motor1_current, label: Motor 1 current, table: holding, address: 4, type: s16, unit: A, scale: 0.1, poll: fast}
+  - {key: x.motor2_speed, label: Motor 2 speed, table: holding, address: 5, type: s16, unit: rpm, poll: fast}
+  - {key: x.motor1_speed, label: Motor 1 speed, table: holding, address: 6, type: s16, unit: rpm, poll: fast}
+
+enums:
+  fault: {'0': Normal, '1': Driver fault, '5': Over-current, '6': Over-voltage, '7': Under-voltage, '8': Over-temperature, '11': Motor 2 over-speed, '12': Motor 1 over-speed, '13': Motor 2 overload, '14': Motor 1 overload, '15': Motor 2 phase loss, '16': Motor 1 phase loss, '17': Motor 2 phase short, '18': Motor 1 phase short, '19': Motor 2 encoder fault, '20': Motor 1 encoder fault, '21': Motor 2 over-temperature, '22': Motor 1 over-temperature, '23': Motor 2 Hall fault, '24': Motor 1 Hall fault, '25': Motor 2 stall, '26': Motor 1 stall, '27': UART communication fault, '28': RS485 communication fault, '29': CAN communication fault, '30': Joystick fault, '31': Throttle fault}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Driver fault: {text} ({value})'}
+
+notes:
+- Modbus RTU over RS485 with function 03 (read) and 10 (write) only. 9600 baud (configurable) 8N1, unit ids 0x01…0x7F; the
+  default unit id is not stated (1 assumed, as in the document's examples). Keep at least 20 ms between frames. Addresses
+  are 0-based as the document gives them.
+- 'Writing uses a separate control block that starts at the same addresses as the read data but means something else: 0x00
+  mode and enable (high byte motor 2, low byte motor 1: bit 0 enable, bit 5 coast (motor 2) / reset (motor 1, optional), bits
+  6–7 mode 00 torque, 01 speed), 0x01/0x02 motor 2/1 speed or torque target (s16), 0x03/0x04 motor 2/1 acceleration, 0x05/0x06
+  Kp (default 1000), 0x07/0x08 Ki (default 2000); the examples write all nine registers in one request. These are not listed
+  as points since reading the same addresses returns the status values. The motors stop when no valid frame arrives for 1.5
+  s.'
+- 'No identification: the document has no model or identity register.'

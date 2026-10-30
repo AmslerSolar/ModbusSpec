@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the ChargeX Modbus TCP Interface documentation for Aqueduct V1 & V2 (1.7, 2026.01).
+
+modbusspec: 0
+id: chargex-aqueduct
+manufacturer: ChargeX
+name: Aqueduct V1 / V2 modular charging system
+kind: charger
+
+sources:
+- title: ChargeX Modbus TCP Interface – Official documentation for Aqueduct V1 & V2
+  version: 1.7 (2026.01)
+  url: https://blog.chargex.de/hubfs/Customer%20Support/ChargeX%20Modbus%20TCP%20documentation.pdf
+  sha256: a75ea66a0627e3f73337ef2d986a4c03d9e13f8ae258a096bd343220a0453bae
+
+connection:
+  default_port: 1502
+  default_unit: 10
+  transports:
+  - tcp
+  limits:
+    even_address: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 28
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 2
+    type: u32
+    equals: 10
+  - table: holding
+    address: 4
+    type: str
+    length: 8
+    prefix: ChargeX
+
+points:
+  # Identification and detection
+  - {key: x.unit_id, label: Unit_ID, table: holding, address: 2, type: u32, poll: slow, note: Always 10; the document asks clients to check it after detection.}
+  - {key: x.manufacturer, label: Manufacturer, table: holding, address: 4, type: str, length: 8, poll: slow, note: 'UTF-8, padded with trailing spaces, e.g. "ChargeX".'}
+  - {key: x.device_type, label: Device_Type, table: holding, address: 12, type: str, length: 8, poll: slow, note: Aqueduct 1.0 or 2.0; the exact texts aren't given.}
+  - {key: firmware, label: FW_Version, table: holding, address: 20, type: str, length: 8, poll: slow}
+  - {key: serial, label: Serial_Nr, table: holding, address: 28, type: str, length: 8, poll: slow}
+  # Overall system
+  - {key: consumer_power, label: PAC_SUM, table: holding, address: 36, type: u32, unit: W, positive: consumption, note: Total power the charging station draws over all modules and phases.}
+  - {key: x.min_required_power, label: PAC_Minimum, table: holding, address: 38, type: u32, unit: W, note: '10 A × 230 V × 3 phases while at least one car is connected, else 0.'}
+  - {key: l1_current, label: IAC_SUM_1, table: holding, address: 40, type: u32, unit: A, scale: 0.001, note: 'System total on phase 1. The register table gives mA, the text amperes; mA assumed.'}
+  - {key: l2_current, label: IAC_SUM_2, table: holding, address: 42, type: u32, unit: A, scale: 0.001}
+  - {key: l3_current, label: IAC_SUM_3, table: holding, address: 44, type: u32, unit: A, scale: 0.001}
+  - {key: x.connected_cars, label: Connected_Cars, table: holding, address: 46, type: u32}
+  - {key: x.active_sessions, label: Active_Sessions, table: holding, address: 48, type: u32, note: Cars being charged right now; the system rotates between connected cars.}
+  - {key: x.module_count, label: N_Modules, table: holding, address: 50, type: u32, poll: slow, note: 'Modules in the system, main module included (≥ 1).'}
+  - {key: x.system_status, label: System_Status, table: holding, address: 52, type: u32, flags: system_status}
+  - {key: x.max_current, label: Max_Current, table: holding, address: 54, type: u32, unit: A, scale: 0.001, poll: slow, note: Predefined maximum current of the system.}
+  - {key: x.eligible_modules, label: Eligible modules, table: holding, address: 56, type: u32, verified: false, note: 'Modules able to start charging (car connected and authorised, battery not full, no critical error). Whether it is a count or a bit mask isn''t stated. Document 1.5 and later.'}
+  - {key: x.meter_update_time, label: Energy meter update timestamp, table: holding, address: 58, type: u32, unit: s, epoch: {start: '1970-01-01', unit: s}, note: UTC. Document 1.5 and later.}
+  - {key: x.eligible_update_time, label: Eligible modules update timestamp, table: holding, address: 60, type: u32, unit: s, epoch: {start: '1970-01-01', unit: s}, note: UTC. Document 1.5 and later.}
+  - {key: x.system_errors, label: System errors, table: holding, address: 62, type: u32, flags: system_errors, verified: false, note: 'The document gives 0x3F as hex address and 62 as decimal; 62 (0x3E) is taken, as every register starts on an even address. Document 1.6 and later.'}
+  # Main module (index 0); module n is at 100 + 12 n + 2 × register index, up to 15 modules (up to 410)
+  - {key: x.module0_power, label: PAC_X (module 0), table: holding, address: 100, type: u32, unit: W}
+  - {key: x.module0_l1_current, label: IAC_SUM_1_X (module 0), table: holding, address: 102, type: u32, unit: A, scale: 0.001}
+  - {key: x.module0_l2_current, label: IAC_SUM_2_X (module 0), table: holding, address: 104, type: u32, unit: A, scale: 0.001}
+  - {key: x.module0_l3_current, label: IAC_SUM_3_X (module 0), table: holding, address: 106, type: u32, unit: A, scale: 0.001}
+  - {key: x.module0_state, label: States_CP_X (module 0), table: holding, address: 108, type: u32, flags: module_state}
+  - {key: x.module0_errors, label: Errors_CP_X (module 0), table: holding, address: 110, type: u32, flags: module_errors}
+  # Writable (persisted across resets)
+  - {key: x.target_power_timeout, label: PAC_Target_Timeout, table: holding, address: 500, type: u32, unit: s, writable: true, poll: slow, note: How long a target power holds before the system falls back to the default power. Default 20 min.}
+  - {key: x.default_power, label: PAC_Default_Power, table: holding, address: 502, type: u32, unit: W, writable: true, poll: slow, note: Used after a restart or when the target power timer runs out.}
+  - {key: x.target_power, label: PAC_Target_Power, table: holding, address: 504, type: u32, unit: W, writable: true, note: 'Converted to current at a fixed 230 V. Changes accepted at most every 15 s by default. Below the minimum needed power, charging stops (mode 0).'}
+  - {key: x.charging_mode, label: Charging_Mode, table: holding, address: 506, type: u32, enum: charging_mode, writable: true, poll: slow}
+
+enums:
+  charging_mode: {'0': 'Full control (no charging below the minimum current, else target power)', '1': Minimum charge (at least the minimum current), '2': No reduction (target power ignored)}
+
+flags:
+  system_status: {'0': Phase split supported (V2), '1': System online, '2': Not calibration-law (Eichrecht) compliant, '3': Energy meter configured properly, '4': Dry contact (grid operator signal) feature set, '5': 'PV production below the minimum charging current, charging stopped'}
+  system_errors: {'1': Overcurrent warning, '2': 'Rainbow blinking error (SD card unreadable, charging stopped)', '3': Iskra signature warning, '4': Critical high voltage, '5': Missing phase, '6': Unstable voltage, '7': Storage 80 % full, '11': Persistence error, '12': Init line error, '13': Overcurrent error, '15': Modbus communication error with extension modules, '16': High voltage warning, '17': Low voltage warning}
+  module_state: {'0': Charging, '1': Three-phase charging (0 = single phase), '2': Authorised, '3': Vehicle connected, '4': Charge requested, '5': Battery full}
+  module_errors: {'0': Overheat error, '1': Lock not fully engaged, '2': Relay can't close, '3': Relay welded (can't open), '4': Diode test failed, '5': CP short circuit, '16': Energy meter communication error (calibration-law systems)}
+
+problems:
+  - {when: {key: x.system_errors, bit: 1}, kind: warning, text: Overcurrent warning (bit 1)}
+  - {when: {key: x.system_errors, bit: 2}, kind: fault, text: 'SD card / hardware test error, charging stopped (bit 2)'}
+  - {when: {key: x.system_errors, bit: 3}, kind: warning, text: Iskra signature warning (bit 3)}
+  - {when: {key: x.system_errors, bit: 4}, kind: fault, text: Critical high grid voltage (bit 4)}
+  - {when: {key: x.system_errors, bit: 5}, kind: fault, text: Missing phase (bit 5)}
+  - {when: {key: x.system_errors, bit: 6}, kind: warning, text: Unstable grid voltage (bit 6)}
+  - {when: {key: x.system_errors, bit: 7}, kind: warning, text: Storage 80 % full (bit 7)}
+  - {when: {key: x.system_errors, bit: 11}, kind: warning, text: Persistence error (bit 11)}
+  - {when: {key: x.system_errors, bit: 12}, kind: fault, text: 'Init line error, initialisation not starting (bit 12)'}
+  - {when: {key: x.system_errors, bit: 13}, kind: fault, text: Overcurrent error (bit 13)}
+  - {when: {key: x.system_errors, bit: 15}, kind: fault, text: No Modbus communication with extension modules (bit 15)}
+  - {when: {key: x.system_errors, bit: 16}, kind: warning, text: High grid voltage (bit 16)}
+  - {when: {key: x.system_errors, bit: 17}, kind: warning, text: Low grid voltage (bit 17)}
+  - {when: {key: x.module0_errors, bit: 0}, kind: fault, text: Main module overheated}
+  - {when: {key: x.module0_errors, bit: 1}, kind: fault, text: Main module lock not engaged}
+  - {when: {key: x.module0_errors, bit: 2}, kind: fault, text: Main module relay can't close}
+  - {when: {key: x.module0_errors, bit: 3}, kind: fault, text: Main module relay welded}
+  - {when: {key: x.module0_errors, bit: 4}, kind: fault, text: Main module diode test failed}
+  - {when: {key: x.module0_errors, bit: 5}, kind: fault, text: Main module CP short circuit}
+  - {when: {key: x.module0_errors, bit: 16}, kind: fault, text: Main module energy meter communication error}
+
+notes:
+- Modbus TCP to the main (start) module on port 1502, unit id 10; it answers for the whole system. Holding registers (function
+  03; writes to the writable block). Every numeric value is two registers (u32), most significant word first; strings are
+  8 registers of UTF-8, big-endian, padded with spaces.
+- Requests must start on an even address, or values may come back wrong or stale. Addresses are the protocol addresses as
+  the document gives them (0-based).
+- Bit numbers count from the least significant bit of the 32-bit value. The system-error table numbers MbC 15 and OCErr 13
+  while its bit diagram shows them at 31 and 29 (and EMC at 30, which the table doesn't list); the module-error table puts
+  EMC at bit 16, its diagram at 15. The tables are followed here; check on a device.
+- Only the main module's (index 0) per-module registers are listed; modules 1–14 repeat the same six values every 12 registers
+  (100 + 12 × module index), N_Modules (50) says how many are in use.
+- V1 charges one car (one or three phases); V2 can split the phases and charge up to three cars on one phase each.
+- The minimum viable charging current (6 A by default, settable by ChargeX up to 32 A) decides what the charging modes do
+  with a low target power. For PV surplus charging, write the PV surplus as target power.
+- Eligible modules answers with an error (the document says 404) while modules initialise.

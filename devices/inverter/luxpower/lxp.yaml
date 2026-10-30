@@ -1,0 +1,1009 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: luxpower-lxp
+manufacturer: LuxPower
+name: LXP hybrid inverters
+kind: inverter
+
+sources:
+- id: eg4-web-monitor
+  title: eg4_web_monitor (Home Assistant integration)
+  url: https://github.com/joyfulhouse/eg4_web_monitor
+  license: MIT
+  commit: 77e6c8652d46042e2a919c8e461ddd2c10724c3a
+  path: custom_components/eg4_web_monitor/const/operating_state.py
+- id: luxpower-ha-integration
+  title: luxpower-ha-integration (Home Assistant integration)
+  url: https://github.com/ant0nkr/luxpower-ha-integration
+  license: MIT
+  commit: 412c3a68380a02020bf747e5c38b898c5de6bf8d
+  path: custom_components/lxp_modbus/constants/input_registers.py, custom_components/lxp_modbus/constants/hold_registers.py,
+    custom_components/lxp_modbus/constants/battery_registers.py, custom_components/lxp_modbus/entity_descriptions
+- id: pylxpweb
+  title: pylxpweb (Python library for EG4 / LuxPower inverters, used by eg4_web_monitor)
+  url: https://github.com/joyfulhouse/pylxpweb
+  license: MIT
+  commit: bce390936f2068000b7a53e2e981e9399139753f
+  path: src/pylxpweb/registers/inverter_input.py, src/pylxpweb/registers/inverter_holding.py, src/pylxpweb/registers/scheduling.py,
+    src/pylxpweb/registers/battery.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+  limits:
+    max_registers: 40
+
+encoding:
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 115
+    type: str
+    length: 5
+    byte_order: little
+
+defaults:
+  verified: false
+  sources:
+  - luxpower-ha-integration
+
+models:
+  - {id: lxp_gen2, name: LXP GEN2, match: {table: holding, address: 19, type: u16, equals: 20}}
+  - {id: lxp_eu, name: LXP EU, match: {table: holding, address: 19, type: u16, equals: 12}}
+  - {id: lxp_lb, name: LXP LB, match: {table: holding, address: 19, type: u16, equals: 44}}
+
+points:
+  - {key: x.com_protocol_version, label: Communication protocol version, table: holding, address: 9, type: u16, sources: [pylxpweb]}
+  - {key: x.controller_version, label: Controller firmware version, table: holding, address: 10, type: u16, sources: [pylxpweb]}
+  - {key: x.modbus_address, label: Modbus Address, table: holding, address: 15, type: u16, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.language, label: Language, table: holding, address: 16, type: u16, enum: language, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.device_type_code, label: Device type identification code, table: holding, address: 19, type: u16, sources: [pylxpweb]}
+  - {key: x.pv_input_model, label: PV Input Model, table: holding, address: 20, type: u16, enum: pv_input_model, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_backup, label: Power Backup, table: holding, address: 21, type: u16, bits: [0, 0], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.over_frequency_load_reduction, label: Over-Frequency Load Reduction, table: holding, address: 21, type: u16, bits: [1, 1], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.drms, label: DRMS, table: holding, address: 21, type: u16, bits: [2, 2], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.lvrt_enable, label: Low voltage ride-through enable, table: holding, address: 21, type: u16, bits: [3, 3], writable: true, sources: [pylxpweb]}
+  - {key: x.anti_island_enable, label: Anti-islanding protection enable, table: holding, address: 21, type: u16, bits: [4, 4], writable: true, sources: [pylxpweb]}
+  - {key: x.neutral_detect_enable, label: Neutral line detection enable, table: holding, address: 21, type: u16, bits: [5, 5], writable: true, sources: [pylxpweb]}
+  - {key: x.grid_on_power_soft_start, label: Grid-on power soft start enable, table: holding, address: 21, type: u16, bits: [6, 6], writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charging, label: AC Charging, table: holding, address: 21, type: u16, bits: [7, 7], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.seamless_eps_switching, label: Seamless EPS Switching, table: holding, address: 21, type: u16, bits: [8, 8], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.working_mode, label: Working Mode, table: holding, address: 21, type: u16, bits: [9, 9], enum: working_mode, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.forced_discharge, label: Forced Discharge, table: holding, address: 21, type: u16, bits: [10, 10], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.charge_first_pv, label: Charge First (PV), table: holding, address: 21, type: u16, bits: [11, 11], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.isolation_detect_enable, label: PV isolation detection enable, table: holding, address: 21, type: u16, bits: [12, 12], writable: true, sources: [pylxpweb]}
+  - {key: x.gfci_enable, label: Ground fault circuit interrupter enable, table: holding, address: 21, type: u16, bits: [13, 13], writable: true, sources: [pylxpweb]}
+  - {key: x.dci_enable, label: DC injection detection enable, table: holding, address: 21, type: u16, bits: [14, 14], writable: true, sources: [pylxpweb]}
+  - {key: x.grid_export, label: Grid Export, table: holding, address: 21, type: u16, bits: [15, 15], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.start_pv_voltage, label: Start PV Voltage, table: holding, address: 22, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_connect_time, label: Grid Connect Time, table: holding, address: 23, type: u16, unit: s, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_reconnect_time, label: Grid Reconnect Time, table: holding, address: 24, type: u16, unit: s, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_voltage_low_limit, label: Grid Voltage Low Limit, table: holding, address: 25, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_voltage_high_limit, label: Grid Voltage High Limit, table: holding, address: 26, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.lsp_whole_bypass_1_enable, label: LSP whole-day bypass period 1 enable, table: holding, address: 26, type: u16, bits: [0, 0], writable: true, sources: [pylxpweb]}
+  - {key: x.lsp_whole_bypass_2_enable, label: LSP whole-day bypass period 2 enable, table: holding, address: 26, type: u16, bits: [1, 1], writable: true, sources: [pylxpweb]}
+  - {key: x.lsp_whole_bypass_3_enable, label: LSP whole-day bypass period 3 enable, table: holding, address: 26, type: u16, bits: [2, 2], writable: true, sources: [pylxpweb]}
+  - {key: x.lsp_whole_battery_first_1_enable, label: LSP whole-day battery-first period 1 enable, table: holding, address: 26, type: u16, bits: [3, 3], writable: true, sources: [pylxpweb]}
+  - {key: x.lsp_whole_battery_first_2_enable, label: LSP whole-day battery-first period 2 enable, table: holding, address: 26, type: u16, bits: [4, 4], writable: true, sources: [pylxpweb]}
+  - {key: x.lsp_whole_battery_first_3_enable, label: LSP whole-day battery-first period 3 enable, table: holding, address: 26, type: u16, bits: [5, 5], writable: true, sources: [pylxpweb]}
+  - {key: x.lsp_whole_self_consumption_1_enable, label: LSP whole-day self-consumption period 1 enable, table: holding, address: 26, type: u16, bits: [6, 6], writable: true, sources: [pylxpweb]}
+  - {key: x.lsp_whole_self_consumption_2_enable, label: LSP whole-day self-consumption period 2 enable, table: holding, address: 26, type: u16, bits: [7, 7], writable: true, sources: [pylxpweb]}
+  - {key: x.lsp_whole_self_consumption_3_enable, label: LSP whole-day self-consumption period 3 enable, table: holding, address: 26, type: u16, bits: [8, 8], writable: true, sources: [pylxpweb]}
+  - {key: x.lsp_battery_volt_or_soc, label: LSP battery control mode, table: holding, address: 26, type: u16, bits: [9, 9], enum: lsp_battery_volt_or_soc, writable: true, sources: [pylxpweb]}
+  - {key: x.grid_frequency_low_limit, label: Grid Frequency Low Limit, table: holding, address: 27, type: u16, unit: Hz, scale: 0.01, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_frequency_high_limit, label: Grid Frequency High Limit, table: holding, address: 28, type: u16, unit: Hz, scale: 0.01, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_voltage_l1_low, label: Grid Voltage L1 Low, table: holding, address: 29, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_voltage_l1_high, label: Grid Voltage L1 High, table: holding, address: 30, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_voltage_l1_low_time, label: Grid Voltage L1 Low Time, table: holding, address: 31, type: u16, writable: true}
+  - {key: x.grid_voltage_l1_high_time, label: Grid Voltage L1 High Time, table: holding, address: 32, type: u16, writable: true}
+  - {key: x.grid_voltage_l2_low, label: Grid Voltage L2 Low, table: holding, address: 33, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_voltage_l2_high, label: Grid Voltage L2 High, table: holding, address: 34, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_voltage_l2_low_time, label: Grid Voltage L2 Low Time, table: holding, address: 35, type: u16, writable: true}
+  - {key: x.grid_voltage_l2_high_time, label: Grid Voltage L2 High Time, table: holding, address: 36, type: u16, writable: true}
+  - {key: x.grid_voltage_l3_low, label: Grid Voltage L3 Low, table: holding, address: 37, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_voltage_l3_high, label: Grid Voltage L3 High, table: holding, address: 38, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_voltage_l3_low_time, label: Grid Voltage L3 Low Time, table: holding, address: 39, type: u16, writable: true}
+  - {key: x.grid_voltage_l3_high_time, label: Grid Voltage L3 High Time, table: holding, address: 40, type: u16, writable: true}
+  - {key: x.grid_voltage_moving_average_high, label: Grid Voltage Moving Average High, table: holding, address: 41, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_frequency_l1_low, label: Grid Frequency L1 Low, table: holding, address: 42, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.grid_frequency_l1_high, label: Grid Frequency L1 High, table: holding, address: 43, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.grid_frequency_l1_low_time, label: Grid Frequency L1 Low Time, table: holding, address: 44, type: u16, writable: true}
+  - {key: x.grid_frequency_l1_high_time, label: Grid Frequency L1 High Time, table: holding, address: 45, type: u16, writable: true}
+  - {key: x.grid_frequency_l2_low, label: Grid Frequency L2 Low, table: holding, address: 46, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.grid_frequency_l2_high, label: Grid Frequency L2 High, table: holding, address: 47, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.grid_frequency_l2_low_time, label: Grid Frequency L2 Low Time, table: holding, address: 48, type: u16, writable: true}
+  - {key: x.grid_frequency_l2_high_time, label: Grid Frequency L2 High Time, table: holding, address: 49, type: u16, writable: true}
+  - {key: x.grid_frequency_l3_low, label: Grid Frequency L3 Low, table: holding, address: 50, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.grid_frequency_l3_high, label: Grid Frequency L3 High, table: holding, address: 51, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.grid_frequency_l3_low_time, label: Grid Frequency L3 Low Time, table: holding, address: 52, type: u16, writable: true}
+  - {key: x.grid_frequency_l3_high_time, label: Grid Frequency L3 High Time, table: holding, address: 53, type: u16, writable: true}
+  - {key: x.max_q_percent_for_qv, label: Max Q Percent for QV, table: holding, address: 54, type: u16, unit: '%', writable: true}
+  - {key: x.qv_curve_v2_low, label: QV Curve V2 Low, table: holding, address: 55, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.qv_curve_v1_low, label: QV Curve V1 Low, table: holding, address: 56, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.qv_curve_v1_high, label: QV Curve V1 High, table: holding, address: 57, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.qv_curve_v2_high, label: QV Curve V2 High, table: holding, address: 58, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.reactive_power_command_type, label: Reactive Power Command Type, table: holding, address: 59, type: u16, enum: reactive_power_command_type, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.active_power_percent, label: Active Power Percent, table: holding, address: 60, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.reactive_power_percent, label: Reactive Power Percent, table: holding, address: 61, type: u16, unit: '%', writable: true, conflicts: [{sources: [pylxpweb], type: s16, label: Reactive power percentage setting}]}
+  - {key: x.power_factor_command, label: Power Factor Command, table: holding, address: 62, type: u16, unit: '%', scale: 0.001, writable: true, conflicts: [{sources: [pylxpweb], type: s16, scale: 1, label: PV reactive power percentage setting}]}
+  - {key: x.power_soft_start_slope, label: Power Soft Start Slope, table: holding, address: 63, type: u16, unit: '%/min', writable: true}
+  - {key: x.charge_power_rate_legacy, label: Charge Power Rate (Legacy), table: holding, address: 64, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.discharge_power_rate_legacy, label: Discharge Power Rate (Legacy), table: holding, address: 65, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charge_power, label: AC Charge Power, table: holding, address: 66, type: u16, unit: '%', writable: true, conflicts: [{sources: [pylxpweb], unit: W, scale: 100, label: AC charge power}]}
+  - {key: x.ac_charge_soc_limit, label: AC Charge SOC Limit, table: holding, address: 67, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charging_start_time, label: AC Charging Start Time, table: holding, address: 68, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: AC charge time period 1 start hour}]}
+  - {key: x.ac_charging_end_time, label: AC Charging End Time, table: holding, address: 69, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: AC charge time period 1 start minute}]}
+  - {key: x.ac_charging_start_time_1, label: AC Charging Start Time 1, table: holding, address: 70, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: AC charge time period 1 end hour}]}
+  - {key: x.ac_charging_end_time_1, label: AC Charging End Time 1, table: holding, address: 71, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: AC charge time period 1 end minute}]}
+  - {key: x.ac_charging_start_time_2, label: AC Charging Start Time 2, table: holding, address: 72, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: AC charge time period 1 enable}]}
+  - {key: x.ac_charging_end_time_2, label: AC Charging End Time 2, table: holding, address: 73, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: AC charge time period 2 enable}]}
+  - {key: x.charge_first_power, label: Charge First Power, table: holding, address: 74, type: u16, unit: '%', writable: true, conflicts: [{sources: [pylxpweb], unit: W, scale: 100, label: Forced/PV charge (ChgFirst) power command}]}
+  - {key: x.forced_charge_soc_limit, label: Forced charge SOC limit, table: holding, address: 75, type: u16, unit: '%', writable: true, sources: [pylxpweb]}
+  - {key: x.charge_first_soc_limit, label: Charge First SOC Limit, table: holding, address: 75, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.charge_first_start_time, label: Charge First Start Time, table: holding, address: 76, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced charge period 0 start (packed hour|minute)}]}
+  - {key: x.charge_first_end_time, label: Charge First End Time, table: holding, address: 77, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced charge period 0 end (packed hour|minute)}]}
+  - {key: x.charge_first_start_time_1, label: Charge First Start Time 1, table: holding, address: 78, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced charge period 1 start (packed hour|minute)}]}
+  - {key: x.charge_first_end_time_1, label: Charge First End Time 1, table: holding, address: 79, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced charge period 1 end (packed hour|minute)}]}
+  - {key: x.charge_first_start_time_2, label: Charge First Start Time 2, table: holding, address: 80, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced charge period 2 start (packed hour|minute)}]}
+  - {key: x.charge_first_end_time_2, label: Charge First End Time 2, table: holding, address: 81, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced charge period 2 end (packed hour|minute)}]}
+  - {key: x.forced_discharge_power, label: Forced Discharge Power, table: holding, address: 82, type: u16, unit: '%', writable: true, conflicts: [{sources: [pylxpweb], unit: W, scale: 100, label: Forced discharge power command}]}
+  - {key: x.forced_discharge_soc_limit, label: Forced discharge SOC limit, table: holding, address: 83, type: u16, unit: '%', writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_soc_limit_83_0, label: Forced Discharge SOC Limit, table: holding, address: 83, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_start_time, label: Forced Discharge Start Time, table: holding, address: 84, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced discharge period 0 start (packed hour|minute)}]}
+  - {key: x.forced_discharge_end_time, label: Forced Discharge End Time, table: holding, address: 85, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced discharge period 0 end (packed hour|minute)}]}
+  - {key: x.forced_discharge_start_time_1, label: Forced Discharge Start Time 1, table: holding, address: 86, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced discharge period 1 start (packed hour|minute)}]}
+  - {key: x.forced_discharge_end_time_1, label: Forced Discharge End Time 1, table: holding, address: 87, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced discharge period 1 end (packed hour|minute)}]}
+  - {key: x.forced_discharge_start_time_2, label: Forced Discharge Start Time 2, table: holding, address: 88, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced discharge period 2 start (packed hour|minute)}]}
+  - {key: x.forced_discharge_end_time_2, label: Forced Discharge End Time 2, table: holding, address: 89, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: Forced discharge period 2 end (packed hour|minute)}]}
+  - {key: x.eps_voltage_set, label: EPS Voltage Set, table: holding, address: 90, type: u16, enum: eps_voltage_set, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_frequency_set, label: EPS Frequency Set, table: holding, address: 91, type: u16, enum: eps_frequency_set, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pf_curve_lock_in_voltage, label: PF Curve Lock-In Voltage, table: holding, address: 92, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.pf_curve_lock_out_voltage, label: PF Curve Lock-Out Voltage, table: holding, address: 93, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.qv_lock_in_power, label: QV Lock-In Power, table: holding, address: 94, type: u16, unit: '%', writable: true}
+  - {key: x.qv_lock_out_power, label: QV Lock-Out Power, table: holding, address: 95, type: u16, unit: '%', writable: true}
+  - {key: x.qv_delay_time, label: QV Delay Time, table: holding, address: 96, type: u16, writable: true}
+  - {key: x.over_frequency_derate_delay, label: Over-Frequency Derate Delay, table: holding, address: 97, type: u16, writable: true}
+  - {key: x.lead_acid_charge_voltage, label: Lead-Acid Charge Voltage, table: holding, address: 99, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.lead_acid_discharge_cut_off_voltage, label: Lead-Acid Discharge Cut-Off Voltage, table: holding, address: 100, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.charge_current, label: Charge Current, table: holding, address: 101, type: u16, unit: A, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.discharge_current, label: Discharge Current, table: holding, address: 102, type: u16, unit: A, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.max_backflow_power, label: Max Backflow Power, table: holding, address: 103, type: u16, unit: '%', writable: true, conflicts: [{sources: [pylxpweb], unit: W, scale: 100, label: Maximum export (sell-back) power}]}
+  - {key: x.on_grid_cut_off_soc, label: On-Grid Cut-Off SOC, table: holding, address: 105, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.lead_acid_discharge_temp_low_limit, label: Lead-Acid Discharge Temp Low Limit, table: holding, address: 106, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.lead_acid_discharge_temp_high_limit, label: Lead-Acid Discharge Temp High Limit, table: holding, address: 107, type: u16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.lead_acid_charge_temp_low_limit, label: Lead-Acid Charge Temp Low Limit, table: holding, address: 108, type: u16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.lead_acid_charge_temp_high_limit, label: Lead-Acid Charge Temp High Limit, table: holding, address: 109, type: u16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.pv_grid_off_enable, label: PV grid-off enable (disconnect PV when grid lost), table: holding, address: 110, type: u16, bits: [0, 0], writable: true, sources: [pylxpweb]}
+  - {key: x.fast_zero_export, label: Fast Zero Export, table: holding, address: 110, type: u16, bits: [1, 1], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.micro_grid, label: Micro-Grid, table: holding, address: 110, type: u16, bits: [2, 2], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_shared, label: Battery shared mode (parallel systems), table: holding, address: 110, type: u16, bits: [3, 3], writable: true, sources: [pylxpweb]}
+  - {key: x.charge_last, label: Charge Last, table: holding, address: 110, type: u16, bits: [4, 4], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.buzzer, label: Buzzer, table: holding, address: 110, type: u16, bits: [7, 7], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.take_load_together, label: Take Load Together, table: holding, address: 110, type: u16, bits: [10, 10], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.green_mode, label: Green Mode, table: holding, address: 110, type: u16, bits: [14, 14], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eco_mode, label: Eco Mode, table: holding, address: 110, type: u16, bits: [15, 15], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.system_type, label: System Type, table: holding, address: 112, type: u16, enum: system_type, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.off_grid_composed_phase, label: Off-grid Composed Phase, table: holding, address: 113, type: u16, bits: [0, 7], enum: off_grid_composed_phase, writable: true}
+  - {key: x.over_frequency_derate_start, label: Over-Frequency Derate Start, table: holding, address: 115, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.start_discharge_p_import, label: Start Discharge P_import, table: holding, address: 116, type: u16, unit: W, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.start_charge_p_import_threshold, label: Start Charge P_import Threshold, table: holding, address: 117, type: s16, unit: W, writable: true}
+  - {key: x.battery_derating_start_voltage, label: Battery Derating Start Voltage, table: holding, address: 118, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.external_ct_power_offset, label: External CT Power Offset, table: holding, address: 119, type: s16, unit: W, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.half_hour_ac_charge_start, label: Half Hour AC Charge Start, table: holding, address: 120, type: u16, bits: [0, 0], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charge_type, label: AC Charge Type, table: holding, address: 120, type: u16, bits: [1, 3], enum: ac_charge_type, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.discharge_control_type, label: Discharge Control Type, table: holding, address: 120, type: u16, bits: [4, 5], enum: discharge_control_type, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.on_grid_eod_type, label: On-Grid EOD Type, table: holding, address: 120, type: u16, bits: [6, 6], enum: on_grid_eod_type, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_charge_type, label: Generator Charge Type, table: holding, address: 120, type: u16, bits: [7, 7], enum: generator_charge_type, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.over_frequency_derate_end, label: Over-Frequency Derate End, table: holding, address: 124, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.off_grid_cut_off_soc, label: Off-Grid Cut-Off SOC, table: holding, address: 125, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_cell_voltage_low_limit, label: Battery Cell Voltage Low Limit, table: holding, address: 132, type: u16, unit: V, scale: 0.1, bits: [0, 7], writable: true}
+  - {key: x.battery_cell_voltage_high_limit, label: Battery Cell Voltage High Limit, table: holding, address: 132, type: u16, unit: V, scale: 0.1, bits: [8, 15], writable: true}
+  - {key: x.battery_cells_in_series, label: Battery Cells in Series, table: holding, address: 133, type: u16, bits: [0, 7], writable: true}
+  - {key: x.battery_cells_in_parallel, label: Battery Cells in Parallel, table: holding, address: 133, type: u16, bits: [8, 15], writable: true}
+  - {key: x.under_frequency_derate_start, label: Under-Frequency Derate Start, table: holding, address: 134, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.under_frequency_derate_end, label: Under-Frequency Derate End, table: holding, address: 135, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.over_frequency_derate_ratio, label: Over-Frequency Derate Ratio, table: holding, address: 136, type: u16, writable: true}
+  - {key: x.specific_load_compensate, label: Specific Load Compensate, table: holding, address: 137, type: u16, unit: W, writable: true}
+  - {key: x.system_charge_power_rate, label: System Charge Power Rate, table: holding, address: 138, type: u16, unit: '%', scale: 0.1, writable: true}
+  - {key: x.system_discharge_power_rate, label: System Discharge Power Rate, table: holding, address: 139, type: u16, unit: '%', scale: 0.1, writable: true}
+  - {key: x.ac_charge_power_rate_precise, label: AC Charge Power Rate (Precise), table: holding, address: 140, type: u16, unit: '%', scale: 0.1, writable: true}
+  - {key: x.charge_first_power_rate_precise, label: Charge First Power Rate (Precise), table: holding, address: 141, type: u16, unit: '%', scale: 0.1, writable: true}
+  - {key: x.forced_discharge_power_rate_precise, label: Forced Discharge Power Rate (Precise), table: holding, address: 142, type: u16, unit: '%', scale: 0.1, writable: true}
+  - {key: x.active_power_percent_precise, label: Active Power Percent (Precise), table: holding, address: 143, type: u16, unit: '%', scale: 0.1, writable: true}
+  - {key: x.float_charge_voltage, label: Float Charge Voltage, table: holding, address: 144, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.output_priority_config, label: Output Priority Config, table: holding, address: 145, type: u16, enum: output_priority_config, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.line_mode, label: Line Mode, table: holding, address: 146, type: u16, enum: line_mode, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.unmatched_battery_capacity, label: Unmatched Battery Capacity, table: holding, address: 147, type: u16, unit: Ah, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.unmatched_battery_nominal_voltage, label: Unmatched Battery Nominal Voltage, table: holding, address: 148, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.equalization_voltage, label: Equalization Voltage, table: holding, address: 149, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.equalization_interval, label: Equalization Interval, table: holding, address: 150, type: u16, unit: d, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.equalization_time, label: Equalization Time, table: holding, address: 151, type: u16, unit: h, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_first_load_start_time, label: AC First Load Start Time, table: holding, address: 152, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.ac_first_load_end_time, label: AC First Load End Time, table: holding, address: 153, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.ac_first_load_start_time_1, label: AC First Load Start Time 1, table: holding, address: 154, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.ac_first_load_end_time_1, label: AC First Load End Time 1, table: holding, address: 155, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.ac_first_load_start_time_2, label: AC First Load Start Time 2, table: holding, address: 156, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.ac_first_load_end_time_2, label: AC First Load End Time 2, table: holding, address: 157, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.ac_charge_start_voltage, label: AC Charge Start Voltage, table: holding, address: 158, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charge_end_voltage, label: AC Charge End Voltage, table: holding, address: 159, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charge_start_soc, label: AC Charge Start SOC, table: holding, address: 160, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charge_end_soc, label: AC Charge End SOC, table: holding, address: 161, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_low_voltage_alarm, label: Battery Low Voltage Alarm, table: holding, address: 162, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_low_voltage_recovery, label: Battery Low Voltage Recovery, table: holding, address: 163, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_low_soc_alarm, label: Battery Low SOC Alarm, table: holding, address: 164, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_low_soc_recovery, label: Battery Low SOC Recovery, table: holding, address: 165, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_transfer_to_grid_voltage, label: Battery Transfer to Grid Voltage, table: holding, address: 166, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_transfer_to_grid_soc, label: Battery Transfer to Grid SOC, table: holding, address: 167, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charge_current_from_grid, label: AC Charge Current from Grid, table: holding, address: 168, type: u16, unit: A, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.on_grid_cut_off_voltage, label: On-Grid Cut-Off Voltage, table: holding, address: 169, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.soc_calibration_voltage_1, label: SOC Calibration Voltage 1, table: holding, address: 171, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.soc_calibration_voltage_2, label: SOC Calibration Voltage 2, table: holding, address: 172, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.soc_calibration_soc_1, label: SOC Calibration SOC 1, table: holding, address: 173, type: u16, unit: '%', writable: true}
+  - {key: x.soc_calibration_soc_2, label: SOC Calibration SOC 2, table: holding, address: 174, type: u16, unit: '%', writable: true}
+  - {key: x.battery_inner_resistance, label: Battery Inner Resistance, table: holding, address: 175, type: u16, writable: true}
+  - {key: x.max_grid_input_power, label: Max Grid Input Power, table: holding, address: 176, type: u16, unit: W, scale: 100, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: Maximum grid input power limit}]}
+  - {key: x.generator_rated_power, label: Generator Rated Power, table: holding, address: 177, type: u16, unit: W, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_ct_direction_reversed, label: AC CT Direction Reversed, table: holding, address: 179, type: u16, bits: [0, 0], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv_ct_direction, label: 'PV CT direction (0=Normal, 1=Reversed)', table: holding, address: 179, type: u16, bits: [1, 1], enum: pv_ct_direction, writable: true, sources: [pylxpweb]}
+  - {key: x.afci_alarm_clear, label: AFCI alarm clear, table: holding, address: 179, type: u16, bits: [2, 2], writable: true, sources: [pylxpweb]}
+  - {key: x.battery_wakeup_enable, label: Battery wakeup / PV sell first enable, table: holding, address: 179, type: u16, bits: [3, 3], writable: true, sources: [pylxpweb]}
+  - {key: x.volt_watt_function, label: Volt-Watt Function, table: holding, address: 179, type: u16, bits: [4, 4], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.trip_time_unit, label: Trip time unit selection, table: holding, address: 179, type: u16, bits: [5, 5], writable: true, sources: [pylxpweb]}
+  - {key: x.active_power_cmd_enable, label: Active power command enable, table: holding, address: 179, type: u16, bits: [6, 6], writable: true, sources: [pylxpweb]}
+  - {key: x.grid_peak_shaving, label: Grid Peak Shaving, table: holding, address: 179, type: u16, bits: [7, 7], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.gen_peak_shaving_enable, label: Generator peak shaving enable, table: holding, address: 179, type: u16, bits: [8, 8], writable: true, sources: [pylxpweb]}
+  - {key: x.battery_charge_control, label: 'Battery charge control mode (0=SOC, 1=Voltage)', table: holding, address: 179, type: u16, bits: [9, 9], enum: battery_charge_control, writable: true, sources: [pylxpweb]}
+  - {key: x.battery_discharge_control, label: 'Battery discharge control mode (0=SOC, 1=Voltage)', table: holding, address: 179, type: u16, bits: [10, 10], enum: battery_discharge_control, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_coupling, label: AC Coupling, table: holding, address: 179, type: u16, bits: [11, 11], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv_arc_detection, label: PV Arc Detection, table: holding, address: 179, type: u16, bits: [12, 12], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.smart_load_enable, label: Smart Load Enable, table: holding, address: 179, type: u16, bits: [13, 13], enum: smart_load_enable, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.rsd_disable, label: 'Rapid shutdown disable (0=RSD enabled, 1=RSD disabled)', table: holding, address: 179, type: u16, bits: [14, 14], enum: rsd_disable, writable: true, sources: [pylxpweb]}
+  - {key: x.on_grid_always_on, label: On-Grid Always On, table: holding, address: 179, type: u16, bits: [15, 15], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.afci_arc_threshold, label: AFCI Arc Threshold, table: holding, address: 180, type: u16, unit: A, writable: true}
+  - {key: x.voltwatt_v1, label: VoltWatt V1, table: holding, address: 181, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.voltwatt_v2, label: VoltWatt V2, table: holding, address: 182, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.voltwatt_delay_time, label: VoltWatt Delay Time, table: holding, address: 183, type: u16, unit: ms, writable: true}
+  - {key: x.voltwatt_p2, label: VoltWatt P2, table: holding, address: 184, type: u16, unit: '%', writable: true}
+  - {key: x.vref_for_qv, label: Vref for QV, table: holding, address: 185, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.vref_filter_time, label: Vref Filter Time, table: holding, address: 186, type: u16, unit: s, writable: true}
+  - {key: x.q3_for_qv_curve, label: Q3 for QV Curve, table: holding, address: 187, type: u16, unit: '%', writable: true}
+  - {key: x.q4_for_qv_curve, label: Q4 for QV Curve, table: holding, address: 188, type: u16, unit: '%', writable: true}
+  - {key: x.p1_for_qp_curve, label: P1 for QP Curve, table: holding, address: 189, type: u16, unit: '%', writable: true}
+  - {key: x.p2_for_qp_curve, label: P2 for QP Curve, table: holding, address: 190, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.p3_for_qp_curve, label: P3 for QP Curve, table: holding, address: 191, type: u16, unit: '%', writable: true}
+  - {key: x.p4_for_qp_curve, label: P4 for QP Curve, table: holding, address: 192, type: u16, unit: '%', writable: true}
+  - {key: x.under_frequency_increase_ratio, label: Under-Frequency Increase Ratio, table: holding, address: 193, type: u16, writable: true}
+  - {key: x.generator_charge_start_voltage, label: Generator Charge Start Voltage, table: holding, address: 194, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_charge_end_voltage, label: Generator Charge End Voltage, table: holding, address: 195, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_charge_start_soc, label: Generator Charge Start SOC, table: holding, address: 196, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_charge_end_soc, label: Generator Charge End SOC, table: holding, address: 197, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.max_generator_charge_current, label: Max Generator Charge Current, table: holding, address: 198, type: u16, unit: A, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.over_temperature_derate_point, label: Over-Temperature Derate Point, table: holding, address: 199, type: u16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.charge_first_end_voltage, label: Charge First End Voltage, table: holding, address: 201, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.forced_discharge_end_voltage, label: Forced Discharge End Voltage, table: holding, address: 202, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.lead_acid_capacity, label: Lead-Acid Capacity, table: holding, address: 204, type: u16, unit: Ah, writable: true}
+  - {key: x.grid_type, label: Grid Type, table: holding, address: 205, type: u16, enum: grid_type, writable: true}
+  - {key: x.grid_peak_shaving_power, label: Grid Peak Shaving Power, table: holding, address: 206, type: u16, unit: W, scale: 100, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_peak_shaving_soc, label: Grid Peak Shaving SOC, table: holding, address: 207, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_peak_shaving_voltage, label: Grid Peak Shaving Voltage, table: holding, address: 208, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.peak_shaving_start_time, label: Peak Shaving Start Time, table: holding, address: 209, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.peak_shaving_end_time, label: Peak Shaving End Time, table: holding, address: 210, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.peak_shaving_start_time_1, label: Peak Shaving Start Time 1, table: holding, address: 211, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.peak_shaving_end_time_1, label: Peak Shaving End Time 1, table: holding, address: 212, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.smart_load_on_voltage, label: Smart Load On Voltage, table: holding, address: 213, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.smart_load_off_voltage, label: Smart Load Off Voltage, table: holding, address: 214, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.smart_load_on_soc, label: Smart Load On SOC, table: holding, address: 215, type: u16, unit: '%', writable: true}
+  - {key: x.smart_load_off_soc, label: Smart Load Off SOC, table: holding, address: 216, type: u16, unit: '%', writable: true}
+  - {key: x.start_pv_power, label: Start PV Power, table: holding, address: 217, type: u16, unit: W, scale: 100, writable: true}
+  - {key: x.grid_peak_shaving_soc_period_1, label: Grid Peak Shaving SOC Period 1, table: holding, address: 218, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_peak_shaving_voltage_period_1, label: Grid Peak Shaving Voltage Period 1, table: holding, address: 219, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_couple_start_soc, label: AC Couple Start SOC, table: holding, address: 220, type: u16, unit: '%', writable: true}
+  - {key: x.ac_couple_end_soc, label: AC Couple End SOC, table: holding, address: 221, type: u16, unit: '%', writable: true}
+  - {key: x.ac_couple_start_voltage, label: AC Couple Start Voltage, table: holding, address: 222, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.ac_couple_end_voltage, label: AC Couple End Voltage, table: holding, address: 223, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.lcd_screen_type, label: LCD Screen Type, table: holding, address: 224, type: u16, bits: [8, 8], enum: lcd_screen_type, writable: true}
+  - {key: x.lcd_password, label: LCD Password, table: holding, address: 225, type: u16, writable: true}
+  - {key: x.grid_ct_connection, label: Grid CT Connection, table: holding, address: 226, type: u16, bits: [2, 2], writable: true}
+  - {key: x.battery_stop_charging_soc, label: Battery Stop Charging SOC, table: holding, address: 227, type: u16, unit: '%', writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_stop_charging_voltage, label: Battery Stop Charging Voltage, table: holding, address: 228, type: u16, unit: V, scale: 0.1, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_peak_shaving_power_period_1, label: Grid Peak Shaving Power Period 1, table: holding, address: 232, type: u16, unit: W, scale: 100, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.quick_charge_start, label: Quick Charge Start, table: holding, address: 233, type: u16, bits: [0, 0], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_backup, label: Battery Backup, table: holding, address: 233, type: u16, bits: [1, 1], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_maintenance, label: Battery Maintenance, table: holding, address: 233, type: u16, bits: [2, 2], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.7_day_schedule_enable, label: 7-Day Schedule Enable, table: holding, address: 233, type: u16, bits: [3, 3], writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.over_freq_fast_stop, label: Over-frequency fast stop enable, table: holding, address: 233, type: u16, bits: [10, 10], writable: true, sources: [pylxpweb]}
+  - {key: x.sporadic_charge_enable, label: Sporadic charge enable, table: holding, address: 233, type: u16, bits: [12, 12], writable: true, sources: [pylxpweb]}
+  - {key: x.quick_charge_time, label: Quick Charge Time, table: holding, address: 234, type: u16, unit: min, writable: true, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.days_since_soc_99, label: Days since SOC >= 99, table: holding, address: 235, type: u16, unit: d, bits: [0, 7]}
+  - {key: x.battery_calibration_period, label: Battery Calibration Period, table: holding, address: 235, type: u16, unit: d, bits: [8, 15], writable: true}
+  - {key: x.float_charge_current_threshold, label: Float Charge Current Threshold, table: holding, address: 236, type: u16, writable: true}
+  - {key: x.generator_cool_down_time, label: Generator Cool Down Time, table: holding, address: 237, type: u16, unit: min, scale: 0.1, writable: true}
+  - {key: x.npe_threshold, label: NPE Threshold, table: holding, address: 242, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.bootloader_version, label: Bootloader Version, table: holding, address: 244, type: u16, bits: [0, 7]}
+  - {key: x.bootloader_update_flag, label: Bootloader Update Flag, table: holding, address: 244, type: u16, bits: [8, 15]}
+  - {key: x.flash_size, label: Flash Size, table: holding, address: 245, type: u16, writable: true}
+  - {key: x.wattnode_ct1_amps, label: WattNode CT1 Amps, table: holding, address: 248, type: u16, unit: A, writable: true}
+  - {key: x.wattnode_ct2_amps, label: WattNode CT2 Amps, table: holding, address: 249, type: u16, unit: A, writable: true}
+  - {key: x.wattnode_ct3_amps, label: WattNode CT3 Amps, table: holding, address: 250, type: u16, unit: A, writable: true}
+  - {key: x.wattnode_ct1_direction, label: WattNode CT1 Direction, table: holding, address: 251, type: u16, bits: [0, 0], writable: true}
+  - {key: x.wattnode_ct2_direction, label: WattNode CT2 Direction, table: holding, address: 251, type: u16, bits: [1, 1], writable: true}
+  - {key: x.wattnode_ct3_direction, label: WattNode CT3 Direction, table: holding, address: 251, type: u16, bits: [2, 2], writable: true}
+  - {key: x.nec_120_bus_bar_limit, label: NEC 120% Bus Bar Limit, table: holding, address: 252, type: u16, unit: A, writable: true}
+  - {key: x.battery_soc_hysteresis, label: Battery SOC Hysteresis, table: holding, address: 253, type: u16, unit: '%', writable: true}
+  - {key: x.battery_voltage_hysteresis, label: Battery Voltage Hysteresis, table: holding, address: 254, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.generator_start_time, label: Generator Start Time, table: holding, address: 256, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.generator_end_time, label: Generator End Time, table: holding, address: 257, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.generator_start_time_1, label: Generator Start Time 1, table: holding, address: 258, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.generator_end_time_1, label: Generator End Time 1, table: holding, address: 259, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true}
+  - {key: x.bus_overvoltage_alarm_point, label: BUS Overvoltage Alarm Point, table: holding, address: 260, type: u16, unit: V, writable: true}
+  - {key: x.discharge_recovery_soc_threshold, label: Discharge Recovery SOC Threshold, table: holding, address: 261, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.discharge_recovery_volt_threshold, label: Discharge Recovery Volt Threshold, table: holding, address: 261, type: u16, unit: V, scale: 0.1, bits: [8, 15], writable: true}
+  - {key: x.ac_charge_power_cmd_1_mon, label: 'Ac charge power cmd slot 1, Mon', table: holding, address: 500, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_1_mon, label: AC Charge Power 1 Mon, table: holding, address: 500, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_1_mon, label: AC Charge SOC Limit 1 Mon, table: holding, address: 500, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_1_mon, label: AC Charge Volt Limit 1 Mon, table: holding, address: 501, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 1, Mon'}]}
+  - {key: x.ac_charge_start_time_1_mon, label: AC Charge Start Time 1 Mon, table: holding, address: 502, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 1, Mon'}]}
+  - {key: x.ac_charge_end_time_1_mon, label: AC Charge End Time 1 Mon, table: holding, address: 503, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 1, Mon'}]}
+  - {key: x.ac_charge_power_cmd_2_mon, label: 'Ac charge power cmd slot 2, Mon', table: holding, address: 504, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_2_mon, label: AC Charge Power 2 Mon, table: holding, address: 504, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_2_mon, label: AC Charge SOC Limit 2 Mon, table: holding, address: 504, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_2_mon, label: AC Charge Volt Limit 2 Mon, table: holding, address: 505, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 2, Mon'}]}
+  - {key: x.ac_charge_start_time_2_mon, label: AC Charge Start Time 2 Mon, table: holding, address: 506, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 2, Mon'}]}
+  - {key: x.ac_charge_end_time_2_mon, label: AC Charge End Time 2 Mon, table: holding, address: 507, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 2, Mon'}]}
+  - {key: x.ac_charge_power_cmd_1_tue, label: 'Ac charge power cmd slot 1, Tue', table: holding, address: 508, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_1_tue, label: AC Charge Power 1 Tue, table: holding, address: 508, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_1_tue, label: AC Charge SOC Limit 1 Tue, table: holding, address: 508, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_1_tue, label: AC Charge Volt Limit 1 Tue, table: holding, address: 509, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 1, Tue'}]}
+  - {key: x.ac_charge_start_time_1_tue, label: AC Charge Start Time 1 Tue, table: holding, address: 510, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 1, Tue'}]}
+  - {key: x.ac_charge_end_time_1_tue, label: AC Charge End Time 1 Tue, table: holding, address: 511, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 1, Tue'}]}
+  - {key: x.ac_charge_power_cmd_2_tue, label: 'Ac charge power cmd slot 2, Tue', table: holding, address: 512, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_2_tue, label: AC Charge Power 2 Tue, table: holding, address: 512, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_2_tue, label: AC Charge SOC Limit 2 Tue, table: holding, address: 512, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_2_tue, label: AC Charge Volt Limit 2 Tue, table: holding, address: 513, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 2, Tue'}]}
+  - {key: x.ac_charge_start_time_2_tue, label: AC Charge Start Time 2 Tue, table: holding, address: 514, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 2, Tue'}]}
+  - {key: x.ac_charge_end_time_2_tue, label: AC Charge End Time 2 Tue, table: holding, address: 515, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 2, Tue'}]}
+  - {key: x.ac_charge_power_cmd_1_wed, label: 'Ac charge power cmd slot 1, Wed', table: holding, address: 516, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_1_wed, label: AC Charge Power 1 Wed, table: holding, address: 516, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_1_wed, label: AC Charge SOC Limit 1 Wed, table: holding, address: 516, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_1_wed, label: AC Charge Volt Limit 1 Wed, table: holding, address: 517, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 1, Wed'}]}
+  - {key: x.ac_charge_start_time_1_wed, label: AC Charge Start Time 1 Wed, table: holding, address: 518, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 1, Wed'}]}
+  - {key: x.ac_charge_end_time_1_wed, label: AC Charge End Time 1 Wed, table: holding, address: 519, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 1, Wed'}]}
+  - {key: x.ac_charge_power_cmd_2_wed, label: 'Ac charge power cmd slot 2, Wed', table: holding, address: 520, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_2_wed, label: AC Charge Power 2 Wed, table: holding, address: 520, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_2_wed, label: AC Charge SOC Limit 2 Wed, table: holding, address: 520, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_2_wed, label: AC Charge Volt Limit 2 Wed, table: holding, address: 521, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 2, Wed'}]}
+  - {key: x.ac_charge_start_time_2_wed, label: AC Charge Start Time 2 Wed, table: holding, address: 522, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 2, Wed'}]}
+  - {key: x.ac_charge_end_time_2_wed, label: AC Charge End Time 2 Wed, table: holding, address: 523, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 2, Wed'}]}
+  - {key: x.ac_charge_power_cmd_1_thu, label: 'Ac charge power cmd slot 1, Thu', table: holding, address: 524, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_1_thu, label: AC Charge Power 1 Thu, table: holding, address: 524, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_1_thu, label: AC Charge SOC Limit 1 Thu, table: holding, address: 524, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_1_thu, label: AC Charge Volt Limit 1 Thu, table: holding, address: 525, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 1, Thu'}]}
+  - {key: x.ac_charge_start_time_1_thu, label: AC Charge Start Time 1 Thu, table: holding, address: 526, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 1, Thu'}]}
+  - {key: x.ac_charge_end_time_1_thu, label: AC Charge End Time 1 Thu, table: holding, address: 527, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 1, Thu'}]}
+  - {key: x.ac_charge_power_cmd_2_thu, label: 'Ac charge power cmd slot 2, Thu', table: holding, address: 528, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_2_thu, label: AC Charge Power 2 Thu, table: holding, address: 528, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_2_thu, label: AC Charge SOC Limit 2 Thu, table: holding, address: 528, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_2_thu, label: AC Charge Volt Limit 2 Thu, table: holding, address: 529, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 2, Thu'}]}
+  - {key: x.ac_charge_start_time_2_thu, label: AC Charge Start Time 2 Thu, table: holding, address: 530, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 2, Thu'}]}
+  - {key: x.ac_charge_end_time_2_thu, label: AC Charge End Time 2 Thu, table: holding, address: 531, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 2, Thu'}]}
+  - {key: x.ac_charge_power_cmd_1_fri, label: 'Ac charge power cmd slot 1, Fri', table: holding, address: 532, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_1_fri, label: AC Charge Power 1 Fri, table: holding, address: 532, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_1_fri, label: AC Charge SOC Limit 1 Fri, table: holding, address: 532, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_1_fri, label: AC Charge Volt Limit 1 Fri, table: holding, address: 533, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 1, Fri'}]}
+  - {key: x.ac_charge_start_time_1_fri, label: AC Charge Start Time 1 Fri, table: holding, address: 534, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 1, Fri'}]}
+  - {key: x.ac_charge_end_time_1_fri, label: AC Charge End Time 1 Fri, table: holding, address: 535, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 1, Fri'}]}
+  - {key: x.ac_charge_power_cmd_2_fri, label: 'Ac charge power cmd slot 2, Fri', table: holding, address: 536, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_2_fri, label: AC Charge Power 2 Fri, table: holding, address: 536, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_2_fri, label: AC Charge SOC Limit 2 Fri, table: holding, address: 536, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_2_fri, label: AC Charge Volt Limit 2 Fri, table: holding, address: 537, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 2, Fri'}]}
+  - {key: x.ac_charge_start_time_2_fri, label: AC Charge Start Time 2 Fri, table: holding, address: 538, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 2, Fri'}]}
+  - {key: x.ac_charge_end_time_2_fri, label: AC Charge End Time 2 Fri, table: holding, address: 539, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 2, Fri'}]}
+  - {key: x.ac_charge_power_cmd_1_sat, label: 'Ac charge power cmd slot 1, Sat', table: holding, address: 540, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_1_sat, label: AC Charge Power 1 Sat, table: holding, address: 540, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_1_sat, label: AC Charge SOC Limit 1 Sat, table: holding, address: 540, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_1_sat, label: AC Charge Volt Limit 1 Sat, table: holding, address: 541, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 1, Sat'}]}
+  - {key: x.ac_charge_start_time_1_sat, label: AC Charge Start Time 1 Sat, table: holding, address: 542, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 1, Sat'}]}
+  - {key: x.ac_charge_end_time_1_sat, label: AC Charge End Time 1 Sat, table: holding, address: 543, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 1, Sat'}]}
+  - {key: x.ac_charge_power_cmd_2_sat, label: 'Ac charge power cmd slot 2, Sat', table: holding, address: 544, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_2_sat, label: AC Charge Power 2 Sat, table: holding, address: 544, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_2_sat, label: AC Charge SOC Limit 2 Sat, table: holding, address: 544, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_2_sat, label: AC Charge Volt Limit 2 Sat, table: holding, address: 545, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 2, Sat'}]}
+  - {key: x.ac_charge_start_time_2_sat, label: AC Charge Start Time 2 Sat, table: holding, address: 546, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 2, Sat'}]}
+  - {key: x.ac_charge_end_time_2_sat, label: AC Charge End Time 2 Sat, table: holding, address: 547, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 2, Sat'}]}
+  - {key: x.ac_charge_power_cmd_1_sun, label: 'Ac charge power cmd slot 1, Sun', table: holding, address: 548, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_1_sun, label: AC Charge Power 1 Sun, table: holding, address: 548, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_1_sun, label: AC Charge SOC Limit 1 Sun, table: holding, address: 548, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_1_sun, label: AC Charge Volt Limit 1 Sun, table: holding, address: 549, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 1, Sun'}]}
+  - {key: x.ac_charge_start_time_1_sun, label: AC Charge Start Time 1 Sun, table: holding, address: 550, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 1, Sun'}]}
+  - {key: x.ac_charge_end_time_1_sun, label: AC Charge End Time 1 Sun, table: holding, address: 551, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 1, Sun'}]}
+  - {key: x.ac_charge_power_cmd_2_sun, label: 'Ac charge power cmd slot 2, Sun', table: holding, address: 552, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_2_sun, label: AC Charge Power 2 Sun, table: holding, address: 552, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.ac_charge_soc_limit_2_sun, label: AC Charge SOC Limit 2 Sun, table: holding, address: 552, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.ac_charge_volt_limit_2_sun, label: AC Charge Volt Limit 2 Sun, table: holding, address: 553, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Ac charge volt limit slot 2, Sun'}]}
+  - {key: x.ac_charge_start_time_2_sun, label: AC Charge Start Time 2 Sun, table: holding, address: 554, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time start slot 2, Sun'}]}
+  - {key: x.ac_charge_end_time_2_sun, label: AC Charge End Time 2 Sun, table: holding, address: 555, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Ac charge time end slot 2, Sun'}]}
+  - {key: x.forced_charge_power_cmd_1_mon, label: 'Forced charge power cmd slot 1, Mon', table: holding, address: 556, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_1_mon, label: Forced Charge Power 1 Mon, table: holding, address: 556, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_1_mon, label: Forced Charge SOC Limit 1 Mon, table: holding, address: 556, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_1_mon, label: Forced Charge Volt Limit 1 Mon, table: holding, address: 557, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 1, Mon'}]}
+  - {key: x.forced_charge_start_time_1_mon, label: Forced Charge Start Time 1 Mon, table: holding, address: 558, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 1, Mon'}]}
+  - {key: x.forced_charge_end_time_1_mon, label: Forced Charge End Time 1 Mon, table: holding, address: 559, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 1, Mon'}]}
+  - {key: x.forced_charge_power_cmd_2_mon, label: 'Forced charge power cmd slot 2, Mon', table: holding, address: 560, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_2_mon, label: Forced Charge Power 2 Mon, table: holding, address: 560, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_2_mon, label: Forced Charge SOC Limit 2 Mon, table: holding, address: 560, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_2_mon, label: Forced Charge Volt Limit 2 Mon, table: holding, address: 561, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 2, Mon'}]}
+  - {key: x.forced_charge_start_time_2_mon, label: Forced Charge Start Time 2 Mon, table: holding, address: 562, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 2, Mon'}]}
+  - {key: x.forced_charge_end_time_2_mon, label: Forced Charge End Time 2 Mon, table: holding, address: 563, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 2, Mon'}]}
+  - {key: x.forced_charge_power_cmd_1_tue, label: 'Forced charge power cmd slot 1, Tue', table: holding, address: 564, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_1_tue, label: Forced Charge Power 1 Tue, table: holding, address: 564, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_1_tue, label: Forced Charge SOC Limit 1 Tue, table: holding, address: 564, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_1_tue, label: Forced Charge Volt Limit 1 Tue, table: holding, address: 565, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 1, Tue'}]}
+  - {key: x.forced_charge_start_time_1_tue, label: Forced Charge Start Time 1 Tue, table: holding, address: 566, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 1, Tue'}]}
+  - {key: x.forced_charge_end_time_1_tue, label: Forced Charge End Time 1 Tue, table: holding, address: 567, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 1, Tue'}]}
+  - {key: x.forced_charge_power_cmd_2_tue, label: 'Forced charge power cmd slot 2, Tue', table: holding, address: 568, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_2_tue, label: Forced Charge Power 2 Tue, table: holding, address: 568, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_2_tue, label: Forced Charge SOC Limit 2 Tue, table: holding, address: 568, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_2_tue, label: Forced Charge Volt Limit 2 Tue, table: holding, address: 569, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 2, Tue'}]}
+  - {key: x.forced_charge_start_time_2_tue, label: Forced Charge Start Time 2 Tue, table: holding, address: 570, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 2, Tue'}]}
+  - {key: x.forced_charge_end_time_2_tue, label: Forced Charge End Time 2 Tue, table: holding, address: 571, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 2, Tue'}]}
+  - {key: x.forced_charge_power_cmd_1_wed, label: 'Forced charge power cmd slot 1, Wed', table: holding, address: 572, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_1_wed, label: Forced Charge Power 1 Wed, table: holding, address: 572, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_1_wed, label: Forced Charge SOC Limit 1 Wed, table: holding, address: 572, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_1_wed, label: Forced Charge Volt Limit 1 Wed, table: holding, address: 573, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 1, Wed'}]}
+  - {key: x.forced_charge_start_time_1_wed, label: Forced Charge Start Time 1 Wed, table: holding, address: 574, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 1, Wed'}]}
+  - {key: x.forced_charge_end_time_1_wed, label: Forced Charge End Time 1 Wed, table: holding, address: 575, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 1, Wed'}]}
+  - {key: x.forced_charge_power_cmd_2_wed, label: 'Forced charge power cmd slot 2, Wed', table: holding, address: 576, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_2_wed, label: Forced Charge Power 2 Wed, table: holding, address: 576, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_2_wed, label: Forced Charge SOC Limit 2 Wed, table: holding, address: 576, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_2_wed, label: Forced Charge Volt Limit 2 Wed, table: holding, address: 577, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 2, Wed'}]}
+  - {key: x.forced_charge_start_time_2_wed, label: Forced Charge Start Time 2 Wed, table: holding, address: 578, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 2, Wed'}]}
+  - {key: x.forced_charge_end_time_2_wed, label: Forced Charge End Time 2 Wed, table: holding, address: 579, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 2, Wed'}]}
+  - {key: x.forced_charge_power_cmd_1_thu, label: 'Forced charge power cmd slot 1, Thu', table: holding, address: 580, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_1_thu, label: Forced Charge Power 1 Thu, table: holding, address: 580, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_1_thu, label: Forced Charge SOC Limit 1 Thu, table: holding, address: 580, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_1_thu, label: Forced Charge Volt Limit 1 Thu, table: holding, address: 581, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 1, Thu'}]}
+  - {key: x.forced_charge_start_time_1_thu, label: Forced Charge Start Time 1 Thu, table: holding, address: 582, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 1, Thu'}]}
+  - {key: x.forced_charge_end_time_1_thu, label: Forced Charge End Time 1 Thu, table: holding, address: 583, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 1, Thu'}]}
+  - {key: x.forced_charge_power_cmd_2_thu, label: 'Forced charge power cmd slot 2, Thu', table: holding, address: 584, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_2_thu, label: Forced Charge Power 2 Thu, table: holding, address: 584, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_2_thu, label: Forced Charge SOC Limit 2 Thu, table: holding, address: 584, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_2_thu, label: Forced Charge Volt Limit 2 Thu, table: holding, address: 585, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 2, Thu'}]}
+  - {key: x.forced_charge_start_time_2_thu, label: Forced Charge Start Time 2 Thu, table: holding, address: 586, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 2, Thu'}]}
+  - {key: x.forced_charge_end_time_2_thu, label: Forced Charge End Time 2 Thu, table: holding, address: 587, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 2, Thu'}]}
+  - {key: x.forced_charge_power_cmd_1_fri, label: 'Forced charge power cmd slot 1, Fri', table: holding, address: 588, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_1_fri, label: Forced Charge Power 1 Fri, table: holding, address: 588, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_1_fri, label: Forced Charge SOC Limit 1 Fri, table: holding, address: 588, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_1_fri, label: Forced Charge Volt Limit 1 Fri, table: holding, address: 589, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 1, Fri'}]}
+  - {key: x.forced_charge_start_time_1_fri, label: Forced Charge Start Time 1 Fri, table: holding, address: 590, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 1, Fri'}]}
+  - {key: x.forced_charge_end_time_1_fri, label: Forced Charge End Time 1 Fri, table: holding, address: 591, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 1, Fri'}]}
+  - {key: x.forced_charge_power_cmd_2_fri, label: 'Forced charge power cmd slot 2, Fri', table: holding, address: 592, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_2_fri, label: Forced Charge Power 2 Fri, table: holding, address: 592, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_2_fri, label: Forced Charge SOC Limit 2 Fri, table: holding, address: 592, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_2_fri, label: Forced Charge Volt Limit 2 Fri, table: holding, address: 593, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 2, Fri'}]}
+  - {key: x.forced_charge_start_time_2_fri, label: Forced Charge Start Time 2 Fri, table: holding, address: 594, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 2, Fri'}]}
+  - {key: x.forced_charge_end_time_2_fri, label: Forced Charge End Time 2 Fri, table: holding, address: 595, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 2, Fri'}]}
+  - {key: x.forced_charge_power_cmd_1_sat, label: 'Forced charge power cmd slot 1, Sat', table: holding, address: 596, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_1_sat, label: Forced Charge Power 1 Sat, table: holding, address: 596, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_1_sat, label: Forced Charge SOC Limit 1 Sat, table: holding, address: 596, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_1_sat, label: Forced Charge Volt Limit 1 Sat, table: holding, address: 597, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 1, Sat'}]}
+  - {key: x.forced_charge_start_time_1_sat, label: Forced Charge Start Time 1 Sat, table: holding, address: 598, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 1, Sat'}]}
+  - {key: x.forced_charge_end_time_1_sat, label: Forced Charge End Time 1 Sat, table: holding, address: 599, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 1, Sat'}]}
+  - {key: x.forced_charge_power_cmd_2_sat, label: 'Forced charge power cmd slot 2, Sat', table: holding, address: 600, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_2_sat, label: Forced Charge Power 2 Sat, table: holding, address: 600, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_2_sat, label: Forced Charge SOC Limit 2 Sat, table: holding, address: 600, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_2_sat, label: Forced Charge Volt Limit 2 Sat, table: holding, address: 601, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 2, Sat'}]}
+  - {key: x.forced_charge_start_time_2_sat, label: Forced Charge Start Time 2 Sat, table: holding, address: 602, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 2, Sat'}]}
+  - {key: x.forced_charge_end_time_2_sat, label: Forced Charge End Time 2 Sat, table: holding, address: 603, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 2, Sat'}]}
+  - {key: x.forced_charge_power_cmd_1_sun, label: 'Forced charge power cmd slot 1, Sun', table: holding, address: 604, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_1_sun, label: Forced Charge Power 1 Sun, table: holding, address: 604, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_1_sun, label: Forced Charge SOC Limit 1 Sun, table: holding, address: 604, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_1_sun, label: Forced Charge Volt Limit 1 Sun, table: holding, address: 605, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 1, Sun'}]}
+  - {key: x.forced_charge_start_time_1_sun, label: Forced Charge Start Time 1 Sun, table: holding, address: 606, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 1, Sun'}]}
+  - {key: x.forced_charge_end_time_1_sun, label: Forced Charge End Time 1 Sun, table: holding, address: 607, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 1, Sun'}]}
+  - {key: x.forced_charge_power_cmd_2_sun, label: 'Forced charge power cmd slot 2, Sun', table: holding, address: 608, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_2_sun, label: Forced Charge Power 2 Sun, table: holding, address: 608, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_charge_soc_limit_2_sun, label: Forced Charge SOC Limit 2 Sun, table: holding, address: 608, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_charge_volt_limit_2_sun, label: Forced Charge Volt Limit 2 Sun, table: holding, address: 609, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced charge volt limit slot 2, Sun'}]}
+  - {key: x.forced_charge_start_time_2_sun, label: Forced Charge Start Time 2 Sun, table: holding, address: 610, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time start slot 2, Sun'}]}
+  - {key: x.forced_charge_end_time_2_sun, label: Forced Charge End Time 2 Sun, table: holding, address: 611, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced charge time end slot 2, Sun'}]}
+  - {key: x.forced_discharge_power_cmd_1_mon, label: 'Forced discharge power cmd slot 1, Mon', table: holding, address: 612, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_1_mon, label: Forced Discharge Power 1 Mon, table: holding, address: 612, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_1_mon, label: Forced Discharge SOC Limit 1 Mon, table: holding, address: 612, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_1_mon, label: Forced Discharge Volt Limit 1 Mon, table: holding, address: 613, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 1, Mon'}]}
+  - {key: x.forced_discharge_start_time_1_mon, label: Forced Discharge Start Time 1 Mon, table: holding, address: 614, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 1, Mon'}]}
+  - {key: x.forced_discharge_end_time_1_mon, label: Forced Discharge End Time 1 Mon, table: holding, address: 615, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 1, Mon'}]}
+  - {key: x.forced_discharge_power_cmd_2_mon, label: 'Forced discharge power cmd slot 2, Mon', table: holding, address: 616, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_2_mon, label: Forced Discharge Power 2 Mon, table: holding, address: 616, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_2_mon, label: Forced Discharge SOC Limit 2 Mon, table: holding, address: 616, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_2_mon, label: Forced Discharge Volt Limit 2 Mon, table: holding, address: 617, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 2, Mon'}]}
+  - {key: x.forced_discharge_start_time_2_mon, label: Forced Discharge Start Time 2 Mon, table: holding, address: 618, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 2, Mon'}]}
+  - {key: x.forced_discharge_end_time_2_mon, label: Forced Discharge End Time 2 Mon, table: holding, address: 619, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 2, Mon'}]}
+  - {key: x.forced_discharge_power_cmd_1_tue, label: 'Forced discharge power cmd slot 1, Tue', table: holding, address: 620, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_1_tue, label: Forced Discharge Power 1 Tue, table: holding, address: 620, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_1_tue, label: Forced Discharge SOC Limit 1 Tue, table: holding, address: 620, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_1_tue, label: Forced Discharge Volt Limit 1 Tue, table: holding, address: 621, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 1, Tue'}]}
+  - {key: x.forced_discharge_start_time_1_tue, label: Forced Discharge Start Time 1 Tue, table: holding, address: 622, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 1, Tue'}]}
+  - {key: x.forced_discharge_end_time_1_tue, label: Forced Discharge End Time 1 Tue, table: holding, address: 623, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 1, Tue'}]}
+  - {key: x.forced_discharge_power_cmd_2_tue, label: 'Forced discharge power cmd slot 2, Tue', table: holding, address: 624, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_2_tue, label: Forced Discharge Power 2 Tue, table: holding, address: 624, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_2_tue, label: Forced Discharge SOC Limit 2 Tue, table: holding, address: 624, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_2_tue, label: Forced Discharge Volt Limit 2 Tue, table: holding, address: 625, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 2, Tue'}]}
+  - {key: x.forced_discharge_start_time_2_tue, label: Forced Discharge Start Time 2 Tue, table: holding, address: 626, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 2, Tue'}]}
+  - {key: x.forced_discharge_end_time_2_tue, label: Forced Discharge End Time 2 Tue, table: holding, address: 627, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 2, Tue'}]}
+  - {key: x.forced_discharge_power_cmd_1_wed, label: 'Forced discharge power cmd slot 1, Wed', table: holding, address: 628, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_1_wed, label: Forced Discharge Power 1 Wed, table: holding, address: 628, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_1_wed, label: Forced Discharge SOC Limit 1 Wed, table: holding, address: 628, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_1_wed, label: Forced Discharge Volt Limit 1 Wed, table: holding, address: 629, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 1, Wed'}]}
+  - {key: x.forced_discharge_start_time_1_wed, label: Forced Discharge Start Time 1 Wed, table: holding, address: 630, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 1, Wed'}]}
+  - {key: x.forced_discharge_end_time_1_wed, label: Forced Discharge End Time 1 Wed, table: holding, address: 631, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 1, Wed'}]}
+  - {key: x.forced_discharge_power_cmd_2_wed, label: 'Forced discharge power cmd slot 2, Wed', table: holding, address: 632, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_2_wed, label: Forced Discharge Power 2 Wed, table: holding, address: 632, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_2_wed, label: Forced Discharge SOC Limit 2 Wed, table: holding, address: 632, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_2_wed, label: Forced Discharge Volt Limit 2 Wed, table: holding, address: 633, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 2, Wed'}]}
+  - {key: x.forced_discharge_start_time_2_wed, label: Forced Discharge Start Time 2 Wed, table: holding, address: 634, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 2, Wed'}]}
+  - {key: x.forced_discharge_end_time_2_wed, label: Forced Discharge End Time 2 Wed, table: holding, address: 635, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 2, Wed'}]}
+  - {key: x.forced_discharge_power_cmd_1_thu, label: 'Forced discharge power cmd slot 1, Thu', table: holding, address: 636, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_1_thu, label: Forced Discharge Power 1 Thu, table: holding, address: 636, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_1_thu, label: Forced Discharge SOC Limit 1 Thu, table: holding, address: 636, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_1_thu, label: Forced Discharge Volt Limit 1 Thu, table: holding, address: 637, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 1, Thu'}]}
+  - {key: x.forced_discharge_start_time_1_thu, label: Forced Discharge Start Time 1 Thu, table: holding, address: 638, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 1, Thu'}]}
+  - {key: x.forced_discharge_end_time_1_thu, label: Forced Discharge End Time 1 Thu, table: holding, address: 639, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 1, Thu'}]}
+  - {key: x.forced_discharge_power_cmd_2_thu, label: 'Forced discharge power cmd slot 2, Thu', table: holding, address: 640, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_2_thu, label: Forced Discharge Power 2 Thu, table: holding, address: 640, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_2_thu, label: Forced Discharge SOC Limit 2 Thu, table: holding, address: 640, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_2_thu, label: Forced Discharge Volt Limit 2 Thu, table: holding, address: 641, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 2, Thu'}]}
+  - {key: x.forced_discharge_start_time_2_thu, label: Forced Discharge Start Time 2 Thu, table: holding, address: 642, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 2, Thu'}]}
+  - {key: x.forced_discharge_end_time_2_thu, label: Forced Discharge End Time 2 Thu, table: holding, address: 643, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 2, Thu'}]}
+  - {key: x.forced_discharge_power_cmd_1_fri, label: 'Forced discharge power cmd slot 1, Fri', table: holding, address: 644, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_1_fri, label: Forced Discharge Power 1 Fri, table: holding, address: 644, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_1_fri, label: Forced Discharge SOC Limit 1 Fri, table: holding, address: 644, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_1_fri, label: Forced Discharge Volt Limit 1 Fri, table: holding, address: 645, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 1, Fri'}]}
+  - {key: x.forced_discharge_start_time_1_fri, label: Forced Discharge Start Time 1 Fri, table: holding, address: 646, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 1, Fri'}]}
+  - {key: x.forced_discharge_end_time_1_fri, label: Forced Discharge End Time 1 Fri, table: holding, address: 647, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 1, Fri'}]}
+  - {key: x.forced_discharge_power_cmd_2_fri, label: 'Forced discharge power cmd slot 2, Fri', table: holding, address: 648, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_2_fri, label: Forced Discharge Power 2 Fri, table: holding, address: 648, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_2_fri, label: Forced Discharge SOC Limit 2 Fri, table: holding, address: 648, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_2_fri, label: Forced Discharge Volt Limit 2 Fri, table: holding, address: 649, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 2, Fri'}]}
+  - {key: x.forced_discharge_start_time_2_fri, label: Forced Discharge Start Time 2 Fri, table: holding, address: 650, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 2, Fri'}]}
+  - {key: x.forced_discharge_end_time_2_fri, label: Forced Discharge End Time 2 Fri, table: holding, address: 651, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 2, Fri'}]}
+  - {key: x.forced_discharge_power_cmd_1_sat, label: 'Forced discharge power cmd slot 1, Sat', table: holding, address: 652, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_1_sat, label: Forced Discharge Power 1 Sat, table: holding, address: 652, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_1_sat, label: Forced Discharge SOC Limit 1 Sat, table: holding, address: 652, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_1_sat, label: Forced Discharge Volt Limit 1 Sat, table: holding, address: 653, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 1, Sat'}]}
+  - {key: x.forced_discharge_start_time_1_sat, label: Forced Discharge Start Time 1 Sat, table: holding, address: 654, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 1, Sat'}]}
+  - {key: x.forced_discharge_end_time_1_sat, label: Forced Discharge End Time 1 Sat, table: holding, address: 655, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 1, Sat'}]}
+  - {key: x.forced_discharge_power_cmd_2_sat, label: 'Forced discharge power cmd slot 2, Sat', table: holding, address: 656, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_2_sat, label: Forced Discharge Power 2 Sat, table: holding, address: 656, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_2_sat, label: Forced Discharge SOC Limit 2 Sat, table: holding, address: 656, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_2_sat, label: Forced Discharge Volt Limit 2 Sat, table: holding, address: 657, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 2, Sat'}]}
+  - {key: x.forced_discharge_start_time_2_sat, label: Forced Discharge Start Time 2 Sat, table: holding, address: 658, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 2, Sat'}]}
+  - {key: x.forced_discharge_end_time_2_sat, label: Forced Discharge End Time 2 Sat, table: holding, address: 659, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 2, Sat'}]}
+  - {key: x.forced_discharge_power_cmd_1_sun, label: 'Forced discharge power cmd slot 1, Sun', table: holding, address: 660, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_1_sun, label: Forced Discharge Power 1 Sun, table: holding, address: 660, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_1_sun, label: Forced Discharge SOC Limit 1 Sun, table: holding, address: 660, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_1_sun, label: Forced Discharge Volt Limit 1 Sun, table: holding, address: 661, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 1, Sun'}]}
+  - {key: x.forced_discharge_start_time_1_sun, label: Forced Discharge Start Time 1 Sun, table: holding, address: 662, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 1, Sun'}]}
+  - {key: x.forced_discharge_end_time_1_sun, label: Forced Discharge End Time 1 Sun, table: holding, address: 663, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 1, Sun'}]}
+  - {key: x.forced_discharge_power_cmd_2_sun, label: 'Forced discharge power cmd slot 2, Sun', table: holding, address: 664, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_2_sun, label: Forced Discharge Power 2 Sun, table: holding, address: 664, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.forced_discharge_soc_limit_2_sun, label: Forced Discharge SOC Limit 2 Sun, table: holding, address: 664, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.forced_discharge_volt_limit_2_sun, label: Forced Discharge Volt Limit 2 Sun, table: holding, address: 665, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Forced discharge volt limit slot 2, Sun'}]}
+  - {key: x.forced_discharge_start_time_2_sun, label: Forced Discharge Start Time 2 Sun, table: holding, address: 666, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time start slot 2, Sun'}]}
+  - {key: x.forced_discharge_end_time_2_sun, label: Forced Discharge End Time 2 Sun, table: holding, address: 667, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Forced discharge time end slot 2, Sun'}]}
+  - {key: x.peak_shaving_power_cmd_1_mon, label: 'Peak shaving power cmd slot 1, Mon', table: holding, address: 668, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_1_mon, label: Peak Shaving Power 1 Mon, table: holding, address: 668, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_1_mon, label: Peak Shaving SOC Limit 1 Mon, table: holding, address: 668, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_1_mon, label: Peak Shaving Volt Limit 1 Mon, table: holding, address: 669, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 1, Mon'}]}
+  - {key: x.peak_shaving_start_time_1_mon, label: Peak Shaving Start Time 1 Mon, table: holding, address: 670, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 1, Mon'}]}
+  - {key: x.peak_shaving_end_time_1_mon, label: Peak Shaving End Time 1 Mon, table: holding, address: 671, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 1, Mon'}]}
+  - {key: x.peak_shaving_power_cmd_2_mon, label: 'Peak shaving power cmd slot 2, Mon', table: holding, address: 672, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_2_mon, label: Peak Shaving Power 2 Mon, table: holding, address: 672, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_2_mon, label: Peak Shaving SOC Limit 2 Mon, table: holding, address: 672, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_2_mon, label: Peak Shaving Volt Limit 2 Mon, table: holding, address: 673, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 2, Mon'}]}
+  - {key: x.peak_shaving_start_time_2_mon, label: Peak Shaving Start Time 2 Mon, table: holding, address: 674, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 2, Mon'}]}
+  - {key: x.peak_shaving_end_time_2_mon, label: Peak Shaving End Time 2 Mon, table: holding, address: 675, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 2, Mon'}]}
+  - {key: x.peak_shaving_power_cmd_1_tue, label: 'Peak shaving power cmd slot 1, Tue', table: holding, address: 676, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_1_tue, label: Peak Shaving Power 1 Tue, table: holding, address: 676, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_1_tue, label: Peak Shaving SOC Limit 1 Tue, table: holding, address: 676, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_1_tue, label: Peak Shaving Volt Limit 1 Tue, table: holding, address: 677, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 1, Tue'}]}
+  - {key: x.peak_shaving_start_time_1_tue, label: Peak Shaving Start Time 1 Tue, table: holding, address: 678, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 1, Tue'}]}
+  - {key: x.peak_shaving_end_time_1_tue, label: Peak Shaving End Time 1 Tue, table: holding, address: 679, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 1, Tue'}]}
+  - {key: x.peak_shaving_power_cmd_2_tue, label: 'Peak shaving power cmd slot 2, Tue', table: holding, address: 680, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_2_tue, label: Peak Shaving Power 2 Tue, table: holding, address: 680, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_2_tue, label: Peak Shaving SOC Limit 2 Tue, table: holding, address: 680, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_2_tue, label: Peak Shaving Volt Limit 2 Tue, table: holding, address: 681, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 2, Tue'}]}
+  - {key: x.peak_shaving_start_time_2_tue, label: Peak Shaving Start Time 2 Tue, table: holding, address: 682, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 2, Tue'}]}
+  - {key: x.peak_shaving_end_time_2_tue, label: Peak Shaving End Time 2 Tue, table: holding, address: 683, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 2, Tue'}]}
+  - {key: x.peak_shaving_power_cmd_1_wed, label: 'Peak shaving power cmd slot 1, Wed', table: holding, address: 684, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_1_wed, label: Peak Shaving Power 1 Wed, table: holding, address: 684, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_1_wed, label: Peak Shaving SOC Limit 1 Wed, table: holding, address: 684, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_1_wed, label: Peak Shaving Volt Limit 1 Wed, table: holding, address: 685, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 1, Wed'}]}
+  - {key: x.peak_shaving_start_time_1_wed, label: Peak Shaving Start Time 1 Wed, table: holding, address: 686, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 1, Wed'}]}
+  - {key: x.peak_shaving_end_time_1_wed, label: Peak Shaving End Time 1 Wed, table: holding, address: 687, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 1, Wed'}]}
+  - {key: x.peak_shaving_power_cmd_2_wed, label: 'Peak shaving power cmd slot 2, Wed', table: holding, address: 688, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_2_wed, label: Peak Shaving Power 2 Wed, table: holding, address: 688, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_2_wed, label: Peak Shaving SOC Limit 2 Wed, table: holding, address: 688, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_2_wed, label: Peak Shaving Volt Limit 2 Wed, table: holding, address: 689, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 2, Wed'}]}
+  - {key: x.peak_shaving_start_time_2_wed, label: Peak Shaving Start Time 2 Wed, table: holding, address: 690, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 2, Wed'}]}
+  - {key: x.peak_shaving_end_time_2_wed, label: Peak Shaving End Time 2 Wed, table: holding, address: 691, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 2, Wed'}]}
+  - {key: x.peak_shaving_power_cmd_1_thu, label: 'Peak shaving power cmd slot 1, Thu', table: holding, address: 692, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_1_thu, label: Peak Shaving Power 1 Thu, table: holding, address: 692, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_1_thu, label: Peak Shaving SOC Limit 1 Thu, table: holding, address: 692, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_1_thu, label: Peak Shaving Volt Limit 1 Thu, table: holding, address: 693, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 1, Thu'}]}
+  - {key: x.peak_shaving_start_time_1_thu, label: Peak Shaving Start Time 1 Thu, table: holding, address: 694, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 1, Thu'}]}
+  - {key: x.peak_shaving_end_time_1_thu, label: Peak Shaving End Time 1 Thu, table: holding, address: 695, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 1, Thu'}]}
+  - {key: x.peak_shaving_power_cmd_2_thu, label: 'Peak shaving power cmd slot 2, Thu', table: holding, address: 696, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_2_thu, label: Peak Shaving Power 2 Thu, table: holding, address: 696, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_2_thu, label: Peak Shaving SOC Limit 2 Thu, table: holding, address: 696, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_2_thu, label: Peak Shaving Volt Limit 2 Thu, table: holding, address: 697, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 2, Thu'}]}
+  - {key: x.peak_shaving_start_time_2_thu, label: Peak Shaving Start Time 2 Thu, table: holding, address: 698, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 2, Thu'}]}
+  - {key: x.peak_shaving_end_time_2_thu, label: Peak Shaving End Time 2 Thu, table: holding, address: 699, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 2, Thu'}]}
+  - {key: x.peak_shaving_power_cmd_1_fri, label: 'Peak shaving power cmd slot 1, Fri', table: holding, address: 700, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_1_fri, label: Peak Shaving Power 1 Fri, table: holding, address: 700, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_1_fri, label: Peak Shaving SOC Limit 1 Fri, table: holding, address: 700, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_1_fri, label: Peak Shaving Volt Limit 1 Fri, table: holding, address: 701, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 1, Fri'}]}
+  - {key: x.peak_shaving_start_time_1_fri, label: Peak Shaving Start Time 1 Fri, table: holding, address: 702, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 1, Fri'}]}
+  - {key: x.peak_shaving_end_time_1_fri, label: Peak Shaving End Time 1 Fri, table: holding, address: 703, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 1, Fri'}]}
+  - {key: x.peak_shaving_power_cmd_2_fri, label: 'Peak shaving power cmd slot 2, Fri', table: holding, address: 704, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_2_fri, label: Peak Shaving Power 2 Fri, table: holding, address: 704, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_2_fri, label: Peak Shaving SOC Limit 2 Fri, table: holding, address: 704, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_2_fri, label: Peak Shaving Volt Limit 2 Fri, table: holding, address: 705, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 2, Fri'}]}
+  - {key: x.peak_shaving_start_time_2_fri, label: Peak Shaving Start Time 2 Fri, table: holding, address: 706, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 2, Fri'}]}
+  - {key: x.peak_shaving_end_time_2_fri, label: Peak Shaving End Time 2 Fri, table: holding, address: 707, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 2, Fri'}]}
+  - {key: x.peak_shaving_power_cmd_1_sat, label: 'Peak shaving power cmd slot 1, Sat', table: holding, address: 708, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_1_sat, label: Peak Shaving Power 1 Sat, table: holding, address: 708, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_1_sat, label: Peak Shaving SOC Limit 1 Sat, table: holding, address: 708, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_1_sat, label: Peak Shaving Volt Limit 1 Sat, table: holding, address: 709, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 1, Sat'}]}
+  - {key: x.peak_shaving_start_time_1_sat, label: Peak Shaving Start Time 1 Sat, table: holding, address: 710, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 1, Sat'}]}
+  - {key: x.peak_shaving_end_time_1_sat, label: Peak Shaving End Time 1 Sat, table: holding, address: 711, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 1, Sat'}]}
+  - {key: x.peak_shaving_power_cmd_2_sat, label: 'Peak shaving power cmd slot 2, Sat', table: holding, address: 712, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_2_sat, label: Peak Shaving Power 2 Sat, table: holding, address: 712, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_2_sat, label: Peak Shaving SOC Limit 2 Sat, table: holding, address: 712, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_2_sat, label: Peak Shaving Volt Limit 2 Sat, table: holding, address: 713, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 2, Sat'}]}
+  - {key: x.peak_shaving_start_time_2_sat, label: Peak Shaving Start Time 2 Sat, table: holding, address: 714, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 2, Sat'}]}
+  - {key: x.peak_shaving_end_time_2_sat, label: Peak Shaving End Time 2 Sat, table: holding, address: 715, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 2, Sat'}]}
+  - {key: x.peak_shaving_power_cmd_1_sun, label: 'Peak shaving power cmd slot 1, Sun', table: holding, address: 716, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_1_sun, label: Peak Shaving Power 1 Sun, table: holding, address: 716, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_1_sun, label: Peak Shaving SOC Limit 1 Sun, table: holding, address: 716, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_1_sun, label: Peak Shaving Volt Limit 1 Sun, table: holding, address: 717, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 1, Sun'}]}
+  - {key: x.peak_shaving_start_time_1_sun, label: Peak Shaving Start Time 1 Sun, table: holding, address: 718, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 1, Sun'}]}
+  - {key: x.peak_shaving_end_time_1_sun, label: Peak Shaving End Time 1 Sun, table: holding, address: 719, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 1, Sun'}]}
+  - {key: x.peak_shaving_power_cmd_2_sun, label: 'Peak shaving power cmd slot 2, Sun', table: holding, address: 720, type: u16, writable: true, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_2_sun, label: Peak Shaving Power 2 Sun, table: holding, address: 720, type: u16, unit: W, scale: 100, bits: [0, 7], writable: true}
+  - {key: x.peak_shaving_soc_limit_2_sun, label: Peak Shaving SOC Limit 2 Sun, table: holding, address: 720, type: u16, unit: '%', bits: [8, 15], writable: true}
+  - {key: x.peak_shaving_volt_limit_2_sun, label: Peak Shaving Volt Limit 2 Sun, table: holding, address: 721, type: u16, unit: V, scale: 0.1, writable: true, conflicts: [{sources: [pylxpweb], scale: 1, label: 'Peak shaving volt limit slot 2, Sun'}]}
+  - {key: x.peak_shaving_start_time_2_sun, label: Peak Shaving Start Time 2 Sun, table: holding, address: 722, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time start slot 2, Sun'}]}
+  - {key: x.peak_shaving_end_time_2_sun, label: Peak Shaving End Time 2 Sun, table: holding, address: 723, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, conflicts: [{sources: [pylxpweb], type: u16, label: 'Peak shaving time end slot 2, Sun'}]}
+  - {key: state, label: Operating State, table: input, address: 0, type: u16, enum: operating_state, sources: [eg4-web-monitor, luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv1_voltage, label: PV1 Voltage, table: input, address: 1, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv2_voltage, label: PV2 Voltage, table: input, address: 2, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv3_voltage, label: PV3 Voltage, table: input, address: 3, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: battery_voltage, label: Battery Voltage, table: input, address: 4, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: battery_soc, label: Battery SOC, table: input, address: 5, type: u16, unit: '%', bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: battery_soh, label: Battery SOH, table: input, address: 5, type: u16, unit: '%', bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.internal_fault_code, label: Internal Fault Code, table: input, address: 6, type: u16}
+  - {key: x.pv1_power, label: PV1 Power, table: input, address: 7, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv2_power, label: PV2 Power, table: input, address: 8, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv3_power, label: PV3 Power, table: input, address: 9, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_charge_power, label: Battery Charge Power, table: input, address: 10, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_discharge_power, label: Battery Discharge Power, table: input, address: 11, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_voltage, label: Grid Voltage, table: input, address: 12, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_voltage_s_phase, label: Grid Voltage S-Phase, table: input, address: 13, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_voltage_t_phase, label: Grid Voltage T-Phase, table: input, address: 14, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: frequency, label: Grid Frequency, table: input, address: 15, type: u16, unit: Hz, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.inverter_power, label: Inverter Power, table: input, address: 16, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charging_rectification_power, label: AC Charging Rectification Power, table: input, address: 17, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.inverter_current, label: Inverter Current, table: input, address: 18, type: u16, unit: A, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_factor, label: Power Factor, table: input, address: 19, type: u16, unit: '%', scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_voltage, label: EPS Voltage, table: input, address: 20, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_voltage_s_phase, label: EPS Voltage S-Phase, table: input, address: 21, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_voltage_t_phase, label: EPS Voltage T-Phase, table: input, address: 22, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_frequency, label: EPS Frequency, table: input, address: 23, type: u16, unit: Hz, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_power, label: EPS Power, table: input, address: 24, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_apparent_power, label: EPS Apparent Power, table: input, address: 25, type: u16, unit: VA, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_to_grid, label: Power to Grid, table: input, address: 26, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_from_grid, label: Power from Grid, table: input, address: 27, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv1_energy_today, label: PV1 Energy Today, table: input, address: 28, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv2_energy_today, label: PV2 Energy Today, table: input, address: 29, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv3_energy_today, label: PV3 Energy Today, table: input, address: 30, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.inverter_energy_today, label: Inverter Energy Today, table: input, address: 31, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charge_energy_today, label: AC Charge Energy Today, table: input, address: 32, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.charge_energy_today, label: Charge Energy Today, table: input, address: 33, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.discharge_energy_today, label: Discharge Energy Today, table: input, address: 34, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_energy_today, label: EPS Energy Today, table: input, address: 35, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.energy_to_grid_today, label: Energy to Grid Today, table: input, address: 36, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.energy_from_grid_today, label: Energy from Grid Today, table: input, address: 37, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bus_1_voltage, label: Bus 1 Voltage, table: input, address: 38, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bus_2_voltage, label: Bus 2 Voltage, table: input, address: 39, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv1_energy_total, label: PV1 Energy Total, table: input, address: 40, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv2_energy_total, label: PV2 Energy Total, table: input, address: 42, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv3_energy_total, label: PV3 Energy Total, table: input, address: 44, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.inverter_energy_total, label: Inverter Energy Total, table: input, address: 46, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_charge_energy_total, label: AC Charge Energy Total, table: input, address: 48, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.charge_energy_total, label: Charge Energy Total, table: input, address: 50, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.discharge_energy_total, label: Discharge Energy Total, table: input, address: 52, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_energy_total, label: EPS Energy Total, table: input, address: 54, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: grid_export_energy, label: Energy to Grid Total, table: input, address: 56, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: grid_import_energy, label: Energy from Grid Total, table: input, address: 58, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.active_fault_text, label: Active Fault (Text), table: input, address: 60, type: u32, flags: fault_codes, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.active_warning_text, label: Active Warning (Text), table: input, address: 62, type: u32, flags: warning_codes, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: temperature, label: Internal Temperature, table: input, address: 64, type: u16, unit: °C, conflicts: [{sources: [pylxpweb], type: s16, label: Internal/ring temperature}]}
+  - {key: x.radiator_temperature, label: Radiator Temperature, table: input, address: 65, type: u16, unit: °C, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.radiator_temperature_2, label: Radiator Temperature 2, table: input, address: 66, type: u16, unit: °C, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: battery_temperature, label: Battery Temperature, table: input, address: 67, type: u16, unit: °C, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_control_temperature, label: Battery control temperature, table: input, address: 68, type: u16, unit: °C, sources: [pylxpweb]}
+  - {key: x.total_running_time, label: Total Running Time, table: input, address: 69, type: u32, unit: s, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.auto_test_status, label: Auto Test Status, table: input, address: 71, type: u16}
+  - {key: x.pv1_current, label: PV string 1 current, table: input, address: 72, type: u16, unit: A, scale: 0.01, sources: [pylxpweb]}
+  - {key: x.pv2_current, label: PV string 2 current, table: input, address: 73, type: u16, unit: A, scale: 0.01, sources: [pylxpweb]}
+  - {key: x.pv3_current, label: PV string 3 current, table: input, address: 74, type: u16, unit: A, scale: 0.01, sources: [pylxpweb]}
+  - {key: x.battery_current_inv, label: Battery current (inverter-measured), table: input, address: 75, type: u16, unit: A, scale: 0.01, sources: [pylxpweb]}
+  - {key: x.ac_input_type, label: AC input type bitfield, table: input, address: 77, type: u16, sources: [pylxpweb]}
+  - {key: x.ac_input_type_77_0, label: AC Input Type, table: input, address: 77, type: u16, bits: [0, 0], enum: ac_input_type}
+  - {key: x.battery_type_and_brand, label: Battery Type and Brand, table: input, address: 80, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_max_charge_current, label: BMS Max Charge Current, table: input, address: 81, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_max_discharge_current, label: BMS Max Discharge Current, table: input, address: 82, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_charge_voltage_reference, label: BMS Charge Voltage Reference, table: input, address: 83, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_discharge_cut_off_voltage, label: BMS Discharge Cut-off Voltage, table: input, address: 84, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_0, label: BMS Battery Status 0, table: input, address: 85, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_1, label: BMS Battery Status 1, table: input, address: 86, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_2, label: BMS Battery Status 2, table: input, address: 87, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_3, label: BMS Battery Status 3, table: input, address: 88, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_4, label: BMS Battery Status 4, table: input, address: 89, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_5, label: BMS Battery Status 5, table: input, address: 90, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_6, label: BMS Battery Status 6, table: input, address: 91, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_7, label: BMS Battery Status 7, table: input, address: 92, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_8, label: BMS Battery Status 8, table: input, address: 93, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_9, label: BMS Battery Status 9, table: input, address: 94, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_status_aggregated, label: BMS Battery Status Aggregated, table: input, address: 95, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_charge_allowed, label: BMS Charge Allowed, table: input, address: 95, type: u16, bits: [0, 0]}
+  - {key: x.bms_discharge_allowed, label: BMS Discharge Allowed, table: input, address: 95, type: u16, bits: [1, 1]}
+  - {key: x.bms_request_charge, label: BMS Request Charge, table: input, address: 95, type: u16, bits: [4, 4]}
+  - {key: x.bms_request_full_charge, label: BMS Request Full Charge, table: input, address: 95, type: u16, bits: [5, 5]}
+  - {key: x.battery_parallel_number, label: Battery Parallel Number, table: input, address: 96, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery_capacity, label: Battery Capacity, table: input, address: 97, type: u16, unit: Ah, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_battery_current, label: BMS Battery Current, table: input, address: 98, type: s16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_fault_code, label: BMS Fault Code, table: input, address: 99, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_warning_code, label: BMS Warning Code, table: input, address: 100, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_max_cell_voltage, label: BMS Max Cell Voltage, table: input, address: 101, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_min_cell_voltage, label: BMS Min Cell Voltage, table: input, address: 102, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_max_cell_temperature, label: BMS Max Cell Temperature, table: input, address: 103, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: 'Maximum cell temperature (signed, 0.1°C)'}]}
+  - {key: x.bms_min_cell_temperature, label: BMS Min Cell Temperature, table: input, address: 104, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: 'Minimum cell temperature (signed, 0.1°C)'}]}
+  - {key: x.bms_firmware_update_state, label: BMS Firmware Update State, table: input, address: 105, type: u16, enum: bms_firmware_update_state, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.bms_cycle_count, label: BMS Cycle Count, table: input, address: 106, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.inverter_battery_voltage_sample, label: Inverter Battery Voltage Sample, table: input, address: 107, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.temperature_t1, label: Temperature sensor T1 (BT/board temp on 12K models), table: input, address: 108, type: u16, unit: °C, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.temperature_t2, label: Temperature sensor T2 (reserved), table: input, address: 109, type: u16, unit: °C, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.temperature_t3, label: Temperature sensor T3 (reserved), table: input, address: 110, type: u16, unit: °C, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.temperature_t4, label: Temperature sensor T4 (reserved), table: input, address: 111, type: u16, unit: °C, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.temperature_t5, label: Temperature sensor T5 (reserved), table: input, address: 112, type: u16, unit: °C, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.parallel_role, label: Parallel Role, table: input, address: 113, type: u16, bits: [0, 1], enum: parallel_role, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.parallel_phase, label: Parallel Phase, table: input, address: 113, type: u16, bits: [2, 3], enum: parallel_phase, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.phase_sequence, label: Phase Sequence, table: input, address: 113, type: u16, bits: [4, 5], enum: phase_sequence}
+  - {key: x.parallel_inverter_number, label: Parallel Inverter Number, table: input, address: 113, type: u16, bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.on_grid_load_power, label: On-Grid Load Power, table: input, address: 114, type: u16, unit: W}
+  - {key: x.half_bus_voltage, label: Half Bus Voltage, table: input, address: 120, type: u16, unit: V, scale: 0.1}
+  - {key: x.generator_voltage, label: Generator Voltage, table: input, address: 121, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_frequency, label: Generator Frequency, table: input, address: 122, type: u16, unit: Hz, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_power, label: Generator Power, table: input, address: 123, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_energy_today, label: Generator Energy Today, table: input, address: 124, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_energy_total, label: Generator Energy Total, table: input, address: 125, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_voltage_l1n, label: EPS Voltage L1N, table: input, address: 127, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_voltage_l2n, label: EPS Voltage L2N, table: input, address: 128, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_power_l1n, label: EPS Power L1N, table: input, address: 129, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_power_l2n, label: EPS Power L2N, table: input, address: 130, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_apparent_power_l1n, label: EPS Apparent Power L1N, table: input, address: 131, type: u16, unit: VA, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_apparent_power_l2n, label: EPS Apparent Power L2N, table: input, address: 132, type: u16, unit: VA, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_energy_today_l1n, label: EPS Energy Today L1N, table: input, address: 133, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_energy_today_l2n, label: EPS Energy Today L2N, table: input, address: 134, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_energy_total_l1n, label: EPS Energy Total L1N, table: input, address: 135, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.eps_energy_total_l2n, label: EPS Energy Total L2N, table: input, address: 137, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.reactive_power, label: Reactive Power, table: input, address: 139, type: s16, unit: var}
+  - {key: x.ac_couple_power, label: AC Couple Power, table: input, address: 153, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.load_power, label: Load Power, table: input, address: 170, type: u16, unit: W, conflicts: [{sources: [pylxpweb], type: s16, label: 'Total output power (Pload, on-grid load output)'}]}
+  - {key: x.load_consumption_today, label: Load Consumption Today, table: input, address: 171, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.load_consumption_total, label: Load Consumption Total, table: input, address: 172, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.dip_switch_state, label: DIP Switch State, table: input, address: 174, type: u16, bits: [0, 4]}
+  - {key: x.exception_reason_1, label: Exception Reason 1, table: input, address: 176, type: u16}
+  - {key: x.exception_reason_2, label: Exception Reason 2, table: input, address: 177, type: u16}
+  - {key: x.charge_discharge_disable_reason, label: Charge Discharge Disable Reason, table: input, address: 178, type: u16}
+  - {key: x.inverter_power_s_phase, label: Inverter Power S-Phase, table: input, address: 180, type: u16, unit: W}
+  - {key: x.inverter_power_t_phase, label: Inverter Power T-Phase, table: input, address: 181, type: u16, unit: W}
+  - {key: x.ac_rectification_power_s_phase, label: AC Rectification Power S-Phase, table: input, address: 182, type: u16, unit: W}
+  - {key: x.ac_rectification_power_t_phase, label: AC Rectification Power T-Phase, table: input, address: 183, type: u16, unit: W}
+  - {key: x.power_to_grid_s_phase, label: Power to Grid S-Phase, table: input, address: 184, type: u16, unit: W}
+  - {key: x.power_to_grid_t_phase, label: Power to Grid T-Phase, table: input, address: 185, type: u16, unit: W}
+  - {key: x.power_from_grid_s_phase, label: Power from Grid S-Phase, table: input, address: 186, type: u16, unit: W}
+  - {key: x.power_from_grid_t_phase, label: Power from Grid T-Phase, table: input, address: 187, type: u16, unit: W}
+  - {key: x.generator_power_s_phase, label: Generator Power S-Phase, table: input, address: 188, type: u16, unit: W}
+  - {key: x.generator_power_t_phase, label: Generator Power T-Phase, table: input, address: 189, type: u16, unit: W}
+  - {key: x.inverter_current_s_phase, label: Inverter Current S-Phase, table: input, address: 190, type: u16, unit: A, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.inverter_current_t_phase, label: Inverter Current T-Phase, table: input, address: 191, type: u16, unit: A, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_factor_s_phase, label: Power Factor S-Phase, table: input, address: 192, type: u16, unit: '%', scale: 0.001}
+  - {key: x.grid_voltage_l1n, label: Grid Voltage L1N, table: input, address: 193, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.grid_voltage_l2n, label: Grid Voltage L2N, table: input, address: 194, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_voltage_l1n, label: Generator Voltage L1N, table: input, address: 195, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.generator_voltage_l2n, label: Generator Voltage L2N, table: input, address: 196, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.inverter_power_l1n, label: Inverter Power L1N, table: input, address: 197, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.inverter_power_l2n, label: Inverter Power L2N, table: input, address: 198, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_rectification_power_l1n, label: AC Rectification Power L1N, table: input, address: 199, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.ac_rectification_power_l2n, label: AC Rectification Power L2N, table: input, address: 200, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_to_grid_l1n, label: Power to Grid L1N, table: input, address: 201, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_to_grid_l2n, label: Power to Grid L2N, table: input, address: 202, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_from_grid_l1n, label: Power from Grid L1N, table: input, address: 203, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_from_grid_l2n, label: Power from Grid L2N, table: input, address: 204, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.power_factor_t_phase, label: Power Factor T-Phase, table: input, address: 205, type: u16, unit: '%', scale: 0.001}
+  - {key: x.ac_couple_power_s_phase, label: AC Couple Power S-Phase, table: input, address: 206, type: u16, unit: W}
+  - {key: x.ac_couple_power_t_phase, label: AC Couple Power T-Phase, table: input, address: 207, type: u16, unit: W}
+  - {key: x.on_grid_load_power_s_phase, label: On-Grid Load Power S-Phase, table: input, address: 208, type: u16, unit: W}
+  - {key: x.on_grid_load_power_t_phase, label: On-Grid Load Power T-Phase, table: input, address: 209, type: u16, unit: W}
+  - {key: x.remaining_one_click_charge_time, label: Remaining One-Click Charge Time, table: input, address: 210, type: u16, unit: min, conflicts: [{sources: [pylxpweb], unit: s, label: Quick charge remaining time in seconds}]}
+  - {key: x.internal_temperature_2, label: Internal Temperature 2, table: input, address: 214, type: u16, unit: °C}
+  - {key: x.radiator_temperature_3, label: Radiator Temperature 3, table: input, address: 215, type: u16, unit: °C}
+  - {key: x.radiator_temperature_4, label: Radiator Temperature 4, table: input, address: 216, type: u16, unit: °C}
+  - {key: x.pv4_voltage, label: PV4 Voltage, table: input, address: 217, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv5_voltage, label: PV5 Voltage, table: input, address: 218, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv6_voltage, label: PV6 Voltage, table: input, address: 219, type: u16, unit: V, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv4_power, label: PV4 Power, table: input, address: 220, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv5_power, label: PV5 Power, table: input, address: 221, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv6_power, label: PV6 Power, table: input, address: 222, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv4_energy_today, label: PV4 Energy Today, table: input, address: 223, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv4_energy_total, label: PV4 Energy Total, table: input, address: 224, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv5_energy_today, label: PV5 Energy Today, table: input, address: 226, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv5_energy_total, label: PV5 Energy Total, table: input, address: 227, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv6_energy_today, label: PV6 Energy Today, table: input, address: 229, type: u16, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.pv6_energy_total, label: PV6 Energy Total, table: input, address: 230, type: u32, unit: kWh, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.smart_load_power, label: Smart Load Power, table: input, address: 232, type: u16, unit: W, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_status_header, label: Battery 1 status header, table: input, address: 5002, type: u16, sources: [pylxpweb]}
+  - {key: x.battery1_capacity, label: Battery 1 Capacity, table: input, address: 5003, type: u16, unit: Ah, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_charge_voltage_ref, label: Battery 1 BMS recommended charge voltage reference, table: input, address: 5004, type: u16, unit: V, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.battery1_max_charge_current, label: Battery 1 Max Charge Current, table: input, address: 5005, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_max_discharge_current, label: Battery 1 Max Discharge Current, table: input, address: 5006, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_discharge_voltage_cutoff, label: Battery 1 BMS discharge cutoff voltage, table: input, address: 5007, type: u16, unit: V, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.battery1_voltage, label: Battery 1 Voltage, table: input, address: 5008, type: u16, unit: V, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_current, label: Battery 1 Current, table: input, address: 5009, type: s16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_soc, label: Battery 1 SOC, table: input, address: 5010, type: u16, unit: '%', bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_soh, label: Battery 1 SOH, table: input, address: 5010, type: u16, unit: '%', bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_cycle_count, label: Battery 1 Cycle Count, table: input, address: 5011, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_max_cell_temperature, label: Battery 1 Max Cell Temperature, table: input, address: 5012, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: Battery 1 maximum cell temperature across all cells in this module}]}
+  - {key: x.battery1_min_cell_temperature, label: Battery 1 Min Cell Temperature, table: input, address: 5013, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: Battery 1 minimum cell temperature across all cells in this module}]}
+  - {key: x.battery1_max_cell_voltage, label: Battery 1 Max Cell Voltage, table: input, address: 5014, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_min_cell_voltage, label: Battery 1 Min Cell Voltage, table: input, address: 5015, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_cell_with_max_temp, label: Battery 1 Cell with Max Temp, table: input, address: 5016, type: u16, bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_cell_with_min_temp, label: Battery 1 Cell with Min Temp, table: input, address: 5016, type: u16, bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_cell_with_max_voltage, label: Battery 1 Cell with Max Voltage, table: input, address: 5017, type: u16, bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_cell_with_min_voltage, label: Battery 1 Cell with Min Voltage, table: input, address: 5017, type: u16, bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery1_firmware_version, label: Battery 1 Firmware Version, table: input, address: 5018, type: u16}
+  - {key: x.battery1_firmware_version_minor, label: Battery 1 firmware version (minor), table: input, address: 5018, type: u16, bits: [0, 7], sources: [pylxpweb]}
+  - {key: x.battery1_firmware_version_major, label: Battery 1 firmware version (major), table: input, address: 5018, type: u16, bits: [8, 15], sources: [pylxpweb]}
+  - {key: x.battery2_status_header, label: Battery 2 status header, table: input, address: 5032, type: u16, sources: [pylxpweb]}
+  - {key: x.battery2_capacity, label: Battery 2 Capacity, table: input, address: 5033, type: u16, unit: Ah, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_charge_voltage_ref, label: Battery 2 BMS recommended charge voltage reference, table: input, address: 5034, type: u16, unit: V, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.battery2_max_charge_current, label: Battery 2 Max Charge Current, table: input, address: 5035, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_max_discharge_current, label: Battery 2 Max Discharge Current, table: input, address: 5036, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_discharge_voltage_cutoff, label: Battery 2 BMS discharge cutoff voltage, table: input, address: 5037, type: u16, unit: V, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.battery2_voltage, label: Battery 2 Voltage, table: input, address: 5038, type: u16, unit: V, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_current, label: Battery 2 Current, table: input, address: 5039, type: s16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_soc, label: Battery 2 SOC, table: input, address: 5040, type: u16, unit: '%', bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_soh, label: Battery 2 SOH, table: input, address: 5040, type: u16, unit: '%', bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_cycle_count, label: Battery 2 Cycle Count, table: input, address: 5041, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_max_cell_temperature, label: Battery 2 Max Cell Temperature, table: input, address: 5042, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: Battery 2 maximum cell temperature across all cells in this module}]}
+  - {key: x.battery2_min_cell_temperature, label: Battery 2 Min Cell Temperature, table: input, address: 5043, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: Battery 2 minimum cell temperature across all cells in this module}]}
+  - {key: x.battery2_max_cell_voltage, label: Battery 2 Max Cell Voltage, table: input, address: 5044, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_min_cell_voltage, label: Battery 2 Min Cell Voltage, table: input, address: 5045, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_cell_with_max_temp, label: Battery 2 Cell with Max Temp, table: input, address: 5046, type: u16, bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_cell_with_min_temp, label: Battery 2 Cell with Min Temp, table: input, address: 5046, type: u16, bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_cell_with_max_voltage, label: Battery 2 Cell with Max Voltage, table: input, address: 5047, type: u16, bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_cell_with_min_voltage, label: Battery 2 Cell with Min Voltage, table: input, address: 5047, type: u16, bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery2_firmware_version, label: Battery 2 Firmware Version, table: input, address: 5048, type: u16}
+  - {key: x.battery2_firmware_version_minor, label: Battery 2 firmware version (minor), table: input, address: 5048, type: u16, bits: [0, 7], sources: [pylxpweb]}
+  - {key: x.battery2_firmware_version_major, label: Battery 2 firmware version (major), table: input, address: 5048, type: u16, bits: [8, 15], sources: [pylxpweb]}
+  - {key: x.battery3_status_header, label: Battery 3 status header, table: input, address: 5062, type: u16, sources: [pylxpweb]}
+  - {key: x.battery3_capacity, label: Battery 3 Capacity, table: input, address: 5063, type: u16, unit: Ah, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_charge_voltage_ref, label: Battery 3 BMS recommended charge voltage reference, table: input, address: 5064, type: u16, unit: V, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.battery3_max_charge_current, label: Battery 3 Max Charge Current, table: input, address: 5065, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_max_discharge_current, label: Battery 3 Max Discharge Current, table: input, address: 5066, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_discharge_voltage_cutoff, label: Battery 3 BMS discharge cutoff voltage, table: input, address: 5067, type: u16, unit: V, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.battery3_voltage, label: Battery 3 Voltage, table: input, address: 5068, type: u16, unit: V, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_current, label: Battery 3 Current, table: input, address: 5069, type: s16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_soc, label: Battery 3 SOC, table: input, address: 5070, type: u16, unit: '%', bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_soh, label: Battery 3 SOH, table: input, address: 5070, type: u16, unit: '%', bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_cycle_count, label: Battery 3 Cycle Count, table: input, address: 5071, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_max_cell_temperature, label: Battery 3 Max Cell Temperature, table: input, address: 5072, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: Battery 3 maximum cell temperature across all cells in this module}]}
+  - {key: x.battery3_min_cell_temperature, label: Battery 3 Min Cell Temperature, table: input, address: 5073, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: Battery 3 minimum cell temperature across all cells in this module}]}
+  - {key: x.battery3_max_cell_voltage, label: Battery 3 Max Cell Voltage, table: input, address: 5074, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_min_cell_voltage, label: Battery 3 Min Cell Voltage, table: input, address: 5075, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_cell_with_max_temp, label: Battery 3 Cell with Max Temp, table: input, address: 5076, type: u16, bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_cell_with_min_temp, label: Battery 3 Cell with Min Temp, table: input, address: 5076, type: u16, bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_cell_with_max_voltage, label: Battery 3 Cell with Max Voltage, table: input, address: 5077, type: u16, bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_cell_with_min_voltage, label: Battery 3 Cell with Min Voltage, table: input, address: 5077, type: u16, bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery3_firmware_version, label: Battery 3 Firmware Version, table: input, address: 5078, type: u16}
+  - {key: x.battery3_firmware_version_minor, label: Battery 3 firmware version (minor), table: input, address: 5078, type: u16, bits: [0, 7], sources: [pylxpweb]}
+  - {key: x.battery3_firmware_version_major, label: Battery 3 firmware version (major), table: input, address: 5078, type: u16, bits: [8, 15], sources: [pylxpweb]}
+  - {key: x.battery4_status_header, label: Battery 4 status header, table: input, address: 5092, type: u16, sources: [pylxpweb]}
+  - {key: x.battery4_capacity, label: Battery 4 Capacity, table: input, address: 5093, type: u16, unit: Ah, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_charge_voltage_ref, label: Battery 4 BMS recommended charge voltage reference, table: input, address: 5094, type: u16, unit: V, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.battery4_max_charge_current, label: Battery 4 Max Charge Current, table: input, address: 5095, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_max_discharge_current, label: Battery 4 Max Discharge Current, table: input, address: 5096, type: u16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_discharge_voltage_cutoff, label: Battery 4 BMS discharge cutoff voltage, table: input, address: 5097, type: u16, unit: V, scale: 0.1, sources: [pylxpweb]}
+  - {key: x.battery4_voltage, label: Battery 4 Voltage, table: input, address: 5098, type: u16, unit: V, scale: 0.01, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_current, label: Battery 4 Current, table: input, address: 5099, type: s16, unit: A, scale: 0.1, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_soc, label: Battery 4 SOC, table: input, address: 5100, type: u16, unit: '%', bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_soh, label: Battery 4 SOH, table: input, address: 5100, type: u16, unit: '%', bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_cycle_count, label: Battery 4 Cycle Count, table: input, address: 5101, type: u16, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_max_cell_temperature, label: Battery 4 Max Cell Temperature, table: input, address: 5102, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: Battery 4 maximum cell temperature across all cells in this module}]}
+  - {key: x.battery4_min_cell_temperature, label: Battery 4 Min Cell Temperature, table: input, address: 5103, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [pylxpweb], type: s16, label: Battery 4 minimum cell temperature across all cells in this module}]}
+  - {key: x.battery4_max_cell_voltage, label: Battery 4 Max Cell Voltage, table: input, address: 5104, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_min_cell_voltage, label: Battery 4 Min Cell Voltage, table: input, address: 5105, type: u16, unit: V, scale: 0.001, sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_cell_with_max_temp, label: Battery 4 Cell with Max Temp, table: input, address: 5106, type: u16, bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_cell_with_min_temp, label: Battery 4 Cell with Min Temp, table: input, address: 5106, type: u16, bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_cell_with_max_voltage, label: Battery 4 Cell with Max Voltage, table: input, address: 5107, type: u16, bits: [0, 7], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_cell_with_min_voltage, label: Battery 4 Cell with Min Voltage, table: input, address: 5107, type: u16, bits: [8, 15], sources: [luxpower-ha-integration, pylxpweb]}
+  - {key: x.battery4_firmware_version, label: Battery 4 Firmware Version, table: input, address: 5108, type: u16}
+  - {key: x.battery4_firmware_version_minor, label: Battery 4 firmware version (minor), table: input, address: 5108, type: u16, bits: [0, 7], sources: [pylxpweb]}
+  - {key: x.battery4_firmware_version_major, label: Battery 4 firmware version (major), table: input, address: 5108, type: u16, bits: [8, 15], sources: [pylxpweb]}
+
+derived:
+  - {key: grid_power, label: Grid power, unit: W, positive: import, sum: [{key: x.power_from_grid}, {key: x.power_to_grid, factor: -1}], sources: [pylxpweb]}
+  - {key: pv_power, label: PV power, unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}, {key: x.pv3_power}, {key: x.pv4_power}, {key: x.pv5_power}, {key: x.pv6_power}], note: pylxpweb leaves out strings the inverter doesn't report (pv4…pv6 on three-string models)., sources: [pylxpweb]}
+
+enums:
+  operating_state: {'0': Standby, '1': Fault, '2': Programming, '4': PV → Grid, '8': PV → Battery, '12': PV → Battery + Grid, '16': Battery → Grid, '17': Standby, '20': PV + Battery → Grid, '32': AC → Battery, '40': PV + AC → Battery, '64': Off-Grid (Battery), '96': Off-Grid (AC-Coupled Charging), '128': 'Off-Grid (PV, unstable)', '136': Off-Grid (PV + Charging), '192': Off-Grid (PV + Battery)}
+  ac_input_type: {'0': Grid, '1': Generator}
+  parallel_role: {'1': Master, '2': Slave, '3': Parallel On}
+  parallel_phase: {'1': R Phase, '2': S Phase, '3': T Phase}
+  phase_sequence: {'0': Positive, '1': Negative}
+  bms_firmware_update_state: {'0': Idle, '1': In Process, '2': Success, '3': Failed}
+  ac_charge_type: {'0': Disable, '1': According to Time, '2': According to Voltage, '3': According to SOC, '4': According to Voltage and Time, '5': According to SOC and Time}
+  discharge_control_type: {'0': According to Voltage, '1': According to SOC, '2': According to Both}
+  on_grid_eod_type: {'0': According to Voltage, '1': According to SOC}
+  generator_charge_type: {'0': According to Battery Voltage, '1': According to Battery SOC}
+  system_type: {'0': No parallel (single one), '1': Single-phase parallel (primary), '2': Secondary, '3': Three phase parallel (Master), '4': 2*208 (Master) - for split-phase}
+  language: {'0': English, '1': German}
+  pv_input_model: {'0': No PV, '1': PV1 in, '2': PV2 in, '3': PV3 in, '4': PV1 & PV2 in, '5': PV1 & PV3 in, '6': PV2 & PV3 in, '7': PV1 & PV2 & PV3 in}
+  reactive_power_command_type: {'0': Unit power factor, '1': Fixed PF, '2': Default PF curve (Q(P)), '3': Custom PF curve, '4': Capacitive reactive power percentage, '5': Inductive reactive power percentage, '6': Q(V) curve, '7': Q(V) Dynamic}
+  output_priority_config: {'0': Battery First, '1': PV First, '2': AC First}
+  line_mode: {'0': APL (Appliance), '1': UPS (Uninterruptible Power Supply), '2': GEN (Generator)}
+  grid_type: {'0': Split Phase 240V/120V, '1': 3-Phase Star 120V/208V, '2': Single Phase 240V, '3': Single Phase 230V, '4': Split Phase 200V/100V, '5': 3-Phase Delta 230V/230V, '6': 3-Phase Star 240V/415V, '7': 3-Phase Star 230V/400V, '8': 3-Phase Star 220V/380V}
+  working_mode: {'0': Standby, '1': Normal}
+  smart_load_enable: {'0': Generator, '1': Smart Load}
+  lcd_screen_type: {'0': Screen 'B' size, '1': Screen 'S' size}
+  eps_voltage_set: {'208': 208 V, '220': 220 V, '230': 230 V, '240': 240 V, '277': 277 V}
+  eps_frequency_set: {'50': 50 Hz, '60': 60 Hz}
+  off_grid_composed_phase: {'1': R Phase, '2': S Phase, '3': T Phase}
+  lsp_battery_volt_or_soc: {'0': voltage, '1': SOC}
+  pv_ct_direction: {'0': Normal, '1': Reversed}
+  battery_charge_control: {'0': SOC, '1': Voltage}
+  battery_discharge_control: {'0': SOC, '1': Voltage}
+  rsd_disable: {'0': RSD enabled, '1': RSD disabled}
+
+flags:
+  fault_codes: {'0': Internal communication failure 1, '1': Model fault, '8': Parallel CAN communication failure, '9': The host is missing, '10': Inconsistent rated power, '11': Inconsistent AC or safety settings, '12': UPS short circuit, '13': UPS reverse current, '14': BUS short circuit, '15': Abnormal phase in three-phase system, '16': Relay failure, '17': Internal communication failure 2, '18': Internal communication failure 3, '19': BUS overvoltage, '20': EPS connection fault, '21': PV overvoltage, '22': Overcurrent protection, '23': Neutral fault, '24': PV short circuit, '25': Heatsink temperature out of range, '26': Internal failure, '27': Consistency failure, '28': Inconsistent generator connection, '29': Parallel sync signal loss, '31': Internal communication failure 4}
+  warning_codes: {'0': Battery communication failed, '1': AFCI communication failure, '2': Battery low temperature, '3': Meter communication failed, '4': Battery cannot be charged/discharged, '5': Automated test failed, '6': RSD Active, '7': LCD communication failure, '8': Software version mismatch, '9': Fan is stuck, '10': Grid overload, '11': Number of parallel secondaries exceeds limit, '12': Battery reverse MOS abnormal, '13': Radiator temperature out of range, '14': Multiple primary units set in parallel system, '15': Battery reverse, '16': No grid connection, '17': Grid voltage out of range, '18': Grid frequency out of range, '20': Insulation resistance low, '21': Leakage current too high, '22': DCI exceeded standard, '23': PV short circuit, '25': Battery overvoltage, '26': Battery undervoltage, '27': Battery open circuit, '28': EPS overload, '29': EPS voltage high, '30': Meter reversed, '31': DCV exceeded standard}
+
+notes:
+- Operating states from 0x40 up are off-grid.
+- The integration reaches the inverter through the LuxPower WiFi dongle's own TCP protocol (port 8000), which wraps Modbus
+  requests for these input and holding registers; it does not use Modbus TCP.
+- Requests of up to 125 registers; older firmware only accepts 40.
+- A register the inverter does not implement reads 0xFFFF.
+- 'Battery data: 4 blocks of 30 input registers from 5000, one per battery; the serial number in each block is text and not
+  listed.'
+- 32-bit values are two registers, low word first.
+- Text values (the inverter serial number at input 115-119 or holding 2-6, battery serial numbers) hold two ASCII characters
+  per register, low byte first; they are not listed as points.
+- The battery block repeats every 30 registers from input 5002, one block per battery slot; with more batteries than slots
+  the inverter rotates them through the slots.
+- Besides Modbus TCP / RTU, the WiFi dongle carries the same registers over its own TCP protocol on port 8000.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

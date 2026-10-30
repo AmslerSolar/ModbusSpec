@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: elsner-p03-3-modbus
+manufacturer: Elsner Elektronik
+name: P03/3-Modbus and P03/3-Modbus GPS weather stations
+kind: io
+
+sources:
+- id: fhem
+  title: FHEM (home automation; Modbus modules)
+  url: https://github.com/fhem/fhem-mirror
+  license: GPL-2.0
+  commit: e2587e9591116d5022de3c556c817cf6b23b5f42
+  path: fhem/FHEM/98_ModbusElsnerWS.pm
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+defaults:
+  verified: false
+  sources:
+  - fhem
+
+points:
+  - {key: x.temperature, label: Temperature, table: input, address: 0, type: s16, unit: °C, scale: 0.1}
+  - {key: x.sun_south, label: Sun south, table: input, address: 1, type: u16, unit: lx, scale: 1000, note: Brightness from the south in kilolux.}
+  - {key: x.sun_west, label: Sun west, table: input, address: 2, type: u16, unit: lx, scale: 1000, note: Brightness from the west in kilolux.}
+  - {key: x.sun_east, label: Sun east, table: input, address: 3, type: u16, unit: lx, scale: 1000, note: Brightness from the east in kilolux.}
+  - {key: x.brightness, label: Brightness, table: input, address: 4, type: u16, unit: lx}
+  - {key: x.wind_speed, label: Wind speed, table: input, address: 5, type: u16, unit: m/s, scale: 0.1}
+  - {key: x.rain, label: Rain, table: input, address: 6, type: u16, bits: [0, 7], note: 1 = raining.}
+  - {key: x.gps_valid, label: GPS reception, table: input, address: 6, type: u16, bits: [8, 15], note: '1 = GPS data (date, time, sun position, coordinates) are valid; FHEM only shows them then.'}
+  - {key: x.gps_time, label: GPS date and time (UTC), table: input, address: 7, type: datetime, length: 6, datetime: {day: {register: 0}, month: {register: 1}, year: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}}
+  - {key: x.sun_azimuth, label: Sun azimuth, table: input, address: 13, type: u16, unit: °, scale: 0.1}
+  - {key: x.sun_elevation, label: Sun elevation, table: input, address: 14, type: s16, unit: °, scale: 0.1}
+  - {key: x.latitude, label: Latitude, table: input, address: 15, type: s16, unit: °, scale: 0.01}
+  - {key: x.longitude, label: Longitude, table: input, address: 16, type: s16, unit: °, scale: 0.01}
+
+notes:
+- FHEM reads all values as one block of 17 input registers from address 0, once a second.
+- Serial settings 19200 baud 8E1 and unit 1 are the factory defaults FHEM's documentation uses.
+- The date, time, sun position and coordinates come from the GPS model only and are valid when the GPS flag (high byte of
+  input register 6) is 1.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

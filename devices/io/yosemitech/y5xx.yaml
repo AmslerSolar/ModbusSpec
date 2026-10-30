@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Yosemitech Y504 DO (v6.2), Y510 Turbidity (1.7), Y511 Turbidity Wiper (v1.7), Y514 Chlorophyll
+# Wiper (v1.6) and Y520 Conductivity (v1.8) Modbus instructions.
+
+modbusspec: 0
+id: yosemitech-y5xx
+manufacturer: Yosemitech
+name: Y500 series water quality sensors (Y504, Y510, Y511, Y514, Y520)
+kind: io
+
+sources:
+- title: Yosemitech Y504 Optical Dissolved Oxygen Sensor Modbus RTU Programmer Manual (Y504-DO-v6.2 ModbusInstructions)
+  version: '6.2'
+  url: https://github.com/EnviroDIY/YosemitechModbus/blob/0d300ac8fad83a24e979ee278fd00111ca6c8943/doc/Y504-DO-v6.2_ModbusInstructions.pdf
+  sha256: df3e45c45dbbc6a4a363a3c6c1547d20158f7db705d7e98229fa63f0e0a8e56d
+- title: Yosemitech Y510 Optical Turbidity Sensor Modbus RTU Programmer Manual (Y510-Turbidity 1.7-ModbusInstruction-en)
+  version: '1.7'
+  url: https://github.com/EnviroDIY/YosemitechModbus/blob/0d300ac8fad83a24e979ee278fd00111ca6c8943/doc/Y510-Turbidity_1.7-ModbusInstruction-en.pdf
+  sha256: 8874238ee0c83a5d776386530ef8a53a8f38279512b4c76b824ffe4602573ab3
+- title: Yosemitech Y511 Optical Turbidity Sensor with Wiper Modbus RTU Programmer Manual (Y511-Turbidity Wiper-v1.7 ModbusInstructions)
+  version: '1.7'
+  url: https://github.com/EnviroDIY/YosemitechModbus/blob/0d300ac8fad83a24e979ee278fd00111ca6c8943/doc/Y511-Turbidity+Wiper-v1.7_ModbusInstructions.pdf
+  sha256: 27a7c15f548fdbcd3f7099379c2fa177f396b2fa92b2be2ef4bebe201df7092f
+- title: Yosemitech Y514 Optical Chlorophyll Sensor with Wiper Modbus RTU Programmer Manual (Y514-Chlorophyl Wiper-v1.6 ModbusInstructions)
+  version: '1.6'
+  url: https://github.com/EnviroDIY/YosemitechModbus/blob/0d300ac8fad83a24e979ee278fd00111ca6c8943/doc/Y514-Chlorophyl+Wiper-v1.6_ModbusInstructions.pdf
+  sha256: f1d5b45740bf00a905a6164a90baa9cd5bd2cbf661c704a410fb6ca676ede1e4
+- title: Yosemitech Y520 Conductivity Sensor Modbus RTU Programmer Manual (Y520-Conductivity-v1.8 ModbusInstructions)
+  version: '1.8'
+  url: https://github.com/EnviroDIY/YosemitechModbus/blob/0d300ac8fad83a24e979ee278fd00111ca6c8943/doc/Y520-Conductivity-v1.8_ModbusInstructions.pdf
+  sha256: 2a263481a9b807ebb761855cba539432cb8de988230663f47a982eae778abb31
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+  write_multiple: true
+
+encoding:
+  byte_order: little
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 2304
+    type: str
+    length: 7
+    byte_order: big
+
+model_choice: user
+
+models:
+  - {id: y504, name: Y504 optical dissolved oxygen sensor}
+  - {id: y510, name: Y510 optical turbidity sensor}
+  - {id: y511, name: Y511 optical turbidity sensor with wiper}
+  - {id: y514, name: Y514 optical chlorophyll sensor with wiper}
+  - {id: y520, name: Y520 conductivity sensor}
+
+points:
+  # Measurements (0x2600)
+  - {key: x.water_temperature, label: Temperature, table: holding, address: 9728, type: f32, unit: °C}
+  - {key: x.dissolved_oxygen, label: DO value, table: holding, address: 9730, type: f32, unit: '%', models: [y504], note: 'Dissolved oxygen saturation in %, user calibration (K, B) applied. The document leaves the conversion to mg/L (needs temperature, salinity and air pressure) to the reader.'}
+  - {key: x.turbidity, label: Turbidity value, table: holding, address: 9730, type: f32, unit: NTU, models: [y510, y511], note: 'User calibration (K, B) applied.'}
+  - {key: x.chlorophyll, label: Chlorophyll value, table: holding, address: 9730, type: f32, unit: mg/L, models: [y514], note: 'User calibration (K, B) applied. The document gives the unit as mg/L.'}
+  - {key: x.conductivity, label: Conductivity value, table: holding, address: 9730, type: f32, unit: mS/cm, models: [y520], note: 'User calibration (K, B) applied. The document gives TDS (mg/L) = conductivity in µS/cm × 0.64.'}
+  - {key: x.error_flag, label: Error flag, table: holding, address: 9732, type: u16, bits: [0, 7], models: [y511, y514, y520], note: 'First byte of the register (the second byte is reserved). 0 = correct, 0xFF = error: on the Y511 and Y514 the wiper (brush) is in the wrong position and the probe stopped measuring; on the Y520 range switching failed.'}
+  # Calibration and settings
+  - {key: x.calibration_k, label: User calibration coefficient K, table: holding, address: 4352, type: f32, writable: true, poll: slow, note: Final value = K × value + B; default K = 1.}
+  - {key: x.calibration_b, label: User calibration coefficient B, table: holding, address: 4354, type: f32, writable: true, poll: slow, note: Default B = 0.}
+  - {key: x.brush_interval, label: Brush interval of time, table: holding, address: 12800, type: u16, unit: min, writable: true, poll: slow, models: [y511, y514], note: Time between wiper rotations; default 30 min.}
+  - {key: x.modbus_address, label: Slave address, table: holding, address: 12288, type: u16, bits: [0, 7], writable: true, min: 1, max: 247, poll: slow, note: 'First byte of the register, the second is reserved. The documents read it with unit id 0xFF.'}
+  # Identity
+  - {key: serial, label: SN, table: holding, address: 2304, type: str, length: 7, byte_order: big, poll: slow, note: '14 bytes: one reserved byte, 12 ASCII characters (e.g. YL0114010022), one reserved byte.'}
+  - {key: x.hardware_version, label: HW Rev, table: holding, address: 1792, type: u16, byte_order: big, poll: slow, note: 'High byte major, low byte minor: 0x0200 = 2.0.'}
+  - {key: firmware, label: SW Rev, table: holding, address: 1793, type: u16, byte_order: big, poll: slow, note: 'High byte major, low byte minor: 0x0507 = 5.7.'}
+
+problems:
+  - {when: {key: x.error_flag, not: 0}, kind: fault, text: 'Sensor error (flag 0x{value:X}): wiper in wrong position (Y511, Y514) or range switching error (Y520)'}
+
+notes:
+- 'The five sensors share one register layout; only the measured value at 0x2602 and a few extras differ. They can''t be told
+  apart over Modbus: the user picks the model.'
+- Addresses are the start addresses in the documents' request frames (0-based protocol addresses, as written). The documents'
+  remark that addresses start at 1 is general Modbus text and doesn't apply to them.
+- Reads only with function 03.
+- 'Floats are IEEE 754 single precision stored fully little-endian: 17.625 (0x418D0000) comes as bytes 00 00 8D 41, i.e. low
+  word first, low byte first. The single-byte values (slave address, error flag) are in the first byte, so they read as little-endian
+  too; serial and revision bytes are in transmission order.'
+- 'Serial: the Y504, Y510, Y514 and Y520 documents state 9600 baud, 8 data bits, no parity, 1 stop bit; the Y511 document
+  states 2 stop bits.'
+- 'Not stated in the documents: a default unit id; 1 (the address used in the examples) is assumed.'
+- 'Commands left out (no value to read): start measurement (read one register at 0x2500; Y520: write zero registers at 0x1C00),
+  stop measurement (read one register at 0x2E00), wipe now (Y511/Y514: write zero registers at 0x3100). The probes measure
+  automatically after power-on.'
+- 'Left out: the Y504 sensor cap coefficients K0–K7 (8 floats from 0x2700, written when the cap is replaced).'
+- The documents recommend averaging 10 readings, read 1 s (Y504), 2 s (Y510) or 3 s (Y520) apart, after a warm-up of at least
+  4 s (Y504), 2 s (Y510) or 10 s (Y520).

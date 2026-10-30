@@ -1,0 +1,114 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Ventila XCONT-CENTRAL-Modbus communication user guide (D-502-0272, version 2 – CZE, 25.8.2024).
+
+modbusspec: 0
+id: ventila-xcont
+manufacturer: Ventila
+name: Xflat (XF) / Xhouse (XH) central ventilation units (XCONT-CP controller)
+kind: ventilation
+
+sources:
+- title: XCONT-CENTRAL-Modbus – komunikace, uživatelský návod (D-502-0272)
+  version: 2 – CZE (25.8.2024)
+  url: https://www.ventila.cz/user/related_files/xflat200_modbus_manua__l-4.pdf
+  sha256: 2571cf07b21acb7d5b7f984f924b9bb11b175a9663a5f0bdfe40f38eb0eab4c8
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+  limits:
+    max_registers: 13
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Input registers (function 04)
+  - {key: firmware, label: FW version, table: input, address: 30000, type: u16, poll: slow}
+  - {key: state, label: act_state 1 – user interface state, table: input, address: 30001, type: u16, bits: [0, 3], enum: ui_state}
+  - {key: x.fan_state, label: act_state 1 – fan state, table: input, address: 30001, type: u16, bits: [8, 11], enum: fan_state}
+  - {key: x.preheat_state, label: act_state 2 – preheater state, table: input, address: 30002, type: u16, bits: [0, 3], enum: preheat_state}
+  - {key: x.fan_imbalance_step, label: act_state 2 – fan imbalance step, table: input, address: 30002, type: u16, bits: [12, 15], unit: V, scale: 0.5, note: Voltage difference between fan 1 and fan 2 in steps of 0.5 V.}
+  - {key: x.postheat_state, label: act_state 3 – post-heater state, table: input, address: 30003, type: u16, bits: [0, 2], enum: postheat_state}
+  - {key: x.filter_state, label: act_state 3 – filter state, table: input, address: 30003, type: u16, bits: [6, 6], verified: false, note: The meaning of 0 and 1 is not stated.}
+  - {key: x.aqs_state, label: AQS_state – air quality sensor status, table: input, address: 30004, type: u16, bits: [0, 5], flags: aqs_bits}
+  - {key: x.aqs_fan_voltage, label: AQS_state – fan voltage requested by AQS, table: input, address: 30004, type: u16, bits: [6, 15], unit: V, scale: 0.01}
+  - {key: x.aqs_fan_flow, label: AQS_state.fan_flow, table: input, address: 30005, type: u16, unit: m³/h, scale: 0.1}
+  - {key: x.fan_flow_setpoint, label: set_FAN_FLOW, table: input, address: 30006, type: u16, unit: m³/h, scale: 0.1, note: Requested fan flow from the user setting and AQS.}
+  - {key: x.fan_voltage_setpoint, label: set_FAN_SPEED, table: input, address: 30011, type: u16, unit: V, scale: 0.01, note: Requested fan voltage from the user setting and AQS.}
+  - {key: x.room_temperature_setpoint, label: set_T_ROOM, table: input, address: 30012, type: s16, unit: °C, scale: 0.1}
+  - {key: x.co2, label: act_CO2, table: input, address: 30013, type: u16, unit: ppm, optional: true}
+  - {key: x.humidity, label: act_RH, table: input, address: 30014, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.flow, label: act_Flow, table: input, address: 30015, type: u16, unit: m³/h, scale: 0.1}
+  - {key: x.room_temperature, label: act_T_ROOM – value, table: input, address: 30016, type: u16, bits: [0, 13], signed: true, unit: °C, scale: 0.1, verified: false, note: Listed as int16 in bits 0–13; read as a signed 14-bit value (assumed).}
+  - {key: x.room_sensor_status, label: act_T_ROOM – sensor status, table: input, address: 30016, type: u16, bits: [14, 15], enum: sensor_status}
+  - {key: x.frost_temperature, label: act_T_EXHAUST – value (frost protection sensor), table: input, address: 30017, type: u16, bits: [0, 13], signed: true, unit: °C, scale: 0.1, verified: false, note: Listed as int16 in bits 0–13; read as a signed 14-bit value (assumed).}
+  - {key: x.frost_sensor_status, label: act_T_EXHAUST – sensor status, table: input, address: 30017, type: u16, bits: [14, 15], enum: sensor_status}
+  - {key: x.fan1_voltage, label: FAN1.act_AO, table: input, address: 30018, type: u16, unit: V, scale: 0.01}
+  - {key: x.fan1_feedback, label: FAN1.act_tacho, table: input, address: 30019, type: u16, bits: [0, 1], flags: tacho_bits}
+  - {key: x.fan2_voltage, label: FAN2.act_AO, table: input, address: 30020, type: u16, unit: V, scale: 0.01}
+  - {key: x.fan2_feedback, label: FAN2.act_tacho, table: input, address: 30021, type: u16, bits: [0, 1], flags: tacho_bits}
+  - {key: x.filter_elapsed_time, label: act_FILTER_ELAPSED_TIME, table: input, address: 30028, type: u16, unit: h, poll: slow}
+  - {key: x.relays, label: rele, table: input, address: 30033, type: u16, flags: relay_bits}
+  # Holding registers UCFG (function 03, written with function 16)
+  - {key: x.front_panel, label: front panel, table: holding, address: 40000, type: u16, bits: [0, 5], flags: front_panel_bits, writable: true, note: 'Bit 0 switches the unit on / off, bit 1 auto (AQS) / manual, bit 2 summer mode, bit 4 boost, bit 5 key lock. Bit 3 (summer mode auto off) is read-only: write it back unchanged.'}
+  - {key: x.fan_level, label: front panel – fan level, table: holding, address: 40000, type: u16, bits: [6, 9], writable: true, min: 0, max: 7, note: 'Each level is a fan voltage that depends on the model (e.g. level 7 = 7 V on XF1-015, 10 V on XH2-030). Don''t write 8 (boost); use bit 4.'}
+  - {key: x.temperature_level, label: front panel – temperature level, table: holding, address: 40000, type: u16, bits: [10, 15], writable: true, note: Units of type E only.}
+  - {key: x.co2_threshold, label: set_CO2, table: holding, address: 40001, type: u16, unit: ppm, writable: true, min: 600, max: 1000, poll: slow, note: 'Default 800: the CO2 level at which the fans start.'}
+  - {key: x.humidity_threshold, label: set_RH, table: holding, address: 40002, type: u16, unit: '%', scale: 0.1, writable: true, min: 50, max: 75, poll: slow, note: Default 65.0 %.}
+  # Holding registers DCFG
+  - {key: x.config_bits, label: bits – settings, table: holding, address: 40016, type: u16, bits: [3, 4], flags: config_bits, writable: true, poll: slow, note: Bits 0–2 are unused; write 0.}
+  - {key: x.baud_rate, label: bits – Modbus baud rate, table: holding, address: 40016, type: u16, bits: [5, 6], enum: baud_rate, writable: true, poll: slow, note: Takes effect immediately.}
+  - {key: x.parity, label: bits – Modbus parity, table: holding, address: 40016, type: u16, bits: [7, 7], enum: parity, writable: true, poll: slow, note: Takes effect immediately.}
+  - {key: x.modbus_address, label: bits – Modbus address, table: holding, address: 40016, type: u16, bits: [8, 15], writable: true, min: 1, max: 247, poll: slow, note: Default 1; takes effect immediately.}
+  - {key: x.room_temperature_correction, label: corr_T_ROOM, table: holding, address: 40017, type: s16, unit: °C, scale: 0.1, writable: true, min: -10, max: 10, poll: slow}
+  - {key: x.summer_mode_duration, label: set_SUMMER_MODE_DURATION, table: holding, address: 40018, type: u16, unit: s, writable: true, min: 3600, max: 32400, poll: slow, note: Default 28800.}
+  - {key: x.boost_fan_voltage, label: set_BOOST_MODE_FAN_SPEED, table: holding, address: 40019, type: u16, unit: V, scale: 0.01, writable: true, poll: slow, note: 'Range and default depend on the model (e.g. XF1-015 5.00 … 8.00 V, XH2-030 7.00 … 10.00 V).'}
+  - {key: x.boost_fan_flow, label: set_BOOST_MODE_FAN_FLOW, table: holding, address: 40020, type: u16, unit: m³/h, scale: 0.1, writable: true, poll: slow, note: The range is not filled in in the document.}
+  - {key: x.boost_duration, label: set_BOOST_MODE_DURATION, table: holding, address: 40021, type: u16, unit: s, writable: true, min: 30, max: 3600, poll: slow, note: Default 60.}
+  - {key: x.fan_offset, label: set_FAN_OFFSET_STATIC, table: holding, address: 40022, type: u16, unit: '%', writable: true, min: 0, max: 35, poll: slow, note: 'Fan balancing, default 0.'}
+  - {key: x.filter_lifetime, label: set_FILTER_LIFETIME, table: holding, address: 40023, type: u16, unit: h, writable: true, min: 2200, max: 8800, poll: slow, note: Default 4400.}
+
+enums:
+  ui_state: {'0': 'Off', '1': 'Off, cooling down heaters', '2': Fan 1 error, '3': Fan 2 error, '4': Room sensor error, '5': Frost protection sensor error, '6': Key lock active, '7': Key lock being released, '8': Showing settings, '9': Setting fan level, '10': Setting temperature level, '11': Running, '12': Service menu, '13': User menu}
+  fan_state: {'0': 'Off', '1': 'Off, fans cooling down heaters', '2': Fan 1 error, '3': Fan 2 error, '4': Active, '5': 'Active, antifreeze', '6': Inactive, '7': 'Inactive, antifreeze', '8': Summer mode, '9': Boost mode}
+  preheat_state: {'0': 'Off', '1': 'Off, preheater cooling down', '2': Room sensor error, '3': Frost protection sensor error, '4': Frost protection stage 1 (preheater on), '5': Frost protection stage 2 (fans unbalanced), '6': Frost protection stage 3 (fan 1 off), '7': Frost protection stage 4 (both fans off), '8': 'Frost protection inactive, fans on', '9': 'Frost protection inactive, fans off', '10': Preheater cooling down, '11': 'Preheater cooling down, going to stage 3', '12': Cooling down between stage 1 and inactive}
+  postheat_state: {'0': 'Off', '1': 'Off, post-heater cooling down', '2': Room sensor error, '3': Frost protection sensor error, '4': Active, '5': Inactive, '6': Cooling down}
+  sensor_status: {'0': OK, '1': Disconnected, '2': Short circuit}
+  baud_rate: {'1': '4800', '2': '9600', '3': '19200'}
+  parity: {'0': Even, '1': None}
+
+flags:
+  aqs_bits: {'0': CO2 sensor error, '1': RH sensor error, '2': AQS requests ventilation, '3': CO2 above threshold, '4': RH above threshold}
+  tacho_bits: {'0': Tacho input OK, '1': Motor started}
+  relay_bits: {'0': Preheater relay on, '1': Post-heater relay on}
+  front_panel_bits: {'0': Power on, '1': Auto (AQS) mode, '2': Summer mode active, '3': Summer mode auto off, '4': Boost active, '5': Key lock active}
+  config_bits: {'3': Switch off after an unexpected reset, '4': Fans always at minimum speed}
+
+problems:
+  - {when: {key: state, in: [2, 3]}, kind: fault, text: '{text} (user interface state {value})'}
+  - {when: {key: x.aqs_state, bit: 0}, kind: warning, text: CO2 sensor error (AQS bit 0)}
+  - {when: {key: x.aqs_state, bit: 1}, kind: warning, text: RH sensor error (AQS bit 1)}
+  - {when: {key: x.room_sensor_status, in: [1, 2]}, kind: fault, text: 'Room temperature sensor {text}'}
+  - {when: {key: x.frost_sensor_status, in: [1, 2]}, kind: fault, text: 'Frost protection sensor {text}'}
+
+notes:
+- Addresses are the document's register addresses (input registers from 0x7530, holding registers from 0x9C40), sent as they
+  are in the request frames (the read example for set_CO2 uses 0x9C41). Two examples in the document (act_CO2 at 0x7537, filter
+  lifetime at 0x9C55) disagree with the register table; the table is followed here.
+- For units with firmware 100 or newer. Registers a unit doesn't have answer with exception 2.
+- RTU, default 19200 baud, 8 data bits, even parity, 1 stop bit, address 1; 4800 / 9600 baud and no parity can be set. At
+  most 13 registers per read and 11 per write (function 16); leave at least 4 ms between frames.
+- 'Not taken: PID regulator internals (0x7537–0x753A) and the internal timers (0x7546–0x7550).'
+- The PDF's author field names Protronix s.r.o., which may have made the XCONT controller for Ventila; the text itself names
+  only Ventila.
+- Models XF1-015, XF1-020 (SET 150 / SET 200), XH1-030 and XH2-030 differ only in fan voltage ranges and are not told apart
+  over Modbus; there is no serial number or model register, so the file has no identify.

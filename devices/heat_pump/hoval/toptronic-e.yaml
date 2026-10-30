@@ -1,0 +1,149 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Hoval Modbus guideline and the TopTronic E gateway (TTE-GW) Modbus data points list (V2-11-12).
+
+modbusspec: 0
+id: hoval-toptronic-e
+manufacturer: Hoval
+name: Heat pumps with WFA (e.g. UltraSource, Belaria pro) via the TopTronic E Modbus gateway
+kind: heat_pump
+
+sources:
+- title: Hoval Modbus guideline (sheet "Heat generator/heat pump information values")
+  version: retrieved 2026-10-21
+  url: https://cdn.hoval.com/modbus-guideline_en_hybris_original.xlsx
+  sha256: 1f70d7e3b24f643a387e6cecf731efa4a6443a8093537021bb3d6f3b9b0c9e09
+- title: TopTronic E gateway (TTE-GW) Modbus data points list
+  version: V2-11-12 (gateway SW ≥ V2.38)
+  url: https://cdn.hoval.com/toptronice-gateway-modbus-datapoints_hybris_original.xlsx
+  sha256: 2dcad281e350fc6811b4b5f034d3baa101b854c977447b1ff2a50fd9d0fcf53c
+  archive_url: https://web.archive.org/web/20260303213217/https://cdn.hoval.com/toptronice-gateway-modbus-datapoints_hybris_original.xlsx
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 16
+    max_gap: 4
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 18722
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 15
+    - 16
+    - 17
+    - 21
+    - 22
+    - 26
+    - 27
+    - 28
+    - 29
+    - 32
+    - 33
+    - 34
+    - 42
+    - 43
+    - 44
+  - table: holding
+    address: 18723
+    type: u16
+    range:
+    - 0
+    - 99
+  - table: holding
+    address: 18726
+    type: u16
+    range:
+    - 0
+    - 100
+
+points:
+  # Heat generator (UnitName WEZ, UnitId 1)
+  - {key: x.outdoor_temperature, label: AF1 outdoor sensor 1, table: holding, address: 1477, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.flow_setpoint, label: Heat generator setpoint, table: holding, address: 18724, type: s16, unit: °C, scale: 0.1, invalid: [-32768], verified: false, note: 'The data point list gives 0 decimals, the guideline /10; /10 used.'}
+  - {key: x.flow_temperature, label: Heat generator actual (flow), table: holding, address: 18725, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.return_temperature, label: Return temperature, table: holding, address: 1535, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.modulation, label: Modulation, table: holding, address: 18726, type: u16, unit: '%'}
+  - {key: x.operating_message, label: Operating message, table: holding, address: 18737, type: u16, enum: off_on}
+  - {key: x.generator_status, label: Status heat generator control, table: holding, address: 18722, type: u16, enum: generator_status}
+  - {key: state, label: FA status (WFA), table: holding, address: 18723, type: u16, enum: wfa_status}
+  - {key: x.operation_choice, label: Heat generator operation choice, table: holding, address: 1561, type: u16, enum: operation_choice, writable: true, poll: slow}
+  - {key: x.operating_hours, label: Operating hours heat generator, table: holding, address: 1516, type: u32, unit: h, poll: slow}
+  - {key: x.switching_cycles, label: Switching cycles heat generator, table: holding, address: 1518, type: u32, poll: slow}
+  - {key: consumer_power, label: Electrical power WEZ, table: holding, address: 25611, type: s16, unit: W, scale: 10, positive: consumption, invalid: [-32768], verified: false, note: kW with 2 decimals (raw × 10 W). Neither document gives a sign; positive = the heat pump's electrical consumption (derived).}
+  - {key: x.heating_power, label: Heating power WEZ, table: holding, address: 25612, type: s16, unit: kW, invalid: [-32768], note: Whole kW (0 decimals in both documents).}
+  - {key: x.current_output_heating, label: Current output heating, table: holding, address: 18731, type: u32, unit: kW, scale: 0.1}
+  - {key: x.cop, label: Coefficient of Performance, table: holding, address: 27490, type: u16, unit: '', scale: 0.1}
+  - {key: x.total_efficiency, label: Total energy efficiency H-Gen, table: holding, address: 27467, type: u16, unit: '', scale: 0.1, poll: slow}
+  - {key: x.volume_flow, label: Volume flow averaged (low register), table: holding, address: 31708, type: s16, unit: l/min, scale: 0.1, invalid: [-32768], verified: false, note: 'An S32 in the data point list; like the guideline only the low register is read, as S16 /10.', optional: true}
+  - {key: consumer_energy, label: Electrical energy WEZ, table: holding, address: 25613, type: u32, unit: kWh, poll: slow, note: 'MWh with 3 decimals = kWh. The guideline calls it S32, the data point list U32.'}
+  - {key: x.heat_heating_energy, label: Heat quantity heating, table: holding, address: 27484, type: u32, unit: kWh, poll: slow, note: MWh with 3 decimals = kWh.}
+  - {key: x.heat_cooling_energy, label: Heat quantity cooling, table: holding, address: 27486, type: u32, unit: kWh, poll: slow, note: MWh with 3 decimals = kWh.}
+  - {key: x.heat_dhw_energy, label: Heat quantity DHW, table: holding, address: 27488, type: u32, unit: kWh, poll: slow, note: MWh with 3 decimals = kWh.}
+  - {key: error_code, label: Error code from controller (WFA), table: holding, address: 1534, type: u16, enum: error_code, note: 255 = no error (0 is treated as none too).}
+
+  # Heating circuit 1 and hot water (same module)
+  - {key: x.hc1_flow_temperature, label: Heating circuit 1 supply actual, table: holding, address: 1513, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.hc1_status, label: Status heating circuit 1, table: holding, address: 1501, type: u16, enum: circuit_status}
+  - {key: x.dhw_setpoint, label: Hot water setpoint, table: holding, address: 1499, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.dhw_temperature_top, label: Hot water actual SF, table: holding, address: 1500, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.dhw_temperature_bottom, label: Hot water actual SF2, table: holding, address: 27483, type: s16, unit: °C, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.dhw_status, label: Status domestic hot water, table: holding, address: 1504, type: u16, enum: dhw_status}
+  - {key: x.buffer_temperature, label: Heat pump buffer sensor WPF (low register), table: holding, address: 27494, type: s16, unit: °C, scale: 0.1, invalid: [-32768], verified: false, note: 'An S32 in the data point list; like the guideline only the low register is read, as S16 /10.', optional: true}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  generator_status: {'0': Switched off, '1': Heating operation, '2': Flow time heating operation, '3': Externally blocked (also Smart Grid eco mode), '4': Cooling operation, '5': Flow time cooling operation, '15': Alarm, '16': Fault, '17': Blocked, '21': WFmax switch-off, '22': WFsetp switch-off, '26': Bivalence deactivation, '27': DHW charging block, '28': Minimum off time, '29': Minimum on time, '32': Supplemental operation, '33': Delay sequence heat generator, '34': Operation overtemperature, '42': Manual mode heating, '43': Manual mode hot water, '44': Manual mode cooling}
+  wfa_status: {'0': Heat pump off, '1': Heating with heat pump, '2': Active cooling, '3': 'Blocked (bivalence, DHW, …)', '4': Hot water with heat pump, '5': Heat pump frost protection, '6': Heat pump temperature too low, '7': Heat pump flow too high, '8': Defrosting, '9': Passive cooling, '11': Heat pump fault (sensor or switch), '12': Low-pressure fault, '16': Re-engage switching delay, '17': Power supply / energy provider block, '18': Flow time primary, '19': Follow-up time primary, '44': MOP, '49': Unsuccessful defrosting, '51': Flow time condenser pump, '55': Inverter fault / Modbus communication, '72': Ground water frost protection, '73': Flow source / ground water circuit, '77': Compressor limitation, '96': Electrical power limit, '97': Preheating compressor oil, '98': Cold start, '99': Machine not configured}
+  operation_choice: {'0': Heat generator off, '1': Automatic, '4': Manual heating, '5': Manual cooling, '8': Manual hot water}
+  circuit_status: {'0': Switched off, '1': Normal heating, '2': Comfort heating, '3': Economy heating, '4': Frost operation, '5': Forced acceptance, '6': Forced throttling, '7': Holiday, '8': Party, '9': Normal cooling, '10': Comfort cooling, '11': Economy cooling, '12': Fault, '13': Manual operation, '14': Protection cooling, '15': Party cooling, '16': 'Drying, heating-up phase', '17': 'Drying, stationary phase', '18': 'Drying, cooling-down phase', '19': 'Drying, end phase', '22': 'Cooling, external / constant request', '23': 'Heating, external / constant request', '24': 'Absent, heating', '25': 'Absent, cooling', '26': Smart Grid preferential heating, '27': Smart Grid preferential cooling}
+  dhw_status: {'0': Switched off, '1': Normal charging, '2': Comfort charging, '3': Forced throttling, '4': Forced charging, '5': Fault, '6': Hot water draw-off, '7': Warning, '8': Reduced charging, '9': Frost operation, '12': Smart Grid preferential, '13': Smart Grid forced acceptance}
+  error_code: {'255': No error, '74': W11, '76': W13, '80': W17, '81': W18, '82': W19, '83': W20, '84': W21, '85': W22, '86': W23, '87': W24, '88': W25, '89': W26, '90': W27, '100': W37, '101': W38, '102': W39, '103': W40, '104': W41, '106': W43, '121': W58, '122': W59, '126': W63, '128': B01, '129': B02, '130': B03, '131': B04, '132': B05, '134': B07, '135': B08, '136': B09, '137': B10, '138': B11, '139': B12, '140': B13, '142': B15, '147': B20, '148': B21, '149': B22, '150': B23, '151': B24, '152': B25, '153': B26, '159': B32, '160': B33, '161': B34, '162': B35, '163': B36, '164': B37, '171': B44, '172': B45, '173': B46, '174': B47, '175': B48, '176': B49, '177': B50, '178': B51, '181': B54, '182': B55, '183': B56, '184': B57, '185': B58, '188': B61, '189': B62, '190': B63, '192': E01, '193': E02, '194': E03, '195': E04, '198': E07, '199': E08, '200': E09, '202': E11, '203': E12, '204': E13, '206': E15, '207': E16, '213': E22, '216': E25, '217': E26, '218': E27, '219': E28, '220': E29, '221': E30, '222': E31, '230': E39, '231': E40, '234': E43, '235': E44, '236': E45, '247': E56, '252': E61, '253': E62}
+
+problems:
+  - {when: {key: state, in: [11, 12, 49, 55, 99]}, kind: fault, text: 'Heat pump fault (WFA status {value})'}
+  - {when: {key: x.generator_status, equals: 15}, kind: fault, text: Heat generator alarm (status 15)}
+  - {when: {key: x.generator_status, equals: 16}, kind: fault, text: Heat generator fault (status 16)}
+  - {when: {key: x.hc1_status, equals: 12}, kind: fault, text: Heating circuit 1 fault (status 12)}
+  - {when: {key: x.dhw_status, equals: 5}, kind: fault, text: Hot water fault (status 5)}
+  - {when: {key: x.dhw_status, equals: 7}, kind: warning, text: Hot water warning (status 7)}
+  - {when: {key: error_code, in: [192, 193, 194, 195, 198, 199, 200, 202, 203, 204, 206, 207, 213, 216, 217, 218, 219, 220, 221, 222, 230, 231, 234, 235, 236, 247, 252, 253]}, kind: fault, text: 'Heat pump error {text} (code {value})'}
+  - {when: {key: error_code, range: [192, 254], not_in: [192, 193, 194, 195, 198, 199, 200, 202, 203, 204, 206, 207, 213, 216, 217, 218, 219, 220, 221, 222, 230, 231, 234, 235, 236, 247, 252, 253]}, kind: fault, text: 'Heat pump error code {value}'}
+  - {when: {key: error_code, in: [74, 76, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 100, 101, 102, 103, 104, 106, 121, 122, 126, 128, 129, 130, 131, 132, 134, 135, 136, 137, 138, 139, 140, 142, 147, 148, 149, 150, 151, 152, 153, 159, 160, 161, 162, 163, 164, 171, 172, 173, 174, 175, 176, 177, 178, 181, 182, 183, 184, 185, 188, 189, 190]}, kind: warning, text: 'Heat pump message {text} (code {value})'}
+  - {when: {key: error_code, range: [64, 191], not_in: [74, 76, 80, 81, 82, 83, 84, 85, 86, 87, 88, 89, 90, 100, 101, 102, 103, 104, 106, 121, 122, 126, 128, 129, 130, 131, 132, 134, 135, 136, 137, 138, 139, 140, 142, 147, 148, 149, 150, 151, 152, 153, 159, 160, 161, 162, 163, 164, 171, 172, 173, 174, 175, 176, 177, 178, 181, 182, 183, 184, 185, 188, 189, 190]}, kind: fault, text: 'Heat pump error code {value}'}
+  - {when: {key: error_code, range: [1, 63]}, kind: fault, text: 'Heat pump error code {value}'}
+  - {when: {key: error_code, range: [256, 65535]}, kind: fault, text: 'Heat pump error code {value}'}
+
+notes:
+- Only for heat pumps with the WFA automatic firing device; heat pumps with the old ECR device (e.g. Thermalia, Belaria twin)
+  use other data points.
+- Registers are those of the first heat generator's basic module (UnitName WEZ, UnitId = CAN address 1); further heat generators
+  and modules have their own ranges and aren't covered. Everything is read with FC 03.
+- Port 502, unit id 1 and that the list addresses are sent unchanged as protocol addresses are stated in neither document
+  (unverified).
+- Decimal in the data point list = decimal places (263 with 1 decimal → 26.3). U8 and LIST values are read as whole 16-bit
+  registers; 32-bit values are split into _high (lower address) and _low registers.
+- 0x8000 (−32768) as "no value" for S16 temperatures and powers is assumed, not documented.
+- 'The gateway relays every request over the CAN bus: read slowly.'
+- The data point list has no product or serial register; the device is recognised only by plausible status and modulation
+  values.
+- 'Error code 1534: the guideline lists W, B and E codes (W = code − 63, B = code − 127, E = code − 191) without texts or
+  severities. The problems here treat E codes as faults, W and B as warnings, and any other code except 0 and 255 as a fault;
+  the generator alarm/fault (18722) only when the WFA status shows no fault. This classification is not stated in the documents.
+  Operation choice 8 (manual hot water) is in neither document.'

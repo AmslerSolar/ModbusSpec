@@ -1,0 +1,120 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Frabil Manual FKP-M MODBUS (Rev 2.0, 2014).
+
+modbusspec: 0
+id: frabil-fkp-m
+manufacturer: Frabil
+name: FKP-M fan frequency converter with pressure regulator (Modbus RTU)
+kind: other
+
+sources:
+- title: Manual FKP-M MODBUS (Manual för användning av MODBUS-protokoll)
+  version: Rev 2.0 (2014)
+  url: http://frabil.se/wp-content/uploads/2015/09/Manual_FKP-M_MODBUS_r2.0.pdf
+  sha256: 4753680bb8e261ceadde7d106614aea97e8d962d321fbc44181dc99898c97ba8
+  archive_url: https://web.archive.org/web/20160422155728/http://frabil.se/wp-content/uploads/2015/09/Manual_FKP-M_MODBUS_r2.0.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # I/O signals (function 1 and 2)
+  - {key: x.digital_in_1, label: 'Digital in 1 (Fram, forward; terminal 4)', table: discrete, address: 0, type: bool}
+  - {key: x.digital_in_2, label: Digital in 2 (Back / fast frekvens; terminal 6), table: discrete, address: 1, type: bool}
+  - {key: x.digital_in_3, label: Digital in 3 (terminal 13), table: discrete, address: 2, type: bool}
+  - {key: x.alarm_relay, label: 'Larmrelä dragit (alarm relay, terminals 21-24)', table: discrete, address: 3, type: bool, enum: alarm_relay}
+
+  # Measurements (function 3 and 4)
+  - {key: x.input_1_voltage, label: 0-10V IN 1 (terminal 2), table: holding, address: 50, type: u16, unit: V, scale: 0.1}
+  - {key: x.input_2_voltage, label: 0-10V IN 2 (terminal 7), table: holding, address: 51, type: u16, unit: V, scale: 0.1}
+  - {key: x.outdoor_temperature, label: Yttertemperatur (outdoor temperature), table: holding, address: 52, type: s16, unit: °C, scale: 0.01, verified: false, note: Signedness not stated in the document; assumed signed (outdoor temperatures).}
+  - {key: x.pressure, label: Tryckärvärde (actual pressure), table: holding, address: 53, type: s16, unit: Pa, verified: false, note: Signedness not stated in the document; assumed signed (the alarm limits go down to −1500 Pa).}
+  - {key: x.pressure_setpoint_compensated, label: Kompenserat tryckbörvärde (compensated pressure setpoint), table: holding, address: 54, type: s16, unit: Pa, verified: false, note: 'The setpoint after temperature compensation and timer raise / lower, which the regulator controls to. Signedness not stated; assumed signed.'}
+  - {key: temperature, label: Drift-temperatur (drive internal temperature), table: holding, address: 55, type: s16, unit: °C, scale: 0.01, verified: false, note: Signedness not stated in the document; assumed signed.}
+  - {key: x.motor_current, label: Motorström (motor current), table: holding, address: 56, type: u16, unit: A, scale: 0.01}
+  - {key: x.motor_voltage, label: Motorspänning (motor voltage), table: holding, address: 57, type: u16, unit: V, scale: 0.1}
+  - {key: x.motor_frequency, label: Motorfrekvens (motor frequency), table: holding, address: 58, type: u16, unit: Hz, note: 'When the pressure regulator is used without a drive, this register holds the regulator output in % instead.'}
+
+  # System data
+  - {key: x.run_days, label: 'Systemlogg dagar (run time with start signal, days)', table: holding, address: 59, type: u16, unit: d, poll: slow}
+  - {key: x.run_hours, label: 'Systemlogg timmar (run time with start signal, hours 0-24)', table: holding, address: 60, type: u16, unit: h, scale: 0.1, poll: slow}
+  - {key: state, label: Driftsläge (operating state), table: holding, address: 61, type: u16, enum: state}
+  - {key: x.active_timer_program, label: Aktivt tidursprogram (active timer program), table: holding, address: 62, type: u16, enum: active_program}
+  - {key: x.fault_count_short_circuit, label: Systemfellogg Kortslutning (short circuit count), table: holding, address: 63, type: u16, poll: slow}
+  - {key: x.fault_count_phase_missing, label: Systemfellogg Infas saknas (input phase missing count), table: holding, address: 64, type: u16, poll: slow}
+  - {key: x.fault_count_undervoltage, label: Systemfellogg Underspänning (undervoltage count), table: holding, address: 65, type: u16, poll: slow}
+  - {key: x.fault_count_overvoltage, label: Systemfellogg Överspänning (overvoltage count), table: holding, address: 66, type: u16, poll: slow}
+  - {key: x.fault_count_overtemperature, label: Systemfellogg Övertemp (overtemperature count), table: holding, address: 67, type: u16, poll: slow}
+  - {key: x.fault_count_overload, label: Systemfellogg Överlast (overload count), table: holding, address: 68, type: u16, poll: slow}
+  - {key: x.fault_count_motor_protection, label: Systemfellogg Motorskydd (motor protection count), table: holding, address: 69, type: u16, poll: slow}
+  - {key: x.fault_count_motor_ptc, label: Systemfellogg Motor PTC (motor PTC count), table: holding, address: 70, type: u16, poll: slow}
+  - {key: x.fault_count_motor_phase, label: Systemfellogg Motorfas (motor phase count), table: holding, address: 71, type: u16, poll: slow}
+  - {key: x.fault_count_internal, label: Systemfellogg Drift internfel (drive internal fault count), table: holding, address: 72, type: u16, poll: slow}
+  - {key: x.fault_count_not_connected, label: Systemfellogg Drift ej ansluten (drive not connected count), table: holding, address: 73, type: u16, poll: slow}
+  - {key: x.fault_count_reset, label: Systemfellogg Drift nollställd (drive reset count), table: holding, address: 74, type: u16, poll: slow}
+  - {key: x.fault_count_eeprom, label: Systemfellogg EEPROM fel (EEPROM fault count), table: holding, address: 75, type: u16, poll: slow}
+  - {key: x.fault_count_overpressure, label: Systemfellogg Övertryck (overpressure count), table: holding, address: 76, type: u16, poll: slow}
+  - {key: x.fault_count_underpressure, label: Systemfellogg Undertryck (underpressure count), table: holding, address: 77, type: u16, poll: slow}
+  - {key: error_code, label: Felmeddelande (current fault), table: holding, address: 78, type: s16, enum: fault, note: −1 = no fault. The fault stays until the drive is back to normal; a tripped drive needs Återställ larm (address 115). Signedness not stated in the document; signed follows from −1., verified: false}
+
+  # Settings (function 3, 6, 16; stored in the drive's memory, write only when changing them)
+  - {key: x.control_type, label: Regleringstyp (control type), table: holding, address: 80, type: u16, enum: control_type, writable: true, persistent: true, poll: slow}
+  - {key: x.basic_setting, label: Grundinställning (basic setting), table: holding, address: 81, type: u16, enum: basic_setting, writable: true, persistent: true, poll: slow}
+  - {key: x.pressure_setpoint, label: Tryckbörvärde (pressure setpoint), table: holding, address: 82, type: u16, unit: Pa, writable: true, persistent: true, poll: slow, note: '0-1500 Pa with an external sensor, 0-1000 Pa with the internal one; factory setting 100 Pa.'}
+  - {key: x.stop_on_alarm, label: Stopp vid larm (stop on pressure alarm), table: holding, address: 86, type: u16, enum: no_yes, writable: true, persistent: true, poll: slow}
+  - {key: x.alarm_upper_limit, label: Larm övre gräns (overpressure alarm limit), table: holding, address: 87, type: s16, unit: Pa, writable: true, min: -1500, max: 1500, persistent: true, poll: slow}
+  - {key: x.alarm_lower_limit, label: Larm undre gräns (underpressure alarm limit), table: holding, address: 88, type: s16, unit: Pa, writable: true, min: -1500, max: 1500, persistent: true, poll: slow}
+  - {key: x.alarm_delay, label: Larmfördröjning (pressure alarm delay), table: holding, address: 89, type: u16, unit: s, writable: true, min: 0, max: 1000, persistent: true, poll: slow}
+  - {key: x.temperature_sensor, label: Temperatursensor (temperature sensor type), table: holding, address: 90, type: u16, enum: temperature_sensor, writable: true, persistent: true, poll: slow}
+  - {key: x.pressure_sensor, label: Trycksensortyp (pressure sensor type), table: holding, address: 93, type: u16, enum: pressure_sensor, writable: true, persistent: true, poll: slow}
+  - {key: x.max_motor_frequency, label: Max motorfrekvens, table: holding, address: 99, type: u16, unit: Hz, writable: true, min: 1, max: 200, persistent: true, poll: slow}
+  - {key: x.min_motor_frequency, label: Min motorfrekvens, table: holding, address: 100, type: u16, unit: Hz, writable: true, min: 0, max: 200, persistent: true, poll: slow}
+  - {key: x.motor_protection_current, label: Motorskydd (nominal motor current), table: holding, address: 104, type: u16, unit: A, scale: 0.01, writable: true, persistent: true, poll: slow, note: The drive trips when the motor current exceeds this by more than 10 %.}
+  - {key: x.reset_alarm, label: Återställ larm (reset tripped drive), table: holding, address: 115, type: u16, enum: reset, writable: true, persistent: true, poll: slow}
+
+  # Modbus control signals (function 3, 6, 16; not stored, may be written continuously)
+  - {key: x.modbus_reference, label: MODBUS 0-10V (reference when control type 4), table: holding, address: 200, type: u16, unit: V, scale: 0.1, writable: true, min: 0, max: 10, persistent: false}
+  - {key: x.modbus_pressure_setpoint, label: MODBUS Tryckbörvärde (pressure setpoint), table: holding, address: 201, type: u16, unit: Pa, writable: true, min: 0, max: 1500, persistent: false}
+  - {key: x.modbus_pressure, label: MODBUS Tryckärvärde (actual pressure when sensor type 2), table: holding, address: 202, type: u16, unit: Pa, writable: true, min: 0, max: 1500, persistent: false}
+  - {key: x.modbus_temperature, label: MODBUS Temperaturärvärde (temperature when sensor 4), table: holding, address: 203, type: s16, unit: °C, scale: 0.01, writable: true, min: -50, max: 100, persistent: false, verified: false, note: Signed assumed.}
+
+enums:
+  alarm_relay: {'0': Off (fault), '1': On (normal operation)}
+  state: {'0': FAULTACTIVE (fault), '1': FAULTHOLD (stopped), '2': ACWAIT (stopped), '3': IDLE (stopped), '4': RUN}
+  active_program: {'0': No program active, '1': P1, '2': P2, '3': P3, '4': P4, '5': P5, '6': P6, '7': P7, '8': Programmed but not active}
+  fault: {'-1': No fault, '1': Short circuit, '2': Input phase missing, '3': Undervoltage, '4': Overvoltage, '5': Overtemperature, '6': Overload, '7': Motor protection, '8': Motor PTC, '9': Motor phase, '10': Drive internal fault, '11': Drive not connected, '12': Drive reset, '14': EEPROM fault, '15': Overpressure, '16': Underpressure}
+  control_type: {'0': 0-10V reference, '1': Pressure control, '2': Temperature-compensated pressure control, '3': Temperature control, '4': MODBUS 0-10V}
+  basic_setting: {'0': Custom, '1': 50 Hz standard, '2': 50 Hz fan, '3': 87 Hz fan (400 V model only)}
+  no_yes: {'0': 'No', '1': 'Yes'}
+  temperature_sensor: {'0': NTC 100k, '1': NTC 10k, '2': PT1000, '3': Active (0-10 V on terminal 2), '4': MODBUS}
+  pressure_sensor: {'0': Internal, '1': External, '2': MODBUS}
+  reset: {'0': Do not reset, '1': Reset}
+
+problems:
+  - {when: {key: error_code, not: -1}, kind: fault, text: 'Drive fault {value}: {text}'}
+
+notes:
+- 'Addresses: the document numbers registers, coils and inputs from 1 and says the address sent is one lower; they are converted
+  here (register 51 → address 50, input 1 → address 0).'
+- Functions 1 and 2 both read the I/O signals (coils and discrete inputs give the same bits); 3 and 4 both read the measurement
+  and status registers. Settings are read with 3 and written with 6 / 16.
+- 'Factory settings: address 1, even parity, 19200 baud; stop bits not stated (one assumed). The drive only has RS485; the
+  default port is for a Modbus TCP gateway.'
+- 'Register types are not stated in the document: 16-bit unsigned is assumed, signed where the value range or −1 needs it
+  (marked unverified).'
+- 'Left out: temperature-compensation break points, sensor scaling, regulator gain and integration time, motor ramp / voltage
+  / switching settings, language, current output, hysteresis control (document 128-135), timer programs (117-124), system
+  clock (125-127), reset logs and factory reset.'

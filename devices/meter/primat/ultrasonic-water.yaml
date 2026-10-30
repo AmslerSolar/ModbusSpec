@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Primat Ultrasonic Water Meter Modbus Protocol (Release version neutral) (V1.0.1, 2024-01-05).
+
+modbusspec: 0
+id: primat-ultrasonic-water
+manufacturer: Primat
+name: Ultrasonic water meter (Modbus RTU)
+kind: meter
+
+sources:
+- title: Ultrasonic water meter Modbus communication protocol (Release version neutral)
+  version: V1.0.1 (2024-01-05)
+  url: https://download.primat.ch/manuals/waermemengenmesser/Ultrasonic%20Water%20Meter%20Modbus%20Protocol%20%20(Release%20version%20neutral).pdf
+  sha256: 6907dc269b516ca9a5304f78ac7a47b6926f0b6f75c52037d615848ad6213c6a
+  archive_url: https://web.archive.org/web/20260513222719/https://download.primat.ch/manuals/waermemengenmesser/Ultrasonic%20Water%20Meter%20Modbus%20Protocol%20%20(Release%20version%20neutral).pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 2400
+    format: 8E1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: little
+
+points:
+  # Measurements
+  - {key: x.volume_total, label: Integrated flux, table: holding, address: 14, type: u32, scale: 0.001, unit: m³, poll: slow, verified: false, note: Scale for the default of 3 decimals (register 0x0009 bits 0–3); the decimals are a setting (0–6) and can't be expressed per setting.}
+  - {key: x.volume_billing_day, label: Cumulative flow on the settlement day, table: holding, address: 16, type: u32, scale: 0.001, unit: m³, poll: slow, verified: false, note: Scale as for the total volume.}
+  - {key: x.volume_last_month, label: Usage last month, table: holding, address: 18, type: u32, scale: 0.001, unit: m³, poll: slow, verified: false, note: Scale as for the total volume.}
+  - {key: x.flow_rate, label: Instantaneous delivery, table: holding, address: 20, type: u32, scale: 0.001, unit: m³/h, verified: false, note: 'Scale for the default of 3 decimals (register 0x0009 bits 4–7), a setting (0–6).'}
+  - {key: x.battery_voltage, label: Cell voltage, table: holding, address: 22, type: bcd16, scale: 0.01, unit: V, poll: slow}
+  - {key: x.status, label: State ST, table: holding, address: 23, type: u16, flags: status}
+  - {key: x.valve_status, label: Valve status, table: holding, address: 23, type: u16, bits: [0, 1], enum: valve_status}
+  - {key: x.valve_mode, label: Valve mode, table: holding, address: 23, type: u16, bits: [10, 11], enum: valve_mode}
+  - {key: x.fee_state, label: Fees, table: holding, address: 23, type: u16, bits: [12, 13], enum: fee_state}
+  - {key: x.pipe_temperature, label: Pipeline temperature, table: holding, address: 24, type: s16, scale: 0.01, unit: °C, verified: false, note: Signedness not stated; assumed signed.}
+  - {key: x.history_month_1, label: Accumulated flow in the first 1 month, table: holding, address: 256, type: u32, scale: 0.001, unit: m³, poll: slow, verified: false, note: 'Monthly history: 24 values of two registers each from 0x0100 to 0x012F, month n at 0x0100 + 2 × (n − 1); at most 12 months per request. Scale as for the total volume.'}
+
+  # Identity and settings
+  - {key: x.meter_type, label: Table type, table: holding, address: 9, type: u16, bits: [8, 15], enum: meter_type, poll: slow}
+  - {key: x.flow_rate_decimals, label: Instantaneous flow rate decimal places, table: holding, address: 9, type: u16, bits: [4, 7], poll: slow, note: 0–6; default 3 (0.001 m³/h).}
+  - {key: x.volume_decimals, label: Flow rate (volume) decimal places, table: holding, address: 9, type: u16, bits: [0, 3], poll: slow, note: 0–6; default 3 (0.001 m³).}
+  - {key: x.version, label: Water meter version number, table: holding, address: 48, type: u32, poll: slow, note: 'Shown in hex; the document''s example reads registers 0x020A, 0x11CF as version 11CF020A.'}
+  - {key: x.clock, label: Real-time time, table: holding, address: 10, type: datetime, length: 4, datetime: {second: {register: 0, bits: [8, 15], bcd: true}, hour: {register: 1, bits: [8, 15], bcd: true}, minute: {register: 1, bits: [0, 7], bcd: true}, month: {register: 2, bits: [8, 15], bcd: true}, day: {register: 2, bits: [0, 7], bcd: true}, year: {register: 3, bcd: true}}, writable: true, poll: slow, note: 'BCD: ss00, hhmm, MMDD, YYYY.'}
+  - {key: x.modbus_address, label: MODBUS address, table: holding, address: 0, type: u16, bits: [0, 7], writable: true, poll: slow}
+  - {key: x.parity, label: Communication parameters (check bit), table: holding, address: 4, type: u16, bits: [8, 15], enum: parity, writable: true, poll: slow}
+  - {key: x.baud_rate, label: Communication parameters (port rate), table: holding, address: 4, type: u16, bits: [0, 7], enum: baud_rate, writable: true, poll: slow}
+  - {key: x.valve_function_mask, label: Valve function shielding, table: holding, address: 5, type: u16, bits: [0, 7], writable: true, poll: slow, note: 'Bit 2: 0 = periodic valve switching on, 1 = off.'}
+  - {key: x.valve_cycle, label: Regular on and off valve cycle, table: holding, address: 6, type: bcd16, bits: [0, 7], unit: d, writable: true, min: 7, max: 90, poll: slow, note: BCD in the low byte.}
+  - {key: x.billing_day, label: Balance date, table: holding, address: 8, type: bcd16, bits: [0, 7], writable: true, min: 1, max: 31, poll: slow, note: Day of month; BCD in the low byte.}
+  - {key: x.device_control, label: DC (device control), table: holding, address: 96, type: u16, writable: true, note: 'Bits 0–1 valve command (01 open, 10 close, 11 open to the percentage in bits 8–15, 1–99 %); bit 2 control (0 free, 1 mandatory); read back: bits 3–4 valve status, bits 5–6 limit switches (5 = open limit closed, 6 = closed limit closed).'}
+  - {key: x.valve_timeout, label: Valve timeout time, table: holding, address: 208, type: u16, unit: s, writable: true, min: 3, max: 255, poll: slow}
+
+enums:
+  valve_status: {'0': Open, '1': Closed, '2': Partly open, '3': Abnormal}
+  valve_mode: {'0': Free control, '1': Prepaid control, '2': Reserved, '3': Compulsory control}
+  fee_state: {'0': Normal, '1': Insufficient balance, '2': Overdue, '3': Overdrawn}
+  meter_type: {'0': 'Mechanical with switching output (reed, Hall, magnetoresistive)', '1': Non-magnetic mechanical, '2': Mechanical, '3': Ultrasonic}
+  parity: {'0': Even, '1': None}
+  baud_rate: {'1': '1200', '2': '2400', '3': '4800', '4': '9600'}
+
+flags:
+  status: {'2': Battery under-voltage, '3': Leakage, '4': Pipe burst, '5': Empty pipe (air), '6': Temperature error, '7': Valve control fitted, '8': Pipe section not calibrated, '9': Reverse flow, '15': Sensor fault}
+
+problems:
+  - {when: {key: x.status, bit: 2}, kind: warning, text: Battery voltage low}
+  - {when: {key: x.status, bit: 3}, kind: warning, text: Leakage}
+  - {when: {key: x.status, bit: 4}, kind: fault, text: Pipe burst}
+  - {when: {key: x.status, bit: 5}, kind: warning, text: Empty pipe (air in the line)}
+  - {when: {key: x.status, bit: 6}, kind: warning, text: Temperature error}
+  - {when: {key: x.status, bit: 8}, kind: warning, text: Pipe section not calibrated}
+  - {when: {key: x.status, bit: 15}, kind: fault, text: Sensor fault}
+  - {when: {key: x.valve_status, equals: 3}, kind: fault, text: Valve abnormal}
+
+notes:
+- The document is an unbranded ("neutral") release hosted by Primat; it doesn't name the meter's maker or model, so the meter
+  may be an OEM product.
+- Function codes 03 (read) and 10h (write) only. Addresses are the document's hex register addresses, used as they are (0-based).
+- Two-register values are sent low word first (the document's example 0x024E 0x0000 reads 590); within a register high byte
+  first.
+- 'State ST: the document gives two bytes and says the second byte is sent first, so the first byte (D0–D7) is register bits
+  0–7 and the second byte bits 8–15.'
+- Default byte format 8 data bits, even parity, 1 stop bit, 2400 baud. The unit id isn't stated (1 is assumed); address 0
+  is broadcast. Registers 0x0001–0x0003, 0x0007 and 0x0019–0x002F are reserved.
+- Volumes and the flow rate are integers whose decimals are set in register 0x0009 (default 3); the scales here assume the
+  default.

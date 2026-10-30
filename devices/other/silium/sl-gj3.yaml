@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Silium EM-GJ3/SL-GJ3 Modbus connection and register map (undated).
+
+modbusspec: 0
+id: silium-sl-gj3
+manufacturer: Silium
+name: SL-GJ3 / EM-GJ3 soft starter
+kind: other
+
+sources:
+- title: EM-GJ3/SL-GJ3 MODBUS. Подключение по протоколу и карта регистров
+  version: undated
+  url: https://gekoms.org/wp-content/uploads/2026/01/silium-em-gjsl-gj-modbus_protocol.pdf
+  sha256: 7281741cf308c46932eb751f6c7c5d6b19245076c69490e4748754f4af613161
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.status, label: Status word, table: holding, address: 2, type: u16, flags: status, poll: fast, note: '40002.'}
+  - {key: x.current_percent, label: Average current (RMS), table: holding, address: 3, type: u16, unit: '%', poll: fast, note: 40003. Smoothed RMS current in percent of the rated current (0x00EB = 235 %).}
+  - {key: error_code, label: Error code, table: holding, address: 4, type: u16, enum: error_code, poll: fast, verified: false, note: 40004. The error number as shown on the display (4 = Error 04). Only error 04 is described in the document; 0 = no error is assumed.}
+  - {key: x.control, label: Control word, table: holding, address: 1, type: u16, flags: control, writable: true, write_only: true, poll: slow, note: '40001. 1 = start, 2 = stop, 4 = reset a fault (on the rising edge). After a fault, reset first, check the status word, then start.'}
+  - {key: x.current_limit, label: F5 current limit, table: holding, address: 261, type: u16, unit: '%', writable: true, poll: slow, note: Percent of rated current (0x015E = 350 %). Can't be written while the soft starter is starting or running (exception 03).}
+  - {key: x.start_mode, label: F09 start mode, table: holding, address: 265, type: u16, writable: true, poll: slow, note: 'The values are in the soft starter''s manual, not in this document.'}
+  - {key: x.protection_class, label: FA protection class of the driven machine, table: holding, address: 266, type: u16, writable: true, poll: slow}
+
+enums:
+  error_code: {'4': Input voltage missing or faulty}
+
+flags:
+  status: {'0': Starting, '1': Running, '2': Soft stopping, '3': Fault}
+  control: {'0': Start, '1': Stop, '2': Fault reset (rising edge)}
+
+problems:
+  - {when: {key: x.status, bit: 3}, kind: fault, text: Soft starter fault (status bit 3; error code in 40004)}
+
+notes:
+- The document maps 40001 to protocol address 0x0001 (not 0x0000), as its request examples show; the addresses here are the
+  4xxxx number − 40000. Addresses not in the list answer with an exception.
+- Only function 03 (read one register) and 06 (write one register) are supported; other functions answer exception 01. Reading
+  one register per request is assumed from the document's wording.
+- Parameters F0…FU are at 0x100…0x111 (low byte = parameter index); only F5, F09 and FA are described in this document. The
+  others are left out.
+- Default unit id is not stated (the examples use 2); 1 is assumed.
+- The document covers both EM-GJ3 and SL-GJ3.

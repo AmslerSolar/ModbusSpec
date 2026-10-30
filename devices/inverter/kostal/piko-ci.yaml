@@ -1,0 +1,246 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the KOSTAL PIKO CI Modbus (TCP) interface description (1.5).
+
+modbusspec: 0
+id: kostal-piko-ci
+manufacturer: KOSTAL
+name: PIKO CI 30 / 50 / 60, PIKO CI 30/50 G2 and PIKO CI 100 (KOSTAL register set)
+kind: inverter
+
+sources:
+- title: PIKO CI – KOSTAL MODBUS (TCP) with control information, interface description
+  version: 1.5 (11.08.2025)
+  url: https://www.kostal-solar-electric.com/fileadmin/downloadcenter/kse/BA/Protokollbeschreibung/BA_PIKO-CI_KOSTAL-Interface-description-Modbus-Sunspec.pdf
+  sha256: fe0fb4a7a7efc2d731193e64b2b748a80369842487786736c7b58c993c7c509d
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/kostal/kostal_piko_ci
+
+connection:
+  default_port: 1502
+  default_unit: 71
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N2
+  limits:
+    max_registers: 125
+    max_gap: 16
+
+encoding:
+  byte_order: big
+  word_order: detect
+  detect:
+    table: holding
+    address: 152
+    type: f32
+    plausible:
+    - 45
+    - 65
+
+identify:
+  serial:
+    table: holding
+    address: 14
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 768
+    type: str
+    length: 32
+    prefix: PIKO CI
+
+points:
+  # Identity and settings
+  - {key: x.article_number, label: Inverter article number, table: holding, address: 6, type: str, length: 8, poll: slow}
+  - {key: serial, label: Inverter serial number, table: holding, address: 14, type: str, length: 8, poll: slow}
+  - {key: x.bidirectional_converters, label: Number of bidirectional converter, table: holding, address: 30, type: u16, poll: slow}
+  - {key: x.ac_phases, label: Number of AC phases, table: holding, address: 32, type: u16, poll: slow}
+  - {key: x.pv_inputs, label: Number of PV strings, table: holding, address: 34, type: u16, poll: slow, note: Number of MPPT inputs (1–8) in use at 0x7000 ff.}
+  - {key: x.hardware_version, label: Hardware-Version, table: holding, address: 36, type: u32, poll: slow, note: The table says U16 over 2 registers; read as one 32-bit value.}
+  - {key: firmware, label: Software-Version Maincontroller (MC), table: holding, address: 38, type: str, length: 8, poll: slow}
+  - {key: x.software_ioc, label: Software-Version IO-Controller (IOC), table: holding, address: 46, type: str, length: 8, poll: slow}
+  - {key: x.power_id, label: Power-ID, table: holding, address: 54, type: u32, poll: slow, note: The table says U16 over 2 registers; read as one 32-bit value.}
+  - {key: x.firmware_mc, label: Firmware Maincontroller (MC), table: holding, address: 515, type: u32, poll: slow}
+  - {key: x.max_power, label: Inverter Max Power, table: holding, address: 531, type: u16, unit: W, scale_exponent_from: {table: holding, address: 532, type: s16}, poll: slow}
+  - {key: x.manufacturer, label: Inverter Manufacturer, table: holding, address: 535, type: str, length: 16, poll: slow}
+  - {key: x.model_id, label: Inverter Model ID, table: holding, address: 551, type: str, length: 8, poll: slow}
+  - {key: x.serial_sunspec, label: Inverter Serial Number, table: holding, address: 559, type: str, length: 16, poll: slow, note: Used for the serial when register 14 is empty.}
+  - {key: x.meter_power_direction, label: Digital Meter Power Direction, table: holding, address: 609, type: u16, enum: meter_power_direction, writable: true, poll: slow, verified: false, note: Shown only; what it does to register 252 is not described.}
+  - {key: x.meter_position, label: Power Limit Meter Position, table: holding, address: 611, type: u16, enum: meter_position, writable: true, poll: slow, verified: false, note: Taken as the sensor position the note at register 252 means (1 = load side); the document doesn't link the two.}
+  - {key: x.product_name, label: Productname, table: holding, address: 768, type: str, length: 32, poll: slow}
+  - {key: x.power_class, label: Power class, table: holding, address: 800, type: str, length: 32, poll: slow}
+  - {key: x.control_board_firmware, label: Control board firmware version, table: holding, address: 6684, type: str, length: 3, poll: slow}
+  - {key: x.communication_board_firmware, label: Communication service board firmware version, table: holding, address: 6752, type: str, length: 3, poll: slow}
+
+  # State and errors
+  - {key: state, label: Inverter state, table: holding, address: 56, type: u32, enum: inverter_state, note: The table says U16 over 2 registers; read as one 32-bit value.}
+  - {key: x.error_message_1, label: Error message 1, table: holding, address: 4126, type: u16, flags: error_message_1, invalid: [65535], verified: false, note: 0xFFFF is taken as no data (not in the document).}
+  - {key: x.error_message_2, label: Error message 2, table: holding, address: 4127, type: u16, flags: error_message_2, invalid: [65535], verified: false, note: 0xFFFF is taken as no data (not in the document).}
+  - {key: x.error_message_3, label: Error message 3, table: holding, address: 4128, type: u16, flags: error_message_3, invalid: [65535], verified: false, note: 0xFFFF is taken as no data (not in the document).}
+
+  # Solar
+  - {key: pv_power, label: Total DC power, table: holding, address: 100, type: f32, unit: W}
+  - {key: x.dc1_current, label: Current DC1, table: holding, address: 258, type: f32, unit: A, note: Same value as 0x7000; used when that block is missing.}
+  - {key: x.dc1_power, label: Power DC1, table: holding, address: 260, type: f32, unit: W}
+  - {key: x.dc1_voltage, label: Voltage DC1, table: holding, address: 266, type: f32, unit: V}
+  - {key: x.dc2_current, label: Current DC2, table: holding, address: 268, type: f32, unit: A}
+  - {key: x.dc2_power, label: Power DC2, table: holding, address: 270, type: f32, unit: W}
+  - {key: x.dc2_voltage, label: Voltage DC2, table: holding, address: 276, type: f32, unit: V}
+  - {key: x.dc3_current, label: Current DC3, table: holding, address: 278, type: f32, unit: A}
+  - {key: x.dc3_power, label: Power DC3, table: holding, address: 280, type: f32, unit: W}
+  - {key: x.dc3_voltage, label: Voltage DC3, table: holding, address: 286, type: f32, unit: V}
+  - {key: x.dc4_current, label: Current DC4, table: holding, address: 300, type: f32, unit: A}
+  - {key: x.dc4_power, label: Power DC4, table: holding, address: 302, type: f32, unit: W}
+  - {key: x.dc4_voltage, label: Voltage DC4, table: holding, address: 308, type: f32, unit: V}
+  - {key: x.mppt1_current, label: Current DC1, table: holding, address: 28672, type: f32, unit: A}
+  - {key: x.mppt1_power, label: Power DC1, table: holding, address: 28674, type: f32, unit: W}
+  - {key: x.mppt1_voltage, label: Voltage DC1, table: holding, address: 28676, type: f32, unit: V}
+  - {key: x.mppt2_current, label: Current DC2, table: holding, address: 28678, type: f32, unit: A}
+  - {key: x.mppt2_power, label: Power DC2, table: holding, address: 28680, type: f32, unit: W}
+  - {key: x.mppt2_voltage, label: Voltage DC2, table: holding, address: 28682, type: f32, unit: V}
+  - {key: x.mppt3_current, label: Current DC3, table: holding, address: 28684, type: f32, unit: A}
+  - {key: x.mppt3_power, label: Power DC3, table: holding, address: 28686, type: f32, unit: W}
+  - {key: x.mppt3_voltage, label: Voltage DC3, table: holding, address: 28688, type: f32, unit: V}
+  - {key: x.mppt4_current, label: Current DC4, table: holding, address: 28690, type: f32, unit: A}
+  - {key: x.mppt4_power, label: Power DC4, table: holding, address: 28692, type: f32, unit: W}
+  - {key: x.mppt4_voltage, label: Voltage DC4, table: holding, address: 28694, type: f32, unit: V}
+  - {key: x.mppt5_current, label: Current DC5, table: holding, address: 28696, type: f32, unit: A, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt5_power, label: Power DC5, table: holding, address: 28698, type: f32, unit: W, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt5_voltage, label: Voltage DC5, table: holding, address: 28700, type: f32, unit: V, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt6_current, label: Current DC6, table: holding, address: 28702, type: f32, unit: A, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt6_power, label: Power DC6, table: holding, address: 28704, type: f32, unit: W, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt6_voltage, label: Voltage DC6, table: holding, address: 28706, type: f32, unit: V, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt7_current, label: Current DC7, table: holding, address: 28708, type: f32, unit: A, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt7_power, label: Power DC7, table: holding, address: 28710, type: f32, unit: W, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt7_voltage, label: Voltage DC7, table: holding, address: 28712, type: f32, unit: V, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt8_current, label: Current DC8, table: holding, address: 28714, type: f32, unit: A, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt8_power, label: Power DC8, table: holding, address: 28716, type: f32, unit: W, note: Present only up to the number of MPPTs (register 34).}
+  - {key: x.mppt8_voltage, label: Voltage DC8, table: holding, address: 28718, type: f32, unit: V, note: Present only up to the number of MPPTs (register 34).}
+  - {key: pv_energy, label: Total yield, table: holding, address: 320, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: pv_energy_today, label: Daily yield, table: holding, address: 322, type: f32, unit: kWh, scale: 0.001}
+  - {key: x.yield_year, label: Yearly yield, table: holding, address: 324, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.yield_month, label: Monthly yield, table: holding, address: 326, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.generation_power, label: Inverter Generation Power (actual), table: holding, address: 575, type: s16, unit: W, scale_exponent_from: {table: holding, address: 576, type: s16}}
+  - {key: x.generation_energy, label: Generation Energy, table: holding, address: 577, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 579, type: s16}, poll: slow}
+
+  # Inverter AC side
+  - {key: power_factor, label: Actual cos φ, table: holding, address: 150, type: f32, unit: ''}
+  - {key: frequency, label: Grid frequency, table: holding, address: 152, type: f32, unit: Hz}
+  - {key: l1_current, label: Current Phase 1, table: holding, address: 154, type: f32, unit: A}
+  - {key: l1_power, label: Active power Phase 1, table: holding, address: 156, type: f32, unit: W, positive: export, verified: false, note: Sign not stated; assumed positive while feeding in.}
+  - {key: l1_voltage, label: Voltage Phase 1, table: holding, address: 158, type: f32, unit: V}
+  - {key: l2_current, label: Current Phase 2, table: holding, address: 160, type: f32, unit: A}
+  - {key: l2_power, label: Active power Phase 2, table: holding, address: 162, type: f32, unit: W, positive: export, verified: false, note: Sign not stated; assumed positive while feeding in.}
+  - {key: l2_voltage, label: Voltage Phase 2, table: holding, address: 164, type: f32, unit: V}
+  - {key: l3_current, label: Current Phase 3, table: holding, address: 166, type: f32, unit: A}
+  - {key: l3_power, label: Active power Phase 3, table: holding, address: 168, type: f32, unit: W, positive: export, verified: false, note: Sign not stated; assumed positive while feeding in.}
+  - {key: l3_voltage, label: Voltage Phase 3, table: holding, address: 170, type: f32, unit: V}
+  - {key: x.ac_power, label: Total AC active power, table: holding, address: 172, type: f32, unit: W}
+  - {key: reactive_power, label: Total AC reactive power, table: holding, address: 174, type: f32, unit: var}
+  - {key: apparent_power, label: Total AC apparent power, table: holding, address: 178, type: f32, unit: VA}
+  - {key: x.power_limit_evu, label: Power limit from EVU, table: holding, address: 122, type: f32, unit: '%'}
+  - {key: x.worktime, label: Worktime, table: holding, address: 144, type: f32, unit: s, poll: slow}
+
+  # Home consumption (computed by the inverter from its meter)
+  - {key: x.home_consumption_grid, label: Home own consumption from grid, table: holding, address: 108, type: f32, unit: W}
+  - {key: x.home_consumption_grid_total, label: Total home consumption Grid, table: holding, address: 112, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.home_consumption_pv_total, label: Total home consumption PV, table: holding, address: 114, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.home_consumption_pv, label: Home own consumption from PV, table: holding, address: 116, type: f32, unit: W}
+  - {key: x.home_consumption_total, label: Total home consumption, table: holding, address: 118, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.home_consumption_rate, label: Total home consumption rate, table: holding, address: 124, type: f32, unit: '%'}
+
+  # Energy meter (powermeter)
+  - {key: x.meter_power_factor, label: Cos φ (powermeter), table: holding, address: 218, type: f32, unit: ''}
+  - {key: x.meter_frequency, label: Frequency (powermeter), table: holding, address: 220, type: f32, unit: Hz, note: A meter counts as connected when this is above 0.}
+  - {key: x.meter_l1_current, label: Current phase 1 (powermeter), table: holding, address: 222, type: f32, unit: A}
+  - {key: x.meter_l1_power, label: Active power phase 1 (powermeter), table: holding, address: 224, type: f32, unit: W, positive: import, verified: false, note: Sign not stated per phase; assumed like the total (252).}
+  - {key: x.meter_l1_reactive_power, label: Reactive power phase 1 (powermeter), table: holding, address: 226, type: f32, unit: var}
+  - {key: x.meter_l1_apparent_power, label: Apparent power phase 1 (powermeter), table: holding, address: 228, type: f32, unit: VA}
+  - {key: x.meter_l1_voltage, label: Voltage phase 1 (powermeter), table: holding, address: 230, type: f32, unit: V}
+  - {key: x.meter_l2_current, label: Current phase 2 (powermeter), table: holding, address: 232, type: f32, unit: A}
+  - {key: x.meter_l2_power, label: Active power phase 2 (powermeter), table: holding, address: 234, type: f32, unit: W, positive: import, verified: false, note: Sign not stated per phase; assumed like the total (252).}
+  - {key: x.meter_l2_reactive_power, label: Reactive power phase 2 (powermeter), table: holding, address: 236, type: f32, unit: var}
+  - {key: x.meter_l2_apparent_power, label: Apparent power phase 2 (powermeter), table: holding, address: 238, type: f32, unit: VA}
+  - {key: x.meter_l2_voltage, label: Voltage phase 2 (powermeter), table: holding, address: 240, type: f32, unit: V}
+  - {key: x.meter_l3_current, label: Current phase 3 (powermeter), table: holding, address: 242, type: f32, unit: A}
+  - {key: x.meter_l3_power, label: Active power phase 3 (powermeter), table: holding, address: 244, type: f32, unit: W, positive: import, verified: false, note: Sign not stated per phase; assumed like the total (252).}
+  - {key: x.meter_l3_reactive_power, label: Reactive power phase 3 (powermeter), table: holding, address: 246, type: f32, unit: var}
+  - {key: x.meter_l3_apparent_power, label: Apparent power phase 3 (powermeter), table: holding, address: 248, type: f32, unit: VA}
+  - {key: x.meter_l3_voltage, label: Voltage phase 3 (powermeter), table: holding, address: 250, type: f32, unit: V}
+  - {key: grid_power, label: Total active power (powermeter), table: holding, address: 252, type: f32, unit: W, positive: import, note: 'Sign as the document gives it for a meter at the grid connection (sensor position 2): + = drawn from the grid, − = fed in. With the meter on the load side (sensor position 1, assumed to be register 611 = 1) the same register is house consumption (+) and there is no grid value.'}
+
+enums:
+  inverter_state: {'1': Init, '6': Feed-in, '10': Standby, '15': Shutdown}
+  meter_power_direction: {'0': Positive, '1': Negative}
+  meter_position: {'0': CT or meter on grid, '1': CT or meter on load}
+
+flags:
+  error_message_1: {'0': Inverter over DC-bias current, '1': Inverter relay abnormal, '2': Remote off, '3': Inverter over-temperature, '4': GFCI abnormal, '5': PV string reversed, '6': System type error, '7': Fan abnormal, '8': DC link unbalance or under-voltage, '9': DC link over-voltage, '10': Internal communication error, '11': Software incompatibility, '12': Internal storage error, '13': Data inconsistency, '14': Inverter abnormal, '15': Boost abnormal}
+  error_message_2: {'0': Grid over-voltage, '1': Grid under-voltage, '2': Grid absent, '3': Grid over-frequency, '4': Grid under-frequency, '5': PV over-voltage, '6': PV insulation abnormal, '7': Leakage current abnormal, '9': Internal power supply abnormal, '10': PV string abnormal, '11': PV under-voltage, '12': Surge protection module defective, '13': Grid abnormal, '14': Arc fault detected, '15': Grid average voltage high}
+  error_message_3: {'3': PID device abnormal, '4': AFCI module lost, '5': Master lost, '6': Meter lost, '7': Park controller lost, '8': Grid N abnormal}
+
+problems:
+  - {when: {key: x.error_message_1, bit: 0}, kind: fault, text: DC-bias over-current (4126 bit 0)}
+  - {when: {key: x.error_message_1, bit: 1}, kind: fault, text: Relay abnormal (4126 bit 1)}
+  - {when: {key: x.error_message_1, bit: 3}, kind: warning, text: Over-temperature (4126 bit 3)}
+  - {when: {key: x.error_message_1, bit: 4}, kind: fault, text: GFCI abnormal (4126 bit 4)}
+  - {when: {key: x.error_message_1, bit: 5}, kind: fault, text: PV string reversed (4126 bit 5)}
+  - {when: {key: x.error_message_1, bit: 6}, kind: fault, text: System type error (4126 bit 6)}
+  - {when: {key: x.error_message_1, bit: 7}, kind: warning, text: Fan abnormal (4126 bit 7)}
+  - {when: {key: x.error_message_1, bit: 8}, kind: fault, text: DC link unbalance or under-voltage (4126 bit 8)}
+  - {when: {key: x.error_message_1, bit: 9}, kind: fault, text: DC link over-voltage (4126 bit 9)}
+  - {when: {key: x.error_message_1, bit: 10}, kind: fault, text: Internal communication error (4126 bit 10)}
+  - {when: {key: x.error_message_1, bit: 11}, kind: fault, text: Software incompatibility (4126 bit 11)}
+  - {when: {key: x.error_message_1, bit: 12}, kind: fault, text: Internal storage error (4126 bit 12)}
+  - {when: {key: x.error_message_1, bit: 13}, kind: fault, text: Data inconsistency (4126 bit 13)}
+  - {when: {key: x.error_message_1, bit: 14}, kind: fault, text: Inverter abnormal (4126 bit 14)}
+  - {when: {key: x.error_message_1, bit: 15}, kind: fault, text: Boost abnormal (4126 bit 15)}
+  - {when: {key: x.error_message_2, bit: 0}, kind: mains_lost, text: Grid over-voltage (4127 bit 0)}
+  - {when: {key: x.error_message_2, bit: 1}, kind: mains_lost, text: Grid under-voltage (4127 bit 1)}
+  - {when: {key: x.error_message_2, bit: 2}, kind: mains_lost, text: Grid absent (4127 bit 2)}
+  - {when: {key: x.error_message_2, bit: 3}, kind: mains_lost, text: Grid over-frequency (4127 bit 3)}
+  - {when: {key: x.error_message_2, bit: 4}, kind: mains_lost, text: Grid under-frequency (4127 bit 4)}
+  - {when: {key: x.error_message_2, bit: 5}, kind: fault, text: PV over-voltage (4127 bit 5)}
+  - {when: {key: x.error_message_2, bit: 6}, kind: fault, text: PV insulation abnormal (4127 bit 6)}
+  - {when: {key: x.error_message_2, bit: 7}, kind: fault, text: Leakage current abnormal (4127 bit 7)}
+  - {when: {key: x.error_message_2, bit: 9}, kind: fault, text: Internal power supply abnormal (4127 bit 9)}
+  - {when: {key: x.error_message_2, bit: 10}, kind: fault, text: PV string abnormal (4127 bit 10)}
+  - {when: {key: x.error_message_2, bit: 12}, kind: warning, text: Surge protection module defective (4127 bit 12)}
+  - {when: {key: x.error_message_2, bit: 13}, kind: mains_lost, text: Grid abnormal (4127 bit 13)}
+  - {when: {key: x.error_message_2, bit: 14}, kind: fault, text: Arc fault detected (4127 bit 14)}
+  - {when: {key: x.error_message_2, bit: 15}, kind: mains_lost, text: Grid average voltage high (4127 bit 15)}
+  - {when: {key: x.error_message_3, bit: 3}, kind: warning, text: PID device abnormal (4128 bit 3)}
+  - {when: {key: x.error_message_3, bit: 4}, kind: warning, text: AFCI module lost (4128 bit 4)}
+  - {when: {key: x.error_message_3, bit: 5}, kind: warning, text: Master lost (4128 bit 5)}
+  - {when: {key: x.error_message_3, bit: 6}, kind: warning, text: Meter lost (4128 bit 6)}
+  - {when: {key: x.error_message_3, bit: 7}, kind: warning, text: Park controller lost (4128 bit 7)}
+  - {when: {key: x.error_message_3, bit: 8}, kind: fault, text: Grid N abnormal (4128 bit 8)}
+
+notes:
+- Holding registers only (function 03 to read, 06 to write); at most 125 registers per request. Not the PLENTICORE map although
+  many addresses match - no register 5 (byte order), no battery, no 1066 total PV power, and up to 8 MPPT inputs.
+- TCP port 1502 and unit id 71 by default (the unit id can be changed). RS485 is RTU at 19200 baud, 8 data bits, no parity,
+  2 stop bits.
+- Floats are IEEE 754 over two registers. The document doesn't say in which word order; readers detect it from the grid frequency
+  (152, 45–65 Hz) and assume the usual KOSTAL low-word-first order until then (unverified).
+- Solar power is 100 (total DC power), else the sum of the MPPT inputs. MPPT inputs come from the 0x7000 block (current, power,
+  voltage per input, 6 registers apart, as many as register 34 says); DC1–3 at 258 ff. and DC4 at 300 ff. hold the same for
+  older readers.
+- The grid figure (252) is only a grid value with a meter at the grid connection; house consumption is then 116 (from PV)
+  + 108 (from grid). With register 611 = 1 (meter on the load side) 252 is house consumption and there is no grid value -
+  unverified that 611 is the sensor position meant at 252.
+- Energies are in Wh in the device; scaled to kWh here.
+- 'Error bits by model (document note 5): 4126 bit 2 (remote off), 4127 bits 14–15 and 4128 bits 4 and 8 only on the G2 and
+  CI 100; 4128 bits 3 and 7 are marked for no model but listed. The problems here leave out 4126 bit 2 (an operator command)
+  or 4127 bit 11 (PV under-voltage, normal at low light).'
+- The document also describes SunSpec models (common at 40003, inverter models 103/113, nameplate 120, controls 123, MPPT
+  160); this file covers only the KOSTAL register set.

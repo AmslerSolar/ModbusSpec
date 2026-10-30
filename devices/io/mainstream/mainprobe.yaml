@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Mainstream Measurements MainProbe/MainProbeX RS485 User Guide (1.1, September 2025).
+
+modbusspec: 0
+id: mainstream-mainprobe
+manufacturer: Mainstream Measurements
+name: MainProbe / MainProbeX ultrasonic velocity sensor
+kind: io
+
+sources:
+- title: MainProbe/MainProbeX - RS485 - User Guide
+  version: 1.1 (September 2025)
+  url: https://stix-flowmeter.de/assets/mainprobe-mainprobex---rs485-user-guide---september-2025---v1.pdf
+  sha256: 42300d9318f520971af32bc65e4104d8f4bc51d37485890089d1f415ccd8cd7a
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+  write_single: true
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 713
+    type: str
+    length: 16
+    byte_order: little
+  checks:
+  - table: holding
+    address: 35
+    type: str
+    length: 16
+    byte_order: little
+    contains:
+    - MainProbe
+
+defaults:
+  verified: false
+
+points:
+  # Identification (40036 …)
+  - {key: x.product_type, label: Product Type, table: holding, address: 35, type: str, length: 16, byte_order: little, poll: slow, note: Address converted from 40036 (see notes).}
+  - {key: serial, label: Serial Number, table: holding, address: 713, type: str, length: 16, byte_order: little, poll: slow, note: Address converted from 40714 (see notes).}
+  - {key: x.intrinsic_safety, label: Intrinsic Safety Status, table: holding, address: 53, type: s32, poll: slow, note: Tells whether the probe is ATEX certified (MainProbeX); the values aren't listed.}
+
+  # Measurement results (41374 …)
+  - {key: x.measurement_complete, label: Measurement Complete, table: holding, address: 1373, type: s32, enum: measurement_state, writable: true, note: Write 0 to start a measurement (only when it reads 1).}
+  - {key: x.velocity, label: Velocity (m/s), table: holding, address: 1379, type: f32, unit: m/s, note: 'With bidirectional velocity enabled (default), flow towards the probe nose is positive and reverse flow negative; the direction reversal setting swaps that. Zero when the signal quality is below the fail level.'}
+  - {key: x.velocity_mm_s, label: Velocity (mm/s), table: holding, address: 1375, type: f32, unit: mm/s}
+  - {key: x.signal_quality, label: Signal Quality, table: holding, address: 1387, type: f32, unit: '%'}
+  - {key: x.water_temperature, label: Temperature (°C), table: holding, address: 1389, type: f32, unit: °C}
+  - {key: x.supply_voltage, label: Supply Voltage, table: holding, address: 1393, type: f32, unit: V}
+
+  # Access control
+  - {key: x.access_mode, label: Access Mode, table: holding, address: 1131, type: s32, enum: access_mode, poll: slow}
+
+  # Communication settings (need Basic or Advanced access)
+  - {key: x.baud_rate, label: Baud Rate, table: holding, address: 1135, type: s32, enum: baud_rate, poll: slow, writable: true, note: Takes effect after a restart (write 0 to Device Restart).}
+  - {key: x.parity, label: Parity, table: holding, address: 1141, type: s32, enum: parity, poll: slow, writable: true, note: Takes effect after a restart.}
+  - {key: x.device_address, label: Device Address, table: holding, address: 1143, type: s32, poll: slow, writable: true, min: 1, max: 247}
+
+  # Measurement settings (need Advanced access; the interval also Basic)
+  - {key: x.measurement_interval, label: Measurement Interval, table: holding, address: 1157, type: s32, enum: measurement_interval, poll: slow, writable: true}
+  - {key: x.measurement_time, label: Measurement Time, table: holding, address: 1155, type: s32, unit: s, poll: slow, writable: true, min: 1, max: 10}
+  - {key: x.bidirectional, label: Bidirectional Velocity, table: holding, address: 1333, type: s32, enum: on_off, poll: slow, writable: true}
+  - {key: x.direction_reversal, label: Direction Reversal, table: holding, address: 1353, type: s32, enum: on_off, poll: slow, writable: true}
+
+enums:
+  measurement_state: {'0': Measurement in progress, '1': Measurement complete}
+  access_mode: {'0': Read only, '1': Basic, '2': Advanced}
+  baud_rate: {'0': '2400', '1': '4800', '2': '9600', '3': '19200', '4': '38400', '5': '57600', '6': '115200'}
+  parity: {'0': None, '1': Odd, '2': Even}
+  measurement_interval: {'0': Continuous, '1': 15 s, '2': 30 s, '3': 1 min, '4': 2 min, '5': 5 min, '6': 10 min, '7': 15 min, '8': 20 min, '9': 30 min, '10': 1 h}
+  on_off: {'0': Disabled, '1': Enabled}
+
+notes:
+- 'MainProbe / MainProbeX are submersible ultrasonic flow velocity probes for open channels and part-filled pipes (MainProbeX:
+  ATEX zone 0). The document was published by a reseller (Stix Flowmeter); the maker named is Mainstream Measurements Ltd.'
+- 'The document gives 4xxxx register numbers (e.g. 40036, 41376) without saying how they map to protocol addresses. They are
+  converted as usual (40001 = address 0), hence verified: false throughout. All its numbers are even, so the device might
+  instead use 40000 + address; if reads fail, try one higher.'
+- 'All data are holding registers: read with function 03. 32-bit values (Int32, float) are least significant word first, each
+  word high byte first. Text is stored with the two bytes of each register swapped and is null-terminated. Many Int32 settings
+  fit in their low word, which may be read alone.'
+- RS-485 half duplex, default 19200 baud, even parity, 1 stop bit, unit id 1 (1 … 247). The probe answers within 1 s; during
+  short-interval measurements it may be busy and slow, so large requests are best avoided then.
+- 'Settings need an access mode: write 0x1234 (Basic) or 0x5678 (Advanced) as Int32 to the Access Code register (41134). Without
+  a request for about two minutes, the probe returns to read-only. Writing 0xFFFF to a setting restores its default.'
+- 'Left out: velocity in cm/s, in/s, ft/s and ft/min, temperature in °F, the hardware / firmware version and manufacture date
+  (custom packed formats), and the noise suppression, MAMS, histogram averaging, signal quality to fail and fail hold-off
+  settings.'

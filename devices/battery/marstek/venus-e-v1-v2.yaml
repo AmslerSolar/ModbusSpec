@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: marstek-venus-e-v1-v2
+manufacturer: Marstek
+name: Venus E
+kind: battery
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/marstek-venus-e.yaml
+- id: marstek-modbus-suite
+  title: marstek-modbus-suite (Home Assistant integration)
+  url: https://github.com/sphings79/marstek-modbus-suite
+  license: MIT
+  commit: 1bbd2182879b8835000732e04f5f0f53333aa31e
+  path: custom_components/marstek_modbus/registers/e_v12.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/marstek/venus_c_e
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 115200
+    format: 8N1
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - marstek-modbus-suite
+
+points:
+  - {key: x.wifi_status, label: WiFi Status, table: holding, address: 30300, type: u16}
+  - {key: x.bluetooth_status, label: Bluetooth Status, table: holding, address: 30301, type: u16}
+  - {key: x.cloud_status, label: Cloud Status, table: holding, address: 30302, type: u16}
+  - {key: x.wifi_signal_strength, label: WiFi Signal Strength, table: holding, address: 30303, type: u16, unit: dBm, scale: -1}
+  - {key: x.ble_mac_address, label: Bluetooth MAC, table: holding, address: 30402, type: str, length: 6, note: MAC address as ASCII text (12 hex digits).}
+  - {key: x.comm_module_firmware, label: Communication Module Firmware, table: holding, address: 30800, type: str, length: 6}
+  - {key: x.device_name, label: Device Name, table: holding, address: 31000, type: str, length: 10}
+  - {key: x.software_version, label: Software Version, table: holding, address: 31100, type: u16, scale: 0.01}
+  - {key: x.ems_version, label: EMS Version, table: holding, address: 31101, type: u16}
+  - {key: x.bms_version, label: BMS Version, table: holding, address: 31102, type: u16}
+  - {key: serial, label: Serial Number, table: holding, address: 31200, type: str, length: 10}
+  - {key: battery_voltage, label: Battery Voltage, table: holding, address: 32100, type: u16, unit: V, scale: 0.01}
+  - {key: x.battery_current, label: Battery Current, table: holding, address: 32101, type: s16, unit: A, scale: 0.01}
+  - {key: battery_power, label: Battery Power, table: holding, address: 32102, type: s32, unit: W, positive: charge}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 32104, type: u16, unit: '%', sources: [evcc, marstek-modbus-suite, openwb]}
+  - {key: x.battery_total_energy, label: Battery Total Energy, table: holding, address: 32105, type: u16, unit: kWh, scale: 0.001}
+  - {key: x.ac_voltage, label: AC Voltage, table: holding, address: 32200, type: u16, unit: V, scale: 0.1}
+  - {key: x.ac_current, label: AC Current, table: holding, address: 32201, type: s16, unit: A, scale: 0.01}
+  - {key: x.battery_power, label: Battery power, table: holding, address: 32202, type: s32, unit: W, sources: [evcc, marstek-modbus-suite, openwb]}
+  - {key: frequency, label: AC Frequency, table: holding, address: 32204, type: s16, unit: Hz, scale: 0.01}
+  - {key: x.ac_offgrid_voltage, label: AC Offgrid Voltage, table: holding, address: 32300, type: u16, unit: V, scale: 0.1}
+  - {key: x.ac_offgrid_current, label: AC Offgrid Current, table: holding, address: 32301, type: u16, unit: A, scale: 0.01}
+  - {key: x.ac_offgrid_power, label: AC Offgrid Power, table: holding, address: 32302, type: s32, unit: W}
+  - {key: x.total_charging_energy, label: Total Charging Energy, table: holding, address: 33000, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.battery_energy, label: Battery energy, table: holding, address: 33002, type: u32, unit: kWh, scale: 0.01, sources: [evcc], conflicts: [{sources: [marstek-modbus-suite], type: s32, label: Total Discharging Energy}]}
+  - {key: x.total_daily_charging_energy, label: Daily Charging Energy, table: holding, address: 33004, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.total_daily_discharging_energy, label: Daily Discharging Energy, table: holding, address: 33006, type: s32, unit: kWh, scale: 0.01}
+  - {key: x.total_monthly_charging_energy, label: Monthly Charging Energy, table: holding, address: 33008, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.total_monthly_discharging_energy, label: Monthly Discharging Energy, table: holding, address: 33010, type: s32, unit: kWh, scale: 0.01}
+  - {key: temperature, label: Internal Temperature, table: holding, address: 35000, type: s16, unit: °C, scale: 0.1}
+  - {key: x.internal_mos1_temperature, label: Internal MOS1 Temperature, table: holding, address: 35001, type: s16, unit: °C, scale: 0.1}
+  - {key: x.internal_mos2_temperature, label: Internal MOS2 Temperature, table: holding, address: 35002, type: s16, unit: °C, scale: 0.1}
+  - {key: x.max_cell_temperature, label: Max Cell Temperature, table: holding, address: 35010, type: s16, unit: °C}
+  - {key: x.min_cell_temperature, label: Min Cell Temperature, table: holding, address: 35011, type: s16, unit: °C}
+  - {key: state, label: Inverter State, table: holding, address: 35100, type: u16, enum: inverter_state}
+  - {key: x.alarm_status, label: Alarm Status, table: holding, address: 36000, type: u16, flags: alarm_status, note: 'The project lists 2 registers here but decodes only the first one. The project also names bits 16-19, beyond the register it decodes; left out.'}
+  - {key: x.fault_status, label: Fault Status, table: holding, address: 36100, type: u16, flags: fault_status, note: 'The project lists 4 registers here but decodes only the first one. The project also names bits 16-58, beyond the register it decodes; left out.'}
+  - {key: x.max_cell_voltage, label: Max Cell Voltage, table: holding, address: 37007, type: s16, unit: V, scale: 0.001}
+  - {key: x.min_cell_voltage, label: Min Cell Voltage, table: holding, address: 37008, type: s16, unit: V, scale: 0.001}
+  - {key: x.discharge_limit_mode, label: Discharge Limit, table: holding, address: 41010, type: u16}
+  - {key: x.modbus_address, label: Modbus Address, table: holding, address: 41100, type: u16}
+  - {key: x.backup_function, label: Backup Function, table: holding, address: 41200, type: u16, enum: backup_function, writable: true}
+  - {key: x.batterymode_42000, label: Battery mode control (write), table: holding, address: 42000, type: u16, writable: true, note: 'evcc writes battery mode normal: 21930, then 21947; battery mode hold: 21930, then 21947; battery mode charge: 21930; battery mode holdcharge: 21930, then 21947; battery mode discharge: 21930.', sources: [evcc, marstek-modbus-suite, openwb]}
+  - {key: x.batterymode_42010, label: Battery mode control (write), table: holding, address: 42010, type: u16, writable: true, note: 'evcc writes battery mode charge: 1; battery mode discharge: 2.', sources: [evcc, marstek-modbus-suite, openwb]}
+  - {key: x.charge_to_soc, label: Charge to SoC, table: holding, address: 42011, type: u16, unit: '%', writable: true, note: The project offers 10 to 100 in steps of 1 %.}
+  - {key: x.batterymode_42020, label: Battery mode control (write), table: holding, address: 42020, type: u16, unit: W, writable: true, note: 'evcc writes battery mode charge: 2500.', sources: [evcc, marstek-modbus-suite, openwb]}
+  - {key: x.batterymode_42021, label: Battery mode control (write), table: holding, address: 42021, type: u16, unit: W, writable: true, note: 'evcc writes battery mode discharge: 800.', sources: [evcc, marstek-modbus-suite, openwb]}
+  - {key: x.batterymode_43000, label: Battery mode control (write), table: holding, address: 43000, type: u16, writable: true, note: 'evcc writes battery mode normal: 1; battery mode hold: 1; battery mode holdcharge: 1.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.schedule_1_days, label: Schedule 1 Days, table: holding, address: 43100, type: u16, flags: schedule_1_days, writable: true}
+  - {key: x.schedule_1_start, label: Schedule 1 Start, table: holding, address: 43101, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1 min.}
+  - {key: x.schedule_1_end, label: Schedule 1 End, table: holding, address: 43102, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1 min.}
+  - {key: x.schedule_1_mode, label: Schedule 1 Mode, table: holding, address: 43103, type: s16, unit: W, writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -2500 to 2500 in steps of 1 W.'}
+  - {key: x.schedule_1_enabled, label: Schedule 1 Enabled, table: holding, address: 43104, type: u16, enum: schedule_1_enabled, writable: true}
+  - {key: x.schedule_2_days, label: Schedule 2 Days, table: holding, address: 43105, type: u16, flags: schedule_2_days, writable: true}
+  - {key: x.schedule_2_start, label: Schedule 2 Start, table: holding, address: 43106, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1 min.}
+  - {key: x.schedule_2_end, label: Schedule 2 End, table: holding, address: 43107, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1 min.}
+  - {key: x.schedule_2_mode, label: Schedule 2 Mode, table: holding, address: 43108, type: s16, unit: W, writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -2500 to 2500 in steps of 1 W.'}
+  - {key: x.schedule_2_enabled, label: Schedule 2 Enabled, table: holding, address: 43109, type: u16, enum: schedule_2_enabled, writable: true}
+  - {key: x.schedule_3_days, label: Schedule 3 Days, table: holding, address: 43110, type: u16, flags: schedule_3_days, writable: true}
+  - {key: x.schedule_3_start, label: Schedule 3 Start, table: holding, address: 43111, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1 min.}
+  - {key: x.schedule_3_end, label: Schedule 3 End, table: holding, address: 43112, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1 min.}
+  - {key: x.schedule_3_mode, label: Schedule 3 Mode, table: holding, address: 43113, type: s16, unit: W, writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -2500 to 2500 in steps of 1 W.'}
+  - {key: x.schedule_3_enabled, label: Schedule 3 Enabled, table: holding, address: 43114, type: u16, enum: schedule_3_enabled, writable: true}
+  - {key: x.schedule_4_days, label: Schedule 4 Days, table: holding, address: 43115, type: u16, flags: schedule_4_days, writable: true}
+  - {key: x.schedule_4_start, label: Schedule 4 Start, table: holding, address: 43116, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1 min.}
+  - {key: x.schedule_4_end, label: Schedule 4 End, table: holding, address: 43117, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1 min.}
+  - {key: x.schedule_4_mode, label: Schedule 4 Mode, table: holding, address: 43118, type: s16, unit: W, writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -2500 to 2500 in steps of 1 W.'}
+  - {key: x.schedule_4_enabled, label: Schedule 4 Enabled, table: holding, address: 43119, type: u16, enum: schedule_4_enabled, writable: true}
+  - {key: x.schedule_5_days, label: Schedule 5 Days, table: holding, address: 43120, type: u16, flags: schedule_5_days, writable: true}
+  - {key: x.schedule_5_start, label: Schedule 5 Start, table: holding, address: 43121, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1 min.}
+  - {key: x.schedule_5_end, label: Schedule 5 End, table: holding, address: 43122, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1 min.}
+  - {key: x.schedule_5_mode, label: Schedule 5 Mode, table: holding, address: 43123, type: s16, unit: W, writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -2500 to 2500 in steps of 1 W.'}
+  - {key: x.schedule_5_enabled, label: Schedule 5 Enabled, table: holding, address: 43124, type: u16, enum: schedule_5_enabled, writable: true}
+  - {key: x.schedule_6_days, label: Schedule 6 Days, table: holding, address: 43125, type: u16, flags: schedule_6_days, writable: true}
+  - {key: x.schedule_6_start, label: Schedule 6 Start, table: holding, address: 43126, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1 min.}
+  - {key: x.schedule_6_end, label: Schedule 6 End, table: holding, address: 43127, type: datetime, length: 1, unit: min, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1 min.}
+  - {key: x.schedule_6_mode, label: Schedule 6 Mode, table: holding, address: 43128, type: s16, unit: W, writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -2500 to 2500 in steps of 1 W.'}
+  - {key: x.schedule_6_enabled, label: Schedule 6 Enabled, table: holding, address: 43129, type: u16, enum: schedule_6_enabled, writable: true}
+  - {key: x.charging_cutoff_capacity, label: Charging Cutoff Capacity, table: holding, address: 44000, type: u16, unit: '%', scale: 0.1, writable: true, note: The project offers 80 to 100 in steps of 1 %.}
+  - {key: x.discharging_cutoff_capacity, label: Discharging Cutoff Capacity, table: holding, address: 44001, type: u16, unit: '%', scale: 0.1, writable: true, note: The project offers 12 to 30 in steps of 1 %.}
+  - {key: x.batterymode_44002, label: Battery mode control (write), table: holding, address: 44002, type: u16, unit: W, writable: true, note: 'evcc writes battery mode normal: 2500; battery mode hold: 2500; battery mode charge: 2500; battery mode holdcharge: 0.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.batterymode_44003, label: Battery mode control (write), table: holding, address: 44003, type: u16, unit: W, writable: true, note: 'evcc writes battery mode normal: 800; battery mode hold: 0; battery mode holdcharge: 800; battery mode discharge: 800.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.grid_standard, label: Grid Standard, table: holding, address: 44100, type: u16, enum: grid_standard, writable: true}
+
+enums:
+  inverter_state: {'0': Sleep, '1': Standby, '2': Charge, '3': Discharge, '4': Backup Mode, '5': OTA Upgrade, '6': Backup Passthrough}
+  grid_standard: {'0': Auto, '1': EN50549, '2': Netherlands, '3': Germany, '4': Austria, '5': United Kingdom, '6': Spain, '7': Poland, '8': Italy, '9': China}
+  backup_function: {'0': 'On', '1': 'Off'}
+  schedule_1_enabled: {'0': 'Off', '1': 'On'}
+  schedule_2_enabled: {'0': 'Off', '1': 'On'}
+  schedule_3_enabled: {'0': 'Off', '1': 'On'}
+  schedule_4_enabled: {'0': 'Off', '1': 'On'}
+  schedule_5_enabled: {'0': 'Off', '1': 'On'}
+  schedule_6_enabled: {'0': 'Off', '1': 'On'}
+
+flags:
+  fault_status: {'0': Grid Overvoltage, '1': Grid Undervoltage, '2': Grid Overfrequency, '3': Grid Underfrequency, '4': Grid Peak Voltage, '5': Current Dcover, '6': Voltage Dcover}
+  alarm_status: {'0': PLL Abnormal Restart, '1': Overtemperature Limit, '2': Low Temperature Limit, '3': Fan Abnormal Warning, '4': Low Battery SOC Warning, '5': Output Overcurrent Warning, '6': Abnormal Line Sequence Detection}
+  schedule_1_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_2_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_3_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_4_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_5_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_6_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+
+notes:
+- 'evcc template `marstek-venus-e` (battery) lists: Marstek Venus E; Marstek Venus E Gen 2.0; Marstek Venus E Gen 3.0; Marstek
+  Venus C.'
+- The template has the option `generation` (default unset); points used only with another value say so in their note.
+- Venus E generations 1 and 2; their firmware is not the one of the Venus A / D / E v3.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

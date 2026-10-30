@@ -1,0 +1,162 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Rotronic Modbus Manual for PF4/5 (E-M-PF4_PF5-Modbus V1.2, 12.04.2021).
+
+modbusspec: 0
+id: rotronic-pf
+manufacturer: Rotronic
+name: PF4 / PF5 differential pressure transmitter (optional HC2 humidity / Pt100 probe)
+kind: io
+
+sources:
+- title: Modbus Manual for PF4/5 (E-M-PF4_PF5-Modbus)
+  version: V1.2 (12.04.2021)
+  url: https://www.rotronic.com/pub/media/productattachments/files/D-M-PF4_PF5-V1.2_Modbus_Manual.pdf
+  sha256: 4b361292d760efc88acdfae8ed6bb9c24b926ff1936b0890643014f2895f8780
+  archive_url: https://web.archive.org/web/20240630041018/https://www.rotronic.com/pub/media/productattachments/files/D-M-PF4_PF5-V1.2_Modbus_Manual.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: detect
+  detect:
+    table: input
+    address: 31014
+    type: f32
+    plausible:
+    - 10
+    - 1200
+
+identify:
+  serial:
+    table: input
+    address: 30000
+    type: u32
+  any:
+  - table: input
+    address: 30004
+    type: str
+    length: 6
+    prefix: PF4
+  - table: input
+    address: 30004
+    type: str
+    length: 6
+    prefix: PF5
+
+models:
+  - {id: pf4, name: PF4, match: {table: input, address: 30004, type: str, length: 6, prefix: PF4}}
+  - {id: pf5, name: PF5, match: {table: input, address: 30004, type: str, length: 6, prefix: PF5}}
+
+points:
+  # Device data (input registers)
+  - {key: serial, label: Serial Number, table: input, address: 30000, type: u32, poll: slow}
+  - {key: x.probe_serial, label: Serial Number HC2 Probe, table: input, address: 30002, type: u32, poll: slow, note: Only with an HC2 probe.}
+  - {key: x.device_name, label: Device Name, table: input, address: 30004, type: str, length: 6, poll: slow, note: '12 characters, e.g. ''PF5 + HC2''.'}
+  - {key: x.dp_sensor_type, label: Differential Pressure Sensor Type, table: input, address: 30010, type: u16, enum: dp_sensor_type, poll: slow}
+  - {key: x.hardware_version, label: Hardware Version, table: input, address: 30011, type: u16, poll: slow}
+  - {key: x.production_date, label: Production Date, table: input, address: 30012, type: u32, epoch: {start: '1970-01-01', unit: s}, poll: slow, note: Unix time (UTC).}
+  - {key: x.device_type, label: Device Type, table: input, address: 30014, type: u16, flags: device_type, poll: slow}
+  - {key: x.interface_type, label: Interface Type, table: input, address: 30015, type: u16, flags: interface_type, poll: slow}
+  - {key: x.alarms, label: State of Alarms, table: input, address: 30016, type: u16, flags: alarms, poll: fast}
+  - {key: x.pre_alarms, label: State of Pre-Alarms, table: input, address: 30017, type: u16, flags: pre_alarms, poll: fast}
+  - {key: x.other_alarms, label: State of Other Alarms, table: input, address: 30018, type: u16, flags: other_alarms, poll: fast}
+  - {key: x.relay_valve_state, label: State of Relay and Valve, table: input, address: 30019, type: u16, flags: relay_valve, poll: fast}
+  - {key: x.analog_outputs, label: Numbers of Analog Outputs, table: input, address: 30020, type: u16, poll: slow}
+  - {key: x.device_address, label: Device Address, table: input, address: 30021, type: u16, poll: slow, note: RS485 network address; the Modbus RTU address is this + 1.}
+
+  # Current values (32-bit floats; units as selected in the value unit registers)
+  - {key: x.humidity, label: Humidity, table: input, address: 31000, type: f32, unit: '%', poll: fast, note: Relative humidity (%rh); only with an HC2 probe.}
+  - {key: x.temperature, label: Temperature, table: input, address: 31002, type: f32, unit: °C, poll: fast, note: Only with an HC2 or Pt100 probe. Unit per holding 41000 (°C default).}
+  - {key: x.differential_pressure, label: Differential Pressure, table: input, address: 31004, type: f32, unit: Pa, poll: fast, note: Unit per holding 41001 (Pa default).}
+  - {key: x.calculation, label: Calculation, table: input, address: 31006, type: f32, poll: fast, note: 'Psychrometric value chosen in holding 40000 (dew point, enthalpy …); only with an HC2 probe. Unit depends on the calculation and its unit setting.'}
+  - {key: x.analog_input, label: Analog Input, table: input, address: 31008, type: f32, poll: fast, note: 'V or mA by the analog input type (holding 40001), or a customer unit.'}
+  - {key: x.flow, label: Flow, table: input, address: 31010, type: f32, unit: m/s, poll: fast, note: Only with the flow option. Unit per holding 41006 (m/s default).}
+  - {key: x.volume_flow, label: Volume Flow, table: input, address: 31012, type: f32, unit: m³/h, poll: fast, note: Only with the flow option. Unit per holding 41007 (m³/h default).}
+  - {key: x.ambient_pressure, label: Ambient Pressure, table: input, address: 31014, type: f32, unit: hPa, poll: fast, note: Unit per holding 41002 (hPa default).}
+  - {key: temperature, label: Internal Temperature, table: input, address: 31016, type: f32, unit: °C, poll: fast, note: Unit per holding 41000 (°C default).}
+
+  # Relay and valve (coils)
+  - {key: x.relay, label: Relay, table: coil, address: 0, type: bool, writable: true, poll: fast, note: Manual switching is not possible while relay alarm bits are set in the relay settings.}
+  - {key: x.valve, label: Valve, table: coil, address: 1, type: bool, writable: true, poll: fast, models: [pf5]}
+
+  # Settings (holding registers)
+  - {key: x.calculation_type, label: Calculation Type, table: holding, address: 40000, type: u16, enum: calculation, writable: true, poll: slow}
+  - {key: x.analog_input_type, label: Analog Input Type, table: holding, address: 40001, type: u16, enum: analog_input_type, writable: true, poll: slow}
+  - {key: x.temperature_unit, label: Temperature unit, table: holding, address: 41000, type: u16, enum: temperature_unit, writable: true, poll: slow}
+  - {key: x.dp_unit, label: Differential Pressure unit, table: holding, address: 41001, type: u16, enum: dp_unit, writable: true, poll: slow}
+  - {key: x.ambient_pressure_unit, label: Ambient Pressure unit, table: holding, address: 41002, type: u16, enum: ambient_pressure_unit, writable: true, poll: slow}
+  - {key: x.flow_unit, label: Flow unit, table: holding, address: 41006, type: u16, enum: flow_unit, writable: true, poll: slow}
+  - {key: x.volume_flow_unit, label: Volume Flow unit, table: holding, address: 41007, type: u16, enum: volume_flow_unit, writable: true, poll: slow}
+  - {key: x.device_number, label: Device Number, table: holding, address: 44106, type: u16, writable: true, min: 0, max: 63, poll: slow, note: RS485 address; the Modbus RTU address is this + 1.}
+  - {key: x.modbus_mode, label: Modbus Operation Mode, table: holding, address: 44107, type: u16, enum: modbus_mode, writable: true, poll: slow}
+
+enums:
+  dp_sensor_type: {'0': PF5 ±10 Pa, '1': PF5 ±25 Pa, '2': PF5 ±50 Pa, '3': PF5 ±100 Pa, '4': PF5 ±250 Pa, '5': PF5 ±500 Pa, '6': PF5 ±1000 Pa, '7': PF5 ±2500 Pa, '8': PF5 ±5000 Pa, '16': PF4 ±10 Pa, '17': PF4 ±25 Pa, '18': PF4 ±50 Pa, '19': PF4 ±100 Pa, '20': PF4 ±250 Pa, '21': PF4 ±500 Pa}
+  calculation: {'0': Dew point, '1': Frost point, '2': Wet bulb temperature, '3': Enthalpy, '4': Vapour concentration, '5': Specific humidity, '6': Mixing ratio, '7': Saturation vapour concentration, '8': Vapour partial pressure, '9': Vapour saturation pressure}
+  analog_input_type: {'0': Voltage (0…10 V), '1': Current (0…24 mA)}
+  temperature_unit: {'0': °C, '1': °F}
+  dp_unit: {'0': Pa, '1': inH2O, '2': mpsi, '3': mbar, '4': mmHg, '5': mmH2O, '6': Torr, '7': g/cm²}
+  ambient_pressure_unit: {'0': hPa, '1': inHg, '2': psi}
+  flow_unit: {'0': m/s, '1': km/h, '2': ft/s, '3': mph}
+  volume_flow_unit: {'0': m³/h, '1': m³/min, '2': l/min, '3': l/s, '4': cfm, '5': cfs}
+  modbus_mode: {'0': Word swap, '1': Byte swap, '2': Byte and word swap, '3': No change}
+
+flags:
+  device_type: {'0': PFx solo, '1': PFx + Pt100 probe, '2': PFx + HC2 probe, '4': PF5 (0 = PF4), '5': Flow on}
+  interface_type: {'0': Ethernet, '2': RS485}
+  alarms: {'0': Differential pressure low, '1': Differential pressure high, '2': Humidity low, '3': Humidity high, '4': Temperature low, '5': Temperature high, '6': Calculation low, '7': Calculation high, '8': Analog input low, '9': Analog input high, '10': Flow low, '11': Flow high, '12': Volume low, '13': Volume high}
+  pre_alarms: {'0': Differential pressure low, '1': Differential pressure high, '2': Humidity low, '3': Humidity high, '4': Temperature low, '5': Temperature high, '6': Calculation low, '7': Calculation high, '8': Analog input low, '9': Analog input high, '10': Flow low, '11': Flow high, '12': Volume low, '13': Volume high}
+  other_alarms: {'0': Sensor limit exceeded, '1': No communication with sensor, '2': Missing probe, '3': Fixed values active}
+  relay_valve: {'0': Relay, '8': Valve}
+
+problems:
+  - {when: {key: x.alarms, bit: 0}, kind: warning, text: 'Alarm: differential pressure low'}
+  - {when: {key: x.alarms, bit: 1}, kind: warning, text: 'Alarm: differential pressure high'}
+  - {when: {key: x.alarms, bit: 2}, kind: warning, text: 'Alarm: humidity low'}
+  - {when: {key: x.alarms, bit: 3}, kind: warning, text: 'Alarm: humidity high'}
+  - {when: {key: x.alarms, bit: 4}, kind: warning, text: 'Alarm: temperature low'}
+  - {when: {key: x.alarms, bit: 5}, kind: warning, text: 'Alarm: temperature high'}
+  - {when: {key: x.alarms, bit: 6}, kind: warning, text: 'Alarm: calculated value low'}
+  - {when: {key: x.alarms, bit: 7}, kind: warning, text: 'Alarm: calculated value high'}
+  - {when: {key: x.alarms, bit: 8}, kind: warning, text: 'Alarm: analog input low'}
+  - {when: {key: x.alarms, bit: 9}, kind: warning, text: 'Alarm: analog input high'}
+  - {when: {key: x.alarms, bit: 10}, kind: warning, text: 'Alarm: flow low'}
+  - {when: {key: x.alarms, bit: 11}, kind: warning, text: 'Alarm: flow high'}
+  - {when: {key: x.alarms, bit: 12}, kind: warning, text: 'Alarm: volume flow low'}
+  - {when: {key: x.alarms, bit: 13}, kind: warning, text: 'Alarm: volume flow high'}
+  - {when: {key: x.pre_alarms, not: 0}, kind: warning, text: 'Pre-alarm (bits 0x{value:X})'}
+  - {when: {key: x.other_alarms, bit: 0}, kind: warning, text: Sensor measuring limit exceeded}
+  - {when: {key: x.other_alarms, bit: 1}, kind: fault, text: No communication with the sensor}
+  - {when: {key: x.other_alarms, bit: 2}, kind: fault, text: Probe missing}
+  - {when: {key: x.other_alarms, bit: 3}, kind: warning, text: Fixed (simulated) values active}
+
+notes:
+- Addresses are the document's protocol addresses (its register number − 1). Unusually, input and holding registers keep the
+  30'000 / 40'000 range in the protocol address (the read example sends 0x7918 = 31000 for the humidity); coils are 0-based
+  (coil 1 = address 0).
+- Modbus RTU over RS485 at 19200 baud, 8N1, fixed; the RTU address is the RS485 network address (0…63) + 1. Modbus TCP on
+  port 502 (fixed); an idle TCP connection is closed after 30 s. Modbus ASCII and function codes 02 and 0F are not supported.
+- 32-bit values (floats, serial numbers, date, IP addresses) follow the Modbus operation mode (holding 44107; Rotronic default
+  'word swap'). The document's layout tables (low word first) and its read example (high word first, e.g. 0x41F3 0x70A3 =
+  30.43 %rh) disagree, and the swap-mode table can be read either way, so the word order is detected from the ambient pressure
+  (always fitted). Byte order is big (16-bit registers are always big-endian; the byte-swap modes, which affect only 32-bit
+  values, are not supported here). Unverified on a device.
+- Humidity and calculated values need an HC2 probe, temperature an HC2 or Pt100 probe, flow and volume flow the flow option;
+  without them the registers hold undefined values.
+- Units of the current values follow the value unit settings (holding 41000…41008); the points use the defaults (°C, Pa, hPa,
+  m/s, m³/h). Integer copies of the current values (input 32000…32008, scaled by holding 42000…42008) are left out.
+- The sensor type table prints the numbers 7 and 8 twice (±7500 Pa and ±15 kPa, by order only, presumably 9 and 10); those
+  two are left out of the enum.
+- 'Left out: sensor and device action coils (zero adjust, adjustment, reset, store / restore settings), reference values,
+  device descriptions, fixed values and the analog output, display, alarm, relay, analog input and flow settings.'

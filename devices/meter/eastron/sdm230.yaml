@@ -1,0 +1,190 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Eastron SDM230Modbus Smart Meter Modbus Protocol Implementation (1.4); tariff registers from the
+# SDM230-2T protocol (V1.1); older editions in the notes.
+
+modbusspec: 0
+id: eastron-sdm230
+manufacturer: Eastron
+name: SDM230 single-phase energy meter
+kind: meter
+
+sources:
+- title: Eastron SDM230Modbus Smart Meter Modbus Protocol Implementation
+  version: 1.4 (page headers say 1.3)
+  url: https://www.eastroneurope.com/images/uploads/products/protocol/Correct_SDM230_Protocol.pdf
+  sha256: 6ae454734f76d89854b008e5d784c04c2d047daeabcbf3d8e8a6aee47a22437d
+  archive_url: https://web.archive.org/web/20240715121040/https://www.eastroneurope.com/images/uploads/products/protocol/Correct_SDM230_Protocol.pdf
+- title: Eastron SDM230-2T Smart Meter Modbus Protocol Implementation
+  version: '1.1'
+  url: https://github.com/nmakel/sdm_modbus/blob/fead352846b36ff8ca9f89c1491ee047ab2b55d1/documents/sdm230_modbus_protocol_v1.1.pdf
+  sha256: 0df6f0d05c55e6a449ed2563bd119719cfa64ed7fb97d11ec19192e6f7dfc1f4
+- title: Eastron SDM230 Protocol (Eastron Europe, distributor copy)
+  version: undated
+  url: https://downloads.innon.com/hubfs/downloads.innon.com/Power%20Meters/SDM230-MOD-MID/Manuals/SDM230-PROTOCOL.pdf
+  sha256: 9c94f4d876ae526331828c5f31c95e6a400cfa0a972587f4b8483cf61ba5fcf9
+- id: eastron-sdm
+  title: home-assistant-eastron-sdm (Home Assistant integration)
+  url: https://github.com/LavermanJJ/home-assistant-eastron-sdm
+  license: Apache-2.0
+  commit: b857f063adcec4145cd27422137483ef89ab64f3
+  path: custom_components/eastron_sdm/sdm/
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/sdm220.go, meters/rs485/sdm230.go
+- id: modbus-local-gateway
+  title: modbus_local_gateway (Home Assistant integration)
+  url: https://github.com/timlaing/modbus_local_gateway
+  license: MIT
+  commit: e770d6c91220d98b8f0be22b103fdb607c3c67f4
+  path: custom_components/modbus_local_gateway/device_configs/SDM230.yaml
+- id: tasmota
+  title: Tasmota (energy meter drivers)
+  url: https://github.com/arendst/Tasmota
+  license: GPL-3.0
+  commit: 4df6fa1d4bf6c4e98765eb76a096a597fb5af709
+  path: tasmota/tasmota_xnrg_energy/xnrg_21_sdm230.ino
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 2400
+    format: 8N1
+  limits:
+    max_registers: 80
+    even_address: true
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: detect
+  detect:
+    table: input
+    address: 70
+    type: f32
+    plausible:
+    - 40
+    - 70
+
+identify:
+  serial:
+    table: holding
+    address: 64512
+    type: u32
+  checks:
+  - table: input
+    address: 70
+    type: f32
+    range:
+    - 40
+    - 70
+
+points:
+  # Measurements (input registers, function 04)
+  - {key: l1_voltage, label: Line to neutral volts, table: input, address: 0, type: f32, unit: V}
+  - {key: l1_current, label: Current, table: input, address: 6, type: f32, unit: A}
+  - {key: grid_power, label: Active power, table: input, address: 12, type: f32, unit: W, positive: import, verified: false, note: The document gives no sign. It calls import demand "positive" and export demand "reverse"; assumed positive = import.}
+  - {key: apparent_power, label: Apparent power, table: input, address: 18, type: f32, unit: VA}
+  - {key: reactive_power, label: Reactive power, table: input, address: 24, type: f32, unit: var}
+  - {key: power_factor, label: Power factor, table: input, address: 30, type: f32, unit: ''}
+  - {key: x.phase_angle, label: Phase angle, table: input, address: 36, type: f32, unit: °}
+  - {key: frequency, label: Frequency, table: input, address: 70, type: f32, unit: Hz}
+  - {key: grid_import_energy, label: Import active energy, table: input, address: 72, type: f32, unit: kWh, poll: slow}
+  - {key: grid_export_energy, label: Export active energy, table: input, address: 74, type: f32, unit: kWh, poll: slow}
+  - {key: x.import_reactive_energy, label: Import reactive energy, table: input, address: 76, type: f32, unit: kvarh, poll: slow}
+  - {key: x.export_reactive_energy, label: Export reactive energy, table: input, address: 78, type: f32, unit: kvarh, poll: slow}
+  - {key: x.total_power_demand, label: Total system power demand, table: input, address: 84, type: f32, unit: W, poll: slow}
+  - {key: x.max_total_power_demand, label: Maximum total system power demand, table: input, address: 86, type: f32, unit: W, poll: slow}
+  - {key: x.import_power_demand, label: Current system positive power demand, table: input, address: 88, type: f32, unit: W, poll: slow}
+  - {key: x.max_import_power_demand, label: Maximum system positive power demand, table: input, address: 90, type: f32, unit: W, poll: slow}
+  - {key: x.export_power_demand, label: Current system reverse power demand, table: input, address: 92, type: f32, unit: W, poll: slow}
+  - {key: x.max_export_power_demand, label: Maximum system reverse power demand, table: input, address: 94, type: f32, unit: W, poll: slow}
+  - {key: x.current_demand, label: Current demand, table: input, address: 258, type: f32, unit: A, poll: slow}
+  - {key: x.max_current_demand, label: Maximum current demand, table: input, address: 264, type: f32, unit: A, poll: slow}
+  - {key: x.total_active_energy, label: Total active energy, table: input, address: 342, type: f32, unit: kWh, poll: slow, note: What it counts depends on the measurement mode (holding 0xF920); import + export by default.}
+  - {key: x.total_reactive_energy, label: Total reactive energy, table: input, address: 344, type: f32, unit: kvarh, poll: slow}
+  - {key: x.resettable_active_energy, label: Current resettable total active energy, table: input, address: 384, type: f32, unit: kWh, poll: slow}
+  - {key: x.resettable_reactive_energy, label: Current resettable total reactive energy, table: input, address: 386, type: f32, unit: kvarh, poll: slow}
+  # Two-tariff registers: only in the SDM230-2T document (V1.1)
+  - {key: x.total_energy_t1, label: Total active energy rate 1, table: input, address: 4876, type: f32, unit: kWh, poll: slow, optional: true}
+  - {key: x.total_energy_t2, label: Total active energy rate 2, table: input, address: 4878, type: f32, unit: kWh, poll: slow, optional: true}
+  - {key: x.import_energy_t1, label: Import active energy rate 1, table: input, address: 4884, type: f32, unit: kWh, poll: slow, optional: true}
+  - {key: x.import_energy_t2, label: Import active energy rate 2, table: input, address: 4886, type: f32, unit: kWh, poll: slow, optional: true}
+  - {key: x.export_energy_t1, label: Export active energy rate 1, table: input, address: 4892, type: f32, unit: kWh, poll: slow, optional: true}
+  - {key: x.export_energy_t2, label: Export active energy rate 2, table: input, address: 4894, type: f32, unit: kWh, poll: slow, optional: true}
+  - {key: x.total_reactive_energy_t1, label: Total reactive energy rate 1, table: input, address: 4900, type: f32, unit: kvarh, poll: slow, optional: true}
+  - {key: x.total_reactive_energy_t2, label: Total reactive energy rate 2, table: input, address: 4902, type: f32, unit: kvarh, poll: slow, optional: true}
+  - {key: x.import_reactive_energy_t1, label: Import reactive energy rate 1, table: input, address: 4908, type: f32, unit: kvarh, poll: slow, optional: true}
+  - {key: x.import_reactive_energy_t2, label: Import reactive energy rate 2, table: input, address: 4910, type: f32, unit: kvarh, poll: slow, optional: true}
+  - {key: x.export_reactive_energy_t1, label: Export reactive energy rate 1, table: input, address: 4916, type: f32, unit: kvarh, poll: slow, optional: true}
+  - {key: x.export_reactive_energy_t2, label: Export reactive energy rate 2, table: input, address: 4918, type: f32, unit: kvarh, poll: slow, optional: true}
+  - {key: x.max_import_power_demand_t1, label: Maximum system positive active power demand of tariff 1, table: input, address: 5074, type: f32, unit: kW, poll: slow, optional: true}
+  - {key: x.max_import_power_demand_t2, label: Maximum system positive active power demand of tariff 2, table: input, address: 5076, type: f32, unit: kW, poll: slow, optional: true}
+  - {key: x.max_export_power_demand_t1, label: Maximum system reverse active power demand of tariff 1, table: input, address: 5204, type: f32, unit: kW, poll: slow, optional: true}
+  - {key: x.max_export_power_demand_t2, label: Maximum system reverse active power demand of tariff 2, table: input, address: 5206, type: f32, unit: kW, poll: slow, optional: true}
+  - {key: x.max_total_power_demand_t1, label: Tariff 1 total active maximum power demand, table: input, address: 5472, type: f32, unit: W, poll: slow, optional: true}
+  - {key: x.max_current_demand_t1, label: Tariff 1 L1 maximum current demand, table: input, address: 5478, type: f32, unit: A, poll: slow, optional: true}
+  - {key: x.max_total_power_demand_t2, label: Tariff 2 total active maximum power demand, table: input, address: 5486, type: f32, unit: W, poll: slow, optional: true}
+  - {key: x.max_current_demand_t2, label: Tariff 2 L1 maximum current demand, table: input, address: 5492, type: f32, unit: A, poll: slow, optional: true}
+
+  # Settings and identity (holding registers, function 03; write with function 16)
+  - {key: x.pulse_width, label: Pulse output 1 width, table: holding, address: 12, type: f32, unit: ms, writable: true, poll: slow, note: '60, 100 or 200; default 100.'}
+  - {key: x.parity_stop, label: Network parity, table: holding, address: 18, type: f32, enum: parity_stop, writable: true, poll: slow}
+  - {key: x.node_address, label: Network port node, table: holding, address: 20, type: f32, writable: true, min: 1, max: 247, poll: slow, note: Default 1.}
+  - {key: x.baud_rate, label: Network baud rate, table: holding, address: 28, type: f32, enum: baud_rate, writable: true, poll: slow, note: 'An index into the table, not the rate itself.'}
+  - {key: x.pulse_energy_type, label: Pulse1 energy type, table: holding, address: 86, type: f32, enum: pulse_energy_type, writable: true, poll: slow}
+  - {key: x.reset, label: Reset, table: holding, address: 61456, type: u16, writable: true, write_only: true, note: '0x0000 clears the maximum demand values, 0x0003 the resettable energy counters.'}
+  - {key: x.pulse_constant, label: Pulse 1 constant, table: holding, address: 63760, type: u16, enum: pulse_constant, writable: true, poll: slow}
+  - {key: x.measurement_mode, label: Measurement mode, table: holding, address: 63776, type: u16, enum: measurement_mode, writable: true, poll: slow, note: Sets what the total active energy (input 0x0156) counts.}
+  - {key: x.running_time, label: Running time, table: holding, address: 63792, type: f32, unit: h, poll: slow, note: Continuous working time; listed as read/write.}
+  - {key: serial, label: Serial number, table: holding, address: 64512, type: u32, poll: slow}
+  - {key: x.software_version, label: Software version, table: holding, address: 64514, type: u32, bits: [0, 15], note: 'High byte = major, low byte = minor version.', verified: false, sources: [eastron-sdm], word_order: big}
+  - {key: x.meter_code, label: Meter code, table: holding, address: 64514, type: u32, bits: [16, 31], enum: meter_code, note: 'Documented codes: SDM120 0x0020, SDM630MCT 0x0079, SDM72D-M-1 0x0084, SDM72DM-V2 0x0089; 0x0070 (SDM630) only from field reports. Some meters report other values (0x0004 on an SDM120, 0x1010 on an SDM630).', verified: false, sources: [eastron-sdm], word_order: big}
+
+enums:
+  parity_stop: {'0': 8N1, '1': 8E1, '2': 8O1, '3': 8N2}
+  baud_rate: {'0': '2400', '1': '4800', '2': '9600', '5': '1200'}
+  pulse_energy_type: {'1': Import active energy, '2': Import + export active energy, '4': Export active energy, '5': Import reactive energy, '6': Import + export reactive energy, '8': Export reactive energy}
+  pulse_constant: {'0': 0.001 kWh (kvarh)/imp, '1': 0.01 kWh (kvarh)/imp, '2': 0.1 kWh (kvarh)/imp, '3': 1 kWh (kvarh)/imp}
+  measurement_mode: {'1': Total = import, '2': Total = import + export, '3': Total = import − export}
+  meter_code: {'32': SDM120, '112': SDM630, '121': SDM630MCT, '132': SDM72D-M-1, '137': SDM72DM-V2}
+
+notes:
+- 'Addresses: the document numbers registers 30001 ff. (input) and 40001 ff. (holding) and also gives the hex start address;
+  the hex address is used here (register number − 30001 or − 40001). For the F0xx … FCxx settings it numbers them 4xxxxx (e.g.
+  461457 = 0xF010).'
+- Every value is an IEEE 754 float in two registers, except the F010h, F910h and F920h settings (one register each) and the
+  serial number (u32). Start address and count must be even; at most 40 values (80 registers) per request.
+- The word order is most significant register first by default; the meter has a "Register Order" setting that reverses it,
+  but the document doesn't list its address, so readers detect the order from the frequency.
+- 'Defaults: node address 1, 2400 baud, no parity, 1 stop bit; 1200, 2400, 4800 and 9600 baud selectable. RTU only (no ASCII).'
+- 'Pulse 1 energy type: default export active energy; pulse 1 constant: default 0.001 kWh/imp; measurement mode: default import
+  + export.'
+- 'Tariff registers (input 0x130C … 0x1574): only the SDM230-2T (two-tariff) document V1.1 lists them, so they are optional.
+  Units as that document gives them: the tariff maximum demands at 0x13D2 … 0x1456 in kW, those at 0x1560 … 0x1574 in W /
+  A.'
+- 'Older editions: the SDM230-2T document (V1.1) gives 9600 baud as the default (not 2400) and at most 30 values (60 registers)
+  per request in its overview (its register section says 40). The undated distributor copy also has 9600 baud as default,
+  adds 3 = 19200 and 4 = 38400 to the baud-rate table, lists the relay pulse width at holding 0x000A (default 200 ms), and
+  has holding 0xF930 as a read-only pulse output and LED mode (0 = import and export, 1 = import only, 2 = export only) instead
+  of the running time.'
+- 'Left out: the BCD register at holding 0xF500 that packs demand interval, slide time, scroll time and backlight time (one
+  byte each, minutes / minutes / seconds / minutes).'
+- Measurements are input registers (function 04), settings and identity holding registers (function 03); every measurement
+  is a 32-bit float, most significant register first.
+- Network settings (parity, node address, baud rate) are floats holding small integers.
+- 'SDM220: mbmd (type code SDM220) detects the meter by reading Voltage (input register 0, f32); its bus scan accepts a value
+  within 10% of 110 or 230 V.'
+- 'SDM230: mbmd (type code SDM230) detects the meter by reading Voltage (input register 0, f32); its bus scan accepts a value
+  within 10% of 110 or 230 V.'
+- Identification as mbmd recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

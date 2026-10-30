@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Vzlet "Список ModBus-регистров, расходомер-счетчик электромагнитный ВЗЛЕТ ЭМ, исполнение ЭКСПЕРТ
+# 9ххМх" (no version or date).
+
+modbusspec: 0
+id: vzlet-em-expert-9xxm
+manufacturer: Vzlet
+name: VZLET EM EXPERT 9xxM electromagnetic flow meter
+kind: meter
+
+sources:
+- title: Список ModBus-регистров, расходомер-счетчик электромагнитный «ВЗЛЕТ ЭМ», исполнение ЭКСПЕРТ 9ххМх
+  version: undated
+  url: https://neo-term.ru/upload/iblock/e97/78v9739i7n82sj06iy02110vfs4g72x5/modbus_em_expert9xxm.pdf
+  sha256: fa5d038927f85a958e2a848130f065cfb4ce1bf566e378be7e8c58ac11a024c4
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 33504
+    type: u32
+  checks:
+  # operating mode
+  - table: input
+    address: 38
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+  # flow direction
+  - table: input
+    address: 256
+    type: u16
+    in:
+    - 0
+    - 1
+  # serial number; a device answering 0 or FFFFh everywhere is not this one
+  - table: holding
+    address: 33504
+    type: u32
+    not_in:
+    - 0
+    - 4294967295
+
+
+points:
+  # Input registers: live values
+  - {key: x.flow_rate, label: Текущий расход (current flow rate), table: input, address: 49288, type: f32, unit: l/min, note: The flow unit setting (holding 539) may change the unit; the document labels this register l/min., verified: false}
+  - {key: x.forward_volume_integer, label: 'Положительный объем, целая часть (forward volume, integer part)', table: input, address: 32790, type: s32, unit: m³, poll: slow, verified: false}
+  - {key: x.forward_volume_fraction, label: 'Положительный объем, дробная часть (forward volume, fraction)', table: input, address: 32792, type: f32, unit: m³, poll: slow, verified: false}
+  - {key: x.reverse_volume_integer, label: 'Отрицательный объем, целая часть (reverse volume, integer part)', table: input, address: 32794, type: s32, unit: m³, poll: slow, verified: false}
+  - {key: x.reverse_volume_fraction, label: 'Отрицательный объем, дробная часть (reverse volume, fraction)', table: input, address: 32796, type: f32, unit: m³, poll: slow, verified: false}
+  - {key: x.flow_direction, label: Направление потока (flow direction), table: input, address: 256, type: u16, enum: flow_direction}
+  - {key: state, label: Режим работы (operating mode), table: input, address: 38, type: u16, enum: operating_mode}
+  - {key: x.meter_errors, label: Ошибки измерителя (measuring unit errors), table: input, address: 16640, type: u16, flags: error_bits}
+  - {key: x.sensor_mode, label: Режим работы ПИ (sensor operating mode), table: input, address: 283, type: u16, enum: sensor_mode}
+  - {key: x.dosing, label: Состояние режима дозирования (dosing), table: input, address: 284, type: u16, enum: on_off}
+  - {key: x.dosed_volume, label: Дозатор доза (dose), table: input, address: 49298, type: f32, unit: l, verified: false}
+  - {key: x.max_flow_rate, label: Максимальный расход (maximum flow rate), table: input, address: 49296, type: f32, unit: m³/h, poll: slow, verified: false}
+  - {key: x.current_output, label: Текущий ток токового выхода (current output), table: input, address: 49294, type: f32, unit: mA, verified: false}
+  - {key: x.frequency_output_1, label: Текущая частота 1 частотного выхода (frequency output 1), table: input, address: 49284, type: f32, unit: Hz, verified: false}
+  - {key: x.frequency_output_2, label: Текущая частота 2 частотного выхода (frequency output 2), table: input, address: 49286, type: f32, unit: Hz, verified: false}
+  - {key: x.operating_time, label: T раб (operating time), table: input, address: 32882, type: u32, unit: s, poll: slow, verified: false}
+  - {key: x.user_counter_time, label: 'Пользовательский счетчик, время накопления (user counter time)', table: input, address: 32878, type: u32, unit: s, poll: slow, verified: false}
+  - {key: x.calculator_serial, label: Серийный номер вторичного вычислителя (calculator serial number), table: input, address: 32770, type: u32, poll: slow, verified: false}
+  - {key: x.firmware_crc, label: CRC прибора (firmware checksum), table: input, address: 16661, type: u16, poll: slow}
+  # Holding registers: identity and settings
+  - {key: serial, label: Серийный номер прибора (device serial number), table: holding, address: 33504, type: u32, poll: slow, verified: false}
+  - {key: x.running_hours, label: Время наработки (running time), table: holding, address: 33502, type: u32, poll: slow, note: The unit isn't stated., verified: false}
+  - {key: x.ip_address, label: IP адрес (IP address), table: holding, address: 33510, type: u32, poll: slow, note: The byte order of the address isn't stated., verified: false}
+  - {key: x.pipe_diameter, label: Диаметр трубы (pipe diameter), table: holding, address: 16967, type: u16, unit: mm, poll: slow}
+  - {key: x.flow_unit, label: Размерность расхода (flow unit), table: holding, address: 539, type: u16, enum: flow_unit, writable: true, poll: slow}
+  - {key: x.volume_unit, label: Размерность объема (volume unit), table: holding, address: 540, type: u16, enum: volume_unit, writable: true, poll: slow}
+  - {key: x.network_address, label: Сетевой адрес устройства (network address), table: holding, address: 0, type: u16, writable: true, poll: slow, min: 1, max: 247}
+  - {key: x.response_delay, label: Задержка ответа прибора (response delay), table: holding, address: 1, type: u16, unit: ms, writable: true, poll: slow, min: 0, max: 125}
+  - {key: x.baud_rate, label: Скорость обмена по RS232 (baud rate index), table: holding, address: 2, type: u16, enum: baud_rate, writable: true, poll: slow, note: 'An index into the table, not the rate itself.'}
+  - {key: x.modbus_mode, label: Тип протокола Modbus (Modbus framing), table: holding, address: 68, type: u16, enum: modbus_mode, writable: true, poll: slow}
+  - {key: x.doser_control, label: Дозатор управления (doser control), table: holding, address: 632, type: u16, enum: doser_control, writable: true}
+  - {key: x.doser_dose, label: 'Дозатор, задать дозу (set dose)', table: holding, address: 49378, type: f32, unit: l, writable: true, poll: slow, verified: false}
+
+derived:
+  - {key: x.forward_volume, label: Forward volume, unit: m³, sum: [{key: x.forward_volume_integer}, {key: x.forward_volume_fraction}], note: 'Integer part plus fraction, both in m³ as the document labels them.', verified: false}
+  - {key: x.reverse_volume, label: Reverse volume, unit: m³, sum: [{key: x.reverse_volume_integer}, {key: x.reverse_volume_fraction}], note: As forward volume., verified: false}
+
+enums:
+  flow_direction: {'0': Forward, '1': Reverse}
+  operating_mode: {'0': Operation (РАБОТА), '1': Service (СЕРВИС), '2': Setup (НАСТРОЙКА)}
+  sensor_mode: {'0': Operation (РАБОТА), '1': Service (СЕРВИС), '2': Calibration (КАЛИБРОВКА)}
+  on_off: {'0': 'Off', '1': 'On'}
+  flow_unit: {'0': l/min, '1': l/s, '2': m³/s, '3': m³/h}
+  volume_unit: {'0': l, '1': m³, '2': dal}
+  baud_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200', '5': '38400', '6': '57600', '7': '115200'}
+  modbus_mode: {'0': RTU, '1': ASCII}
+  doser_control: {'0': —, '1': Start, '2': Stop}
+
+flags:
+  error_bits: {'0': Flow above maximum (Q > Qmax), '1': Universal output 1 pulse factor invalid, '2': Universal output 2 pulse factor invalid, '3': Current output, '4': Flow below user limit, '5': Flow above user limit, '6': Empty pipe, '7': User action log full, '9': Measuring unit hardware fault (reference current), '10': Measuring unit settings fault, '11': Invalid input signal, '12': EEPROM failure, '15': Communication with the measuring unit lost}
+
+problems:
+  - {when: {key: x.meter_errors, bit: 15}, kind: fault, text: Communication with the measuring unit lost (error bit 15)}
+  - {when: {key: x.meter_errors, bit: 12}, kind: fault, text: EEPROM failure (error bit 12)}
+  - {when: {key: x.meter_errors, bit: 11}, kind: fault, text: Invalid input signal (error bit 11)}
+  - {when: {key: x.meter_errors, bit: 10}, kind: fault, text: Measuring unit settings fault (error bit 10)}
+  - {when: {key: x.meter_errors, bit: 9}, kind: fault, text: Measuring unit hardware fault (error bit 9)}
+  - {when: {key: x.meter_errors, bit: 7}, kind: warning, text: User action log full (error bit 7)}
+  - {when: {key: x.meter_errors, bit: 6}, kind: warning, text: Empty pipe (error bit 6)}
+  - {when: {key: x.meter_errors, bit: 5}, kind: warning, text: Flow above user limit (error bit 5)}
+  - {when: {key: x.meter_errors, bit: 4}, kind: warning, text: Flow below user limit (error bit 4)}
+  - {when: {key: x.meter_errors, bit: 3}, kind: warning, text: Current output warning (error bit 3)}
+  - {when: {key: x.meter_errors, bit: 2}, kind: warning, text: Universal output 2 pulse factor invalid (error bit 2)}
+  - {when: {key: x.meter_errors, bit: 1}, kind: warning, text: Universal output 1 pulse factor invalid (error bit 1)}
+  - {when: {key: x.meter_errors, bit: 0}, kind: warning, text: Flow above maximum (error bit 0)}
+
+notes:
+- 'A water flow meter, not an electricity meter: none of its values are grid or energy values.'
+- 'The document numbers registers with six-digit logical references starting at 1: 400001 = holding 0, 416385 = holding 16384,
+  432769 = holding 32768, 449153 = holding 49152; 300001 = input 0 and so on. The addresses here are those references minus
+  400001 / 300001.'
+- 'The meter groups registers by type: one-byte values (one register each) from 0, 16-bit values from 16384, 32-bit integers
+  from 32768, floats from 49152.'
+- 'Not stated in the document; assumed: 32-bit values and floats high word first, one-byte values in the low byte of their
+  register, the serial format and the default unit id. The integer volume parts are signed per the document.'
+- The document names RS232, Modbus RTU or ASCII (holding 68) and an optional Ethernet slot; port 502 for Modbus TCP is assumed.
+- 'Many settings need the service (СЕРВИС) or setup (НАСТРОЙКА) access level; the document lists the levels per register.
+  Left out: universal, pulse, frequency and current output configuration and calibration, filters and cut-offs, adaptive algorithm
+  and empty-pipe settings, calibration coefficients, modem and archive settings, clock and daylight-saving settings, communication
+  counters.'

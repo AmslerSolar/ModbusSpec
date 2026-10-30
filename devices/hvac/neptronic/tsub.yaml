@@ -1,0 +1,149 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Neptronic TSUB-Modbus Guide-250829 (V1.13).
+
+modbusspec: 0
+id: neptronic-tsub
+manufacturer: Neptronic
+name: TSUB series universal wall-mount controller
+kind: hvac
+
+sources:
+- title: Universal Wall-Mount Controller TSUB Series, Modbus Communication Module User Guide (TSUB-Modbus Guide-250829)
+  version: V1.13, 2025-08-29
+  url: http://neptronic.com/controls/PDF/2025/TSUB-Modbus%20Guide-250829%20(V1.13).pdf
+  sha256: eb8718e3ab9f3dfe67ababd4c3941406aa2ea35ed02e9764b0b3e22b0311b7fd
+  archive_url: https://web.archive.org/web/20251217122303/https://www.neptronic.com/controls/PDF/2025/TSUB-Modbus%20Guide-250829%20(V1.13).pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    range:
+    - 5632
+    - 5887
+
+points:
+  # Device (0–10)
+  - {key: x.modbus_address, label: Modbus address, table: holding, address: 0, type: u16, bits: [0, 7], writable: true, min: 1, max: 246, poll: slow}
+  - {key: x.device_id, label: Neptronic id, table: holding, address: 0, type: u16, bits: [8, 15], poll: slow, note: 22 per the document.}
+  - {key: x.baud_rate, label: MSTP baud rate, table: holding, address: 1, type: u16, scale: 100, writable: true, poll: slow, note: 0 = automatic baud rate detection.}
+  - {key: x.comport_config, label: Communication port configuration, table: holding, address: 2, type: u16, enum: comport_config, writable: true, poll: slow}
+  - {key: x.product_name, label: Product name, table: holding, address: 3, type: str, length: 4, poll: slow, note: '8 ASCII characters, the first in the high byte of register 3 (the document''s example spells ''TUCB24 ''). Writable.'}
+  - {key: firmware, label: Controller product version, table: holding, address: 7, type: u16, poll: slow, verified: false, note: 'Integer, e.g. 115; probably version 1.15, not stated.'}
+  - {key: x.parameters_version, label: Controller parameters version, table: holding, address: 8, type: u16, poll: slow}
+  - {key: x.status1, label: System status 1, table: holding, address: 9, type: u16, flags: status1}
+  - {key: x.status2, label: System status 2, table: holding, address: 10, type: u16, flags: status2}
+
+  # Sensors (11–23)
+  - {key: x.internal_temperature, label: Internal temperature sensor reading, table: holding, address: 11, type: s16, unit: °C, scale: 0.01, verified: false, note: °C or °F per bit 1 of system option 1 (register 44); °C assumed.}
+  - {key: x.external_temperature, label: External temperature sensor reading, table: holding, address: 12, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: °C assumed (see register 44).}
+  - {key: x.changeover_temperature, label: Changeover temperature sensor reading, table: holding, address: 13, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: °C assumed (see register 44).}
+  - {key: x.control_temperature, label: Control temperature reading, table: holding, address: 14, type: s16, unit: °C, scale: 0.01, writable: true, verified: false, note: 'Writable: the network temperature when the control source is the network (register 49). °C assumed (see register 44).'}
+  - {key: x.internal_humidity, label: Internal humidity sensor reading, table: holding, address: 15, type: u16, unit: '%', scale: 0.1, optional: true, note: '% RH; not on all models.'}
+  - {key: x.external_humidity, label: External humidity sensor reading, table: holding, address: 16, type: u16, unit: '%', scale: 0.1, optional: true, note: '% RH.'}
+  - {key: x.ai1, label: Analog input 1 reading, table: holding, address: 17, type: s16, scale: 0.01, verified: false, note: 'V, °C/°F or 0/1 (open/closed) by the input''s function (register 82).'}
+  - {key: x.ai2, label: Analog input 2 reading, table: holding, address: 18, type: s16, scale: 0.01, verified: false, note: 'V, °C/°F or 0/1 (open/closed) by the input''s function (register 83).'}
+  - {key: x.external_co2, label: External CO2 sensor value, table: holding, address: 21, type: s16, unit: ppm, optional: true}
+  - {key: x.co2, label: CO2 control value, table: holding, address: 23, type: s16, unit: ppm, optional: true}
+
+  # Control state (24–43)
+  - {key: x.occupancy, label: Actual system occupancy state, table: holding, address: 24, type: u16, enum: occupancy}
+  - {key: x.night_setback, label: Actual night setback state, table: holding, address: 25, type: u16, enum: night_setback}
+  - {key: x.heating_demand1, label: Actual heating demand of ramp 1, table: holding, address: 26, type: u16, unit: '%', scale: 0.1}
+  - {key: x.heating_demand2, label: Actual heating demand of ramp 2, table: holding, address: 27, type: u16, unit: '%', scale: 0.1}
+  - {key: x.cooling_demand1, label: Actual cooling demand of ramp 1, table: holding, address: 28, type: u16, unit: '%', scale: 0.1}
+  - {key: x.cooling_demand2, label: Actual cooling demand of ramp 2, table: holding, address: 29, type: u16, unit: '%', scale: 0.1}
+  - {key: x.changeover_demand, label: Actual changeover demand, table: holding, address: 30, type: u16, unit: '%', scale: 0.1}
+  - {key: x.fan_demand, label: Actual fan demand, table: holding, address: 31, type: u16, unit: '%', scale: 0.1}
+  - {key: x.dehumidification_demand, label: Actual dehumidification demand, table: holding, address: 32, type: u16, unit: '%', scale: 0.1}
+  - {key: x.humidification_demand, label: Actual humidification demand, table: holding, address: 33, type: u16, unit: '%', scale: 0.1}
+  - {key: x.switch_timer, label: Cooling heating switch timer count, table: holding, address: 34, type: u16, unit: s, note: Countdown until the system may swap between heating and cooling.}
+  - {key: x.ao2, label: Analog output 2 value, table: holding, address: 36, type: u16, unit: '%', scale: 0.1, writable: true, note: 'Control range or 0–10 V ratio, per bit 12 of system option 4 (register 47).'}
+  - {key: x.ao3, label: Analog output 3 value, table: holding, address: 37, type: u16, unit: '%', scale: 0.1, writable: true, note: As analog output 2.}
+  - {key: x.binary_outputs, label: Binary output relays status, table: holding, address: 39, type: u16, flags: binary_outputs, writable: true}
+  - {key: x.system_mode, label: System mode status, table: holding, address: 41, type: u16, enum: system_mode, writable: true}
+  - {key: x.fan_speed, label: Fan speed selection by user, table: holding, address: 42, type: u16, enum: fan_speed, writable: true}
+  - {key: x.temperature_setpoint, label: Temperature setpoint in occupancy or day mode, table: holding, address: 43, type: s16, unit: °C, scale: 0.1, writable: true, verified: false, note: °C assumed (see register 44).}
+
+  # Options and settings (44–80)
+  - {key: x.option1, label: System option 1, table: holding, address: 44, type: u16, flags: option1, writable: true, poll: slow}
+  - {key: x.temperature_unit, label: Modbus temperature unit, table: holding, address: 44, type: u16, bits: [1, 1], enum: temperature_unit, writable: true, poll: slow}
+  - {key: x.temperature_control_source, label: Temperature control source, table: holding, address: 49, type: u16, enum: temperature_source, writable: true, poll: slow}
+  - {key: x.network_fallback_timeout, label: Network fallback timeout, table: holding, address: 50, type: u16, unit: min, writable: true, min: 0, max: 60, poll: slow}
+  - {key: x.setpoint_min, label: Minimum occupancy/day setpoint, table: holding, address: 51, type: s16, unit: °C, scale: 0.1, writable: true, poll: slow, verified: false, note: °C assumed (see register 44).}
+  - {key: x.setpoint_max, label: Maximum occupancy/day setpoint, table: holding, address: 52, type: s16, unit: °C, scale: 0.1, writable: true, poll: slow, verified: false, note: °C assumed (see register 44).}
+  - {key: x.unoccupied_cooling_setpoint, label: Cooling temperature setpoint in unoccupied or night mode, table: holding, address: 53, type: s16, unit: °C, scale: 0.1, writable: true, poll: slow, verified: false, note: °C assumed (see register 44).}
+  - {key: x.unoccupied_heating_setpoint, label: Heating temperature setpoint in unoccupied or night mode, table: holding, address: 54, type: s16, unit: °C, scale: 0.1, writable: true, poll: slow, verified: false, note: °C assumed (see register 44).}
+  - {key: x.system_control_mode, label: System control mode, table: holding, address: 79, type: u16, enum: system_control_mode, writable: true, poll: slow}
+  - {key: x.override_mode, label: Override system occupancy/NSB mode, table: holding, address: 80, type: u16, enum: override_mode, writable: true}
+
+  # Humidity and pressure (139–157)
+  - {key: x.humidity_mode, label: Humidity control mode status, table: holding, address: 139, type: u16, enum: humidity_mode, writable: true}
+  - {key: x.humidity_setpoint, label: Humidity setpoint in occupancy or day mode, table: holding, address: 140, type: u16, unit: '%', scale: 0.1, writable: true}
+  - {key: x.pressure, label: Pressure sensor value, table: holding, address: 149, type: u16, unit: Pa, optional: true}
+  - {key: x.vfd_pressure_loop, label: Actual VFD pressure loop, table: holding, address: 151, type: u16, unit: '%', scale: 0.1}
+  - {key: x.vfd_pressure_setpoint, label: VFD pressure loop setpoint, table: holding, address: 152, type: u16, unit: Pa, writable: true, poll: slow}
+  - {key: x.vfd_cooling_loop, label: Actual VFD temperature loop while cooling, table: holding, address: 156, type: u16, unit: '%', scale: 0.1}
+  - {key: x.vfd_heating_loop, label: Actual VFD temperature loop while heating, table: holding, address: 157, type: u16, unit: '%', scale: 0.1}
+
+  # Late additions (203–209)
+  - {key: x.external_temperature2, label: External temperature sensor 2 reading, table: holding, address: 203, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: °C assumed (see register 44).}
+  - {key: x.ao2_voltage, label: AO2 voltage present value, table: holding, address: 208, type: s16, unit: V, scale: 0.01}
+  - {key: x.ao3_voltage, label: AO3 voltage present value, table: holding, address: 209, type: s16, unit: V, scale: 0.01}
+
+enums:
+  comport_config: {'1': 'No parity, 2 stop bits', '2': 'Even parity, 1 stop bit', '3': 'Odd parity, 1 stop bit'}
+  occupancy: {'1': No occupancy, '2': Occupancy, '3': Override}
+  night_setback: {'1': Day, '2': Night, '3': Override}
+  system_mode: {'1': Auto, '2': Heating, '3': Emergency heat, '4': Cooling, '5': Fan, '6': 'Off'}
+  fan_speed: {'1': Auto, '2': Low, '3': Medium, '4': High}
+  temperature_unit: {'0': °C, '1': °F}
+  temperature_source: {'1': Network, '2': Internal, '3': External}
+  system_control_mode: {'1': Auto, '2': Heat, '3': Cool, '4': Heat or cool, '5': Auto lock}
+  override_mode: {'1': Locally, '2': 'Off', '3': Occupied, '4': Unoccupied, '5': Day, '6': Night}
+  humidity_mode: {'1': Auto, '2': Dehumidification, '3': Humidification, '4': 'Off'}
+
+flags:
+  status1: {'0': System fault, '2': System off by night setback or occupancy, '3': Changeover in heating, '4': Flow switch alarm, '6': Dirty filter alarm}
+  status2: {'0': Selector switch in local mode, '2': CO2 alarm, '7': Override, '8': Window opened, '9': Door opened, '10': UI1 alarm, '11': UI2 alarm, '15': Overheat}
+  binary_outputs: {'2': Binary output 3, '3': Binary output 4, '4': Binary output 5, '5': Binary output 6, '6': Binary output 7}
+  option1: {'0': Display in °F, '1': Modbus temperatures in °F, '2': Temperature setpoint locked, '3': Humidity setpoint locked, '4': Program mode locked, '5': Freeze protection alarm, '6': User off modes disabled, '7': Keypad bottom left locked, '8': Keypad upper left locked, '9': Keypad arrows locked, '10': User fan auto mode disabled, '11': Night or unoccupied mode turns off, '12': Humidity from external sensor, '13': 12 h time, '14': Window opened turns off, '15': Door opened turns off}
+
+problems:
+  - {when: {key: x.status1, bit: 0}, kind: fault, text: System fault}
+  - {when: {key: x.status1, bit: 4}, kind: fault, text: Flow switch alarm}
+  - {when: {key: x.status1, bit: 6}, kind: warning, text: Dirty filter}
+  - {when: {key: x.status2, bit: 2}, kind: warning, text: CO2 alarm}
+  - {when: {key: x.status2, bit: 10}, kind: warning, text: Universal input 1 alarm}
+  - {when: {key: x.status2, bit: 11}, kind: warning, text: Universal input 2 alarm}
+  - {when: {key: x.status2, bit: 15}, kind: fault, text: Overheat}
+  - {when: {key: x.option1, bit: 5}, kind: warning, text: Freeze protection alarm}
+
+notes:
+- 'Addresses: the document gives the protocol (0-based) address next to the 4xxxx number (40001 = 0); the protocol address
+  is used. Cross references in its descriptions use the 4xxxx numbers.'
+- Holding registers only (functions 03, 06, 16).
+- RS485 Modbus RTU, unit id 1–246 set on the device menu or in register 0. Default unit id not stated; 1 assumed.
+- 'Serial: automatic baud rate detection by default (9600–57600); default framing not stated.'
+- 'Identification: the high byte of register 0 holds the Neptronic id 22. The TUCB/TUHB controllers report the same id; the
+  product name (registers 3–6, writable) is the only other hint.'
+- Temperatures are in °C or °F per bit 1 of system option 1 (register 44); °C assumed. Analog input readings follow the input's
+  configured function.
+- 'Bit string registers: reserved bits are not listed.'
+- 'Left out: system command and options 2–4 (40, 45–47), display and backlight settings, proportional bands, deadbands, integral
+  times, fan, delay and override timings, input and output configuration (ramps, signal types, directions, min/max voltages,
+  BO timings), sensor offsets and ranges, CO2 range and alarm level, humidity limits and bands, pressure and VFD loop tuning,
+  6-way valve, floating and pulse outputs, delta temperature registers.'

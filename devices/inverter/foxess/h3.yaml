@@ -1,0 +1,295 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: foxess-h3
+manufacturer: FoxESS
+name: H3 Series Hybrid Inverter
+kind: inverter
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/fox-ess-h3.yaml
+- id: foxess-modbus
+  title: foxess_modbus (Home Assistant integration)
+  url: https://github.com/nathanmarlor/foxess_modbus
+  license: MIT
+  commit: 90046fec051a6839bcfb468d4b4f340a89f721c8
+  path: custom_components/foxess_modbus/entities/entity_descriptions.py, custom_components/foxess_modbus/inverter_profiles.py,
+    custom_components/foxess_modbus/entities/remote_control_description.py, tests/__snapshots__/test_entity_descriptions
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/fox_ess/fox_ess
+
+connection:
+  default_port: 502
+  default_unit: 247
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  word_order: big
+
+identify:
+  any:
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    chars: low
+    prefix: H3-
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    prefix: H3-
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    chars: low
+    prefix: AC3-
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    prefix: AC3-
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    chars: low
+    prefix: SK-HWR-
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    prefix: SK-HWR-
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    chars: low
+    prefix: STAR-H3-
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    prefix: STAR-H3-
+  - - table: holding
+      address: 30000
+      type: str
+      length: 15
+      chars: low
+      prefix: SP R
+    - table: holding
+      address: 30000
+      type: str
+      length: 15
+      chars: low
+      contains:
+      - KH3
+  - - table: holding
+      address: 30000
+      type: str
+      length: 15
+      prefix: SP R
+    - table: holding
+      address: 30000
+      type: str
+      length: 15
+      contains:
+      - KH3
+  - - table: holding
+      address: 30000
+      type: str
+      length: 15
+      chars: low
+      prefix: 'AX '
+    - table: holding
+      address: 30000
+      type: str
+      length: 15
+      chars: low
+      contains:
+      - kW-3ph
+  - - table: holding
+      address: 30000
+      type: str
+      length: 15
+      prefix: 'AX '
+    - table: holding
+      address: 30000
+      type: str
+      length: 15
+      contains:
+      - kW-3ph
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    chars: low
+    prefix: AIO-H3-
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    prefix: AIO-H3-
+  - - table: holding
+      address: 30000
+      type: str
+      length: 15
+      chars: low
+      prefix: 'Kuara '
+    - table: holding
+      address: 30000
+      type: str
+      length: 15
+      chars: low
+      contains:
+      - -3-H
+  - - table: holding
+      address: 30000
+      type: str
+      length: 15
+      prefix: 'Kuara '
+    - table: holding
+      address: 30000
+      type: str
+      length: 15
+      contains:
+      - -3-H
+
+defaults:
+  verified: false
+  sources:
+  - foxess-modbus
+
+models:
+  - {id: h3_pre180, name: 'H3, AC3: manager firmware earlier than 1.80; SK-HWR, STAR-H3, SOLAVITA-SP, ATRONIX_AX: any firmware'}
+  - {id: h3_180, name: 'H3, AC3: manager firmware 1.80 and later'}
+  - {id: aio_h3_101, name: 'AIO-H3: manager firmware 1.1 and later'}
+  - {id: kuara_h3, name: 'KUARA-H3: any firmware'}
+
+points:
+  - {key: x.model_name, label: Model name, table: holding, address: 30000, type: str, length: 15, note: 'One ASCII character per register on most models, two per register (high byte first) on others (e.g. H1 G2, H3-Pro); the H3 starts with a space'}
+  - {key: x.master_version, label: 'Version: Master', table: holding, address: 30016, type: u16, note: Version × 100 (144 = 1.44)}
+  - {key: x.slave_version, label: 'Version: Slave', table: holding, address: 30017, type: u16, note: Version × 100 (144 = 1.44)}
+  - {key: x.manager_version_hex, label: 'Version: Manager (hex)', table: holding, address: 30018, type: u16, note: 'Version as hex digits: high byte major, low byte minor (0x0144 = 1.44)'}
+  - {key: x.pv1_voltage, label: PV1 Voltage, table: holding, address: 31000, type: s16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: PV1 Current, table: holding, address: 31001, type: s16, unit: A, scale: 0.1}
+  - {key: x.pv_power_1, label: PV power (part 1), table: holding, address: 31002, type: s16, unit: W, sources: [evcc, foxess-modbus, openwb]}
+  - {key: x.pv2_voltage, label: PV2 Voltage, table: holding, address: 31003, type: s16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: PV2 Current, table: holding, address: 31004, type: s16, unit: A, scale: 0.1}
+  - {key: x.pv_power_2, label: PV power (part 2), table: holding, address: 31005, type: s16, unit: W, sources: [evcc, foxess-modbus, openwb]}
+  - {key: l1_voltage, label: Grid Voltage R, table: holding, address: 31006, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Grid Voltage S, table: holding, address: 31007, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Grid Voltage T, table: holding, address: 31008, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Inverter Current R, table: holding, address: 31009, type: s16, unit: A, scale: 0.1}
+  - {key: l2_current, label: Inverter Current S, table: holding, address: 31010, type: s16, unit: A, scale: 0.1}
+  - {key: l3_current, label: Inverter Current T, table: holding, address: 31011, type: s16, unit: A, scale: 0.1}
+  - {key: x.inv_power_r, label: Inverter Power R, table: holding, address: 31012, type: s16, unit: W}
+  - {key: x.inv_power_s, label: Inverter Power S, table: holding, address: 31013, type: s16, unit: W}
+  - {key: x.inv_power_t, label: Inverter Power T, table: holding, address: 31014, type: s16, unit: W}
+  - {key: frequency, label: Grid Frequency, table: holding, address: 31015, type: u16, unit: Hz, scale: 0.01, sources: [foxess-modbus, openwb]}
+  - {key: x.eps_power_r, label: EPS Power R, table: holding, address: 31022, type: s16, unit: W}
+  - {key: x.eps_power_s, label: EPS Power S, table: holding, address: 31023, type: s16, unit: W}
+  - {key: x.eps_power_t, label: EPS Power T, table: holding, address: 31024, type: s16, unit: W}
+  - {key: x.eps_frequency, label: EPS Frequency, table: holding, address: 31025, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.grid_power_1, label: Grid power (part 1), table: holding, address: 31026, type: s16, unit: W, note: evcc negates it for the grid power., sources: [evcc, foxess-modbus, openwb]}
+  - {key: x.grid_power_2, label: Grid power (part 2), table: holding, address: 31027, type: s16, unit: W, note: evcc negates it for the grid power., sources: [evcc, foxess-modbus, openwb]}
+  - {key: x.grid_power_3, label: Grid power (part 3), table: holding, address: 31028, type: s16, unit: W, note: evcc negates it for the grid power., sources: [evcc, foxess-modbus, openwb]}
+  - {key: x.load_power_r, label: Load Power R, table: holding, address: 31029, type: s16, unit: W}
+  - {key: x.load_power_s, label: Load Power S, table: holding, address: 31030, type: s16, unit: W}
+  - {key: x.load_power_t, label: Load Power T, table: holding, address: 31031, type: s16, unit: W}
+  - {key: temperature, label: Inverter Temp, table: holding, address: 31032, type: s16, unit: °C, scale: 0.1}
+  - {key: x.ambtemp, label: Ambient Temp, table: holding, address: 31033, type: s16, unit: °C, scale: 0.1}
+  - {key: battery_voltage, label: Battery Voltage, table: holding, address: 31034, type: s16, unit: V, scale: 0.1}
+  - {key: x.bat_current, label: Battery Current, table: holding, address: 31035, type: s16, unit: A, scale: 0.1}
+  - {key: battery_power, label: Battery power, table: holding, address: 31036, type: s16, unit: W, positive: discharge, sources: [evcc, foxess-modbus, openwb]}
+  - {key: battery_temperature, label: Battery Temp, table: holding, address: 31037, type: s16, unit: °C, scale: 0.1}
+  - {key: battery_soc, label: Battery SoC, table: holding, address: 31038, type: u16, unit: '%', sources: [foxess-modbus, openwb], conflicts: [{sources: [evcc], type: s16, label: Battery state of charge}]}
+  - {key: x.state_code, label: Inverter State Code, table: holding, address: 31041, type: s16}
+  - {key: x.fault_word_1, label: Inverter Fault Code (word 1 of 7), table: holding, address: 31044, type: u16, flags: fault_word_1}
+  - {key: x.fault_word_2, label: Inverter Fault Code (word 2 of 7), table: holding, address: 31045, type: u16, flags: fault_word_2}
+  - {key: x.fault_word_3, label: Inverter Fault Code (word 3 of 7), table: holding, address: 31047, type: u16, flags: fault_word_3}
+  - {key: x.fault_word_4, label: Inverter Fault Code (word 4 of 7), table: holding, address: 31048, type: u16, flags: fault_word_4}
+  - {key: x.fault_word_5, label: Inverter Fault Code (word 5 of 7), table: holding, address: 31049, type: u16, flags: fault_word_5}
+  - {key: x.fault_word_6, label: Inverter Fault Code (word 6 of 7), table: holding, address: 31050, type: u16, flags: fault_word_6}
+  - {key: x.fault_word_7, label: Inverter Fault Code (word 7 of 7), table: holding, address: 31051, type: u16, flags: fault_word_7}
+  - {key: battery_soh, label: Battery SoH, table: holding, address: 31090, type: u16, unit: '%', models: [h3_180]}
+  - {key: x.bms_cell_temp_high, label: BMS Cell Temp High, table: holding, address: 31102, type: s16, unit: °C, scale: 0.1, models: [h3_180]}
+  - {key: x.bms_cell_temp_low, label: BMS Cell Temp Low, table: holding, address: 31103, type: s16, unit: °C, scale: 0.1, models: [h3_180]}
+  - {key: x.bms_kwh_remaining, label: BMS kWh Remaining, table: holding, address: 31123, type: u16, unit: kWh, scale: 0.01, models: [h3_180]}
+  - {key: x.bms_cell_mv_high, label: BMS Cell mV High, table: holding, address: 31134, type: u16, unit: V, scale: 0.001, models: [h3_180]}
+  - {key: x.bms_cell_mv_low, label: BMS Cell mV Low, table: holding, address: 31135, type: u16, unit: V, scale: 0.001, models: [h3_180]}
+  - {key: pv_energy, label: Solar Generation Total, table: holding, address: 32000, type: u32, unit: kWh, scale: 0.1, sources: [foxess-modbus, openwb]}
+  - {key: pv_energy_today, label: Solar Generation Today, table: holding, address: 32002, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.battery_charge_total, label: Battery Charge Total, table: holding, address: 32003, type: u32, unit: kWh, scale: 0.1, sources: [foxess-modbus, openwb]}
+  - {key: x.battery_charge_today, label: Battery Charge Today, table: holding, address: 32005, type: s16, unit: kWh, scale: 0.1}
+  - {key: x.battery_discharge_total, label: Battery Discharge Total, table: holding, address: 32006, type: u32, unit: kWh, scale: 0.1, sources: [foxess-modbus, openwb]}
+  - {key: x.battery_discharge_today, label: Battery Discharge Today, table: holding, address: 32008, type: s16, unit: kWh, scale: 0.1}
+  - {key: grid_export_energy, label: Feed-in Total, table: holding, address: 32009, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.feed_in_energy_today, label: Feed-in Today, table: holding, address: 32011, type: s16, unit: kWh, scale: 0.1}
+  - {key: grid_import_energy, label: Grid energy, table: holding, address: 32012, type: u32, unit: kWh, scale: 0.1, sources: [evcc, foxess-modbus]}
+  - {key: x.grid_consumption_energy_today, label: Grid Consumption Today, table: holding, address: 32014, type: s16, unit: kWh, scale: 0.1}
+  - {key: x.total_yield_total, label: Yield Total, table: holding, address: 32015, type: u32, unit: kWh, scale: 0.1, sources: [foxess-modbus, openwb]}
+  - {key: x.total_yield_today, label: Yield Today, table: holding, address: 32017, type: s16, unit: kWh, scale: 0.1}
+  - {key: x.input_energy_total, label: Input Energy Total, table: holding, address: 32018, type: u32, unit: kWh, scale: 0.1, sources: [foxess-modbus, openwb]}
+  - {key: x.input_energy_today, label: Input Energy Today, table: holding, address: 32020, type: s16, unit: kWh, scale: 0.1}
+  - {key: x.load_power_total, label: Load Energy Total, table: holding, address: 32021, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.load_energy_today, label: Load Energy Today, table: holding, address: 32023, type: s16, unit: kWh, scale: 0.1}
+  - {key: x.batterymode_41000, label: Battery mode control (write), table: holding, address: 41000, type: u16, writable: true, note: 'evcc writes battery mode normal: 0; battery mode hold: 1; battery mode charge: 2.', sources: [evcc, foxess-modbus]}
+  - {key: x.max_charge_current, label: Max Charge Current, table: holding, address: 41007, type: s16, unit: A, scale: 0.1, models: [h3_pre180, h3_180, aio_h3_101, kuara_h3], writable: true}
+  - {key: x.max_discharge_current, label: Max Discharge Current, table: holding, address: 41008, type: s16, unit: A, scale: 0.1, models: [h3_pre180, h3_180, aio_h3_101, kuara_h3], writable: true}
+  - {key: x.limitsoc_41009, label: Battery state of charge limit (write), table: holding, address: 41009, type: u16, unit: '%', writable: true, note: 'evcc writes battery mode normal: 0.', sources: [evcc], conflicts: [{sources: [foxess-modbus], type: s16, models: [h3_pre180, h3_180, aio_h3_101, kuara_h3], label: Min SoC}]}
+  - {key: x.batterymode_41010, label: Battery mode control (write), table: holding, address: 41010, type: u16, unit: '%', writable: true, note: 'evcc writes battery mode normal: 100.', sources: [evcc], conflicts: [{sources: [foxess-modbus], type: s16, models: [h3_pre180, h3_180, aio_h3_101, kuara_h3], label: Max SoC}]}
+  - {key: x.min_soc_on_grid, label: Min SoC (On Grid), table: holding, address: 41011, type: s16, unit: '%', models: [h3_pre180, h3_180, aio_h3_101, kuara_h3], writable: true}
+  - {key: x.batterymode_44000, label: Battery mode control (write), table: holding, address: 44000, type: u16, writable: true, note: 'evcc writes battery mode normal: 0; battery mode hold: 1; battery mode charge: 1.', sources: [evcc, foxess-modbus]}
+  - {key: x.batterymode_44001, label: Battery mode control (write), table: holding, address: 44001, type: u16, writable: true, note: 'evcc writes battery mode hold: 60; battery mode charge: 60.', sources: [evcc, foxess-modbus]}
+  - {key: x.batterymode_44002, label: Battery mode control (write), table: holding, address: 44002, type: s32, unit: W, writable: true, note: 'evcc writes battery mode hold: 0; battery mode charge: a value from the user''s settings.', sources: [evcc, foxess-modbus]}
+
+derived:
+  - {key: grid_power, label: Grid power, unit: W, positive: import, sum: [{key: x.grid_power_1, factor: -1}, {key: x.grid_power_2, factor: -1}, {key: x.grid_power_3, factor: -1}], sources: [evcc]}
+  - {key: pv_power, label: PV power, unit: W, sum: [{key: x.pv_power_1}, {key: x.pv_power_2}], sources: [evcc]}
+  - {key: x.inverter_power, label: Inverter power, unit: W, sum: [{key: x.pv_power_1}, {key: x.pv_power_2}], sources: [openwb]}
+  - {key: x.counter_power, label: Counter power, unit: W, sum: [{key: x.grid_power_1, factor: -1}, {key: x.grid_power_2, factor: -1}, {key: x.grid_power_3, factor: -1}], sources: [openwb]}
+
+flags:
+  fault_word_1: {'0': Grid Lost Fault, '1': Grid Voltage Fault, '2': Grid Frequency Fault, '3': Grid 10min Voltage Fault, '4': EPS Voltage Fault, '5': Software Inverter Over-current Fault, '6': DCI Fault, '8': Hardware Inverter Over-current Fault, '9': Software Bus Voltage Fault, '10': Battery Voltage Fault, '11': Software Battery Over-current Fault, '12': Isolation Fault, '13': Residual Over-current Fault, '14': PV Voltage Fault, '15': Software PV Over-current Fault}
+  fault_word_2: {'0': Inverter Temperature Fault, '1': Ground Connection Fault, '2': Inverter Overload Fault, '3': EPS Overload Fault, '4': Battery Power Low Fault, '5': Hardware Bus Voltage Fault, '6': Hardware PV Over-current Fault, '7': Hardware Battery Over-current Fault, '8': SCI Fault, '9': Master SPI Fault, '10': BMS Lost Fault}
+  fault_word_3: {'0': Master Sample Detection Fault, '1': Residual Current Detection Fault, '2': Inverter EEPROM Fault, '3': PV Connection Direction Fault, '4': Battery Relay Open, '5': Battery Relay Short Circuit, '6': Battery Buck Fault, '7': Battery Boost Fault, '8': EPS Relay Fault, '9': Short EPS Load Fault, '10': Battery Connection Direction Fault, '11': Main Relay Open, '12': S1 Close Fault, '13': S2 Close Fault, '14': M1 Close Fault, '15': M2 Close Fault}
+  fault_word_4: {'0': Grid Voltage Consistency Fault, '1': Grid Frequency Consistency Fault, '2': DCI Consistency Fault, '3': Residual Current Consistency Fault, '6': Slave SPI Fault, '7': Slave Sample Fault, '8': RDSP SPI Fault, '9': RDSP Sample Fault}
+  fault_word_5: {'0': ARM EEPROM Fault, '1': Meter Lost Fault}
+  fault_word_6: {'0': BMS External Fault, '1': BMS Internal Fault, '2': Battery Over-voltage, '3': Battery under-voltage, '4': BMS Charge Over-current, '5': BMS Discharge Over-current, '6': BMS Over-temperature, '7': BMS Under-temperature, '8': BMS Cell Imbalance, '9': BMS Hardware Protection Fault, '10': BMS Circuit Fault, '11': BMS Insulation Fault, '12': BMS Voltage Sensor Fault, '13': BMS Temperature Sensor Fault, '14': BMS Current Sensor Fault, '15': BMS Relay Fault}
+  fault_word_7: {'0': BMS Type Mismatch, '1': BMS Version Mismatch, '2': BMS Manufacturer Mismatch, '3': BMS Software/Hardware Mismatch, '4': BMS Master/Slave Mismatch, '5': BMS Charge Request Not Acknowledged, '6': BMS Supply Fault, '8': BMS Self Check Fault, '9': BMS Cell Temperature Difference Fault, '10': BMS Cell Voltage Break Line Fault, '11': BMS Self Check Voltage Mismatch Fault, '12': BMS Precharge Fault, '13': BMS Self Check HVB Fault, '14': BMS Self Check Pack Current Fault, '15': BMS Self Check Sys Mismatch Fault}
+
+notes:
+- 'evcc template `fox-ess-h3` (grid, pv, battery) lists: FoxESS H3 Series Hybrid Inverter.'
+- 'Model detection: the project reads the model name at holding registers 30000-30014 and matches it in this order (first
+  match wins; <kW> is the power in kW): H3 = H3-<kW>; AC3 = AC3-<kW>; SK-HWR = SK-HWR-<kW>; STAR-H3 = STAR-H3-<kW>; SOLAVITA-SP
+  = SP R<n>KH3; ATRONIX_AX = AX <kW>kW-3ph; AIO-H3 = AIO-H3-<kW>; KUARA-H3 = Kuara <kW>-3-H.'
+- 'Models are register-set variants by manager firmware version and model name. The project doesn''t detect the firmware:
+  the user picks the manager version.'
+- 'The project never reads registers in these ranges (H3_REGISTERS): 41001-41006, 41012-41013, 41015.'
+- 'The project reads registers in these ranges one at a time (H3_REGISTERS): 41000-41999.'
+- RS485 (AUX / meter port) at 9600 baud, directly or through an RS485-to-TCP adapter; the project uses the same map over the
+  inverter's LAN port when no separate LAN map exists.
+- The project reads at most 20 registers per request by default and up to 100 with some adapters and on a direct LAN connection.
+- 'Fault words: the project hides Grid Voltage Fault and Grid Frequency Fault while Grid Lost Fault is set.'
+- 'Grid CT power, battery power: the project splits the value by sign into feed-in / grid consumption and charge / discharge;
+  that split gives the direction.'
+- Identification as foxess-modbus recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

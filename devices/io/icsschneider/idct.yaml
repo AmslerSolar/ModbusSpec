@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the ICS Schneider Messtechnik BA IDCT i2C-RS485 E-1 (07.2021.0), checked against the German edition
+# BA IDCT i2C-RS485 D (07.2021.0).
+
+modbusspec: 0
+id: icsschneider-idct
+manufacturer: ICS Schneider Messtechnik
+name: Pressure transmitters IDCT with RS485 Modbus RTU
+kind: io
+
+sources:
+- title: Operating Manual Pressure Transmitter IDCT with RS485 Modbus RTU Interface / I2C Interface (BA_IDCT_i2C-RS485_E)
+  version: 07.2021.0
+  url: https://www.ics-schneider.de/wp-content/uploads/2025/08/BA_IDCT_i2C-RS485_E-1.pdf
+  sha256: b1983d464a6bd290e9f0c3b578192dfd90d49df91c8631f5dc81c7f4dbac1f5f
+- title: Betriebsanleitung Druckmessumformer mit RS485 Modbus RTU / I2C-Schnittstelle IDCT (BA_IDCT_i2C-RS485_D)
+  version: 07.2021.0
+  url: https://www.ics-schneider.de/wp-content/uploads/2025/08/BA_IDCT_i2C-RS485_D.pdf
+  sha256: 9b1714767eb0fc18b3b7bc604ec46767dd30b1d16b2fd5cb5bd79cf1e256f4f5
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8O1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 0
+    type: u32
+
+
+model_choice: user
+
+models:
+  - {id: idct531i, name: IDCT 531i (with temperature channel)}
+  - {id: idct, name: 'IDCT 131, 132, 161, 162, 531, 531P, 532, 561, 562, 571'}
+
+points:
+  # Measurements (input registers, function 04)
+  - {key: x.pressure, label: Actual pressure, table: input, address: 8, type: f32, unit: bar, note: 'In the unit set in holding register 0 (enum pressure_unit); bar is assumed, the unit can''t be expressed per setting.', verified: false}
+  - {key: x.pressure_max, label: Maximal pressure, table: input, address: 10, type: f32, unit: bar, poll: slow, note: Unit as for the pressure., verified: false}
+  - {key: x.pressure_min, label: Minimal pressure, table: input, address: 12, type: f32, unit: bar, poll: slow, note: Unit as for the pressure., verified: false}
+  - {key: x.medium_temperature, label: Actual temperature, table: input, address: 18, type: f32, unit: °C, models: [idct531i], note: In the unit set in holding register 1 (enum temperature_unit); °C assumed., verified: false}
+  - {key: x.temperature_max, label: Maximal temperature, table: input, address: 20, type: f32, unit: °C, poll: slow, models: [idct531i], note: Unit as for the temperature., verified: false}
+  - {key: x.temperature_min, label: Minimal temperature, table: input, address: 22, type: f32, unit: °C, poll: slow, models: [idct531i], note: Unit as for the temperature., verified: false}
+
+  # Identity and ranges
+  - {key: serial, label: Serial number, table: input, address: 0, type: u32, poll: slow}
+  - {key: x.pressure_range_upper, label: Upper range of pressure channel, table: input, address: 4, type: f32, unit: bar, poll: slow, note: Unit as for the pressure., verified: false}
+  - {key: x.pressure_range_lower, label: Lower range of pressure channel, table: input, address: 6, type: f32, unit: bar, poll: slow, note: Unit as for the pressure., verified: false}
+  - {key: x.temperature_range_upper, label: Upper range of temperature channel, table: input, address: 14, type: f32, unit: °C, poll: slow, models: [idct531i], note: Unit as for the temperature., verified: false}
+  - {key: x.temperature_range_lower, label: Lower range of temperature channel, table: input, address: 16, type: f32, unit: °C, poll: slow, models: [idct531i], note: Unit as for the temperature., verified: false}
+
+  # Settings (holding registers, function 03 to read, 06 to write)
+  - {key: x.pressure_unit, label: Unit of pressure channel, table: holding, address: 0, type: u16, enum: pressure_unit, writable: true, poll: slow}
+  - {key: x.temperature_unit, label: Unit of temperature channel, table: holding, address: 1, type: u16, enum: temperature_unit, writable: true, poll: slow, models: [idct531i]}
+  - {key: x.modbus_address, label: Device address, table: holding, address: 2, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 3, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.parity, label: Parity, table: holding, address: 4, type: u16, enum: parity, writable: true, poll: slow}
+
+enums:
+  pressure_unit: {'3': mmH2O, '4': mmHg, '5': psi, '6': bar, '7': mbar, '8': g/cm², '9': kg/cm², '10': Pa, '11': kPa, '12': torr, '13': atm, '14': mH2O, '15': MPa}
+  temperature_unit: {'0': °C, '1': K, '2': °F}
+  baud_rate: {'4': '4800', '5': '9600', '6': '19200', '7': '38400'}
+  parity: {'0': None, '1': Odd, '2': Even}
+
+notes:
+- Addresses are the manual's hexadecimal register addresses, used as 0-based protocol addresses.
+- 'The temperature channel (input registers 0x0E … 0x17, holding register 1) is marked as applying to the IDCT 531i only.
+  The models can''t be told apart over Modbus: pick one.'
+- 'Factory settings per the manual''s configuration table: address 1, baud code 1 and parity code 1 in its 0-based lists (baud
+  4800 / 9600 / 19200 / 38400, parity none / odd / even), i.e. 9600 baud, odd parity. Data and stop bits aren''t stated; 8
+  data bits and 1 stop bit are assumed. Note that the holding-register codes for baud rate (4 … 7) differ from that table''s
+  codes.'
+- Floats are IEEE 754; the word order isn't stated, most significant register first is assumed. Read the two registers of
+  a value in one request.
+- Input registers 0x02 / 0x03 hold the date of the last calibration ('Date', two registers); the layout isn't given in the
+  manual, so it is left out.
+- The manual allows 500 ms start-up time after power-on. The IDCT 531, 531i, 531P, 561 and 571 have a reset input that restores
+  the factory settings (including the bus address) when tied to 24 V at power-up.
+- The I2C variants (IDCT 532i) use a separate register set not described here. The manual lists no fault or status registers
+  for Modbus.
+- The manual refers to bdsensors.de for data sheets and declarations; possibly an OEM product.
+- The same DCT register map is in bdsensors-pressure (BD SENSORS' data sheets), with even parity where this manual's table
+  gives odd.

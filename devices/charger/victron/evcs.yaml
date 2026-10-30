@@ -1,0 +1,138 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From Victron's EVCS Modbus-TCP register list (v3.9) below.
+
+modbusspec: 0
+id: victron-evcs
+manufacturer: Victron Energy
+name: EV Charging Station (EVCS, NS, Pro)
+kind: charger
+
+sources:
+- title: EVCS Modbus-TCP register list
+  version: 3.9 (2026-05-08, charger firmware ≥ 2.07)
+  url: https://www.victronenergy.com/upload/documents/EVCS-Modbus-TCP-register-list-v3.9.xlsx
+  sha256: 7ec6fd16d65438d62d00d832cabbb5c15b7ef3416d6a6106d4bd6ee004f190f2
+  archive_url: https://web.archive.org/web/20260518050156/https://www.victronenergy.com/upload/documents/EVCS-Modbus-TCP-register-list-v3.9.xlsx
+- id: victron-evse-homeassistant
+  title: victron-evse-homeassistant (Home Assistant integration)
+  url: https://github.com/Brazen00/victron-evse-homeassistant
+  license: MIT
+  commit: ad685c699fae1c80e4c42e082e84b915798a0d0e
+  path: custom_components/victron_evse/device.py, custom_components/victron_evse/sensor.py, custom_components/victron_evse/const.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 5001
+    type: str
+    length: 6
+  checks:
+  - table: holding
+    address: 5000
+    type: u16
+    range:
+    - 49188
+    - 49190
+
+models:
+  - {id: ev_charging_station, name: EV Charging Station, match: {table: holding, address: 5000, type: u16, equals: 49188}}
+  - {id: ev_charging_station_ns, name: EV Charging Station NS, match: {table: holding, address: 5000, type: u16, equals: 49189}}
+  - {id: ev_charging_station_pro, name: EV Charging Station Pro, match: {table: holding, address: 5000, type: u16, equals: 49190}}
+
+points:
+  # Identity
+  - {key: x.product_id, label: Product ID, table: holding, address: 5000, type: u16, poll: slow, note: '0xC024 EVCS, 0xC025 EVCS NS, 0xC026 EVCS Pro.'}
+  - {key: serial, label: Serial Id, table: holding, address: 5001, type: str, length: 6, poll: slow}
+  - {key: x.fw_version_h, label: FW version H, table: holding, address: 5007, type: u16, poll: slow, note: Major number in 8 bits.}
+  - {key: x.fw_version_l, label: FW version L, table: holding, address: 5008, type: u16, poll: slow, note: 'Minor number in the high byte, revision in the low byte.'}
+  - {key: x.device_name, label: Device name, table: holding, address: 5027, type: str, length: 22, writable: true, poll: slow, note: UTF-8.}
+
+  # Live values
+  - {key: x.charge_mode, label: Charge mode, table: holding, address: 5009, type: u16, enum: charge_mode, writable: true}
+  - {key: x.charging_active, label: Start/stop charging, table: holding, address: 5010, type: u16, enum: start_stop, writable: true}
+  - {key: l1_power, label: L1 power used, table: holding, address: 5011, type: u16, unit: W, positive: consumption, verified: false, note: 'Power used by the charger, unsigned, so positive = consumption (derived).'}
+  - {key: l2_power, label: L2 power used, table: holding, address: 5012, type: u16, unit: W, positive: consumption, verified: false, note: 'Power used by the charger, unsigned, so positive = consumption (derived).'}
+  - {key: l3_power, label: L3 power used, table: holding, address: 5013, type: u16, unit: W, positive: consumption, verified: false, note: 'Power used by the charger, unsigned, so positive = consumption (derived).'}
+  - {key: consumer_power, label: Total power, table: holding, address: 5014, type: u16, unit: W, positive: consumption, verified: false, note: 'Unsigned, so positive = consumption (derived).'}
+  - {key: state, label: Charger status, table: holding, address: 5015, type: u16, enum: status}
+  - {key: x.charging_current_limit, label: Charging current, table: holding, address: 5016, type: u16, unit: A, writable: true, min: 6, max: 32, note: Default 6; used in manual mode.}
+  - {key: x.max_current, label: Max current, table: holding, address: 5017, type: u16, unit: A, writable: true, min: 6, max: 32, poll: slow, note: Default 10.}
+  - {key: x.min_current, label: Min current, table: holding, address: 5062, type: u16, unit: A, writable: true, min: 6, max: 31, poll: slow, note: Default 6.}
+  - {key: x.actual_charging_current, label: Charging current actual, table: holding, address: 5018, type: u16, unit: A, scale: 0.1}
+  - {key: x.session_time, label: Session charging time H/L, table: holding, address: 5019, type: u32, unit: s}
+  - {key: session_energy, label: Session energy, table: holding, address: 5021, type: u16, unit: kWh, scale: 0.01}
+  - {key: x.session_cost, label: Session cost, table: holding, address: 5022, type: u16, scale: 0.01, note: In the currency set on the charger.}
+  - {key: consumer_energy, label: Total energy H/L, table: holding, address: 5023, type: u32, unit: kWh, scale: 0.01, poll: slow, note: High word first; register list v3.0 / firmware ≥ 1.28.}
+  - {key: x.cp_voltage, label: CP voltage, table: holding, address: 5025, type: u16, unit: V, scale: 0.01}
+  - {key: x.charger_position, label: Charger position, table: holding, address: 5026, type: u16, enum: charger_position, writable: true, poll: slow}
+  - {key: x.detected_car_phases, label: Detected car phases, table: holding, address: 5109, type: u16, note: Updated while charging; back to 1 after the car disconnects.}
+  - {key: x.relay_status, label: Relays statuses, table: holding, address: 5117, type: u16, flags: relay_bits, note: Hardware v2 bits; v1 uses bit 0 and bit 2 for its two relays.}
+  - {key: x.external_current_limit, label: Charging current limit external, table: holding, address: 5129, type: u16, writable: true, poll: slow, note: '0 = no limit, 1 = limited to 6 A.'}
+  - {key: x.input_current_limit, label: Input current limit, table: holding, address: 5105, type: u16, unit: A, scale: 0.1, writable: true, poll: slow, note: Only when the charger sits on the inverter's AC input (5026 = 1).}
+
+  # Errors and warnings
+  - {key: x.errors, label: EVCS errors L/H, table: holding, address: 5094, type: u32, word_order: little, note: 'Bitmask, 1 = active; low word at 5094, high word at 5095. The register list doesn''t name the bits.'}
+  - {key: x.warnings, label: EVCS warnings L/H, table: holding, address: 5096, type: u32, word_order: little, note: 'Bitmask, 1 = active; low word at 5096, high word at 5097. The register list doesn''t name the bits.'}
+  - {key: error_code, label: EVCS notification code, table: holding, address: 5098, type: u16, note: 0 = no notification; the codes aren't listed.}
+
+  # Temperatures (hardware v2 only, except the power supply)
+  - {key: x.humidity, label: Onboard humidity, table: holding, address: 5121, type: u16, unit: '%', scale: 0.1, poll: slow, note: Hardware v2 only.}
+  - {key: temperature, label: Onboard temperature, table: holding, address: 5122, type: u16, unit: °C, scale: 0.1, poll: slow, note: 'Hardware v2 only. Unsigned in the list, so below 0 °C is unclear.'}
+  - {key: x.display_temperature, label: Display temperature, table: holding, address: 5123, type: u16, unit: °C, scale: 0.1, poll: slow, note: Hardware v2 only.}
+  - {key: x.connector_temperature, label: Car connector temperature, table: holding, address: 5124, type: u16, unit: °C, scale: 0.1, poll: slow, note: Hardware v2 only.}
+  - {key: x.meter_temperature, label: Power meter temperature, table: holding, address: 5125, type: u16, unit: °C, scale: 0.1, poll: slow, note: Hardware v2 only.}
+  - {key: x.power_control_temperature, label: Power control temperature, table: holding, address: 5126, type: u16, unit: °C, scale: 0.1, poll: slow, note: Hardware v2 only.}
+  - {key: x.power_supply_temperature, label: Power supply temperature, table: holding, address: 5127, type: u16, unit: °C, scale: 0.1, poll: slow}
+
+  # Diagnostics
+  - {key: x.uptime, label: UP-time H/L, table: holding, address: 5111, type: u32, unit: s, poll: slow}
+  - {key: x.reboot_counter, label: Reboot counter, table: holding, address: 5113, type: u16, poll: slow}
+  - {key: x.last_reboot_reason, label: Last reboot reason code, table: holding, address: 5114, type: u16, enum: reboot_reason, poll: slow}
+
+enums:
+  charge_mode: {'0': Manual, '1': Auto, '2': Scheduled}
+  start_stop: {'0': Stop, '1': Start}
+  charger_position: {'0': Inverter AC output, '1': Inverter AC input}
+  status: {'0': Disconnected, '1': Connected, '2': Charging, '3': Charged, '4': Waiting for sun, '5': Waiting for RFID, '6': Waiting for start, '7': Low SOC, '8': Ground test error, '9': Welded contacts test error, '10': CP input test error (shorted), '11': Residual current detected, '12': Undervoltage detected, '13': Overvoltage detected, '14': Overheating detected, '20': Charging limit, '21': Start charging, '22': Switching to 3 phase, '23': Switching to 1 phase, '24': Stop charging}
+  reboot_reason: {'0': Unknown, '1': Power-on, '2': External pin, '3': Software reboot, '4': Exception / panic, '5': Interrupt watchdog, '6': Task watchdog, '7': Other watchdog, '8': Wake from deep sleep, '9': Brownout, '10': SDIO reset}
+
+flags:
+  relay_bits: {'0': L1, '1': L2, '2': L3, '3': N}
+
+problems:
+  - {when: {key: state, equals: 8}, kind: fault, text: Ground test error (status 8)}
+  - {when: {key: state, equals: 9}, kind: fault, text: Welded contacts test error (status 9)}
+  - {when: {key: state, equals: 10}, kind: fault, text: CP input test error (status 10)}
+  - {when: {key: state, equals: 11}, kind: fault, text: Residual current detected (status 11)}
+  - {when: {key: state, equals: 12}, kind: fault, text: Undervoltage detected (status 12)}
+  - {when: {key: state, equals: 13}, kind: fault, text: Overvoltage detected (status 13)}
+  - {when: {key: state, equals: 14}, kind: fault, text: Overheating detected (status 14)}
+  - {when: {key: x.errors, not: 0}, kind: fault, text: 'Charging station error (bits 0x{value:X})'}
+  - {when: {key: x.warnings, not: 0}, kind: warning, text: 'Charging station warning (bits 0x{value:X})'}
+
+notes:
+- The charger's own Modbus TCP server, all holding registers (function 03) at their 0-based addresses as listed (5000 = address
+  5000); unit id 1. This is not the GX device's com.victronenergy.evcharger service (see victron-gx-evcharger).
+- '32-bit values are split into H and L registers: time, total energy and uptime have H first (big word order); the error
+  and warning bitmasks have L first.'
+- The register list doesn't give request limits. Its history shows the block grew from 50 (firmware < 1.21) to 200 registers
+  (≥ 1.26); unassigned registers read 0xFFFF from 1.22 on.
+- 'Left out: the auto-mode tuning registers (5049–5108 range: display, phase switching, ''feed in'' / ''battery powered''
+  thresholds, overload protection), CP calibration, watchdog counters and energy price (5141–5143).'
+- Many writable settings are marked in the list as "no support if modified"; don't write them casually.
+- The charger's own Modbus TCP server (enable Modbus TCP in its web interface), registers 5000-5024. This is not the GX device's
+  com.victronenergy.evcharger service (see victron-gx-evcharger).
+- Product id 0xC024 = EVCS, 0xC025 = EVCS NS, 0xC026 = EVCS Pro.
+- The project reads 5009-5024 in one request.

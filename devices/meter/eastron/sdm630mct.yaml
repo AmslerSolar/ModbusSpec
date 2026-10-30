@@ -1,0 +1,205 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Eastron SDM630MCT Smart Meter Modbus Protocol Implementation (V1.7).
+
+modbusspec: 0
+id: eastron-sdm630mct
+manufacturer: Eastron
+name: SDM630MCT three-phase energy meter
+kind: meter
+
+sources:
+- title: Eastron SDM630MCT Smart Meter Modbus Protocol Implementation
+  version: '1.7'
+  url: https://www.eastroneurope.com/images/uploads/products/protocol/SDM630MCT_MODBUS_Protocol_V1.7.pdf
+  sha256: 3f48bbb3bd7ffc55707fe2f6c4b7d0022b14379b111880a4457d117e74f38281
+  archive_url: https://web.archive.org/web/20201126172442/https://www.eastroneurope.com/images/uploads/products/protocol/SDM630MCT_MODBUS_Protocol_V1.7.pdf
+- id: eastron-sdm
+  title: home-assistant-eastron-sdm (Home Assistant integration)
+  url: https://github.com/LavermanJJ/home-assistant-eastron-sdm
+  license: Apache-2.0
+  commit: b857f063adcec4145cd27422137483ef89ab64f3
+  path: custom_components/eastron_sdm/sdm/
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 60
+    even_address: true
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: detect
+  detect:
+    table: input
+    address: 70
+    type: f32
+    plausible:
+    - 40
+    - 70
+
+identify:
+  serial:
+    table: holding
+    address: 64512
+    type: u32
+    word_order: big
+  checks:
+  - table: holding
+    address: 64514
+    type: u16
+    equals: 121
+
+points:
+  # Measurements (input registers, function 04)
+  - {key: l1_voltage, label: Phase 1 line to neutral volts, table: input, address: 0, type: f32, unit: V}
+  - {key: l2_voltage, label: Phase 2 line to neutral volts, table: input, address: 2, type: f32, unit: V}
+  - {key: l3_voltage, label: Phase 3 line to neutral volts, table: input, address: 4, type: f32, unit: V}
+  - {key: l1_current, label: Phase 1 current, table: input, address: 6, type: f32, unit: A}
+  - {key: l2_current, label: Phase 2 current, table: input, address: 8, type: f32, unit: A}
+  - {key: l3_current, label: Phase 3 current, table: input, address: 10, type: f32, unit: A}
+  - {key: l1_power, label: Phase 1 active power, table: input, address: 12, type: f32, unit: W, positive: import, verified: false, note: Sign not stated; assumed like the total system power.}
+  - {key: l2_power, label: Phase 2 active power, table: input, address: 14, type: f32, unit: W, positive: import, verified: false, note: Sign not stated; assumed like the total system power.}
+  - {key: l3_power, label: Phase 3 active power, table: input, address: 16, type: f32, unit: W, positive: import, verified: false, note: Sign not stated; assumed like the total system power.}
+  - {key: x.apparent_power_l1, label: Phase 1 apparent power, table: input, address: 18, type: f32, unit: VA}
+  - {key: x.apparent_power_l2, label: Phase 2 apparent power, table: input, address: 20, type: f32, unit: VA}
+  - {key: x.apparent_power_l3, label: Phase 3 apparent power, table: input, address: 22, type: f32, unit: VA}
+  - {key: x.reactive_power_l1, label: Phase 1 reactive power, table: input, address: 24, type: f32, unit: var}
+  - {key: x.reactive_power_l2, label: Phase 2 reactive power, table: input, address: 26, type: f32, unit: var}
+  - {key: x.reactive_power_l3, label: Phase 3 reactive power, table: input, address: 28, type: f32, unit: var}
+  - {key: x.power_factor_l1, label: Phase 1 power factor, table: input, address: 30, type: f32, unit: ''}
+  - {key: x.power_factor_l2, label: Phase 2 power factor, table: input, address: 32, type: f32, unit: ''}
+  - {key: x.power_factor_l3, label: Phase 3 power factor, table: input, address: 34, type: f32, unit: ''}
+  - {key: x.phase_angle_l1, label: Phase 1 phase angle, table: input, address: 36, type: f32, unit: °}
+  - {key: x.phase_angle_l2, label: Phase 2 phase angle, table: input, address: 38, type: f32, unit: °}
+  - {key: x.phase_angle_l3, label: Phase 3 phase angle, table: input, address: 40, type: f32, unit: °}
+  - {key: x.average_voltage_ln, label: Average line to neutral volts, table: input, address: 42, type: f32, unit: V}
+  - {key: x.average_current, label: Average line current, table: input, address: 46, type: f32, unit: A}
+  - {key: x.sum_of_line_currents, label: Sum of line currents, table: input, address: 48, type: f32, unit: A}
+  - {key: grid_power, label: Total system power, table: input, address: 52, type: f32, unit: W, positive: import, verified: false, note: The document gives no sign. Its notes say the power factor sign follows the current direction (positive = forward) and the power demand is import − export; assumed positive = import.}
+  - {key: apparent_power, label: Total system volt amps, table: input, address: 56, type: f32, unit: VA}
+  - {key: reactive_power, label: Total system VAr, table: input, address: 60, type: f32, unit: var}
+  - {key: power_factor, label: Total system power factor, table: input, address: 62, type: f32, unit: ''}
+  - {key: x.total_system_phase_angle, label: Total system phase angle, table: input, address: 66, type: f32, unit: °}
+  - {key: frequency, label: Frequency of supply voltages, table: input, address: 70, type: f32, unit: Hz}
+  - {key: grid_import_energy, label: Total Import kWh, table: input, address: 72, type: f32, unit: kWh, poll: slow}
+  - {key: grid_export_energy, label: Total Export kWh, table: input, address: 74, type: f32, unit: kWh, poll: slow}
+  - {key: x.import_reactive_energy, label: Total Import kVArh, table: input, address: 76, type: f32, unit: kvarh, poll: slow}
+  - {key: x.export_reactive_energy, label: Total Export kVArh, table: input, address: 78, type: f32, unit: kvarh, poll: slow}
+  - {key: x.total_apparent_energy, label: Total VAh, table: input, address: 80, type: f32, unit: kVAh, poll: slow}
+  - {key: x.total_ampere_hours, label: Ah, table: input, address: 82, type: f32, unit: Ah, poll: slow}
+  - {key: x.total_system_power_demand, label: Total system power demand, table: input, address: 84, type: f32, unit: W, poll: slow, note: Import − export.}
+  - {key: x.max_total_system_power_demand, label: Maximum total system power demand, table: input, address: 86, type: f32, unit: W, poll: slow}
+  - {key: x.total_system_va_demand, label: Total system VA demand, table: input, address: 100, type: f32, unit: VA, poll: slow}
+  - {key: x.max_total_system_va_demand, label: Maximum total system VA demand, table: input, address: 102, type: f32, unit: VA, poll: slow}
+  - {key: x.neutral_current_demand, label: Neutral current demand, table: input, address: 104, type: f32, unit: A, poll: slow}
+  - {key: x.max_neutral_current_demand, label: Maximum neutral current demand, table: input, address: 106, type: f32, unit: A, poll: slow}
+  - {key: x.total_system_reactive_power_demand, label: Total system reactive power demand, table: input, address: 108, type: f32, unit: var, poll: slow}
+  - {key: x.max_total_system_reactive_power_demand, label: Maximum total system reactive power demand, table: input, address: 110, type: f32, unit: var, poll: slow}
+  - {key: x.voltage_l1_l2, label: Line 1 to Line 2 volts, table: input, address: 200, type: f32, unit: V}
+  - {key: x.voltage_l2_l3, label: Line 2 to Line 3 volts, table: input, address: 202, type: f32, unit: V}
+  - {key: x.voltage_l3_l1, label: Line 3 to Line 1 volts, table: input, address: 204, type: f32, unit: V}
+  - {key: x.average_voltage_ll, label: Average line to line volts, table: input, address: 206, type: f32, unit: V}
+  - {key: x.neutral_current, label: Neutral current, table: input, address: 224, type: f32, unit: A}
+  - {key: x.voltage_thd_l1, label: Phase 1 L/N volts THD, table: input, address: 234, type: f32, unit: '%'}
+  - {key: x.voltage_thd_l2, label: Phase 2 L/N volts THD, table: input, address: 236, type: f32, unit: '%'}
+  - {key: x.voltage_thd_l3, label: Phase 3 L/N volts THD, table: input, address: 238, type: f32, unit: '%'}
+  - {key: x.current_thd_l1, label: Phase 1 Current THD, table: input, address: 240, type: f32, unit: '%'}
+  - {key: x.current_thd_l2, label: Phase 2 Current THD, table: input, address: 242, type: f32, unit: '%'}
+  - {key: x.current_thd_l3, label: Phase 3 Current THD, table: input, address: 244, type: f32, unit: '%'}
+  - {key: x.average_voltage_thd_ln, label: Average line to neutral volts THD, table: input, address: 248, type: f32, unit: '%'}
+  - {key: x.average_current_thd, label: Average line current THD, table: input, address: 250, type: f32, unit: '%'}
+  - {key: x.current_demand_l1, label: Phase 1 current demand, table: input, address: 258, type: f32, unit: A, poll: slow}
+  - {key: x.current_demand_l2, label: Phase 2 current demand, table: input, address: 260, type: f32, unit: A, poll: slow}
+  - {key: x.current_demand_l3, label: Phase 3 current demand, table: input, address: 262, type: f32, unit: A, poll: slow}
+  - {key: x.max_current_demand_l1, label: Maximum phase 1 current demand, table: input, address: 264, type: f32, unit: A, poll: slow}
+  - {key: x.max_current_demand_l2, label: Maximum phase 2 current demand, table: input, address: 266, type: f32, unit: A, poll: slow}
+  - {key: x.max_current_demand_l3, label: Maximum phase 3 current demand, table: input, address: 268, type: f32, unit: A, poll: slow}
+  - {key: x.voltage_thd_l1_l2, label: Line 1 to line 2 volts THD, table: input, address: 334, type: f32, unit: '%'}
+  - {key: x.voltage_thd_l2_l3, label: Line 2 to line 3 volts THD, table: input, address: 336, type: f32, unit: '%'}
+  - {key: x.voltage_thd_l3_l1, label: Line 3 to line 1 volts THD, table: input, address: 338, type: f32, unit: '%'}
+  - {key: x.average_voltage_thd_ll, label: Average line to line volts THD, table: input, address: 340, type: f32, unit: '%'}
+  - {key: x.total_active_energy, label: Total kWh, table: input, address: 342, type: f32, unit: kWh, poll: slow, note: Import + export.}
+  - {key: x.total_reactive_energy, label: Total kVArh, table: input, address: 344, type: f32, unit: kvarh, poll: slow, note: Import + export.}
+  - {key: x.import_active_energy_l1, label: L1 import kWh, table: input, address: 346, type: f32, unit: kWh, poll: slow}
+  - {key: x.import_active_energy_l2, label: L2 import kWh, table: input, address: 348, type: f32, unit: kWh, poll: slow}
+  - {key: x.import_active_energy_l3, label: L3 import kWh, table: input, address: 350, type: f32, unit: kWh, poll: slow}
+  - {key: x.export_active_energy_l1, label: L1 export kWh, table: input, address: 352, type: f32, unit: kWh, poll: slow}
+  - {key: x.export_active_energy_l2, label: L2 export kWh, table: input, address: 354, type: f32, unit: kWh, poll: slow}
+  - {key: x.export_active_energy_l3, label: L3 export kWh, table: input, address: 356, type: f32, unit: kWh, poll: slow}
+  - {key: x.total_active_energy_l1, label: L1 total kWh, table: input, address: 358, type: f32, unit: kWh, poll: slow}
+  - {key: x.total_active_energy_l2, label: L2 total kWh, table: input, address: 360, type: f32, unit: kWh, poll: slow}
+  - {key: x.total_active_energy_l3, label: L3 total kWh, table: input, address: 362, type: f32, unit: kWh, poll: slow}
+  - {key: x.import_reactive_energy_l1, label: L1 import kVArh, table: input, address: 364, type: f32, unit: kvarh, poll: slow}
+  - {key: x.import_reactive_energy_l2, label: L2 import kVArh, table: input, address: 366, type: f32, unit: kvarh, poll: slow}
+  - {key: x.import_reactive_energy_l3, label: L3 import kVArh, table: input, address: 368, type: f32, unit: kvarh, poll: slow}
+  - {key: x.export_reactive_energy_l1, label: L1 export kVArh, table: input, address: 370, type: f32, unit: kvarh, poll: slow}
+  - {key: x.export_reactive_energy_l2, label: L2 export kVArh, table: input, address: 372, type: f32, unit: kvarh, poll: slow}
+  - {key: x.export_reactive_energy_l3, label: L3 export kVArh, table: input, address: 374, type: f32, unit: kvarh, poll: slow}
+  - {key: x.total_reactive_energy_l1, label: L1 total kVArh, table: input, address: 376, type: f32, unit: kvarh, poll: slow}
+  - {key: x.total_reactive_energy_l2, label: L2 total kVArh, table: input, address: 378, type: f32, unit: kvarh, poll: slow}
+  - {key: x.total_reactive_energy_l3, label: L3 total kVArh, table: input, address: 380, type: f32, unit: kvarh, poll: slow}
+  - {key: x.resettable_total_active_energy, label: Resettable total active energy, table: input, address: 384, type: f32, unit: kWh, poll: slow}
+  - {key: x.resettable_total_reactive_energy, label: Resettable total reactive energy, table: input, address: 386, type: f32, unit: kvarh, poll: slow}
+  - {key: x.resettable_import_active_energy, label: Resettable import active energy, table: input, address: 388, type: f32, unit: kWh, poll: slow}
+  - {key: x.resettable_export_active_energy, label: Resettable export active energy, table: input, address: 390, type: f32, unit: kWh, poll: slow}
+  - {key: x.resettable_import_reactive_energy, label: Resettable import reactive energy, table: input, address: 392, type: f32, unit: kvarh, poll: slow}
+  - {key: x.resettable_export_reactive_energy, label: Resettable export reactive energy, table: input, address: 394, type: f32, unit: kvarh, poll: slow}
+
+  # Settings and identity (holding registers, function 03; write with function 16)
+  - {key: x.demand_time, label: Demand Time, table: holding, address: 0, type: f32, unit: min, poll: slow, note: Minutes into the first demand period; demand values are valid once it reaches the demand period.}
+  - {key: x.demand_period, label: Demand Period, table: holding, address: 2, type: f32, unit: min, writable: true, poll: slow, note: '0, 5, 8, 10, 15, 20, 30 or 60; default 60. 0 = demand values show the present value.'}
+  - {key: x.system_type, label: System Type, table: holding, address: 10, type: f32, enum: system_type, writable: true, poll: slow, note: Needs the password.}
+  - {key: x.pulse_width, label: Pulse output 1 Width, table: holding, address: 12, type: f32, unit: ms, writable: true, poll: slow, note: '60, 100 or 200; default 200.'}
+  - {key: x.password_lock, label: Password Lock, table: holding, address: 14, type: f32, enum: password_lock, poll: slow}
+  - {key: x.parity_stop, label: Parity Stop, table: holding, address: 18, type: f32, enum: parity_stop, writable: true, poll: slow}
+  - {key: x.node_address, label: Modbus Address, table: holding, address: 20, type: f32, writable: true, min: 1, max: 247, poll: slow, note: Default 1.}
+  - {key: x.pulse_divisor, label: Pulse 1 Divisor, table: holding, address: 22, type: f32, enum: pulse_divisor, writable: true, poll: slow}
+  - {key: x.baud_rate, label: Baud Rate, table: holding, address: 28, type: f32, enum: baud_rate, writable: true, poll: slow, note: 'An index into the table, not the rate itself.'}
+  - {key: x.pt_secondary, label: PT2, table: holding, address: 48, type: f32, unit: V, writable: true, poll: slow, note: Secondary voltage of the voltage transformer; the document gives 230 V.}
+  - {key: x.ct_secondary, label: CT2, table: holding, address: 52, type: f32, unit: A, writable: true, poll: slow, note: 'Secondary current of the current transformers, 1 or 5 A.'}
+  - {key: x.ct_ratio, label: CT ratio, table: holding, address: 62, type: f32, writable: true, min: 1, max: 2000, poll: slow, note: Primary ÷ secondary current. Needs the password; not on MID meters.}
+  - {key: x.pt_ratio, label: PT ratio, table: holding, address: 64, type: f32, writable: true, min: 1, max: 2000, poll: slow, note: Primary ÷ secondary voltage. Needs the password; not on MID meters.}
+  - {key: x.pulse_energy_type, label: Pulse 1 Energy Type, table: holding, address: 86, type: f32, enum: pulse_energy_type, writable: true, poll: slow, note: Default 39 (total kvarh).}
+  - {key: x.reset, label: Reset, table: holding, address: 61456, type: u16, writable: true, write_only: true, note: '0x0000 clears the maximum demand values, 0x0003 the resettable energy counters.'}
+  - {key: serial, label: Serial number, table: holding, address: 64512, type: u32, word_order: big, poll: slow, verified: false, note: Unsigned 32-bit. The Register Order setting is described for floats only; assumed not to swap this.}
+  - {key: x.meter_code, label: Meter code, table: holding, address: 64514, type: u32, bits: [16, 31], word_order: big, poll: slow, note: 0x0079 on the SDM630MCT. The document gives it as one register at FC02h; read here as the upper half of the FC02h–FC03h pair to keep the request even.}
+  - {key: x.software_version, label: Software version, table: holding, address: 64514, type: u32, bits: [0, 15], word_order: big, poll: slow, note: The document gives it as one hex register at FC03h; read as the lower half of the FC02h–FC03h pair.}
+
+enums:
+  system_type: {'1': 1 phase 2 wire, '2': 3 phase 3 wire, '3': 3 phase 4 wire}
+  password_lock: {'0': Locked, '1': Unlocked}
+  parity_stop: {'0': 8N1, '1': 8E1, '2': 8O1, '3': 8N2}
+  baud_rate: {'0': '2400', '1': '4800', '2': '9600', '3': '19200', '4': '38400'}
+  pulse_divisor: {'1': 0.01 kWh/imp, '2': 0.1 kWh/imp, '3': 1 kWh/imp, '4': 10 kWh/imp, '5': 100 kWh/imp, '6': 1000 kWh/imp}
+  pulse_energy_type: {'37': Total active energy, '39': Total reactive energy}
+
+notes:
+- 'Addresses: the document numbers registers 30001 ff. (input) and 40001 ff. (holding) and gives the hex start address; the
+  hex address is used here (register number − 30001 or − 40001). The F010h and FCxxh registers are numbered 4xxxxx (e.g. 461457
+  = 0xF010). PT2 and CT2 have only a hex address.'
+- Measurements are input registers (FC 04), settings and identity holding registers (FC 03, write with FC 16, one value per
+  write). Every value is an IEEE 754 float in two registers except the reset (one register), the serial number (u32) and the
+  meter code / software version (one register each).
+- Start address and count must be even. The document states at most 30 values (60 registers) per request in one place and
+  40 values in another; the lower limit is used.
+- The word order is most significant register first by default; the meter has a "Register Order" setting (write 2141.0 in
+  the wanted order) whose address the document doesn't give, so readers detect the order from the frequency.
+- '3 phase 3 wire: line-to-neutral, per-phase power and neutral values read as 0; 1 phase 2 wire: only phase 1 values.'
+- 'Defaults: node address 1, 9600 baud, 8N1; 2400 … 38400 baud selectable. Broadcast (address 0) not supported. The password
+  protecting system type and ratios is given as 1000 in the register table and 0000 in the text.'
+- Power factor sign follows the current direction (positive = forward).
+- 'Left out: a second total system power factor at input 0x00FE (unit given as degrees, meaning unclear).'
+- Measurements are input registers (function 04), settings and identity holding registers (function 03); every measurement
+  is a 32-bit float, most significant register first.
+- Network settings (parity, node address, baud rate) are floats holding small integers.
+- Identification as eastron-sdm recognises the device (not checked against a document).

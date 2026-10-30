@@ -1,0 +1,184 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Carlo Gavazzi EM24-DIN communication protocol (Version 4 Revision 0, 2012-12-03); older meters and
+# the registers marked "Version 2" from the Version 2 Revision 0 edition (2007-02-05).
+
+modbusspec: 0
+id: carlogavazzi-em24-din
+manufacturer: Carlo Gavazzi
+name: EM24-DIN energy meters (RS485, PFA / PFB / X models)
+kind: meter
+
+sources:
+- title: Carlo Gavazzi EM24-DIN PFA, PFB & X models Communication Protocol
+  version: Version 4 Revision 0 (2012-12-03)
+  url: https://www.gavazziautomation.com/fileadmin/images/PIM/OTHERSTUFF/COMPRO/EM24_IS_CP.pdf
+  sha256: b0480349f67080d66770c3a8b7f957feabe405bddd86b6d67891d4af5b1b20f6
+  archive_url: https://web.archive.org/web/20261013060904/https://www.gavazziautomation.com/fileadmin/images/PIM/OTHERSTUFF/COMPRO/EM24_IS_CP.pdf
+- title: Carlo Gavazzi EM24-DIN Communication Protocol
+  version: Version 2 Revision 0 (2007-02-05)
+  url: https://www.ccontrols.com/support/dp/CarloGavazziEM24.pdf
+  sha256: c209e085b1b384eeea6504cc59199a25bb77543d75c637a5226e50f6f7d8db09
+  archive_url: https://web.archive.org/web/20250831201945/https://www.ccontrols.com/support/dp/CarloGavazziEM24.pdf
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/carlogavazzi-em24.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  input_equals_holding: true
+  serial:
+    format: 8N1
+  limits:
+    max_registers: 11
+    max_gap: 6
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+  - table: input
+    address: 4864
+    type: str
+    length: 7
+    models:
+    - av9_av2
+    - av5
+    - av6
+  checks:
+  - table: input
+    address: 11
+    type: u16
+    in:
+    - 71
+    - 72
+    - 73
+    - 45
+    - 46
+    - 47
+    - 48
+
+models:
+  - {id: av9_av2, name: EM24-DIN (AV9 / AV2), match: {table: input, address: 11, type: u16, equals: 71}}
+  - {id: av5, name: EM24-DIN (AV5), match: {table: input, address: 11, type: u16, equals: 72}}
+  - {id: av6, name: EM24-DIN (AV6), match: {table: input, address: 11, type: u16, equals: 73}}
+  # Identification codes of the Version 2 Revision 0 document (2007)
+  - {id: av9_v2, name: 'EM24-DIN (AV9, older ID code)', match: {table: input, address: 11, type: u16, equals: 45}}
+  - {id: av0_v2, name: 'EM24-DIN (AV0, older ID code)', match: {table: input, address: 11, type: u16, equals: 46}}
+  - {id: av5_v2, name: 'EM24-DIN (AV5, older ID code)', match: {table: input, address: 11, type: u16, equals: 47}}
+  - {id: av6_v2, name: 'EM24-DIN (AV6, older ID code)', match: {table: input, address: 11, type: u16, equals: 48}}
+
+points:
+  # Instantaneous variables
+  - {key: l1_voltage, label: V L1-N, table: input, address: 0, type: s32, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: V L2-N, table: input, address: 2, type: s32, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: V L3-N, table: input, address: 4, type: s32, unit: V, scale: 0.1}
+  - {key: x.l1_l2_voltage, label: V L1-L2, table: input, address: 6, type: s32, unit: V, scale: 0.1}
+  - {key: x.l2_l3_voltage, label: V L2-L3, table: input, address: 8, type: s32, unit: V, scale: 0.1}
+  - {key: x.l3_l1_voltage, label: V L3-L1, table: input, address: 10, type: s32, unit: V, scale: 0.1}
+  - {key: l1_current, label: A L1, table: input, address: 12, type: s32, unit: A, scale: 0.001}
+  - {key: l2_current, label: A L2, table: input, address: 14, type: s32, unit: A, scale: 0.001}
+  - {key: l3_current, label: A L3, table: input, address: 16, type: s32, unit: A, scale: 0.001}
+  - {key: l1_power, label: W L1, table: input, address: 18, type: s32, unit: W, scale: 0.1, positive: import, verified: false, note: Derived like the total power.}
+  - {key: l2_power, label: W L2, table: input, address: 20, type: s32, unit: W, scale: 0.1, positive: import, verified: false, note: Derived like the total power.}
+  - {key: l3_power, label: W L3, table: input, address: 22, type: s32, unit: W, scale: 0.1, positive: import, verified: false, note: Derived like the total power.}
+  - {key: x.l1_apparent_power, label: VA L1, table: input, address: 24, type: s32, unit: VA, scale: 0.1}
+  - {key: x.l2_apparent_power, label: VA L2, table: input, address: 26, type: s32, unit: VA, scale: 0.1}
+  - {key: x.l3_apparent_power, label: VA L3, table: input, address: 28, type: s32, unit: VA, scale: 0.1}
+  - {key: x.l1_reactive_power, label: VAR L1, table: input, address: 30, type: s32, unit: var, scale: 0.1}
+  - {key: x.l2_reactive_power, label: VAR L2, table: input, address: 32, type: s32, unit: var, scale: 0.1}
+  - {key: x.l3_reactive_power, label: VAR L3, table: input, address: 34, type: s32, unit: var, scale: 0.1}
+  - {key: x.system_voltage_ln, label: V L-N, table: input, address: 36, type: s32, unit: V, scale: 0.1}
+  - {key: x.system_voltage_ll, label: V L-L, table: input, address: 38, type: s32, unit: V, scale: 0.1}
+  - {key: grid_power, label: W, table: input, address: 40, type: s32, unit: W, scale: 0.1, positive: import, verified: false, note: 'This document doesn''t state the sign in words; it only shows the geometric representation (exported / imported active power) and names the energies kWh(+) and kWh(−). Assumed like the EM300 / EM210 documents, which say negative = export.'}
+  - {key: apparent_power, label: VA, table: input, address: 42, type: s32, unit: VA, scale: 0.1}
+  - {key: reactive_power, label: VAR, table: input, address: 44, type: s32, unit: var, scale: 0.1}
+  - {key: x.power_demand, label: DMD W, table: input, address: 46, type: s32, unit: W, scale: 0.1}
+  - {key: x.apparent_power_demand, label: DMD VA, table: input, address: 48, type: s32, unit: VA, scale: 0.1}
+  - {key: x.l1_power_factor, label: PF L1, table: input, address: 50, type: s16, unit: '', scale: 0.001, invalid: [32767], note: 'Negative = lead (C), positive = lag (L).'}
+  - {key: x.l2_power_factor, label: PF L2, table: input, address: 51, type: s16, unit: '', scale: 0.001, invalid: [32767]}
+  - {key: x.l3_power_factor, label: PF L3, table: input, address: 52, type: s16, unit: '', scale: 0.001, invalid: [32767]}
+  - {key: power_factor, label: PF, table: input, address: 53, type: s16, unit: '', scale: 0.001, invalid: [32767], note: 'Negative = lead (C), positive = lag (L); not the power direction.'}
+  - {key: x.phase_sequence, label: Phase sequence, table: input, address: 54, type: s16, enum: phase_sequence, invalid: [32767]}
+  - {key: frequency, label: Hz, table: input, address: 55, type: s16, unit: Hz, scale: 0.1, invalid: [32767]}
+  - {key: x.power_demand_max, label: DMD W max, table: input, address: 56, type: s32, unit: W, scale: 0.1, note: Version 2 document.}
+  - {key: x.apparent_power_demand_max, label: DMD VA max, table: input, address: 58, type: s32, unit: VA, scale: 0.1, note: Version 2 document.}
+  - {key: x.current_demand_max, label: DMD A max, table: input, address: 60, type: s32, unit: A, scale: 0.001, note: Version 2 document.}
+  - {key: grid_import_energy, label: kWh(+) TOT, table: input, address: 62, type: s32, unit: kWh, scale: 0.1}
+  - {key: x.import_reactive_energy, label: kvarh(+) TOT, table: input, address: 64, type: s32, unit: kvarh, scale: 0.1}
+  - {key: x.import_energy_partial, label: kWh(+) PAR, table: input, address: 66, type: s32, unit: kWh, scale: 0.1, note: Version 2 document.}
+  - {key: x.import_reactive_energy_partial, label: kvarh(+) PAR, table: input, address: 68, type: s32, unit: kvarh, scale: 0.1, note: Version 2 document.}
+  - {key: x.l1_import_energy, label: kWh(+) L1, table: input, address: 70, type: s32, unit: kWh, scale: 0.1, note: Version 2 document.}
+  - {key: x.l2_import_energy, label: kWh(+) L2, table: input, address: 72, type: s32, unit: kWh, scale: 0.1, note: Version 2 document.}
+  - {key: x.l3_import_energy, label: kWh(+) L3, table: input, address: 74, type: s32, unit: kWh, scale: 0.1, note: Version 2 document.}
+  - {key: x.t1_import_energy, label: kWh(+) T1, table: input, address: 76, type: s32, unit: kWh, scale: 0.1, note: Version 2 document.}
+  - {key: x.t2_import_energy, label: kWh(+) T2, table: input, address: 78, type: s32, unit: kWh, scale: 0.1, note: Version 2 document.}
+  - {key: x.t3_import_energy, label: kWh(+) T3, table: input, address: 80, type: s32, unit: kWh, scale: 0.1, note: Version 2 document.}
+  - {key: x.t4_import_energy, label: kWh(+) T4, table: input, address: 82, type: s32, unit: kWh, scale: 0.1, note: Version 2 document.}
+  - {key: x.t1_import_reactive_energy, label: kvarh(+) T1, table: input, address: 84, type: s32, unit: kvarh, scale: 0.1, note: Version 2 document.}
+  - {key: x.t2_import_reactive_energy, label: kvarh(+) T2, table: input, address: 86, type: s32, unit: kvarh, scale: 0.1, note: Version 2 document.}
+  - {key: x.t3_import_reactive_energy, label: kvarh(+) T3, table: input, address: 88, type: s32, unit: kvarh, scale: 0.1, note: Version 2 document.}
+  - {key: x.t4_import_reactive_energy, label: kvarh(+) T4, table: input, address: 90, type: s32, unit: kvarh, scale: 0.1, note: Version 2 document.}
+  - {key: grid_export_energy, label: kWh(-) TOT, table: input, address: 92, type: s32, unit: kWh, scale: 0.1}
+  - {key: x.export_reactive_energy, label: kvarh(-) TOT, table: input, address: 94, type: s32, unit: kvarh, scale: 0.1}
+  - {key: x.run_hours, label: Hour, table: input, address: 96, type: s32, unit: h, scale: 0.01, poll: slow}
+  - {key: x.counter_1, label: Counter 1, table: input, address: 98, type: s32, unit: '', scale: 0.1, poll: slow, note: 'Version 2 document. Pulse counter of a digital input; its unit follows the input type (gas, cold / hot water, hot water kWh).'}
+  - {key: x.counter_2, label: Counter 2, table: input, address: 100, type: s32, unit: '', scale: 0.1, poll: slow, note: Version 2 document.}
+  - {key: x.counter_3, label: Counter 3, table: input, address: 102, type: s32, unit: '', scale: 0.1, poll: slow, note: Version 2 document.}
+  - {key: x.digital_inputs, label: Digital input status, table: input, address: 768, type: u16, flags: digital_inputs, note: 'Version 2 document. A set bit = input open, clear = closed. Read alone (one register per request).'}
+
+  # Identification and settings
+  - {key: serial, label: Serial number (letters 1–13), table: input, address: 4864, type: str, length: 7, poll: slow, models: [av9_av2, av5, av6]}
+  - {key: x.current_tariff, label: Current tariff, table: input, address: 769, type: u16, enum: tariff, poll: slow}
+  - {key: x.version_code, label: Version code, table: input, address: 770, type: u16, poll: slow, note: 'Item number: PFA codes 0–10, PFB = PFA + 128, X = PFA + 64, plus 75–78 for the AV63 X models (table in the document).'}
+  - {key: firmware, label: Revision code, table: input, address: 771, type: u16, poll: slow}
+  - {key: x.front_selector, label: Front selector status, table: input, address: 772, type: u16, enum: front_selector, poll: slow}
+  - {key: x.application, label: Type of application, table: input, address: 4353, type: u16, enum: application, poll: slow, writable: true}
+  - {key: x.measuring_system, label: Measuring system, table: input, address: 4354, type: u16, enum: measuring_system, poll: slow, writable: true}
+  - {key: x.rs485_address, label: RS485 instrument address, table: input, address: 4362, type: u16, poll: slow, writable: true, min: 1, max: 247}
+  - {key: x.rs485_baud, label: RS485 baud rate, table: input, address: 4363, type: u16, enum: baud, poll: slow, writable: true, models: [av9_av2, av5, av6]}
+  - {key: x.rs485_baud, label: RS485 baud rate, table: input, address: 4363, type: u16, enum: baud_v2, poll: slow, writable: true, models: [av9_v2, av0_v2, av5_v2, av6_v2], note: The Version 2 document has the values the other way round.}
+  - {key: x.ct_ratio, label: Current transformer ratio, table: input, address: 4396, type: u32, scale: 0.1, poll: slow, writable: true, min: 1, max: 60000}
+  - {key: x.vt_ratio, label: Voltage transformer ratio, table: input, address: 4398, type: u32, scale: 0.1, poll: slow, writable: true, min: 1, max: 6000}
+
+enums:
+  phase_sequence: {'-1': L1-L3-L2, '0': L1-L2-L3}
+  measuring_system: {'0': 3Pn, '1': 3P1, '2': 2P, '3': 1P, '4': 3P}
+  tariff: {'0': Tariff 1, '1': Tariff 2, '2': Tariff 3, '3': Tariff 4}
+  front_selector: {'0': Keypad unlocked, '1': Keypad unlocked, '2': Keypad unlocked, '3': Keypad locked}
+  application: {'0': A, '1': B, '2': C, '3': D, '4': E, '5': F, '6': G, '7': H}
+  baud: {'0': '4800', '1': '9600'}
+  baud_v2: {'0': '9600', '1': '4800'}
+
+flags:
+  digital_inputs: {'0': Input 1 open, '1': Input 2 open, '2': Input 3 open}
+
+notes:
+- The older RS485 EM24-DIN. Its map is the same as the newer Carlo Gavazzi meters up to 002Dh and differs from 002Eh on (demand,
+  PF, Hz and energies move); the EM24 Ethernet (E1) has its own file.
+- The addresses are the document's "physical address" (its 3xxxxx numbers minus 300001).
+- 32-bit integers are least significant word first; bytes within a register most significant first.
+- 'Overflow (display "EEEE"): the most significant word of a variable reads 7FFFh; treat such values as not available.'
+- At most 11 registers per request (the text says 11; the frame table says "1 to 10h").
+- The identification code 000Bh overlaps V L3-L1 and must be read alone with length 1; 0301h–0304h too ("limited to a word
+  at a time").
+- 'RS485: 4800 or 9600 baud (the document gives no default), 8 data bits, no parity, 1 stop bit, fixed.'
+- Older meters (Version 2 Revision 0 document, 2007) report the identification codes 45 (AV9), 46 (AV0), 47 (AV5) and 48 (AV6)
+  instead of 71–73; that edition lists no serial number register (1300h), has the baud rate values swapped (0 = 9600, 1 =
+  4800), and its version codes at 0302h are 0–5 for six item numbers (another table than the newer one).
+- Registers noted "Version 2 document" (demand maxima, partial, per-phase and per-tariff energies, counters 1–3, digital input
+  status) were taken from the 2007 edition; the file's main edition wasn't checked for them.
+- PFA and PFB models only support the 3Pn measuring system. With the measuring system 1P or 2P only L1, or L1 + L2, are in
+  use.
+- mbmd (type code CGEM24) detects the meter by reading L1 Voltage (input register 0, s32, word order little, scale 0.1); its
+  bus scan accepts a value within 10% of 110 or 230 V.
+- Identification as mbmd recognises the device (not checked against a document).

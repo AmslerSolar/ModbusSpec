@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the LAMBRECHT meteo 16480 u[sonic]WS7 Modbus Manual 8 (no version, 09.26), with the u[sonic]WS6
+# Modbus Manual 6.
+
+modbusspec: 0
+id: lambrecht-usonic-ws
+manufacturer: LAMBRECHT meteo
+name: u[sonic]WS6 / u[sonic]WS7 ultrasonic weather sensors
+kind: io
+
+sources:
+- title: LAMBRECHT meteo u[sonic]WS7 Modbus user manual (16480_usonicWS7_Modbus_Manual_8)
+  version: no version (09.26)
+  url: https://api.lambrecht.net/upload/manuals/16480_usonicWS7_Modbus_Manual_8.pdf
+  sha256: 364abfa7fb27564cfa62bb9992c096667a403bd30934de6c365b3767e0e21cc6
+- title: LAMBRECHT meteo u[sonic]WS6 Modbus user manual (16480_usonicWS6_Modbus_Manual_6)
+  version: no version (09.26)
+  url: https://api.lambrecht.net/upload/manuals/16480_usonicWS6_Modbus_Manual_6.pdf
+  sha256: 76cb3b57c40e139e1b1eeccc8a3c5c75eacde78171702db2c155e0b163e6d04a
+
+connection:
+  default_port: 502
+  default_unit: 5
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40100
+    type: str
+    length: 6
+  checks:
+  - table: holding
+    address: 40050
+    type: str
+    length: 8
+    prefix: '00.16480'
+
+models:
+  - {id: ws7, name: 'u[sonic]WS7 Modbus', match: {table: holding, address: 40050, type: str, length: 8, prefix: 00.16480.001}}
+  - {id: ws6, name: 'u[sonic]WS6 Modbus', match: {table: holding, address: 40050, type: str, length: 8, prefix: 00.16480.000}}
+
+points:
+  # Instantaneous values (input registers, function 04, one register per request)
+  - {key: x.wind_speed, label: Wind speed, table: input, address: 30001, type: s16, unit: m/s, scale: 0.1, invalid: [-9999]}
+  - {key: x.wind_direction, label: Wind direction, table: input, address: 30201, type: s16, unit: °, scale: 0.1, invalid: [-9999]}
+  - {key: x.air_temperature, label: Air temperature, table: input, address: 30401, type: s16, unit: °C, scale: 0.1, invalid: [-9999]}
+  - {key: x.humidity, label: Relative humidity, table: input, address: 30601, type: s16, unit: '%', scale: 0.1, invalid: [-9999]}
+  - {key: x.dew_point, label: Dew point, table: input, address: 30701, type: s16, unit: °C, scale: 0.1, invalid: [-9999], note: Calculated by the sensor from air temperature and humidity.}
+  - {key: x.air_pressure, label: Air pressure, table: input, address: 30801, type: s16, unit: hPa, scale: 0.1, invalid: [-9999], verified: false, note: The register count is blank in the table; one register assumed like the other values. 300 … 1100 hPa × 10 fits a signed register.}
+  - {key: x.irradiance, label: Global radiation, table: input, address: 31401, type: s16, unit: W/m², scale: 0.1, invalid: [-9999], models: [ws7]}
+
+  # Identity (holding registers, function 03)
+  - {key: x.device_id, label: Device identification number, table: holding, address: 40050, type: str, length: 8, poll: slow, note: 'Article number as text, e.g. 00.16480.000130 (WS6) or 00.16480.001130 (WS7); null-terminated.'}
+  - {key: serial, label: Serial number, table: holding, address: 40100, type: str, length: 6, poll: slow, note: 'Up to 11 characters, null-terminated.'}
+  - {key: firmware, label: Firmware version, table: holding, address: 40150, type: str, length: 13, poll: slow, note: 'Up to 25 characters, null-terminated.'}
+
+  # Configuration (holding registers, write with function 16 only)
+  - {key: x.modbus_address, label: Modbus device address, table: holding, address: 40001, type: u16, writable: true, write_only: true, poll: slow, note: Restart the device after a change.}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 40200, type: u16, enum: baud_rate, writable: true, write_only: true, poll: slow, note: Restart the device after a change.}
+  - {key: x.parity, label: Parity, table: holding, address: 40201, type: u16, enum: parity, writable: true, write_only: true, poll: slow, note: Restart the device after a change.}
+
+enums:
+  baud_rate: {'96': '9600', '192': '19200', '384': '38400'}
+  parity: {'0': None, '1': Even}
+
+notes:
+- 'Addresses: the document''s register numbers (30001 …, 40001 …) are sent on the wire unchanged, as its example frames show
+  (30001 = 0x7531, 40050 = 0x9C72); they are used here as the protocol addresses, no offset subtracted.'
+- Every measured value must be requested on its own (one register per input-register request).
+- A value of −9999 means an internal sensor error. Values are signed 16-bit integers divided by 10; signedness is not spelled
+  out but needed for temperatures and the −9999 error code.
+- 'Default unit ids: 5 for the WS6, 13 for the WS7 (the file''s default is the WS6''s). Defaults: 19200 baud, 8E1.'
+- 'The models are told apart by the article number at holding 40050: the manuals give 00.16480.000130 (WS6) and 00.16480.001130
+  (WS7). That other variants (e.g. heater options) keep the 000 / 001 group is assumed (unverified).'
+- 'Left out: the period values (average, maximum, minimum since the previous request, input 30002 … 30004, 30202 …, 30402
+  …, 30602 …, 30702 …, 30802 …, 31402 … 31404). Reading the average clears the group, so they suit only a single reader that
+  reads minimum, maximum, average in that order.'
+- The manuals refer to a separate general document for the autoconfiguration (mapping) registers; not covered here.

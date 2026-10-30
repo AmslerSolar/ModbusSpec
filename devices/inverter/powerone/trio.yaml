@@ -1,0 +1,203 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Power-One's Modbus RTU register maps for the TRIO-20.0(27.6)-TL-OUTD (GT05, Rev. 1.6) and the TRIO-5.8/8.5-TL-OUTD (GB00, Rev. 0.2).
+
+modbusspec: 0
+id: powerone-trio
+manufacturer: Power-One / ABB
+name: TRIO-5.8/8.5 and TRIO-20.0/27.6-TL-OUTD string inverters (register map GT)
+kind: inverter
+
+sources:
+- title: Modbus RTU Register Map, TRIO-20.0(27.6)-TL-OUTD
+  version: GT05, Rev. 1.6 (11/02/2016)
+- title: Modbus RTU registers map for TRIO (TRIO-5.8/8.5-TL-OUTD)
+  version: GB00, Rev. 0.2 (23/07/2015)
+
+connection:
+  default_port: 502
+  default_unit: 2
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+  limits:
+    max_registers: 76
+    max_gap: 4
+  sleeps: true   # powered by its panels: silent after sunset
+
+encoding:
+  byte_order: big
+  word_order: detect
+  detect:
+    table: input
+    address: 149
+    type: f32
+    plausible:
+    - 40
+    - 70
+
+identify:
+  serial:
+    table: input
+    address: 103
+    type: str
+    length: 6
+    chars: low
+  checks:
+  - table: input
+    address: 99
+    type: u16
+    equals: 4370
+
+
+models:
+  - {id: trio_5_8_8_5, name: TRIO-5.8/8.5-TL-OUTD, match: {table: input, address: 115, type: u16, equals: 67}}
+  - {id: trio_27_6_400, name: TRIO-27.6-TL-OUTD-400, match: {table: input, address: 115, type: u16, equals: 89}}
+  - {id: trio_20_400, name: TRIO-20-TL-OUTD-400, match: {table: input, address: 115, type: u16, equals: 121}}
+  - {id: trio_27_6_480, name: TRIO-27.6-TL-OUTD-480, match: {table: input, address: 115, type: u16, equals: 70}}
+  - {id: trio_20_480, name: TRIO-20-TL-OUTD-480, match: {table: input, address: 115, type: u16, equals: 102}}
+
+points:
+  - {key: x.start_register, label: Inverter – Start register, table: input, address: 99, type: u16, poll: slow, note: Fixed value 4370.}
+  - {key: serial, label: Inverter – Serial number (SN0…SN5), table: input, address: 103, type: str, length: 6, chars: low, poll: slow}
+  - {key: x.part_number, label: Inverter – Part number (PN0…PN5), table: input, address: 109, type: str, length: 6, chars: low, poll: slow}
+  - {key: x.model_identifier, label: Inverter – Model identifier, table: input, address: 115, type: u16, enum: model, poll: slow}
+  - {key: state, label: Inverter – Global state, table: input, address: 123, type: u16, enum: global_state}
+  - {key: x.inverter_state, label: Inverter – Inverter state, table: input, address: 124, type: u16, enum: inverter_state}
+  - {key: x.dcdc1_state, label: Inverter – DC/DC channel 1 state, table: input, address: 125, type: u16, enum: dcdc_state}
+  - {key: x.dcdc2_state, label: Inverter – DC/DC channel 2 state, table: input, address: 126, type: u16, enum: dcdc_state}
+  - {key: x.alarm_state, label: Inverter – Alarm state, table: input, address: 127, type: u16, enum: alarm_state}
+  - {key: pv_energy_today, label: Inverter – Daily energy, table: input, address: 131, type: f32, unit: kWh, scale: 0.001, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: pv_energy, label: Inverter – Total energy, table: input, address: 133, type: f32, unit: kWh, poll: slow, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.partial_energy, label: Inverter – Partial energy, table: input, address: 135, type: f32, unit: kWh, poll: slow, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.week_energy, label: Inverter – Week energy, table: input, address: 137, type: f32, unit: kWh, poll: slow, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.month_energy, label: Inverter – Monthly energy, table: input, address: 139, type: f32, unit: kWh, poll: slow, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.year_energy, label: Inverter – Yearly energy, table: input, address: 141, type: f32, unit: kWh, poll: slow, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: l1_voltage, label: Inverter – Grid voltage, table: input, address: 143, type: f32, unit: V, note: 'Phase-neutral, phase R. Word order not stated; detected from the grid frequency.', verified: false}
+  - {key: x.grid_current, label: Inverter – Grid current, table: input, address: 145, type: f32, unit: A, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: pv_power, label: Inverter – Grid power, table: input, address: 147, type: f32, unit: W, note: AC output power; the sign isn't stated. Word order not stated; detected from the grid frequency., verified: false}
+  - {key: frequency, label: Inverter – Frequency, table: input, address: 149, type: f32, unit: Hz, note: Used to detect the word order (40–70 Hz)., verified: false}
+  - {key: x.input1_power, label: Inverter – Input 1 power, table: input, address: 151, type: f32, unit: W, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.input1_voltage, label: Inverter – Input 1 voltage, table: input, address: 153, type: f32, unit: V, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.input1_current, label: Inverter – Input 1 current, table: input, address: 155, type: f32, unit: A, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.input2_power, label: Inverter – Input 2 power, table: input, address: 157, type: f32, unit: W, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.input2_voltage, label: Inverter – Input 2 voltage, table: input, address: 159, type: f32, unit: V, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.input2_current, label: Inverter – Input 2 current, table: input, address: 161, type: f32, unit: A, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: temperature, label: Inverter – Inverter temperature, table: input, address: 163, type: f32, unit: °C, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.booster_temperature, label: Inverter – Booster temperature, table: input, address: 165, type: f32, unit: °C, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: x.isolation_resistance, label: Inverter – Isolation resistance, table: input, address: 167, type: f32, unit: MΩ, poll: slow, note: Word order not stated; detected from the grid frequency., verified: false}
+  - {key: power_factor, label: Inverter – Cos(φ), table: input, address: 171, type: f32, unit: '', note: Word order not stated; detected from the grid frequency., verified: false}
+
+enums:
+  model: {'67': TRIO-5.8/8.5-TL-OUTD, '70': TRIO-27.6-TL-OUTD-480, '89': TRIO-27.6-TL-OUTD-400, '102': TRIO-20-TL-OUTD-480, '121': TRIO-20-TL-OUTD-400}
+  global_state: {'0': Sending parameters, '1': Waiting for sun/grid, '2': Checking grid, '3': Measuring Riso, '4': DC/DC start, '5': Inverter start, '6': Run, '7': Recovery, '8': Pause, '9': Ground fault, '10': Over-temperature fault, '11': Address setting, '12': Self-test, '13': Self-test fail, '14': Sensor test + Riso, '15': Leak fault, '16': Waiting for manual reset, '17': Internal error E026, '18': Internal error E027, '19': Internal error E028, '20': Internal error E029, '21': Internal error E030, '22': Sending wind table, '23': Failed sending table, '24': Under-temperature fault, '25': Remote off, '26': Interlock fail, '27': Executing autotest, '30': Waiting sun, '31': Temperature fault, '32': Fan stuck, '33': Internal communication fault, '34': Slave insertion, '35': DC switch open, '36': TRAS switch open, '37': Master exclusion, '38': Auto exclusion, '51': Arc fault, '53': Arc fault self-test fail, '98': Erasing internal EEPROM, '99': Erasing external EEPROM, '100': Counting EEPROM, '101': Freeze, '115': Communication loss with communication board, '118': Arc fault wrong configuration, '200': DSP programming}
+  inverter_state: {'0': Stand by, '1': Checking grid, '2': Run, '3': Bulk OV, '4': Out OC, '5': IGBT sat, '6': Bulk UV, '7': Degauss error, '8': No parameters, '9': Bulk low, '10': Grid OV, '11': Communication error, '12': Degaussing, '13': Starting, '14': Bulk cap fail, '15': Leak fail, '16': DC/DC fail, '17': Ileak sensor fail, '30': Internal error, '31': Internal error, '40': Forbidden state, '41': Input UC, '42': Zero power, '43': Grid not present, '44': Waiting start, '45': MPPT, '46': Grid fail, '47': Input OC, '255': Inverter DSP not programmed}
+  dcdc_state: {'0': DC/DC off, '1': Ramp start, '2': MPPT, '3': Not used, '4': Input OC, '5': Input UV, '6': Input OV, '7': Input low, '8': No parameters, '9': Bulk OV, '10': Communication error, '11': Ramp fail, '12': Internal error, '13': Input mode error, '14': Ground fault, '15': Inverter fail, '16': DC/DC IGBT sat, '17': DC/DC ILEAK fail, '18': DC/DC grid fail, '19': DC/DC comm. error, '255': DC/DC DSP not programmed}
+  alarm_state: {'0': No alarm, '1': Sun low (W001), '2': Input OC (E001), '3': Input UV (W002), '4': Input OV (E002), '5': Sun low (W001), '6': No parameters (E003), '7': Bulk OV (E004), '8': Comm. error (E005), '9': Output OC (E006), '10': IGBT sat (E007), '11': Bulk UV (W011), '12': Internal error (E009), '13': Grid fail (W003), '14': Bulk low (E010), '15': Ramp fail (E011), '16': DC/DC fail (E012), '17': Wrong mode (E013), '18': Ground fault, '19': Over temp. (E014), '20': Bulk cap fail (E015), '21': Inverter fail (E016), '22': Start timeout (E017), '23': Ground fault (E018), '24': Degauss error, '25': Ileak sens. fail (E019), '26': DC/DC fail (E012), '27': Self-test error 1 (E020), '28': Self-test error 2 (E021), '29': Self-test error 3 (E019), '30': Self-test error 4 (E022), '31': DC inj error (E023), '32': Grid OV (W004), '33': Grid UV (W005), '34': Grid OF (W006), '35': Grid UF (W007), '36': Z grid Hi (W008), '37': Internal error (E024), '38': Riso low (E025), '39': Vref error (E026), '40': Error meas V (E027), '41': Error meas F (E028), '42': Error meas Z (E029), '43': Error meas Ileak (E030), '44': Error read V (E031), '45': Error read I (E032), '46': Table fail (W009), '47': Fan fail (W010), '48': UTH (E033), '49': Interlock fail (E034), '50': Remote off (E035), '51': Vout avg error (E036), '52': Battery low (W012), '53': Clk fail (W013), '54': Input UC (E037), '55': Zero power (W014), '56': Fan stuck (E038), '57': DC switch open (E039), '58': TRAS switch open (E040), '59': AC switch open (E041), '60': Bulk UV (E042), '61': Autoexclusion (E043), '62': Grid df/dt (W015), '63': Den switch open (W016), '64': Jbox fail (W017), '65': DC door open (E044), '66': AC door open (E045), '79': Arc fault (E050), '82': Arc fault self-test fail (E053), '83': Communication loss with communication board (E054)}
+
+problems:
+  - {when: {key: state, equals: 9}, kind: fault, text: Ground fault (state 9)}
+  - {when: {key: state, equals: 10}, kind: fault, text: Over-temperature fault (state 10)}
+  - {when: {key: state, equals: 13}, kind: fault, text: Self-test fail (state 13)}
+  - {when: {key: state, equals: 15}, kind: fault, text: Leak fault (state 15)}
+  - {when: {key: state, equals: 16}, kind: fault, text: Waiting for manual reset (state 16)}
+  - {when: {key: state, equals: 17}, kind: fault, text: Internal error E026 (state 17)}
+  - {when: {key: state, equals: 18}, kind: fault, text: Internal error E027 (state 18)}
+  - {when: {key: state, equals: 19}, kind: fault, text: Internal error E028 (state 19)}
+  - {when: {key: state, equals: 20}, kind: fault, text: Internal error E029 (state 20)}
+  - {when: {key: state, equals: 21}, kind: fault, text: Internal error E030 (state 21)}
+  - {when: {key: state, equals: 23}, kind: fault, text: Failed sending table (state 23)}
+  - {when: {key: state, equals: 24}, kind: fault, text: Under-temperature fault (state 24)}
+  - {when: {key: state, equals: 26}, kind: fault, text: Interlock fail (state 26)}
+  - {when: {key: state, equals: 31}, kind: fault, text: Temperature fault (state 31)}
+  - {when: {key: state, equals: 32}, kind: fault, text: Fan stuck (state 32)}
+  - {when: {key: state, equals: 33}, kind: fault, text: Internal communication fault (state 33)}
+  - {when: {key: state, equals: 35}, kind: fault, text: DC switch open (state 35)}
+  - {when: {key: state, equals: 36}, kind: fault, text: TRAS switch open (state 36)}
+  - {when: {key: state, equals: 51}, kind: fault, text: Arc fault (state 51)}
+  - {when: {key: state, equals: 53}, kind: fault, text: Arc fault self-test fail (state 53)}
+  - {when: {key: state, equals: 115}, kind: fault, text: Communication loss with communication board (state 115)}
+  - {when: {key: state, equals: 118}, kind: fault, text: Arc fault wrong configuration (state 118)}
+  - {when: {key: x.inverter_state, equals: 43}, kind: mains_lost, text: Grid not present (inverter state 43)}
+  - {when: {key: x.inverter_state, equals: 46}, kind: mains_lost, text: Grid fail (inverter state 46)}
+  - {when: {key: x.alarm_state, equals: 2}, kind: fault, text: Input OC (E001)}
+  - {when: {key: x.alarm_state, equals: 4}, kind: fault, text: Input OV (E002)}
+  - {when: {key: x.alarm_state, equals: 6}, kind: fault, text: No parameters (E003)}
+  - {when: {key: x.alarm_state, equals: 7}, kind: fault, text: Bulk OV (E004)}
+  - {when: {key: x.alarm_state, equals: 8}, kind: fault, text: Comm. error (E005)}
+  - {when: {key: x.alarm_state, equals: 9}, kind: fault, text: Output OC (E006)}
+  - {when: {key: x.alarm_state, equals: 10}, kind: fault, text: IGBT sat (E007)}
+  - {when: {key: x.alarm_state, equals: 12}, kind: fault, text: Internal error (E009)}
+  - {when: {key: x.alarm_state, equals: 13}, kind: mains_lost, text: Grid fail (W003)}
+  - {when: {key: x.alarm_state, equals: 14}, kind: fault, text: Bulk low (E010)}
+  - {when: {key: x.alarm_state, equals: 15}, kind: fault, text: Ramp fail (E011)}
+  - {when: {key: x.alarm_state, equals: 16}, kind: fault, text: DC/DC fail (E012)}
+  - {when: {key: x.alarm_state, equals: 17}, kind: fault, text: Wrong mode (E013)}
+  - {when: {key: x.alarm_state, equals: 18}, kind: fault, text: Ground fault}
+  - {when: {key: x.alarm_state, equals: 19}, kind: fault, text: Over temp. (E014)}
+  - {when: {key: x.alarm_state, equals: 20}, kind: fault, text: Bulk cap fail (E015)}
+  - {when: {key: x.alarm_state, equals: 21}, kind: fault, text: Inverter fail (E016)}
+  - {when: {key: x.alarm_state, equals: 22}, kind: fault, text: Start timeout (E017)}
+  - {when: {key: x.alarm_state, equals: 23}, kind: fault, text: Ground fault (E018)}
+  - {when: {key: x.alarm_state, equals: 24}, kind: fault, text: Degauss error}
+  - {when: {key: x.alarm_state, equals: 25}, kind: fault, text: Ileak sens. fail (E019)}
+  - {when: {key: x.alarm_state, equals: 26}, kind: fault, text: DC/DC fail (E012)}
+  - {when: {key: x.alarm_state, equals: 27}, kind: fault, text: Self-test error 1 (E020)}
+  - {when: {key: x.alarm_state, equals: 28}, kind: fault, text: Self-test error 2 (E021)}
+  - {when: {key: x.alarm_state, equals: 29}, kind: fault, text: Self-test error 3 (E019)}
+  - {when: {key: x.alarm_state, equals: 30}, kind: fault, text: Self-test error 4 (E022)}
+  - {when: {key: x.alarm_state, equals: 31}, kind: fault, text: DC inj error (E023)}
+  - {when: {key: x.alarm_state, equals: 32}, kind: mains_lost, text: Grid OV (W004)}
+  - {when: {key: x.alarm_state, equals: 33}, kind: mains_lost, text: Grid UV (W005)}
+  - {when: {key: x.alarm_state, equals: 34}, kind: mains_lost, text: Grid OF (W006)}
+  - {when: {key: x.alarm_state, equals: 35}, kind: mains_lost, text: Grid UF (W007)}
+  - {when: {key: x.alarm_state, equals: 36}, kind: warning, text: Z grid Hi (W008)}
+  - {when: {key: x.alarm_state, equals: 37}, kind: fault, text: Internal error (E024)}
+  - {when: {key: x.alarm_state, equals: 38}, kind: fault, text: Riso low (E025)}
+  - {when: {key: x.alarm_state, equals: 39}, kind: fault, text: Vref error (E026)}
+  - {when: {key: x.alarm_state, equals: 40}, kind: fault, text: Error meas V (E027)}
+  - {when: {key: x.alarm_state, equals: 41}, kind: fault, text: Error meas F (E028)}
+  - {when: {key: x.alarm_state, equals: 42}, kind: fault, text: Error meas Z (E029)}
+  - {when: {key: x.alarm_state, equals: 43}, kind: fault, text: Error meas Ileak (E030)}
+  - {when: {key: x.alarm_state, equals: 44}, kind: fault, text: Error read V (E031)}
+  - {when: {key: x.alarm_state, equals: 45}, kind: fault, text: Error read I (E032)}
+  - {when: {key: x.alarm_state, equals: 46}, kind: warning, text: Table fail (W009)}
+  - {when: {key: x.alarm_state, equals: 47}, kind: warning, text: Fan fail (W010)}
+  - {when: {key: x.alarm_state, equals: 48}, kind: fault, text: UTH (E033)}
+  - {when: {key: x.alarm_state, equals: 49}, kind: fault, text: Interlock fail (E034)}
+  - {when: {key: x.alarm_state, equals: 51}, kind: fault, text: Vout avg error (E036)}
+  - {when: {key: x.alarm_state, equals: 52}, kind: warning, text: Battery low (W012)}
+  - {when: {key: x.alarm_state, equals: 53}, kind: warning, text: Clk fail (W013)}
+  - {when: {key: x.alarm_state, equals: 56}, kind: fault, text: Fan stuck (E038)}
+  - {when: {key: x.alarm_state, equals: 57}, kind: fault, text: DC switch open (E039)}
+  - {when: {key: x.alarm_state, equals: 58}, kind: fault, text: TRAS switch open (E040)}
+  - {when: {key: x.alarm_state, equals: 59}, kind: fault, text: AC switch open (E041)}
+  - {when: {key: x.alarm_state, equals: 60}, kind: fault, text: Bulk UV (E042)}
+  - {when: {key: x.alarm_state, equals: 61}, kind: fault, text: Autoexclusion (E043)}
+  - {when: {key: x.alarm_state, equals: 62}, kind: mains_lost, text: Grid df/dt (W015)}
+  - {when: {key: x.alarm_state, equals: 63}, kind: warning, text: Den switch open (W016)}
+  - {when: {key: x.alarm_state, equals: 64}, kind: warning, text: Jbox fail (W017)}
+  - {when: {key: x.alarm_state, equals: 65}, kind: fault, text: DC door open (E044)}
+  - {when: {key: x.alarm_state, equals: 66}, kind: fault, text: AC door open (E045)}
+  - {when: {key: x.alarm_state, equals: 79}, kind: fault, text: Arc fault (E050)}
+  - {when: {key: x.alarm_state, equals: 82}, kind: fault, text: Arc fault self-test fail (E053)}
+  - {when: {key: x.alarm_state, equals: 83}, kind: fault, text: Communication loss with communication board (E054)}
+
+notes:
+- The TRIO has RS-485 only (Modbus RTU, 8N1; default 19200 bit/s on the European TRIO-20/27.6, 9600 bit/s on the US/Japan
+  versions and the TRIO-5.8/8.5). It is reached through an RS-485 ↔ Modbus TCP gateway; the unit id is the inverter's RS-485
+  address (2 is only the documents' example).
+- Registers are numbered from 1 ("PLC addresses"); addresses here are register − 1. Some gateways renumber; checking the fixed
+  start register (4370) at both 99 and 100 finds the offset.
+- Values are IEEE 754 floats in two registers; the word order isn't stated. The right order is the one that gives a grid frequency
+  of 40–70 Hz. NaN and 0xFFFFFFFF read as not available.
+- Solar power is the inverter's AC output ("Grid power"); the DC inputs are informative. A TRIO doesn't measure the grid connection.
+- 'Problems: global states that are faults → fault; inverter state 43 (grid not present) / 46 (grid fail) → mains lost; alarm
+  codes Exxx → fault, Wxxx → warning, grid alarms (grid fail, grid OV/UV/OF/UF, df/dt) → mains lost. Not problems: sun low,
+  input under-voltage, bulk UV (W011), input UC, zero power (low light) and remote off (an operator command). Any alarm code
+  not listed counts as a fault.'
+- The TRIO-20/27.6 document also lists alarm 84 (arc fault reset by user, W026) and 85 (arc fault wrong configuration, E055),
+  which aren't listed here.

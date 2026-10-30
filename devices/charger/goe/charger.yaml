@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the go-eCharger API v2 Modbus and HTTP API documentation (main branch, retrieved 2026-10-21).
+
+modbusspec: 0
+id: goe-charger
+manufacturer: go-e
+name: go-eCharger (HOME / Gemini)
+kind: charger
+
+sources:
+- title: go-eCharger API v2, Modbus (modbus-en.md)
+  version: main branch, retrieved 2026-10-21
+  url: https://github.com/goecharger/go-eCharger-API-v2/blob/main/modbus-en.md
+  sha256: 6e5451840cd0ef124de3410d648722d347a8a017e0e5c47d4192ab9d1c94831c
+- title: go-eCharger API v2, HTTP API (http-en.md)
+  version: main branch, retrieved 2026-10-21
+  url: https://github.com/goecharger/go-eCharger-API-v2/blob/main/http-en.md
+  sha256: 277fc9d6d886dad525833a9c7ae4d6ab320897d84bd46923762238048499804a
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.evcs.goe/src/io/openems/edge/evcs/goe/modbus/EvcsGoeModbusImpl.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  input_equals_holding: true
+  limits:
+    max_registers: 125
+    max_gap: 16
+  write_multiple: true
+
+encoding:
+  byte_order: detect
+  word_order: detect
+  detect:
+    table: input
+    address: 108
+    type: u32
+    plausible:
+    - 1
+    - 1000
+
+identify:
+  serial:
+    table: input
+    address: 304
+    type: str
+    length: 6
+  checks:
+  - table: input
+    address: 100
+    type: u16
+    range:
+    - 0
+    - 4
+  # serial number; a device answering 0 or FFFFh everywhere is not this one
+  - table: input
+    address: 304
+    type: str
+    length: 6
+    printable: true
+
+points:
+  - {key: state, label: CAR_STATE, table: input, address: 100, type: u16, enum: car_state, conflicts: [{sources: [openems], byte_order: big, label: Goe state}]}
+  - {key: x.cable_coding, label: PP_CABLE, table: input, address: 101, type: u16, unit: A, note: '13–32 = ampere coding of the Type 2 cable, 0 = no cable.'}
+  - {key: firmware, label: FWV, table: input, address: 105, type: str, length: 2, poll: slow}
+  - {key: error_code, label: ERROR, table: input, address: 107, type: u16, enum: error}
+  - {key: l1_voltage, label: VOLT_L1, table: input, address: 108, type: u32, unit: V, conflicts: [{sources: [openems], scale: 0.001, word_order: big, byte_order: big, label: Voltage L1}]}
+  - {key: l2_voltage, label: VOLT_L2, table: input, address: 110, type: u32, unit: V, conflicts: [{sources: [openems], scale: 0.001, word_order: big, byte_order: big, label: Voltage L2}]}
+  - {key: l3_voltage, label: VOLT_L3, table: input, address: 112, type: u32, unit: V, conflicts: [{sources: [openems], scale: 0.001, word_order: big, byte_order: big, label: Voltage L3}]}
+  - {key: l1_current, label: AMP_L1, table: input, address: 114, type: u32, unit: A, scale: 0.1, conflicts: [{sources: [openems], scale: 0.01, word_order: big, byte_order: big, label: Current L1}]}
+  - {key: l2_current, label: AMP_L2, table: input, address: 116, type: u32, unit: A, scale: 0.1, conflicts: [{sources: [openems], scale: 0.01, word_order: big, byte_order: big, label: Current L2}]}
+  - {key: l3_current, label: AMP_L3, table: input, address: 118, type: u32, unit: A, scale: 0.1, conflicts: [{sources: [openems], scale: 0.01, word_order: big, byte_order: big, label: Current L3}]}
+  - {key: consumer_power, label: POWER_TOTAL, table: input, address: 120, type: u32, unit: W, scale: 0.01, positive: consumption, verified: false, note: 'The document gives no sign; the value is unsigned and is the power the charger delivers to the car, so positive = consumption (derived).', conflicts: [{sources: [openems], scale: 0.1, word_order: big, byte_order: big, label: Active power}]}
+  - {key: consumer_energy, label: ENERGY_TOTAL, table: input, address: 128, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: session_energy, label: ENERGY_CHARGE, table: input, address: 132, type: u32, unit: kWh, scale: 2.7777777777777775e-06, note: Raw unit is 10 Ws (deka-watt-seconds); 360000 = 1 kWh.}
+  - {key: x.voltage_n, label: VOLT_N, table: input, address: 144, type: u32, unit: V}
+  - {key: l1_power, label: POWER_L1, table: input, address: 146, type: u32, unit: W, scale: 100, positive: consumption, verified: false, note: Raw unit 0.1 kW. Unsigned; direction derived like the total power.}
+  - {key: l2_power, label: POWER_L2, table: input, address: 148, type: u32, unit: W, scale: 100, positive: consumption, verified: false, note: Raw unit 0.1 kW. Unsigned; direction derived like the total power.}
+  - {key: l3_power, label: POWER_L3, table: input, address: 150, type: u32, unit: W, scale: 100, positive: consumption, verified: false, note: Raw unit 0.1 kW. Unsigned; direction derived like the total power.}
+  - {key: x.power_factor_l1, label: POWER_FACTOR_L1, table: input, address: 152, type: u32, unit: '%'}
+  - {key: x.power_factor_l2, label: POWER_FACTOR_L2, table: input, address: 154, type: u32, unit: '%'}
+  - {key: x.power_factor_l3, label: POWER_FACTOR_L3, table: input, address: 156, type: u32, unit: '%'}
+  - {key: x.power_factor_n, label: POWER_FACTOR_N, table: input, address: 158, type: u32, unit: '%'}
+  - {key: x.charging_allowed, label: ALLOW, table: input, address: 200, type: u16, enum: yes_no}
+  - {key: x.adapter, label: ADAPTER_INPUT, table: input, address: 202, type: u16, enum: adapter, poll: slow}
+  - {key: x.unlocked_by, label: UNLOCKED_BY, table: input, address: 203, type: u16, poll: slow, note: Number of the RFID card that started the current session.}
+  - {key: x.phases, label: PHASES, table: input, address: 205, type: u16, flags: phases}
+  - {key: serial, label: SNR, table: input, address: 304, type: str, length: 6, poll: slow}
+  - {key: x.host_name, label: HOSTNAME, table: input, address: 310, type: str, length: 5, poll: slow, verified: false, note: 'The document says 12 bytes / 6 registers but lists only 310–314, and the next value starts at 315; 5 registers read.'}
+  - {key: x.ampere_max, label: AMPERE_MAX, table: holding, address: 211, type: u16, unit: A, poll: slow, writable: true, note: Upper limit for the current setting.}
+  - {key: x.ampere_volatile, label: AMPERE_VOLATILE, table: holding, address: 299, type: u16, unit: A, poll: slow, writable: true, min: 6, max: 32, persistent: false, note: Reset to the saved value on reboot.}
+  - {key: x.ampere_eeprom, label: AMPERE_EEPROM, table: holding, address: 300, type: u16, unit: A, poll: slow, writable: true, min: 6, max: 32, persistent: true}
+
+enums:
+  car_state: {'0': Unknown / charging station defective, '1': 'Ready, no car', '2': Car charging, '3': Waiting for car, '4': 'Charging finished, car still connected'}
+  error: {'0': None, '1': Residual current breaker (RCCB), '3': Phase disturbance, '8': No ground detected, '10': Internal error}
+  yes_no: {'0': 'No', '1': 'Yes'}
+  adapter: {'0': No adapter, '1': 16 A adapter}
+
+flags:
+  phases: {'0': L1 after the contactor, '1': L2 after the contactor, '2': L3 after the contactor, '3': L1 before the contactor, '4': L2 before the contactor, '5': L3 before the contactor}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charging station error {value} (1 RCCB, 3 phase, 8 no ground, other internal)'}
+  - {when: {key: state, equals: 0}, kind: fault, text: Charging station defective (car state 0)}
+
+notes:
+- The Modbus server is off by default; enable it in the app (Internet → Advanced settings → Modbus) or with the HTTP API key
+  men=true. The port can be changed with msp (needs a reboot).
+- Addresses are the wire-format numbers the document gives in parentheses (CAR_STATE = 100), not the 30101-style references.
+- Byte and word order are settings on the charger (msb swaps bytes, msr swaps registers). Firmware 60.3 had swapped bytes
+  (fixed in 60.4). Readers detect both from the L1 voltage; a byte swap also shows as a car state above 255 whose swapped
+  value is 0–4.
+- The unit id isn't documented; 1 is used (unverified). Whether reading across unlisted registers in a block is accepted isn't
+  documented either; if a block read gets a Modbus exception, read the registers singly.
+- Error codes other than 1, 3 and 8 all mean an internal error.
+- OpenEMS recommends firmware 57.1 or later for Modbus.

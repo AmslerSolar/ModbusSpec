@@ -1,0 +1,218 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Afore T6 communication protocol V1.0 (211109).
+
+modbusspec: 0
+id: afore-2mppt
+manufacturer: Afore
+name: Afore grid-tied inverters (T6 Modbus protocol)
+kind: inverter
+
+sources:
+- title: Afore T6 communication protocol (211208 - Afore T6 communication protocol V1.0-211109.xlsx)
+  version: V1.0 (2021-11-09)
+  url: https://github.com/user-attachments/files/17139137/211208.-.Afore.T6.communication.protocol.V1.0-211109.xlsx
+  sha256: 453a9e5ae248233c64ab49a5010d3fc230bc16e8a858ee0257d50982f2464606
+- id: solarman
+  title: ha-solarman (Home Assistant integration)
+  url: https://github.com/davidrapan/ha-solarman
+  license: MIT
+  commit: ac1d88b83268beeb0511b8a1b7fc8e17deddc044
+  path: custom_components/solarman/inverter_definitions/afore_2mppt.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 41
+    type: str
+    length: 8
+  checks:
+  # inverter type: grid-tied
+  - table: input
+    address: 6
+    type: u16
+    range:
+    - 0
+    - 199
+  # serial number
+  - table: input
+    address: 41
+    type: str
+    length: 8
+    printable: true
+
+models:
+  - {id: single_phase, name: Single-phase inverter, match: {table: input, address: 6, type: u16, range: [0, 99]}}
+  - {id: three_phase, name: Three-phase inverter, match: {table: input, address: 6, type: u16, range: [100, 199]}}
+
+points:
+  # Identity (input 0–53)
+  - {key: x.inverter_name, label: Inverter name (InverName), table: input, address: 0, type: str, length: 6, poll: slow, verified: false, note: Six registers; the document doesn't say how the name is coded. ASCII assumed.}
+  - {key: x.inverter_type, label: Inverter type (InverType), table: input, address: 6, type: u16, poll: slow, note: '0–99 single-phase, 100–199 three-phase, 200–299 single-phase hybrid (including split phase), 300–399 three-phase hybrid.'}
+  - {key: x.rated_power, label: Rated power (NormAppPower), table: input, address: 7, type: u32, unit: W, poll: slow}
+  - {key: x.rated_reactive_power, label: Rated output reactive power (NormReactPower), table: input, address: 9, type: u32, unit: var, poll: slow}
+  - {key: x.hardware_version, label: Hardware version (HardVer), table: input, address: 15, type: u16, poll: slow}
+  - {key: x.protocol_version, label: Protocol version (ProtocolVer), table: input, address: 20, type: u16, scale: 0.01, poll: slow, note: Shown as XXX.XX.}
+  - {key: firmware, label: Master DSP software version (MasterVer), table: input, address: 25, type: u16, scale: 0.01, poll: slow, note: Shown as XXX.XX.}
+  - {key: x.slave_dsp_version, label: Slave DSP software version (SlaveVer), table: input, address: 30, type: u16, scale: 0.01, poll: slow}
+  - {key: x.hmi_version, label: HMI software version (HMIVer), table: input, address: 35, type: u16, scale: 0.01, poll: slow}
+  - {key: x.cpld_version, label: CPLD software version (CPLDVer), table: input, address: 40, type: u16, scale: 0.01, poll: slow}
+  - {key: serial, label: Inverter SN (SerialNumber), table: input, address: 41, type: str, length: 8, poll: slow, note: 16 ASCII characters. The document names register 41 'SerialNumber15-14' and 48 'SerialNumber1-0'; read in register order (assumed to give the serial as printed).}
+  - {key: x.country, label: Country, table: input, address: 49, type: u16, enum: country, poll: slow}
+  - {key: x.max_ac_current, label: Max AC output current (MaxAcOutCurr), table: input, address: 50, type: u32, unit: A, scale: 0.01, poll: slow}
+  - {key: x.platform, label: Inverter character B0–B2 (platform), table: input, address: 52, type: u32, bits: [0, 2], enum: platform, poll: slow}
+  - {key: x.phase_system, label: Inverter character B3–B5 (phases), table: input, address: 52, type: u32, bits: [3, 5], enum: phase_system, poll: slow}
+  - {key: x.pv_boost_channels, label: Inverter character B6–B9 (PV boost channels), table: input, address: 52, type: u32, bits: [6, 9], poll: slow, note: '0 = 1 channel, 1 = 2 channels, N = N+1 channels.'}
+  - {key: x.transformer, label: Inverter character B10 (transformer), table: input, address: 52, type: u32, bits: [10, 10], enum: transformer, poll: slow}
+
+  # Real-time data 1: PV and grid (input 500 ff.)
+  - {key: x.bus_voltage, label: Bus voltage (Vbus), table: input, address: 500, type: u16, unit: V, scale: 0.1}
+  - {key: x.negative_bus_voltage, label: Negative bus voltage (Vnbus), table: input, address: 501, type: u16, unit: V, scale: 0.1}
+  - {key: x.insulation_resistance, label: Insulation resistance (Riso), table: input, address: 502, type: u16, unit: kΩ}
+  - {key: x.leakage_current, label: Leakage current RMS (IgfciRms), table: input, address: 503, type: u16, unit: A, scale: 0.001}
+  - {key: x.dci_r, label: DCI in R phase, table: input, address: 504, type: s16, unit: A, scale: 0.001}
+  - {key: x.dci_s, label: DCI in S phase, table: input, address: 505, type: s16, unit: A, scale: 0.001}
+  - {key: x.dci_t, label: DCI in T phase, table: input, address: 506, type: s16, unit: A, scale: 0.001}
+  - {key: l1_voltage, label: Grid voltage R phase (VgridR), table: input, address: 507, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Grid voltage S phase (VgridS), table: input, address: 508, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Grid voltage T phase (VgridT), table: input, address: 509, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: R phase inverter current (IinvR), table: input, address: 510, type: s16, unit: A, scale: 0.01}
+  - {key: l2_current, label: S phase inverter current (IinvS), table: input, address: 511, type: s16, unit: A, scale: 0.01}
+  - {key: l3_current, label: T phase inverter current (IinvT), table: input, address: 512, type: s16, unit: A, scale: 0.01}
+  - {key: frequency, label: R phase grid frequency (FgridR), table: input, address: 513, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.frequency_s, label: S phase grid frequency (FgridS), table: input, address: 514, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.frequency_t, label: T phase grid frequency (FgridT), table: input, address: 515, type: u16, unit: Hz, scale: 0.01}
+  - {key: l1_power, label: A phase active power (PinvR), table: input, address: 516, type: s32, unit: W, positive: export, verified: false, note: Inverter output per phase. The document gives the direction (+ = to the grid) on the AC block and the meter rows; assumed for these too.}
+  - {key: l2_power, label: B phase active power (PinvS), table: input, address: 518, type: s32, unit: W, positive: export, verified: false}
+  - {key: l3_power, label: C phase active power (PinvT), table: input, address: 520, type: s32, unit: W, positive: export, verified: false}
+  - {key: x.inverter_power, label: Total active power (Pinv), table: input, address: 522, type: s32, unit: W, positive: export, verified: false, note: 'AC power of the inverter; + = output to the grid / loads (direction as stated for the AC block, assumed for this register).'}
+  - {key: reactive_power, label: Total reactive power (Qinv), table: input, address: 524, type: s32, unit: var, verified: false, note: The document gives the unit as W; var assumed.}
+  - {key: power_factor, label: Total power factor (PFinv), table: input, address: 526, type: s16, unit: '', scale: 0.001}
+  - {key: apparent_power, label: Total apparent power (Sinv), table: input, address: 527, type: u32, unit: VA}
+  - {key: x.grid_l1_power, label: 'R-phase grid-connected power, meter (PgridR)', table: input, address: 529, type: s32, unit: W, positive: export, note: 'From the external meter / CT. + = power to the grid, − = power from the grid.'}
+  - {key: x.grid_l2_power, label: 'S-phase grid-connected power, meter (PgridS)', table: input, address: 531, type: s32, unit: W, positive: export, verified: false, note: Direction stated on the R-phase row; assumed the same.}
+  - {key: x.grid_l3_power, label: 'T-phase grid-connected power, meter (PgridT)', table: input, address: 533, type: s32, unit: W, positive: export, verified: false, note: Direction stated on the R-phase row; assumed the same.}
+  - {key: grid_power, label: Total grid-connected active power (Pgrid), table: input, address: 535, type: s32, unit: W, positive: export, verified: false, note: From the external meter / CT (holding 211). Direction stated on the R-phase row (+ = to the grid); assumed the same for the total.}
+  - {key: x.grid_reactive_power, label: Total grid-connected reactive power (Qgrid), table: input, address: 537, type: s32, unit: var}
+  - {key: x.grid_apparent_power, label: Total grid-connected apparent power (Sgrid), table: input, address: 539, type: u32, unit: VA}
+  - {key: load_power, label: Total load active power (Pload), table: input, address: 547, type: s32, unit: W}
+  - {key: pv_power, label: PV total power (Ppv), table: input, address: 553, type: u32, unit: W}
+  - {key: x.pv1_voltage, label: PV1 voltage, table: input, address: 555, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: PV1 current, table: input, address: 556, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv1_power, label: PV1 power, table: input, address: 557, type: u16, unit: W}
+  - {key: x.pv2_voltage, label: PV2 voltage, table: input, address: 558, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: PV2 current, table: input, address: 559, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv2_power, label: PV2 power, table: input, address: 560, type: u16, unit: W}
+  - {key: x.pv3_voltage, label: PV3 voltage, table: input, address: 561, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv3_current, label: PV3 current, table: input, address: 562, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv3_power, label: PV3 power, table: input, address: 563, type: u16, unit: W}
+  - {key: x.pv4_voltage, label: PV4 voltage, table: input, address: 564, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv4_current, label: PV4 current, table: input, address: 565, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv4_power, label: PV4 power, table: input, address: 566, type: u16, unit: W}
+
+  # Real-time data 2: energy (input 1000 ff.)
+  - {key: x.inverter_energy_today, label: E-today (EInvOutDay), table: input, address: 1000, type: u16, unit: kWh, scale: 0.1, poll: slow, note: AC energy the inverter put out today. The document's change log says the unit went from 0.1 Wh to 0.1 kWh., conflicts: [{sources: [solarman], scale: 0.0001, label: Today Production}]}
+  - {key: x.inverter_received_energy_today, label: E-today received from grid by inverter (EInvRecDay), table: input, address: 1001, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.grid_export_energy_today, label: E-today feed into grid (EtogridDay), table: input, address: 1002, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.grid_import_energy_today, label: E-today received from grid (EfromgridDay), table: input, address: 1003, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.load_energy_today, label: E-today to load (EtoLoadDay), table: input, address: 1004, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.energy_from_load_today, label: E-today from load (EfromLoadDay), table: input, address: 1005, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: pv_energy_today, label: PV E-today (EPVDay), table: input, address: 1006, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv1_energy_today, label: PV1 E-today, table: input, address: 1008, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv2_energy_today, label: PV2 E-today, table: input, address: 1009, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv3_energy_today, label: PV3 E-today, table: input, address: 1010, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv4_energy_today, label: PV4 E-today, table: input, address: 1011, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: pv_energy, label: E-total by inverter (EInvOutTotal), table: input, address: 1014, type: u32, unit: kWh, scale: 0.1, poll: slow, verified: false, note: 'AC energy the inverter put out in total. The document has no lifetime PV counter; on a grid-tied inverter this is the solar yield, on a hybrid it includes battery discharge.', conflicts: [{sources: [solarman], scale: 0.0001, label: Total Production}]}
+  - {key: x.inverter_received_energy, label: E-total received by inverter from grid (EInvRecTotal), table: input, address: 1016, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_export_energy, label: E-total feed into grid (EtogridTotal), table: input, address: 1018, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_import_energy, label: E-total received from grid (EfromgridTotal), table: input, address: 1020, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.load_energy, label: E-total to load (EtoLoadTotal), table: input, address: 1022, type: u32, unit: kWh, scale: 0.1, poll: slow}
+
+  # Real-time data 5: system (input 2500 ff.)
+  - {key: state, label: Run status (RunState), table: input, address: 2500, type: u16, enum: run_state}
+  - {key: temperature, label: Inverter inner temperature (Tinner), table: input, address: 2514, type: s16, unit: °C, scale: 0.1}
+  - {key: x.transformer_temperature, label: Transformer temperature (Ttransf), table: input, address: 2515, type: s16, unit: °C, scale: 0.1}
+
+  # Real-time data 6: faults and alarms (input 3000 ff.)
+  - {key: x.pv_error_1, label: PV error 1 (PvErr1), table: input, address: 3000, type: u32}
+  - {key: x.pv_error_2, label: PV error 2 (PvErr2), table: input, address: 3002, type: u32}
+  - {key: x.grid_error, label: Grid error (GridErr), table: input, address: 3008, type: u32}
+  - {key: x.off_grid_error, label: Off-grid error (OffGridErr), table: input, address: 3010, type: u32}
+  - {key: x.dc_error_1, label: DC side error 1 (DCErr1), table: input, address: 3012, type: u32}
+  - {key: x.dc_error_2, label: DC side error 2 (DCErr2), table: input, address: 3014, type: u32}
+  - {key: x.ac_error, label: AC side error (ACErr), table: input, address: 3016, type: u32}
+  - {key: x.system_error_1, label: System error 1 (SysErr1), table: input, address: 3018, type: u32}
+  - {key: x.system_error_2, label: System error 2 (SysErr2), table: input, address: 3020, type: u32}
+  - {key: x.permanent_error, label: Permanent error (PermErr), table: input, address: 3022, type: u32}
+  - {key: x.inner_warning, label: Inner warning (InWarning), table: input, address: 3024, type: u32}
+  - {key: x.outer_warning, label: Outer warning (OutWarning), table: input, address: 3026, type: u32}
+
+  # Settings (holding; read 03, write 06 / 16), a selection
+  - {key: x.rated_active_power_setting, label: Rated active power (NormActPower), table: holding, address: 200, type: u32, unit: W, writable: true, poll: slow, verified: false, note: Unit not stated; W assumed (as for the rated power at input 7).}
+  - {key: x.country_setting, label: Country choose, table: holding, address: 204, type: u16, enum: country, writable: true, poll: slow, note: The inverter must be restarted after a change.}
+  - {key: x.pv_input_mode, label: PV input mode (PVInputType), table: holding, address: 205, type: u16, enum: pv_input_mode, writable: true, poll: slow}
+  - {key: x.function_enable, label: Run function enable (FuncEn), table: holding, address: 206, type: u32, flags: function_enable, writable: true, poll: slow, note: Bit 0 switches the inverter on / off.}
+  - {key: x.pv_start_voltage, label: PV start up voltage (PvStartVolt), table: holding, address: 210, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.meter_type, label: CT or meter (MeterType), table: holding, address: 211, type: u16, enum: meter_type, writable: true, poll: slow}
+  - {key: x.clock, label: 'Time (TimeYear-Month, TimeDate-Hour, TimeMinute-Sec)', table: holding, address: 500, type: datetime, length: 3, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}, writable: true, poll: slow, note: Year 18–99 in the high byte of 500 (2000 added here).}
+  - {key: x.active_power_limit, label: Active output power limit (OutPwrMaxPer), table: holding, address: 1502, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.max_active_power, label: Maximum active output power (OutPwrMax), table: holding, address: 1503, type: u32, unit: W, writable: true, poll: slow}
+  - {key: x.reactive_power_mode, label: Reactive power control (QMode), table: holding, address: 1551, type: u16, enum: q_mode, writable: true, poll: slow}
+  - {key: x.reconnect_time, label: Fault reconnection time (ReConnecT), table: holding, address: 2038, type: u16, unit: s, writable: true, poll: slow}
+  - {key: x.feed_in_limit, label: Limit value of feed into grid power (GridFeedPlimit), table: holding, address: 2039, type: s32, unit: '%', scale: 0.1, writable: true, min: 0, max: 100, poll: slow, note: Raw in 0.001 of rated power.}
+
+enums:
+  run_state: {'0': Initial power-up, '1': Standby, '2': Starting up, '3': 'Running, grid-connected', '4': 'Running, grid-disconnected', '5': Running on generator, '6': Switching from on-grid to off-grid, '7': Switching from off-grid to on-grid, '8': Power-down, '9': 'Off', '10': Error, '11': Updating, '12': Aging, '13': Open loop, '14': Sampling calibration}
+  platform: {'0': On-grid inverter, '1': Low-voltage hybrid inverter, '2': High-voltage hybrid inverter}
+  phase_system: {'0': Single phase, '1': Split phase, '2': Three phase}
+  transformer: {'0': Transformerless, '1': With transformer}
+  pv_input_mode: {'0': Independent, '1': Parallel, '2': No PV}
+  meter_type: {'0': No meter, '1': CT, '2': Meter}
+  q_mode: {'0': Normal, '1': Fixed Q, '2': Fixed PF, '3': Q(U), '4': PF(P)}
+  country: {'0': Common 50 Hz (wide range), '1': Common 60 Hz (wide range), '2': China, '3': Japan 50 Hz, '4': Japan 60 Hz, '5': US 240 V single phase, '6': US 240 V split phase, '7': US 208 V single phase, '8': US 208 V split phase, '9': Australia, '10': UK G98, '11': UK G99, '12': Germany low voltage, '13': Germany medium voltage (BDEW), '14': France, '15': French islands 50 Hz, '16': French islands 60 Hz, '17': Poland, '18': Italy, '19': Thailand ME, '20': Thailand PE, '21': India, '22': South Korea, '23': Philippines, '24': North Korea, '25': Malaysia, '26': Cyprus, '27': Netherlands, '28': Netherlands 16 A, '29': Spain, '30': Greece, '31': Greek islands, '32': Portugal, '33': Belgium, '34': Denmark, '35': Denmark 16 A, '36': Czech Republic, '37': Slovakia, '38': Sweden, '39': Austria, '40': Bulgaria, '41': Romania, '42': Ukraine, '43': South Africa, '44': Mauritius, '45': Israel, '46': Mexico, '47': Brazil, '48': Sri Lanka, '49': Chile, '50': Mexico CONNERA, '51': EU EN 50549-1}
+
+flags:
+  function_enable: {'0': Inverter on, '1': Soft start, '8': DRM, '9': Ripple control, '10': Power reduction at high grid voltage, '11': Power increase at low grid voltage, '12': Power reduction at high grid frequency, '13': Power increase at low grid frequency, '14': HVRT, '15': LVRT}
+
+problems:
+  - {when: {key: state, equals: 10}, kind: fault, text: Inverter error (run status 10)}
+  - {when: {key: state, equals: 4}, kind: backup_mode, text: Running disconnected from the grid (run status 4)}
+  - {when: {key: x.pv_error_1, not: 0}, kind: fault, text: 'PV error 1 (0x{value:X})'}
+  - {when: {key: x.pv_error_2, not: 0}, kind: fault, text: 'PV error 2 (0x{value:X})'}
+  - {when: {key: x.grid_error, not: 0}, kind: fault, text: 'Grid error (0x{value:X})'}
+  - {when: {key: x.off_grid_error, not: 0}, kind: fault, text: 'Off-grid error (0x{value:X})'}
+  - {when: {key: x.dc_error_1, not: 0}, kind: fault, text: 'DC side error 1 (0x{value:X})'}
+  - {when: {key: x.dc_error_2, not: 0}, kind: fault, text: 'DC side error 2 (0x{value:X})'}
+  - {when: {key: x.ac_error, not: 0}, kind: fault, text: 'AC side error (0x{value:X})'}
+  - {when: {key: x.system_error_1, not: 0}, kind: fault, text: 'System error 1 (0x{value:X})'}
+  - {when: {key: x.system_error_2, not: 0}, kind: fault, text: 'System error 2 (0x{value:X})'}
+  - {when: {key: x.permanent_error, not: 0}, kind: fault, text: 'Permanent error (0x{value:X})'}
+  - {when: {key: x.inner_warning, not: 0}, kind: warning, text: 'Inner warning (0x{value:X})'}
+  - {when: {key: x.outer_warning, not: 0}, kind: warning, text: 'Outer warning (0x{value:X})'}
+
+notes:
+- Afore's T6 register map, shared by its single- and three-phase grid-tied and hybrid inverters (model from input 6; this
+  file is for the grid-tied ones, 0–199, the hybrids are afore-hybrid). This document covers only the inverter and grid side;
+  battery registers of the hybrids are not in it.
+- Live data are input registers (function 04, read only); settings are holding registers (read 03, write 06 / 16). Addresses
+  are the document's decimal numbers, used as 0-based protocol addresses.
+- Transport, serial settings, unit id and word order are not stated in the document; RS485 (RTU), unit 1 and high word first
+  are assumed.
+- Per the document, a single-phase inverter only fills the R-phase values and a split-phase one R and S; on three-phase three-wire
+  systems the phase voltages are line-to-line voltages.
+- The error and warning words (input 3000–3027) are bit fields; the document gives no bit meanings.
+- 'Left out: grid protection limits and trip times (holding 1000–1054), P(f), P(U), Q(U) and PF(P) curve points (1505–1579),
+  firmware update registers (521–524) and the meter brand (212).'
+- The project reaches the device through a Solarman Wi-Fi / LAN data logger (its own V5 protocol on TCP 8899) or over plain
+  Modbus TCP / RTU; the register map is the same.

@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the CALT ShaftEncodeModBus01 user manuals for the CAS60 and CAX60 rotary encoders (Rev 1.01, 10/25/2017).
+
+modbusspec: 0
+id: calt-encoder
+manufacturer: CALT
+name: CAS60 / CAX60 absolute rotary encoder (RS-485)
+kind: io
+
+sources:
+- title: ShaftEncodeModBus01 User Manual, Rotary Encoder Absolute – Single Turn (CAS60R12E10RMB)
+  version: Rev 1.01, 10/25/2017
+  url: https://promktr.ru/ShaftEncodeModBus01-CAS60.pdf
+  sha256: 796f8fed07b60489aaed7859dd73ba6f91c9a13d759065f2d660d4bc3b5f2474
+- title: ShaftEncodeModBus01 User Manual, Rotary Encoder Absolute – Multi Turn (CAX60R1212E10RMB)
+  version: Rev 1.01, 10/25/2017
+  url: https://promktr.ru/ShaftEncodeModBus01-CAX60.pdf
+  sha256: d14225b35742167df0e6c9903b7253be72be11e52d95bac54dcce622095f5cb2
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  limits:
+    min_interval_ms: 40
+
+encoding:
+  byte_order: big
+  word_order: big
+
+model_choice: user
+
+models:
+  - {id: cas60, name: 'CAS60R12E10RMB single-turn, 4096 steps per revolution'}
+  - {id: cax60, name: CAX60R1212E10RMB multi-turn}
+
+points:
+  # Position mode (blue wire to ground)
+  - {key: x.position, label: Encoder position, table: input, address: 1, type: u32, poll: fast, note: 'Position in steps of the programmed resolution; the count rises in the programmed direction (CW by default). Read as two registers (function 04), most significant first, as in the document''s example.'}
+
+  # Programming mode only (blue wire to +24 V; the encoder then answers only on address 1 at 19200 8E1)
+  - {key: x.config_modbus_address, label: Configuration Modbus slave address, table: holding, address: 68, type: u16, bits: [8, 15], writable: true, write_multiple: true, persistent: true, poll: slow, optional: true, note: Only readable in programming mode.}
+  - {key: x.config_baud_rate, label: Configuration baud rate, table: holding, address: 68, type: u16, bits: [4, 7], enum: baud, writable: true, write_multiple: true, persistent: true, poll: slow, optional: true, note: Only readable in programming mode.}
+  - {key: x.config_direction, label: Configuration counting direction, table: holding, address: 68, type: u16, bits: [0, 3], enum: direction, writable: true, write_multiple: true, persistent: true, poll: slow, optional: true, note: Only readable in programming mode.}
+  - {key: x.config_resolution, label: Configuration resolution, table: holding, address: 69, type: u16, writable: true, write_multiple: true, persistent: true, poll: slow, optional: true, note: Steps per revolution. Factory value 0x4000; only readable in programming mode.}
+
+enums:
+  baud: {'1': '4800', '2': '9600', '3': '19200', '4': '38400', '5': '115200'}
+  direction: {'6': Count up clockwise, '7': Count up counter-clockwise}
+
+notes:
+- The manuals name Shanghai QIYI Electrical & Mechanical Equipment Co., Ltd as manufacturer and CALT as brand. The two manuals
+  (single-turn CAS60, multi-turn CAX60) describe the same commands and registers; they can't be told apart over Modbus.
+- 'Addresses are the register addresses as sent in the document''s example frames (position: function 04, address 0x0001,
+  2 registers; configuration: functions 03 / 16, address 0x0044, 2 registers).'
+- 'A blue wire selects the mode: to ground = position mode (configured address and bit rate, factory 1 and 9600 8E1); to +24
+  V = programming mode, in which the encoder answers only the configuration read and write, on address 1 at 19200 8E1. A grey
+  wire to +24 V sets the position counter to zero.'
+- 'The configuration is one 32-bit value: slave address (high byte of 68), bit rate code (bits 4–7 of 68), direction code
+  (bits 0–3 of 68), resolution (69). Factory value 0x01264000.'
+- 'Resolution: the CAS60 manual gives 4096 steps per revolution as factory value and maximum, but its own table reads 0x4000
+  as 4096 and also lists 8192 and 10000 as custom settings; the CAX60 manual reads the factory 0x4000 as 16384. How the multi-turn
+  encoder combines turns and steps in the position value is not stated.'
+- The encoder does not answer at all (no exception) when a request addresses registers it doesn't have; typical response time
+  is up to 40 ms. Port 502 is for a Modbus TCP gateway in front of it.
+- No identification registers or serial number are documented, so there is no identify.

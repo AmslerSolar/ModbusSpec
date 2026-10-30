@@ -1,0 +1,186 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Renogy Rover 20A/40A Charge Controller MODBUS Protocol (PDF of 2020-06-13; the Word original of
+# 2017-10-18 has the same register table).
+
+modbusspec: 0
+id: renogy-rover
+manufacturer: Renogy
+name: Rover solar charge controllers (RS485)
+kind: inverter
+
+sources:
+- title: Rover 20A/40A Charge Controller — MODBUS Protocol (ROVER.MODBUS.pdf)
+  version: PDF created 2020-06-13
+  url: https://github.com/cyrils/renogy-bt/files/12787920/ROVER.MODBUS.pdf
+  sha256: c283bf5fb91ed5367b1f2db35fa491a5d60db7224298c17e18d37b37558a657e
+- title: Rover 20A/40A Charge Controller — MODBUS Protocol (renogy_rover_modbus.docx)
+  version: Word file modified 2017-10-18 (commit f6778b7af2833fdc12d3dfd3f46d672412c4270f)
+  url: https://github.com/wildmountainfarms/solarthing/blob/f6778b7af2833fdc12d3dfd3f46d672412c4270f/other/solar/resources/renogy_rover_modbus.docx
+  sha256: cf48502a2d08e9cc7a2c61c718956e7882e9c62601ca899fb4aaa753f789da85
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 24
+    type: u32
+  checks:
+  # 000AH: high byte = system voltage (12/24/36/48/96 V, or FFH = automatic), low byte = rated charging current
+  - - table: holding
+      address: 10
+      type: u16
+      range:
+      - 3072
+      - 24831
+    - table: holding
+      address: 10
+      type: u16
+      range:
+      - 65280
+      - 65535
+  # 000BH: high byte = rated discharging current, low byte = product type (00 = controller)
+  - table: holding
+    address: 11
+    type: u16
+    not_in:
+    - 0
+    - 1
+  # product model, space padded
+  - table: holding
+    address: 12
+    type: str
+    length: 8
+    printable: true
+  # battery SOC
+  - table: holding
+    address: 256
+    type: u16
+    range:
+    - 0
+    - 100
+
+points:
+  # System information (0000H ff.)
+  - {key: x.system_voltage_max, label: Max. voltage supported by the system (high byte), table: holding, address: 10, type: u16, bits: [8, 15], unit: V, poll: slow, note: '12, 24, 36, 48 or 96; 255 = system voltage recognised automatically.'}
+  - {key: x.rated_charge_current, label: Rated charging current (low byte), table: holding, address: 10, type: u16, bits: [0, 7], unit: A, poll: slow}
+  - {key: x.rated_discharge_current, label: Rated discharging current (high byte), table: holding, address: 11, type: u16, bits: [8, 15], unit: A, poll: slow}
+  - {key: x.product_type, label: Product type (low byte), table: holding, address: 11, type: u16, bits: [0, 7], enum: product_type, poll: slow}
+  - {key: x.model, label: Product model, table: holding, address: 12, type: str, length: 8, poll: slow, note: 'ASCII, padded with spaces (e.g. "    MT4830      ").'}
+  - {key: x.software_version, label: Software version, table: holding, address: 20, type: u32, poll: slow, note: 'Top byte unused, then major, minor and patch bytes: 0x00030201 = V03.02.01.'}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 22, type: u32, poll: slow, note: Laid out like the software version.}
+  - {key: serial, label: Product serial number, table: holding, address: 24, type: u32, poll: slow, note: 'Shown in hex: year, month, then a 16-bit unit number (0x1501FFFF = unit 65535 of January 2015).'}
+  - {key: x.device_address, label: Controller device address, table: holding, address: 26, type: u16, bits: [0, 7], writable: true, min: 1, max: 247, poll: slow, note: Modbus unit id.}
+  # Live data (0100H ff.)
+  - {key: battery_soc, label: Battery capacity SOC, table: holding, address: 256, type: u16, unit: '%'}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 257, type: u16, unit: V, scale: 0.1}
+  - {key: x.charge_current, label: Charging current (to battery), table: holding, address: 258, type: u16, unit: A, scale: 0.01, note: Current the controller charges the battery with; not the net battery current (the load output draws from the battery too).}
+  - {key: temperature, label: 'Controller temperature (high byte, b0–b6)', table: holding, address: 259, type: u16, bits: [8, 14], unit: °C, verified: false, note: 'Each temperature byte is sign and magnitude: b7 is the sign, b0–b6 the amount. This point is the amount; x.controller_temperature_negative is the sign. Which byte holds which temperature is taken from the table''s order (controller first = high byte).'}
+  - {key: x.controller_temperature_negative, label: Controller temperature sign (b7 of the high byte), table: holding, address: 259, type: u16, bits: [15, 15], verified: false}
+  - {key: battery_temperature, label: 'Battery temperature (low byte, b0–b6)', table: holding, address: 259, type: u16, bits: [0, 6], unit: °C, verified: false, note: Amount only; below 0 °C x.battery_temperature_negative is set and the value must be negated. Byte assignment as for the controller temperature.}
+  - {key: x.battery_temperature_negative, label: Battery temperature sign (b7 of the low byte), table: holding, address: 259, type: u16, bits: [7, 7], verified: false}
+  - {key: x.load_voltage, label: Street light (load) voltage, table: holding, address: 260, type: u16, unit: V, scale: 0.1}
+  - {key: x.load_current, label: Street light (load) current, table: holding, address: 261, type: u16, unit: A, scale: 0.01}
+  - {key: x.load_power, label: Street light (load) power, table: holding, address: 262, type: u16, unit: W, note: Power of the controller's DC load output.}
+  - {key: x.pv_voltage, label: Solar panel voltage, table: holding, address: 263, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv_current, label: Solar panel current (to controller), table: holding, address: 264, type: u16, unit: A, scale: 0.01}
+  - {key: pv_power, label: Charging power, table: holding, address: 265, type: u16, unit: W, note: Listed with the solar panel values; solar charging power.}
+  - {key: x.load_command, label: Light on/off command, table: holding, address: 266, type: u16, enum: off_on, writable: true, write_only: true, poll: slow}
+  # Today (0x010B ff.)
+  - {key: x.battery_voltage_min_today, label: Battery's min. voltage of the current day, table: holding, address: 267, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.battery_voltage_max_today, label: Battery's max. voltage of the current day, table: holding, address: 268, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.charge_current_max_today, label: Max. charging current of the current day, table: holding, address: 269, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.discharge_current_max_today, label: Max. discharging current of the current day, table: holding, address: 270, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.charge_power_max_today, label: Max. charging power of the current day, table: holding, address: 271, type: u16, unit: W, poll: slow}
+  - {key: x.discharge_power_max_today, label: Max. discharging power of the current day, table: holding, address: 272, type: u16, unit: W, poll: slow}
+  - {key: x.charge_ah_today, label: Charging amp-hrs of the current day, table: holding, address: 273, type: u16, unit: Ah, poll: slow}
+  - {key: x.discharge_ah_today, label: Discharging amp-hrs of the current day, table: holding, address: 274, type: u16, unit: Ah, poll: slow}
+  - {key: pv_energy_today, label: Power generation of the current day, table: holding, address: 275, type: u16, unit: kWh, scale: 0.001, poll: slow, verified: false, note: The document's unit ("kilowatt hour / 10000") is unclear; Wh assumed.}
+  - {key: x.load_energy_today, label: Power consumption of the day, table: holding, address: 276, type: u16, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Unit unclear as for the generation of the day; Wh assumed.}
+  # History (0115H ff.)
+  - {key: x.operating_days, label: Total number of operating days, table: holding, address: 277, type: u16, unit: d, poll: slow}
+  - {key: x.over_discharge_count, label: Total number of battery over-discharges, table: holding, address: 278, type: u16, poll: slow}
+  - {key: x.full_charge_count, label: Total number of battery full-charges, table: holding, address: 279, type: u16, poll: slow}
+  - {key: x.charge_ah_total, label: Total charging amp-hrs of the battery, table: holding, address: 280, type: u32, unit: Ah, poll: slow}
+  - {key: x.discharge_ah_total, label: Total discharging amp-hrs of the battery, table: holding, address: 282, type: u32, unit: Ah, poll: slow}
+  - {key: pv_energy, label: Cumulative power generation, table: holding, address: 284, type: u32, unit: kWh, poll: slow, verified: false, note: 'The table''s unit is unclear ("kilowatt hour / 10000"); the document''s worked example reads the raw value as kWh, which is taken here.'}
+  - {key: x.load_energy, label: Cumulative power consumption, table: holding, address: 286, type: u32, unit: kWh, poll: slow, verified: false, note: Unit as for the cumulative generation (kWh per the worked example).}
+  # Status (0120H) and faults (0121H–0122H)
+  - {key: x.load_on, label: Street light status (high byte b7), table: holding, address: 288, type: u16, bits: [15, 15], enum: off_on}
+  - {key: x.load_brightness, label: Street light brightness (high byte b0–b6), table: holding, address: 288, type: u16, bits: [8, 14], unit: '%'}
+  - {key: state, label: Charging state (low byte), table: holding, address: 288, type: u16, bits: [0, 7], enum: charging_state}
+  - {key: x.faults, label: Controller fault and warning information, table: holding, address: 289, type: u32, flags: faults, note: 'Two registers, high word first; bits 0–15 are reserved.'}
+  # Settings (E001H ff.), a selection
+  - {key: x.load_brightness_setting, label: Dimming command, table: holding, address: 57345, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.battery_capacity, label: Nominal battery capacity, table: holding, address: 57346, type: u16, unit: Ah, poll: slow}
+  - {key: x.system_voltage_setting, label: System voltage setting (high byte), table: holding, address: 57347, type: u16, bits: [8, 15], unit: V, writable: true, poll: slow, note: '12, 24, 36, 48; 0xFF or others = automatic recognition.'}
+  - {key: x.system_voltage_recognized, label: Recognized voltage (low byte), table: holding, address: 57347, type: u16, bits: [0, 7], unit: V, poll: slow}
+  - {key: x.battery_type, label: Battery type, table: holding, address: 57348, type: u16, writable: true, poll: slow, note: 'The document names the types (open, sealed, gel, lithium, self-customized) but not their numbers.'}
+  - {key: x.over_voltage_threshold, label: Over-voltage threshold, table: holding, address: 57349, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.charging_limit_voltage, label: Charging voltage limit, table: holding, address: 57350, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.equalize_voltage, label: Equalizing charging voltage, table: holding, address: 57351, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.boost_voltage, label: Boost charging voltage / overcharge voltage (lithium), table: holding, address: 57352, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.float_voltage, label: Floating charging voltage / overcharge recovery voltage (lithium), table: holding, address: 57353, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.boost_recovery_voltage, label: Boost charging recovery voltage, table: holding, address: 57354, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.over_discharge_recovery_voltage, label: Over-discharge recovery voltage, table: holding, address: 57355, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.under_voltage_warning, label: Under-voltage warning level, table: holding, address: 57356, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.over_discharge_voltage, label: Over-discharge voltage, table: holding, address: 57357, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.discharging_limit_voltage, label: Discharging limit voltage, table: holding, address: 57358, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.end_of_charge_soc, label: End-of-charge SOC (high byte), table: holding, address: 57359, type: u16, bits: [8, 15], unit: '%', writable: true, poll: slow}
+  - {key: x.end_of_discharge_soc, label: End-of-discharge SOC (low byte), table: holding, address: 57359, type: u16, bits: [0, 7], unit: '%', writable: true, poll: slow}
+  - {key: x.over_discharge_delay, label: Over-discharge time delay, table: holding, address: 57360, type: u16, unit: s, writable: true, min: 0, max: 120, poll: slow}
+  - {key: x.equalize_time, label: Equalizing charging time, table: holding, address: 57361, type: u16, unit: min, writable: true, min: 0, max: 300, poll: slow}
+  - {key: x.boost_time, label: Boost charging time, table: holding, address: 57362, type: u16, unit: min, writable: true, min: 10, max: 300, poll: slow}
+  - {key: x.equalize_interval, label: Equalizing charging interval, table: holding, address: 57363, type: u16, unit: d, writable: true, min: 0, max: 255, poll: slow, note: 0 = off.}
+  - {key: x.temp_compensation, label: Temperature compensation factor, table: holding, address: 57364, type: u16, unit: mV/°C/2V, writable: true, min: 0, max: 5, poll: slow, note: 0 = no compensation.}
+  - {key: x.load_mode, label: Load working modes, table: holding, address: 57373, type: u16, enum: load_mode, writable: true, poll: slow}
+  - {key: x.light_control_delay, label: Light control delay, table: holding, address: 57374, type: u16, unit: min, writable: true, min: 0, max: 60, poll: slow}
+  - {key: x.light_control_voltage, label: Light control voltage, table: holding, address: 57375, type: u16, unit: V, writable: true, min: 1, max: 40, poll: slow}
+
+enums:
+  product_type: {'0': Controller, '1': Inverter}
+  off_on: {'0': 'Off', '1': 'On'}
+  charging_state: {'0': Charging deactivated, '1': Charging activated, '2': MPPT charging, '3': Equalizing charging, '4': Boost charging, '5': Floating charging, '6': Current limiting (overpower)}
+  load_mode: {'0': 'Light control only (load on at dusk, off at dawn)', '1': 'On by light control, off after 1 h', '2': 'On by light control, off after 2 h', '3': 'On by light control, off after 3 h', '4': 'On by light control, off after 4 h', '5': 'On by light control, off after 5 h', '6': 'On by light control, off after 6 h', '7': 'On by light control, off after 7 h', '8': 'On by light control, off after 8 h', '9': 'On by light control, off after 9 h', '10': 'On by light control, off after 10 h', '11': 'On by light control, off after 11 h', '12': 'On by light control, off after 12 h', '13': 'On by light control, off after 13 h', '14': 'On by light control, off after 14 h', '15': Manual mode, '16': Debugging mode, '17': Normal on mode}
+
+flags:
+  faults: {'16': Battery over-discharge, '17': Battery over-voltage, '18': Battery under-voltage warning, '19': Load short circuit, '20': Load overpower or over-current, '21': Controller temperature too high, '22': Ambient temperature too high, '23': PV input overpower, '24': PV input short circuit, '25': PV input over-voltage, '26': Solar panel counter-current, '27': Solar panel working point over-voltage, '28': Solar panel reversely connected, '29': Anti-reverse MOS short, '30': Charge MOS short circuit}
+
+problems:
+  - {when: {key: x.faults, bit: 16}, kind: warning, text: Battery over-discharged}
+  - {when: {key: x.faults, bit: 17}, kind: fault, text: Battery over-voltage}
+  - {when: {key: x.faults, bit: 18}, kind: warning, text: Battery under-voltage}
+  - {when: {key: x.faults, bit: 19}, kind: fault, text: Load short circuit}
+  - {when: {key: x.faults, bit: 20}, kind: fault, text: Load overpower or over-current}
+  - {when: {key: x.faults, bit: 21}, kind: fault, text: Controller temperature too high}
+  - {when: {key: x.faults, bit: 22}, kind: warning, text: Ambient temperature too high}
+  - {when: {key: x.faults, bit: 23}, kind: warning, text: PV input overpower}
+  - {when: {key: x.faults, bit: 24}, kind: fault, text: PV input short circuit}
+  - {when: {key: x.faults, bit: 25}, kind: fault, text: PV input over-voltage}
+  - {when: {key: x.faults, bit: 26}, kind: warning, text: Solar panel counter-current}
+  - {when: {key: x.faults, bit: 27}, kind: warning, text: Solar panel working point over-voltage}
+  - {when: {key: x.faults, bit: 28}, kind: fault, text: Solar panel connected in reverse}
+  - {when: {key: x.faults, bit: 29}, kind: fault, text: Anti-reverse MOSFET short circuit}
+  - {when: {key: x.faults, bit: 30}, kind: fault, text: Charge MOSFET short circuit}
+
+notes:
+- All registers are read with function 03 and written with 06 / 10. The document gives hexadecimal PDU addresses; they are
+  used as they are (0-based). Requests read up to 125 (0x7D) registers.
+- Neither baud rate nor default unit id is stated; the document's examples use unit 1. Functions 78H (factory reset) and 79H
+  (clear history) and the daily history blocks at F000H ff. are not described here.
+- The document's example model text reads MT4830.
+- Voltage settings are given for a 12 V battery (7–17 V); how they behave on 24/48 V systems isn't stated.
+- Fault kinds (fault / warning) are a grouping made here; the document only lists the bits.
+- 'Left out: the street-light timer and sensing settings (E015H–E01CH, E020H–E02DH).'

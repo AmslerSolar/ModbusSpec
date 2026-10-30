@@ -1,0 +1,88 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Thermokon LCF Touch RS485 Modbus datasheet (issue date 30.01.2025, A142).
+
+modbusspec: 0
+id: thermokon-lcf-touch
+manufacturer: Thermokon
+name: LCF Touch Modbus fan coil thermostat
+kind: hvac
+
+sources:
+- title: LCF Touch RS485 Modbus — Electronic FanCoil Thermostat with Touch Display, datasheet (copy on empirecontrol.ro)
+  version: issue date 30.01.2025 (A142), from firmware 2.4
+  url: https://empirecontrol.ro/wp-content/uploads/2025/05/LCF_TOUCH_Modbus_Datasheet_en-2.pdf
+  sha256: 43f3cc1e94b079163d6368d59cb00b5b2bba583918894065d588c921adcdb1a9
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Input registers (function 04)
+  - {key: x.room_temperature, label: Return air temperature, table: input, address: 0, type: u16, unit: °C, scale: 0.1, note: 0–500 (0.0–50.0 °C).}
+  - {key: x.fan_status, label: Fan status, table: input, address: 1, type: u16, enum: fan_status}
+  - {key: x.valve1, label: VA1 status, table: input, address: 2, type: u16, enum: stop_run}
+  - {key: x.valve2, label: VA2 status, table: input, address: 3, type: u16, enum: stop_run}
+  - {key: x.electric_heater, label: Electrical heating status, table: input, address: 4, type: u16, enum: stop_run, note: Only with fan coil type 6 (cooling + electric heater).}
+  - {key: x.working_status, label: Working status, table: input, address: 5, type: u16, enum: stop_run}
+  - {key: x.failure_status, label: Failure status, table: input, address: 6, type: u16, enum: failure_status}
+  - {key: x.fan_coil_type_status, label: Fan coil type, table: input, address: 7, type: u16, enum: fan_coil_type, poll: slow}
+  - {key: x.version, label: Version, table: input, address: 8, type: u16, poll: slow, note: 'Four decimal digits: the first two are the communication protocol version, the last two the software version (1322 = protocol 1.3, software 2.2).'}
+  - {key: x.changeover_temperature, label: External temp sensor, table: input, address: 9, type: u16, unit: °C, scale: 0.1, optional: true, note: Change-over sensor; 0–500 (0.0–50.0 °C).}
+  # Holding registers (functions 03 / 06 / 16)
+  - {key: x.mode, label: Mode, table: holding, address: 0, type: u16, enum: mode, writable: true}
+  - {key: x.fan_speed, label: Fan speed, table: holding, address: 1, type: u16, enum: fan_speed, writable: true}
+  - {key: x.setpoint, label: Set point temperature, table: holding, address: 2, type: u16, unit: °C, scale: 0.1, writable: true, min: 0.1, max: 50}
+  - {key: x.on_off, label: On/off, table: holding, address: 3, type: u16, enum: stop_run, writable: true}
+  - {key: x.setpoint_min, label: Temperature lower limit, table: holding, address: 4, type: u16, unit: °C, writable: true, min: 1, max: 50, persistent: true, poll: slow, note: Default 16.}
+  - {key: x.setpoint_max, label: Temperature upper limit, table: holding, address: 5, type: u16, unit: °C, writable: true, min: 1, max: 50, persistent: true, poll: slow, note: Default 30.}
+  - {key: x.power_failure_behaviour, label: Power failure, table: holding, address: 6, type: u16, enum: power_failure, writable: true, persistent: true, poll: slow}
+  - {key: x.key_lock, label: Key-lock, table: holding, address: 7, type: u16, flags: key_lock, writable: true, persistent: true, poll: slow}
+  - {key: x.backlight_delay, label: Backlight delay, table: holding, address: 8, type: u16, unit: s, writable: true, min: 10, max: 150, persistent: true, poll: slow}
+  - {key: x.changeover_cooling, label: Change over temperature cooling, table: holding, address: 9, type: u16, unit: °C, writable: true, min: 12, max: 24, poll: slow, note: 2-pipe with external sensor; default 19.}
+  - {key: x.changeover_heating, label: Change over temperature heating, table: holding, address: 10, type: u16, unit: °C, writable: true, min: 25, max: 45, poll: slow, note: 2-pipe with external sensor; default 30.}
+  - {key: x.fan_coil_type, label: Fan coil type, table: holding, address: 11, type: u16, enum: fan_coil_type, writable: true, persistent: true, poll: slow}
+  - {key: x.week_program, label: 7day 4periods programmable, table: holding, address: 12, type: u16, enum: off_on, writable: true, persistent: true, poll: slow}
+  - {key: x.summer_time, label: Summer/winter time, table: holding, address: 22, type: u16, enum: off_on, writable: true, persistent: true, poll: slow}
+  - {key: x.clock, label: System time, table: holding, address: 23, type: datetime, length: 6, datetime: {year: {register: 0}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, writable: true, poll: slow}
+  - {key: x.weekday, label: System week, table: holding, address: 29, type: u16, enum: weekday, writable: true, poll: slow}
+
+enums:
+  stop_run: {'0': stop, '1': run}
+  off_on: {'0': not allowed, '1': allowed}
+  fan_status: {'0': stop, '2': low, '4': medium, '8': high}
+  fan_speed: {'2': low, '4': medium, '8': high, '128': auto}
+  mode: {'1': cool, '4': fan, '8': heat, '16': auto}
+  failure_status: {'0': no failure, '1': room temperature sensor alarm}
+  fan_coil_type: {'2': 2-pipe cooling and heating, '4': 4-pipe cooling and heating, '6': cooling + electric heater}
+  power_failure: {'0': stay off, '1': restore last state, '2': switch on}
+  weekday: {'1': Sunday, '2': Monday, '3': Tuesday, '4': Wednesday, '5': Thursday, '6': Friday, '7': Saturday}
+
+flags:
+  key_lock: {'0': on/off, '1': mode, '2': clock, '3': fan, '4': temperature}
+
+problems:
+  - {when: {key: x.failure_status, equals: 1}, kind: fault, text: Room temperature sensor alarm (E01)}
+
+notes:
+- Register numbers are given as protocol addresses (decimal and hex) and used as they are.
+- 'Default serial settings per the document: 9600 bps, no parity, 8 data bits, 2 stop bits; odd / even parity use 1 stop bit.
+  Addresses 1–247, default 1.'
+- The coils 0–7 (working status, failure status, VA1, VA2, electric heater, low / medium / high fan stage) repeat what the
+  input registers give; left out.
+- 'Left out: the four time-program periods (holding 13–20, times in BCD hh:mm), the password (21) and the IR receiver switch
+  (30).'
+- The function code column for the mode register reads 0x000F (probably a typo); the other writable registers list 03 / 06
+  / 16.
+- Temperatures are given in 0.1 °C / 1 °C; whether the °F display setting changes the registers is not stated.

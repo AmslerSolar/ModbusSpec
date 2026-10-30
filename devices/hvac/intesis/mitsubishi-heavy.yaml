@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Intesis Modbus RTU (EIA-485) Interface for Mitsubishi Heavy Industries air conditioners user manual
+# (r6.3, 04/2019).
+
+modbusspec: 0
+id: intesis-mitsubishi-heavy
+manufacturer: Intesis (HMS Networks)
+name: Modbus RTU interface for Mitsubishi Heavy Industries air conditioners (INMBSMHI001R000)
+kind: hvac
+
+sources:
+- title: Intesis Modbus RTU (EIA-485) Interface for Mitsubishi Heavy Industries air conditioners, user manual (INMBSMHI001R000)
+  version: r6.3 (04/2019)
+  url: https://idx.co.za/wp-content/uploads/2021/01/mitsubishi-heavy-modbus-rtu-user-manual.pdf
+  sha256: 2d2119c3d5a2b7d43f9d6847bfc85e70c77df192641cf2fa45ef9c40a9376a00
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # device ID
+  - table: holding
+    address: 49
+    type: u16
+    equals: 3840
+
+points:
+  # Control and status
+  - {key: x.on_off, label: AC unit on/off, table: holding, address: 0, type: u16, enum: off_on, writable: true}
+  - {key: x.operation_mode, label: AC unit mode, table: holding, address: 1, type: u16, enum: operation_mode, writable: true}
+  - {key: x.fan_speed, label: AC unit fan speed, table: holding, address: 2, type: u16, enum: fan_speed, writable: true, note: 'Meaning depends on the number of fan speeds set with DIP switch SW1 (default 4): with 4 speeds 1 low, 2 mid, 3 high, 4 powerful; with 3 speeds 1 low, 2 mid, 3 high; with 2 speeds 1 low, 2 high; with 1 speed 1 high. 0 = auto in all cases.'}
+  - {key: x.vane_position, label: AC unit vane position, table: holding, address: 3, type: u16, enum: vane, writable: true}
+  - {key: x.setpoint, label: AC unit temperature setpoint, table: holding, address: 4, type: s16, unit: °C, invalid: [-32768], writable: true, verified: false, note: 18…30 °C (16…30 °C in heating). -32768 = not yet initialised. Scale depends on DIP switch SW4 (see notes); assumed whole °C.}
+  - {key: x.room_temperature, label: AC unit temperature reference, table: holding, address: 5, type: s16, unit: °C, invalid: [-32768], verified: false, note: 'Temperature the indoor unit controls on (its return air sensor or the remote controller''s sensor), 10…38 °C. Scale as for the setpoint.'}
+  - {key: x.window_contact, label: Window contact, table: holding, address: 6, type: u16, enum: window, writable: true}
+  - {key: x.interface_disabled, label: Interface disablement, table: holding, address: 7, type: u16, enum: enabled_disabled, writable: true, persistent: true, poll: slow}
+  - {key: x.remote_control_disabled, label: AC remote control disablement, table: holding, address: 8, type: u16, enum: enabled_disabled, writable: true, persistent: true, poll: slow}
+  - {key: x.operation_hours, label: AC unit operation time, table: holding, address: 9, type: u16, unit: h, writable: true, poll: slow, note: Hours the unit has been on.}
+  - {key: x.alarm, label: AC unit alarm status, table: holding, address: 10, type: u16, enum: alarm}
+  - {key: error_code, label: Error code, table: holding, address: 11, type: u16, enum: error_code, note: '0 = no error; 65532 (-4) = initialisation (about 2 min after start, interface as bus master); 65535 (-1) = the interface or remote controller can''t communicate with the unit; otherwise the number of the remote controller''s E code.'}
+  - {key: x.external_temperature, label: Ambient temperature from external sensor (Modbus side), table: holding, address: 22, type: s16, unit: °C, invalid: [-32768], writable: true, verified: false, note: -32768 = no external temperature given (initial value). Scale as for the setpoint.}
+  - {key: x.real_setpoint, label: AC real temperature setpoint, table: holding, address: 23, type: s16, unit: °C, invalid: [-32768], verified: false, note: 16…31 °C. The setpoint the indoor unit actually uses; differs from register 4 while an external temperature is written.}
+  - {key: x.setpoint_max, label: Current AC maximum setpoint, table: holding, address: 24, type: s16, unit: °C, invalid: [-32768], poll: slow, verified: false}
+  - {key: x.setpoint_min, label: Current AC minimum setpoint, table: holding, address: 25, type: s16, unit: °C, invalid: [-32768], poll: slow, verified: false}
+  - {key: x.window_open, label: Status (window open feedback), table: holding, address: 31, type: u16, enum: window_status}
+  - {key: x.center_remote, label: Center/Remote, table: holding, address: 46, type: u16, enum: center_remote, note: 'Values as in firmware after 0.8; up to 0.8 the values were 0 remote unlock, 1 remote lock, 2 remote only.'}
+  - {key: x.under_voltage_counter, label: Under voltage counter, table: holding, address: 55, type: u16, unit: h, writable: true, min: 0, max: 300, persistent: true, poll: slow}
+  - {key: x.outdoor_temperature, label: Outdoor intake temperature, table: holding, address: 60, type: s16, unit: °C, invalid: [-32768], verified: false, note: -32768 = no value. Scale as for the setpoint.}
+  - {key: x.input_reference_temperature, label: Input reference temperature, table: holding, address: 65, type: s16, unit: °C, invalid: [-32768], verified: false}
+  - {key: x.return_air_temperature, label: Return path temperature, table: holding, address: 66, type: s16, unit: °C, invalid: [-32768], verified: false}
+  - {key: x.block_periodic_sendings, label: Block periodic sendings, table: holding, address: 97, type: u16, enum: block, writable: true, persistent: true, poll: slow, note: 'From firmware 0.14. Blocked: a Modbus command is sent to the unit only when it differs from the previous value.'}
+  - {key: x.bus_role, label: Master/slave (interface role on the XY bus), table: holding, address: 98, type: u16, enum: role, writable: true, poll: slow}
+
+  # Configuration
+  - {key: x.open_window_timeout, label: Open window switch-off timeout, table: holding, address: 13, type: u16, unit: min, writable: true, min: 0, max: 30, poll: slow, note: Factory 30.}
+  - {key: x.baud_rate, label: Modbus RTU baud rate, table: holding, address: 14, type: u16, poll: slow, verified: false, note: Values 2400…115200 bps; the manual doesn't say whether the register holds the rate itself or an index.}
+  - {key: x.modbus_address, label: Modbus slave address, table: holding, address: 15, type: u16, poll: slow, note: 1…63.}
+  - {key: x.fan_speeds, label: Max number of fan speeds, table: holding, address: 21, type: u16, poll: slow}
+  - {key: x.error_reset, label: Error reset, table: holding, address: 45, type: u16, writable: true, write_only: true, poll: slow, note: 1 resets the error.}
+  - {key: x.switch_value, label: Switch value, table: holding, address: 48, type: u16, poll: slow}
+  - {key: x.device_id, label: Device ID, table: holding, address: 49, type: u16, poll: slow, note: 0x0F00 for this interface.}
+  - {key: x.software_version, label: Software version, table: holding, address: 50, type: u16, poll: slow}
+  - {key: x.error_address, label: Error address, table: holding, address: 81, type: u16, note: Number of the indoor unit that reports the error.}
+  - {key: x.reset, label: Reset, table: holding, address: 99, type: u16, writable: true, write_only: true, poll: slow, note: 1 restarts the interface.}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  operation_mode: {'0': Auto, '1': Heat, '2': Dry, '3': Fan, '4': Cool}
+  fan_speed: {'0': Auto, '1': Low (high with 1 speed), '2': Mid (high with 2 speeds), '3': High, '4': Powerful}
+  vane: {'1': Position 1, '2': Position 2, '3': Position 3, '4': Position 4, '10': Swing}
+  window: {'0': Closed, '1': Open}
+  window_status: {'0': Not active, '1': Active (window open)}
+  enabled_disabled: {'0': Enabled, '1': Disabled}
+  alarm: {'0': No alarm, '1': Alarm}
+  center_remote: {'0': Remote unlocked (center/remote), '1': Remote on/off locked (center), '2': Remote fully locked (center), '3': Remote only}
+  block: {'0': Not blocked, '1': Blocked}
+  role: {'0': Slave, '1': Master}
+  error_code: {'0': No error, '1': 'E1: Remote controller communication error', '2': 'E2: Duplicated indoor unit address', '3': 'E3: Outdoor unit signal line error', '5': 'E5: Communication error during operation', '6': 'E6: Indoor heat exchanger thermistor anomaly', '7': 'E7: Indoor return air thermistor anomaly', '8': 'E8: Heating overload operation', '9': 'E9: Drain trouble', '10': 'E10: Too many indoor units on one remote controller', '12': 'E12: Address setting error (mixed setting methods)', '14': 'E14: Communication error between master and slave indoor units', '16': 'E16: Indoor fan motor anomaly', '19': 'E19: Indoor unit operation check / drain motor check setting error', '28': 'E28: Remote controller thermistor anomaly', '30': 'E30: Unmatched indoor and outdoor unit connection', '31': 'E31: Duplicated outdoor unit address', '32': 'E32: Open L3 phase on primary power supply', '33': 'E33: Inverter primary current error', '35': 'E35: Cooling overload operation', '36': 'E36: Discharge pipe temperature error', '37': 'E37: Outdoor heat exchanger thermistor anomaly', '38': 'E38: Outdoor air thermistor anomaly', '39': 'E39: Discharge pipe thermistor anomaly', '40': 'E40: High pressure error', '41': 'E41: Power transistor overheat', '42': 'E42: Current cut', '43': 'E43: Too many indoor units or too much total capacity connected', '45': 'E45: Communication error between inverter PCB and outdoor control PCB', '46': 'E46: Mixed address setting methods in the same network', '47': 'E47: Inverter over-current', '48': 'E48: Outdoor DC fan motor anomaly', '49': 'E49: Low pressure anomaly', '51': 'E51: Inverter anomaly', '53': 'E53: Suction pipe thermistor anomaly', '54': 'E54: High/low pressure sensor anomaly', '55': 'E55: Underneath thermistor anomaly', '56': 'E56: Power transistor thermistor anomaly', '57': 'E57: Refrigerant shortage or service valve closed', '58': 'E58: Compressor loss of synchronism', '59': 'E59: Compressor start-up failure', '60': 'E60: Rotor position detection failure / compressor rotor lock', '61': 'E61: Communication error between master and slave units', '63': 'E63: Emergency stop', '65532': Initialising, '65535': Interface or remote controller can't communicate with the AC unit}
+
+problems:
+  - {when: {key: error_code, equals: 65535}, kind: fault, text: No communication with the AC unit}
+  - {when: {key: error_code, not_in: [0, 65532, 65535]}, kind: fault, text: 'AC unit error {value} ({text})'}
+
+notes:
+- One interface per Mitsubishi Heavy Industries XY bus; up to 16 indoor units on that bus are controlled together as one.
+  Up to 63 interfaces on one RS485 line.
+- Addresses are the protocol addresses the manual lists; its PLC addresses are these + 1.
+- All registers are holding registers, readable with function 03 or 04. Writes with 06, or with 16 for a single register only.
+- Modbus RTU only. 8N2 by default (8N1 also accepted); baud rate 2400…115200, 9600 by default, and the unit id 1…63 (default
+  1) are set with DIP switches SW3/SW4. Changes need a power cycle. Port 502 only applies behind a Modbus TCP gateway.
+- 'Temperatures (registers 4, 5, 22–25, 60, 65, 66): DIP switch SW4 selects whole degrees or tenths, and °C or °F. The DIP
+  switch table names whole °C as the default, which is used here; a footnote in the register table calls tenths the default.
+  With tenths set, scale is 0.1; °F can''t be expressed here. -32768 means no value.'
+- Writing the external temperature (register 22) makes the interface shift the unit's setpoint so the room reaches the user's
+  setpoint by the external reading; register 23 then shows the setpoint applied. With the interface as XY bus master the external
+  value is passed to the unit directly.
+- During initialisation some registers hold undefined values, and changes made then take effect only afterwards.

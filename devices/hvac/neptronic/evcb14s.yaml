@@ -1,0 +1,162 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Neptronic EVCB14S-V5.12-Modbus Guide-260909-ESA (firmware V5.12, 2026-09-09).
+
+modbusspec: 0
+id: neptronic-evcb14s
+manufacturer: Neptronic
+name: EVCB14S series VAV controller (EVCB14NIT0S, EVCB14NIT2S, EVCB14NIT4S, EVCB14NDT4S, EVCB14NIT0SF, EVCB14NIT4SF)
+kind: hvac
+
+sources:
+- title: EVCB14S Series Modbus Communication Module User Guide (EVCB14S-V5.12-Modbus Guide-260909-ESA)
+  version: V5.12, 2026-09-09
+  url: http://neptronic.com/controls/pdf/2026/EVCB14S-V5.12-Modbus%20Guide-260909-ESA.pdf
+  sha256: 560cf5724f83eec50d5a729c5d43455a68f3c7a54793bd5464f1438d767c5049
+- title: EVCB14S Series Modbus Communication Module User Guide (EVCB14S-V5.10-Modbus Guide-260220-ESA)
+  version: V5.10, 2026-02-20
+  url: http://www.neptronic.com/Controls/pdf/2026/EVCB14S-V5.10-Modbus%20Guide-260220-ESA.pdf
+  sha256: c68ee78da6ea222a33f31fea438ea5ba67548ec344d88af910bcb124e8a83d36
+  archive_url: https://web.archive.org/web/20260415002836/https://www.neptronic.com/controls/pdf/2026/EVCB14S-V5.10-Modbus%20Guide-260220-ESA.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    range:
+    - 28416
+    - 28671
+
+points:
+  # Device (0–8)
+  - {key: x.modbus_address, label: Modbus address and product type, table: holding, address: 0, type: u16, bits: [0, 7], writable: true, min: 1, max: 246, poll: slow}
+  - {key: x.product_type, label: Product type, table: holding, address: 0, type: u16, bits: [8, 15], poll: slow, note: 111 for the EVCB.}
+  - {key: x.baud_rate, label: MSTP baud rate, table: holding, address: 1, type: u16, scale: 100, writable: true, poll: slow, note: 0 = automatic baud rate detection (default).}
+  - {key: x.comport_config, label: Modbus slave communication port configuration, table: holding, address: 2, type: u16, enum: comport_config, writable: true, poll: slow}
+  - {key: x.product_name, label: Product name, table: holding, address: 3, type: str, length: 4, poll: slow, verified: false, note: '8 ASCII characters over registers 3–6, character 8 in register 3. The document''s example doesn''t spell a readable name; the byte order is not verified. Writable.'}
+  - {key: firmware, label: Product actual firmware version, table: holding, address: 7, type: u16, poll: slow, note: e.g. 512 = V5.12.}
+  - {key: x.eeprom_version, label: Product actual EEPROM version, table: holding, address: 8, type: u16, poll: slow}
+
+  # Status and measurements (9–22)
+  - {key: x.status1, label: System status 1, table: holding, address: 9, type: u16, flags: status1}
+  - {key: x.status2, label: System status 2, table: holding, address: 10, type: u16, flags: status2}
+  - {key: x.internal_temperature, label: Internal temperature, table: holding, address: 11, type: u16, unit: °C, scale: 0.01, verified: false, note: °C or °F per bit 1 of system option 1 (register 100); °C assumed.}
+  - {key: x.external_temperature, label: External temperature, table: holding, address: 12, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: °C assumed (see register 100).}
+  - {key: x.changeover_temperature, label: Change over temperature, table: holding, address: 13, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: °C assumed (see register 100).}
+  - {key: x.internal_humidity, label: Internal humidity, table: holding, address: 14, type: u16, unit: '%', scale: 0.1, invalid: [32767], note: 'Room sensor with humidity (TRLH, TRLGH / TDU); 0x7FFF when not available.'}
+  - {key: x.duct_pressure, label: Input 3 reading (pressure sensor value), table: holding, address: 15, type: u16, unit: Pa, scale: 0.1, optional: true, note: Not available on all models.}
+  - {key: x.ai1, label: Analog input 1 value, table: holding, address: 16, type: u16, unit: V, scale: 0.01, verified: false, note: '0–1000; the document''s example says mV, the EVCB44NxS guide gives the same register in V. V assumed.'}
+  - {key: x.ai2, label: Analog input 2 value, table: holding, address: 17, type: u16, unit: V, scale: 0.01, verified: false, note: As analog input 1; V assumed.}
+  - {key: x.co2, label: CO2 value, table: holding, address: 18, type: u16, unit: ppm, scale: 0.01, optional: true, verified: false, note: 'From the room sensor (TRLG, TRLGH / TDU) or an external sensor on AI1 / AI2 set to CO2. Scale from the document (value × 100), unverified.'}
+  - {key: x.supply_air_temperature, label: Air supply temperature, table: holding, address: 19, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: °C assumed (see register 100).}
+  - {key: x.control_temperature, label: Control temperature, table: holding, address: 20, type: s16, unit: °C, scale: 0.01, writable: true, min: -40, max: 100, verified: false, note: °C assumed (see register 100).}
+  - {key: x.heating_demand, label: Heating demand for heating ramp 1, table: holding, address: 21, type: u16, unit: '%', scale: 0.1}
+  - {key: x.cooling_demand, label: Cooling demand for cooling ramp 1, table: holding, address: 22, type: u16, unit: '%', scale: 0.1}
+
+  # Setpoints (25–29)
+  - {key: x.setpoint, label: Temperature setpoint used during the occupancy period of the day, table: holding, address: 25, type: u16, unit: °C, scale: 0.1, writable: true, verified: false, note: Between registers 26 and 27. °C assumed.}
+  - {key: x.setpoint_min, label: Minimum temperature setpoint used during the day, table: holding, address: 26, type: u16, unit: °C, scale: 0.1, writable: true, min: 10, poll: slow, verified: false, note: Up to the maximum setpoint (register 27). °C assumed.}
+  - {key: x.setpoint_max, label: Maximum temperature setpoint used during the day, table: holding, address: 27, type: u16, unit: °C, scale: 0.1, writable: true, max: 40, poll: slow, verified: false, note: From the minimum setpoint (register 26). °C assumed.}
+  - {key: x.unoccupied_cooling_setpoint, label: Cooling setpoint during no occupancy / night setback, table: holding, address: 28, type: u16, unit: °C, scale: 0.1, writable: true, max: 40, verified: false, note: From the unoccupied heating setpoint (register 29). °C assumed.}
+  - {key: x.unoccupied_heating_setpoint, label: Heating setpoint during no occupancy / night setback, table: holding, address: 29, type: u16, unit: °C, scale: 0.1, writable: true, min: 10, verified: false, note: Up to the unoccupied cooling setpoint (register 28). °C assumed.}
+
+  # Ramps 2 and changeover (40–46)
+  - {key: x.cooling_demand2, label: Cooling demand for cooling ramp 2, table: holding, address: 40, type: u16, unit: '%', scale: 0.1}
+  - {key: x.heating_demand2, label: Heating demand for heating ramp 2, table: holding, address: 43, type: u16, unit: '%', scale: 0.1, note: Marked writable in the document.}
+  - {key: x.changeover_demand, label: Changeover demand for the VAV box, table: holding, address: 46, type: u16, unit: '%', scale: 0.1}
+
+  # Air flow and outputs (60–74)
+  - {key: x.airflow, label: Actual air flow converted from delta pressure sensor, table: holding, address: 60, type: u16, unit: CFM, optional: true, note: Not available on all models.}
+  - {key: x.airflow_demand, label: Air flow calculated from system demand, table: holding, address: 61, type: u16, unit: CFM, optional: true, note: Not available on all models.}
+  - {key: x.ao1, label: Analog output 1 value, table: holding, address: 63, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.ao2, label: Analog output 2 value, table: holding, address: 64, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.motor_position, label: Motor position, table: holding, address: 74, type: u16, unit: '%', optional: true, verified: false, note: '0–100 %. The V5.10 guide (and the EVCB44NxS V5.12 guide) give register 74; the V5.12 guide lists it at 75, with inconsistent numbering in rows 71–75. 74 used; check on a device with firmware V5.12.'}
+
+  # Options, modes and states (96–113)
+  - {key: x.network_fallback_timeout, label: Network fallback timeout, table: holding, address: 96, type: u16, unit: min, writable: true, min: 0, max: 60, poll: slow}
+  - {key: x.options1, label: System option 1, table: holding, address: 100, type: u16, flags: options1, writable: true, poll: slow}
+  - {key: x.modbus_temperature_unit, label: Modbus temperature units, table: holding, address: 100, type: u16, bits: [1, 1], enum: temperature_unit, writable: true, poll: slow}
+  - {key: x.changeover_state, label: Status value of the actual changeover control mode, table: holding, address: 102, type: u16, enum: changeover_state}
+  - {key: x.triac_outputs, label: TO OnOff, table: holding, address: 104, type: u16, flags: triac_outputs, optional: true}
+  - {key: x.occupancy_command, label: Occupancy or night setback mode commands, table: holding, address: 105, type: u16, enum: occupancy_command, writable: true}
+  - {key: x.di1, label: Status of digital input 1, table: holding, address: 106, type: u16, enum: open_closed}
+  - {key: x.system_mode, label: User system control mode, table: holding, address: 108, type: u16, enum: system_mode, writable: true}
+  - {key: x.night_setback, label: Status of the night setback mode, table: holding, address: 110, type: u16, enum: night_setback}
+  - {key: x.occupancy, label: Occupancy status of the zone, table: holding, address: 113, type: u16, enum: occupancy}
+
+  # Live values (146–175)
+  - {key: x.switch_timer, label: CL_HT SwitchTimerCount, table: holding, address: 146, type: u16, unit: s, verified: false, note: Countdown before heating / cooling may swap. The document gives a 32-bit range but lists one register; read as 16 bits.}
+  - {key: x.floating_demand1, label: Floating TO1/TO2 demand, table: holding, address: 147, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.floating_demand2, label: Floating TO3/TO4 demand, table: holding, address: 148, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.pulsing_demand1, label: TO1 pulsing demand, table: holding, address: 149, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.pulsing_demand2, label: TO2 pulsing demand, table: holding, address: 150, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.pulsing_demand3, label: TO3 pulsing demand, table: holding, address: 151, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.pulsing_demand4, label: TO4 pulsing demand, table: holding, address: 152, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.overheat, label: Overheat status, table: holding, address: 153, type: u16, enum: overheat}
+  - {key: x.di2, label: Status of digital input 2, table: holding, address: 156, type: u16, enum: open_closed}
+  - {key: x.internal_co2, label: Internal CO2, table: holding, address: 160, type: u16, unit: ppm, invalid: [32767], note: 'Room sensor with CO2 (TRLG, TRLGH / TDU); 0x7FFF when not available.'}
+  - {key: x.illuminance, label: Internal light sensor reading, table: holding, address: 161, type: u16, unit: lx, optional: true, note: Listed from V5.12 (reserved in V5.10).}
+  - {key: x.voc, label: Internal VOC sensor reading, table: holding, address: 162, type: u16, unit: ppb, optional: true}
+  - {key: x.pir_occupancy, label: Internal PIR sensor reading, table: holding, address: 163, type: u16, enum: pir, optional: true}
+  - {key: x.control_setpoint, label: Control setpoint, table: holding, address: 166, type: u16, unit: °C, verified: false, note: Whole degrees (10–40). °C assumed.}
+  - {key: x.average_temperature, label: Average temperature, table: holding, address: 170, type: s16, unit: °C, scale: 0.01, verified: false, note: °C assumed.}
+  - {key: x.maximum_temperature, label: Maximum temperature, table: holding, address: 171, type: s16, unit: °C, scale: 0.01, verified: false, note: °C assumed.}
+  - {key: x.ai2_temperature, label: External sensor value of analog input 2, table: holding, address: 172, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: °C assumed.}
+  - {key: x.supply_max_temperature_demand, label: Calculated supply temperature max demand, table: holding, address: 175, type: u16, unit: '%', scale: 0.1, optional: true, note: Listed from V5.12.}
+
+enums:
+  comport_config: {'1': 'No parity, 2 stop bits', '2': 'Even parity, 1 stop bit', '3': 'Odd parity, 1 stop bit'}
+  temperature_unit: {'0': °C, '1': °F}
+  changeover_state: {'0': Cooling, '1': Heating}
+  occupancy_command: {'1': Local, '2': 'Off', '3': Occupancy, '4': No occupancy, '5': Day, '6': Night}
+  open_closed: {'0': Open, '1': Closed}
+  system_mode: {'1': Auto, '2': Heat, '3': Cool, '4': 'Off'}
+  night_setback: {'1': Day, '2': Night, '3': Derogation}
+  occupancy: {'1': No occupancy, '2': Occupancy, '3': Derogation}
+  overheat: {'1': Normal, '2': Overheat 1, '3': Overheat 2, '4': Overheat all}
+  pir: {'0': No occupancy, '1': Occupancy}
+
+flags:
+  status1: {'12': CO2 alarm, '13': Pressure dependent mode, '14': Air flow error}
+  status2: {'2': Airflow detected, '12': Alarm override}
+  triac_outputs: {'0': TO1 on, '1': TO2 on, '2': TO3 on, '3': TO4 on}
+  options1: {'0': Thermostat shows °F, '1': Modbus temperatures in °F, '2': Temperature setpoint locked, '4': TO1/TO2 floating reverse, '5': TO3/TO4 floating reverse, '6': Onboard motor reverse, '7': Freeze protection enabled, '8': User cannot set thermostat off, '9': Keypad bottom left locked, '10': Keypad upper left locked, '11': Keypad arrows locked, '12': Program locked, '15': Schedule enabled}
+
+problems:
+  - {when: {key: x.status1, bit: 12}, kind: warning, text: CO2 alarm}
+  - {when: {key: x.status1, bit: 14}, kind: fault, text: Air flow error}
+  - {when: {key: x.status2, bit: 12}, kind: warning, text: Override alarm}
+  - {when: {key: x.overheat, range: [2, 4]}, kind: fault, text: 'Overheat ({text})'}
+
+notes:
+- 'Addresses: the document gives the protocol (0-based) address next to the 4xxxx number (40001 = 0); the protocol address
+  is used.'
+- Holding registers only (functions 03, 06, 16). RS485 Modbus RTU, unit id 1–246 set on the device menu or in register 0.
+- 'Serial: automatic baud rate detection by default (9600–57600); parity and stop bits set in register 2. Default framing
+  not stated; 9600 8N2 assumed.'
+- Default unit id not stated; 1 assumed.
+- Temperatures are in °C or °F per bit 1 of system option 1 (register 100); °C assumed.
+- Air flow values are in CFM. Registers the document marks as not available on all models are optional.
+- TO OnOff (register 104) gives 1, 2, 4, 8 for TO1…TO4; read here as bits 0–3.
+- 'Identification: the high byte of register 0 is the product type, 111 for the EVCB. The same value is used by the other
+  EVCB families (EVCB14NxT4X, EVCB44NxS, EVCBM), whose maps partly differ.'
+- System status 2 bit 2 (airflow detected), the light sensor (161) and registers 173–175 are new in the V5.12 guide. The V5.12
+  guide also moves the air flow minimum balancing value from 84 to 82 (left out here).
+- 'Left out: proportional bands, deadbands, integral times, delays, temperature offsets, analog output limits, air flow balancing
+  and fault configuration (53–59, 62, 81–84, 131, 138–145), TRIAC / output ramp and signal configuration (65–73, 107, 109,
+  111–143), CO2 limits and ramp, system options 2–4, motor override and position settings, and occupancy timing.'

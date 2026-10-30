@@ -1,0 +1,153 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the WDT Werner Dosiertechnik "MODBUS TCP Kommunikation SPS – CPR Touch" (1.1).
+
+modbusspec: 0
+id: wdt-cpr-touch
+manufacturer: WDT Werner Dosiertechnik
+name: CPR Touch pool controller (CPR Touch XL-2S, GRANUDOS CPR Touch XL)
+kind: pool
+
+sources:
+- title: MODBUS TCP Kommunikation SPS – CPR Touch
+  version: 1.1 (30.08.2016)
+  url: https://shop.peraqua.com/out/media/563719933020260903_15_23_01modbus-dos-modbus-de.pdf
+  sha256: d7c62a1caecec2b210494044db967fa7688a52636702283f9c3322b4b48752f8
+
+connection:
+  default_port: 502
+  default_unit: 255
+  transports:
+  - tcp
+  limits:
+    even_address: true
+    min_interval_ms: 500
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Input registers (function 04): measurements, IEEE 754 floats
+  - {key: x.free_chlorine, label: Cl2, table: input, address: 10, type: f32, unit: mg/l}
+  - {key: x.water_temperature, label: Temperatur, table: input, address: 16, type: f32, unit: °C}
+  - {key: x.ph, label: pH, table: input, address: 22, type: f32, unit: pH}
+  - {key: x.redox, label: Redox, table: input, address: 24, type: f32, unit: mV}
+
+  # Holding registers: control parameters (floats; writing jumps the controller into its menu, see notes)
+  - {key: x.ph_setpoint, label: pH - Sollwert, table: holding, address: 36, type: f32, unit: pH, poll: slow, writable: true}
+  - {key: x.ph_p_range, label: pH - p-Range, table: holding, address: 38, type: f32, unit: pH, poll: slow, writable: true}
+  - {key: x.ph_alarm_low, label: pH - alarm low, table: holding, address: 40, type: f32, unit: pH, poll: slow, writable: true}
+  - {key: x.ph_alarm_high, label: pH - alarm high, table: holding, address: 42, type: f32, unit: pH, poll: slow, writable: true}
+  - {key: x.ph_timewatch, label: pH - timewatch, table: holding, address: 44, type: f32, unit: min, poll: slow, writable: true}
+  - {key: x.cl2_setpoint, label: Cl2 - Sollwert, table: holding, address: 46, type: f32, unit: mg/l, poll: slow, writable: true}
+  - {key: x.cl2_p_range, label: Cl2 - p-Range, table: holding, address: 48, type: f32, unit: mg/l, poll: slow, writable: true}
+  - {key: x.cl2_alarm_low, label: Cl2 - alarm low, table: holding, address: 50, type: f32, unit: mg/l, poll: slow, writable: true}
+  - {key: x.cl2_alarm_high, label: Cl2 - alarm high, table: holding, address: 52, type: f32, unit: mg/l, poll: slow, writable: true}
+  - {key: x.cl2_timewatch, label: Cl2 - timewatch, table: holding, address: 54, type: f32, unit: min, poll: slow, writable: true}
+  - {key: x.mv_setpoint, label: mV - Sollwert, table: holding, address: 56, type: f32, unit: mV, poll: slow, writable: true}
+  - {key: x.mv_p_range, label: mV - p-Range, table: holding, address: 58, type: f32, unit: mV, poll: slow, writable: true}
+  - {key: x.mv_alarm_low, label: mV - alarm low, table: holding, address: 60, type: f32, unit: mV, poll: slow, writable: true}
+  - {key: x.mv_alarm_high, label: mV - alarm high, table: holding, address: 62, type: f32, unit: mV, poll: slow, writable: true}
+  - {key: x.mv_timewatch, label: mV - timewatch, table: holding, address: 64, type: f32, unit: min, poll: slow, writable: true}
+  - {key: x.temp1_setpoint, label: Temp1 - Sollwert, table: holding, address: 66, type: f32, unit: °C, poll: slow, writable: true}
+  - {key: x.temp1_p_range, label: Temp1 - p-Range, table: holding, address: 68, type: f32, unit: °C, poll: slow, writable: true}
+  - {key: x.temp1_alarm_low, label: Temp1 - alarm low, table: holding, address: 70, type: f32, unit: °C, poll: slow, writable: true}
+  - {key: x.temp1_alarm_high, label: Temp1 - alarm high, table: holding, address: 72, type: f32, unit: °C, poll: slow, writable: true}
+  - {key: x.temp1_offset, label: Temp1 - offset, table: holding, address: 74, type: f32, unit: °C, poll: slow, writable: true}
+  - {key: x.dosing_delay, label: Dosierzeitverzögerung, table: holding, address: 88, type: f32, unit: s, poll: slow, writable: true}
+
+  # Coils (function 01 read, 05 write)
+  - {key: x.automatic_mode, label: Automatic-Modus, table: coil, address: 16, type: bool, enum: automatic_mode, writable: true, note: 'Reads 1 in automatic mode, 0 while the menu is open. Writing 1 returns to automatic mode, 0 opens the menu.'}
+
+  # Discrete inputs (function 02): inputs, alarms and outputs; the address is the document's state number
+  - {key: x.buffer_tank_fill_start, label: Puffertankbefüllung Start, table: discrete, address: 0, type: bool, note: GRANUDOS only.}
+  - {key: x.buffer_tank_fill_stop, label: Puffertankbefüllung Stop, table: discrete, address: 1, type: bool, note: GRANUDOS only.}
+  - {key: x.chlorine_empty, label: Chlor Leer, table: discrete, address: 2, type: bool}
+  - {key: x.acid_empty, label: Säure Leer, table: discrete, address: 3, type: bool}
+  - {key: x.eco_input, label: ECO - Input, table: discrete, address: 4, type: bool}
+  - {key: x.filter_disinfection, label: Filterdesinfektion / Hochchlorung, table: discrete, address: 5, type: bool}
+  - {key: x.central_control_off, label: Zentralleittechnik Aus, table: discrete, address: 6, type: bool}
+  - {key: x.fresh_water_external, label: Reinwasser Extern, table: discrete, address: 7, type: bool}
+  - {key: x.pressure_min, label: Druck min, table: discrete, address: 8, type: bool, note: GRANUDOS only.}
+  - {key: x.water_min, label: Wasser min, table: discrete, address: 9, type: bool, note: GRANUDOS only.}
+  - {key: x.water_max, label: Wasser max., table: discrete, address: 10, type: bool, note: GRANUDOS only.}
+  - {key: x.flow_min, label: Durchfluss min, table: discrete, address: 11, type: bool, note: GRANUDOS only.}
+  - {key: x.chlorine_missing, label: Chlor fehlt, table: discrete, address: 12, type: bool, note: GRANUDOS only.}
+  - {key: x.sample_water_flow_missing, label: Durchfluss Messwasser fehlt, table: discrete, address: 13, type: bool}
+  - {key: x.input_16, label: Puffertank min Alarm (GRANUDOS) / Säure Leckage (XL-2S), table: discrete, address: 16, type: bool, note: 'Meaning depends on the model: GRANUDOS buffer tank min alarm, CPR Touch XL-2S acid leakage.'}
+  - {key: x.input_17, label: Puffertank max. Alarm / Wanne (GRANUDOS) / Chlor Leckage (XL-2S), table: discrete, address: 17, type: bool, note: 'Meaning depends on the model: GRANUDOS buffer tank max alarm / tray, CPR Touch XL-2S chlorine leakage.'}
+  - {key: x.flocculant_empty, label: Flockung Leer, table: discrete, address: 18, type: bool}
+  - {key: x.flocculant_leakage, label: Flockung Leckage, table: discrete, address: 19, type: bool}
+  - {key: x.ph_min_alarm, label: pH min Alarm, table: discrete, address: 32, type: bool}
+  - {key: x.ph_max_alarm, label: pH max. Alarm, table: discrete, address: 33, type: bool}
+  - {key: x.cl2_min_alarm, label: Cl2 min Alarm, table: discrete, address: 34, type: bool}
+  - {key: x.cl2_max_alarm, label: Cl2 max. Alarm, table: discrete, address: 35, type: bool}
+  - {key: x.mv_min_alarm, label: mV min Alarm, table: discrete, address: 36, type: bool}
+  - {key: x.mv_max_alarm, label: mV max. Alarm, table: discrete, address: 37, type: bool}
+  - {key: x.temp1_min_alarm, label: Temp1 min Alarm, table: discrete, address: 38, type: bool}
+  - {key: x.temp1_max_alarm, label: Temp1 max. Alarm, table: discrete, address: 39, type: bool}
+  - {key: x.event_log, label: Event Log, table: discrete, address: 40, type: bool}
+  - {key: x.dosing_timewatch_ph, label: Dynamische Dosierzeitüberwachung pH, table: discrete, address: 48, type: bool}
+  - {key: x.dosing_timewatch_cl2, label: Dynamische Dosierzeitüberwachung Cl2, table: discrete, address: 49, type: bool}
+  - {key: x.dosing_timewatch_mv, label: Dynamische Dosierzeitüberwachung mV, table: discrete, address: 50, type: bool}
+  - {key: x.dosing_off, label: Dosierung Aus, table: discrete, address: 51, type: bool}
+  - {key: x.buffer_tank_disabled_alarm, label: Puffertank Deaktiviert Alarm, table: discrete, address: 52, type: bool}
+  - {key: x.chlorine_dosing, label: Chlor Dosierung, table: discrete, address: 64, type: bool}
+  - {key: x.acid_dosing, label: Säure Dosierung, table: discrete, address: 65, type: bool}
+  - {key: x.flocculant_dosing, label: Flockungsmittel Dosierung, table: discrete, address: 66, type: bool}
+  - {key: x.eco_output, label: ECO - Output, table: discrete, address: 67, type: bool}
+  - {key: x.general_fault, label: Sammelstörung, table: discrete, address: 68, type: bool}
+  - {key: x.knocker, label: Klopfer, table: discrete, address: 69, type: bool, note: GRANUDOS only.}
+  - {key: x.motive_water_pump, label: Treibwasserpumpe, table: discrete, address: 70, type: bool, note: GRANUDOS only.}
+  - {key: x.output_71, label: Magnetventil Puffertank (GRANUDOS) / Chlor 230V (XL-2S), table: discrete, address: 71, type: bool, note: 'Meaning depends on the model: GRANUDOS buffer tank solenoid valve, CPR Touch XL-2S chlorine 230 V output.'}
+  - {key: x.temperature_output, label: Temperatur, table: discrete, address: 72, type: bool}
+
+enums:
+  automatic_mode: {'0': Menu active, '1': Automatic mode}
+
+problems:
+  - {when: {key: x.general_fault, equals: 1}, kind: fault, text: General fault (Sammelstörung)}
+  - {when: {key: x.sample_water_flow_missing, equals: 1}, kind: fault, text: No sample water flow}
+  - {when: {key: x.chlorine_empty, equals: 1}, kind: warning, text: Chlorine canister empty}
+  - {when: {key: x.acid_empty, equals: 1}, kind: warning, text: Acid canister empty}
+  - {when: {key: x.flocculant_empty, equals: 1}, kind: warning, text: Flocculant canister empty}
+  - {when: {key: x.flocculant_leakage, equals: 1}, kind: fault, text: Flocculant leakage}
+  - {when: {key: x.input_16, equals: 1}, kind: warning, text: Buffer tank min alarm (GRANUDOS) / acid leakage (XL-2S)}
+  - {when: {key: x.input_17, equals: 1}, kind: warning, text: Buffer tank max alarm (GRANUDOS) / chlorine leakage (XL-2S)}
+  - {when: {key: x.chlorine_missing, equals: 1}, kind: warning, text: Chlorine missing}
+  - {when: {key: x.pressure_min, equals: 1}, kind: warning, text: Pressure low}
+  - {when: {key: x.water_min, equals: 1}, kind: warning, text: Water level low}
+  - {when: {key: x.flow_min, equals: 1}, kind: warning, text: Flow low}
+  - {when: {key: x.ph_min_alarm, equals: 1}, kind: warning, text: pH below alarm limit}
+  - {when: {key: x.ph_max_alarm, equals: 1}, kind: warning, text: pH above alarm limit}
+  - {when: {key: x.cl2_min_alarm, equals: 1}, kind: warning, text: Free chlorine below alarm limit}
+  - {when: {key: x.cl2_max_alarm, equals: 1}, kind: warning, text: Free chlorine above alarm limit}
+  - {when: {key: x.mv_min_alarm, equals: 1}, kind: warning, text: Redox below alarm limit}
+  - {when: {key: x.mv_max_alarm, equals: 1}, kind: warning, text: Redox above alarm limit}
+  - {when: {key: x.temp1_min_alarm, equals: 1}, kind: warning, text: Temperature below alarm limit}
+  - {when: {key: x.temp1_max_alarm, equals: 1}, kind: warning, text: Temperature above alarm limit}
+  - {when: {key: x.dosing_timewatch_ph, equals: 1}, kind: warning, text: pH dosing time monitoring tripped}
+  - {when: {key: x.dosing_timewatch_cl2, equals: 1}, kind: warning, text: Chlorine dosing time monitoring tripped}
+  - {when: {key: x.dosing_timewatch_mv, equals: 1}, kind: warning, text: Redox dosing time monitoring tripped}
+  - {when: {key: x.buffer_tank_disabled_alarm, equals: 1}, kind: warning, text: Buffer tank disabled}
+
+notes:
+- Valid for CPR Touch XL-2S and GRANUDOS 10 / 45/100 CPR Touch XL from firmware 1.1.0. Some discrete inputs exist on GRANUDOS
+  only, and inputs 16, 17 and 71 mean different things on the two lines (see their labels).
+- Modbus TCP only. The server answers only the one client IP address entered on the controller (Settings - System - Network
+  - Modbus TCP, after a technician login); port 502 by default. The document's frames use unit id 0xFF.
+- Addresses are the document's register and state numbers, 0-based as sent in the request (its examples read coil state 16
+  at address 0x10, discrete inputs from address 67 and holding registers from 36). Discrete inputs are numbered 0–95 as six
+  16-bit groups; coils 0–63 as four groups, of which only 16 is used.
+- Floats are IEEE 754, most significant word first (AB CD). Only even counts of registers may be read; writes (function 16)
+  must be exactly 2 registers.
+- The document says function 04 for reading the holding registers in its text, but its example reads them with function 03;
+  function 03 is assumed here (not verified).
+- Writing a holding register opens the menu and stops control; the controller returns to automatic mode after 60 s, or at
+  once by writing 1 to coil 16.
+- Send a request at most every 500 ms; the controller closes the TCP connection when no request arrives for 1500 ms.
+- Input registers 10–35 are the measurement block, but the document only names 10 (Cl2), 16 (temperature), 22 (pH) and 24
+  (redox).
+- 'Left out: the dosing power and cycle time settings (holding 76–87, 106–119) and the ECO-mode setpoints (90–105).'

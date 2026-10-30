@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From DaheimLaden's "DaheimLader Modbus/TCP-Spezifikation" (28.07.2026), linked from the page below.
+
+modbusspec: 0
+id: daheimladen-daheimlader
+manufacturer: DaheimLaden
+name: DaheimLader wallbox (Smart V1/V2, Touch, Smart PRO, Touch PRO, Business PRO)
+kind: charger
+
+sources:
+- title: DaheimLader Modbus/TCP-Spezifikation (PDF "DaheimLadenModbus0726", download on the page)
+  version: 28.07.2026
+  url: https://www.daheimladen.de/post/modbus-api
+  sha256: 89cb01bb0518637e9592c10f4c35cdc409c7a665705456e508adca04f9cbf1ce
+
+connection:
+  default_port: 502
+  default_unit: 255
+  transports:
+  - tcp
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 38
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    range:
+    - 1
+    - 10
+  # serial number
+  - table: holding
+    address: 38
+    type: str
+    length: 8
+    printable: true
+
+points:
+  - {key: state, label: Ladezustand, table: holding, address: 0, type: u16, enum: charging_state}
+  - {key: x.cable_state, label: Kabelstatus, table: holding, address: 2, type: u16, enum: cable_state}
+  - {key: error_code, label: Fehlercode, table: holding, address: 4, type: u16, enum: error_code}
+  - {key: l1_current, label: Strom L1, table: holding, address: 6, type: u16, unit: A, scale: 0.1, note: 0 unless charging.}
+  - {key: l2_current, label: Strom L2, table: holding, address: 8, type: u16, unit: A, scale: 0.1, note: 0 unless charging.}
+  - {key: l3_current, label: Strom L3, table: holding, address: 10, type: u16, unit: A, scale: 0.1, note: 0 unless charging.}
+  - {key: consumer_power, label: Gesamtleistung, table: holding, address: 12, type: u32, unit: W, positive: consumption, note: 'Active charging power, unsigned; 0 unless charging.'}
+  - {key: l1_power, label: Leistung L1, table: holding, address: 16, type: u32, unit: W, positive: consumption}
+  - {key: l2_power, label: Leistung L2, table: holding, address: 20, type: u32, unit: W, positive: consumption}
+  - {key: l3_power, label: Leistung L3, table: holding, address: 24, type: u32, unit: W, positive: consumption}
+  - {key: consumer_energy, label: Zählerstand, table: holding, address: 28, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.max_current_evse, label: Max. Strom EVSE, table: holding, address: 32, type: u16, unit: A, scale: 0.1, poll: slow}
+  - {key: x.min_current_evse, label: Min. Strom EVSE, table: holding, address: 34, type: u16, unit: A, scale: 0.1, poll: slow}
+  - {key: x.cable_max_current, label: Kabel Max. Strom, table: holding, address: 36, type: u16, unit: A, scale: 0.1, poll: slow}
+  - {key: serial, label: Seriennummer EVSE, table: holding, address: 38, type: str, length: 8, poll: slow, note: Up to 16 bytes; the table types it as Uint16 with length 16.}
+  - {key: x.card_id, label: Karten-ID, table: holding, address: 54, type: str, length: 8, poll: slow, note: 'RFID card number, up to 16 bytes; PRO series only and only with charging mode (93) = 1.'}
+  - {key: session_energy, label: Geladene Energie, table: holding, address: 72, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.session_duration, label: Ladezeit, table: holding, address: 78, type: u32, unit: s}
+  - {key: x.fallback_current, label: Ausfall Strom, table: holding, address: 87, type: u16, unit: A, scale: 0.1, writable: true, poll: slow, note: Current limit after loss of communication; not on the PRO series.}
+  - {key: x.fallback_timeout, label: Timeout, table: holding, address: 89, type: u16, unit: s, writable: true, poll: slow, note: 'Communication timeout, max. 65535 s; not on the PRO series.'}
+  - {key: x.charging_current_limit, label: Strombegrenzung, table: holding, address: 91, type: u16, unit: A, scale: 0.1, writable: true, note: 'Takes effect at once while charging, at most every 4 s; otherwise the start value for the next session.'}
+  - {key: x.charging_mode, label: Lademodus, table: holding, address: 93, type: u16, enum: charging_mode, writable: true, poll: slow}
+  - {key: x.charging_command, label: Ladebefehl, table: holding, address: 95, type: u16, enum: charging_command, writable: true, note: '1 = start, 2 = stop.'}
+  - {key: l1_voltage, label: Spannung L1, table: holding, address: 109, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Spannung L2, table: holding, address: 111, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Spannung L3, table: holding, address: 113, type: u16, unit: V, scale: 0.1}
+  # PRO series only
+  - {key: x.phase_state, label: Phasenstatus, table: holding, address: 184, type: u16, enum: phases, note: PRO series only.}
+  - {key: x.phase_switch_command, label: Phasenwechsel-Befehl, table: holding, address: 186, type: u16, enum: phases, writable: true, note: 'PRO series only: 1 = switch to 1 phase, 3 = switch to 3 phases.'}
+  - {key: x.phase_switch_state, label: Phasenwechsel-Status, table: holding, address: 188, type: u16, enum: phase_switch_state, note: PRO series only.}
+
+enums:
+  charging_state: {'1': 'Standby, not connected (CP 12 V)', '2': Connected to car (CP 9 V), '3': 'Ready, waiting for car (CP 9 V)', '4': Charging, '5': Start failed (timeout or unplugged while starting), '6': Charging finished, '7': System error, '8': Scheduled charging (OCPP or app), '9': Firmware update, '10': Powering up (CP voltage unstable)}
+  cable_state: {'0': Not connected, '1': Connected}
+  error_code: {'0': No error, '11': CP voltage error, '12': Emergency stop pressed, '13': Undervoltage, '14': Overvoltage, '15': Overtemperature, '16': Meter error, '17': Earthing / leakage fault, '18': Output short circuit, '19': Overcurrent, '21': Car not charging, '22': Car not detected, '23': Relay welded, '24': Leakage detector faulty, '25': PE fault, '26': Start failed}
+  charging_mode: {'0': Plug & Charge, '1': Authentication (card)}
+  charging_command: {'1': Start, '2': Stop}
+  phases: {'1': Single phase, '3': Three phases}
+  phase_switch_state: {'0': Standby, '1': Switching (2 min charging pause), '2': Switch completed}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charging station error (code {value})'}
+  - {when: {key: state, equals: 7}, kind: fault, text: Charging station system error (state 7)}
+  - {when: {key: state, equals: 5}, kind: warning, text: Charging failed to start (state 5)}
+
+notes:
+- Holding registers, read with function 03. Addresses are given in decimal and used as protocol addresses (no 40001 offset);
+  the vendor's Node-RED example reads registers 0–114 in one block, so the space between points reads without errors (unverified).
+- The station is a Modbus TCP server on port 502 with unit id 255, over LAN or WLAN.
+- 'Minimum firmware: Smart V1/V2 AC_SCE_3.21DA, Touch AC_DG3_1.24, Smart PRO / Touch PRO AC_M3W_3.11STP, Business PRO AC_M3W_4.03PTB.'
+- The PRO series has no fallback current / timeout (87, 89) but has RFID card id (54) and phase switching (184–188). Nothing
+  in the map tells the series apart.
+- The specification gives no word order for Uint32 values; most significant word first is assumed. Currents and power read
+  0 when not charging.
+- The current limit written over Modbus (91) is separate from the one set in the app.

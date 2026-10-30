@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Alfen Configuration Guide – Modbus for ACE (1.0, 05/2025) and the Alfen NG9xx Modbus Slave TCP/IP
+# document (2.2, 03-03-2020).
+
+modbusspec: 0
+id: alfen-eve-station
+manufacturer: Alfen
+name: Eve / AHP charging station (station registers)
+kind: charger
+
+sources:
+- title: Alfen Configuration Guide – Modbus for ACE (firmware 4.10, ACE Service Installer 3.4.10-130)
+  version: 1.0 (05/2025)
+  url: https://alfen.com/media/1047/download
+  sha256: c6193bef31dc1beea90c2b2232f82477d66fc76eeccf6f4ca1dddc51f1cbc5e1
+- title: Implementation of Modbus Slave TCP/IP for Alfen NG9xx platform (firmware 4.5, Service Installer 3.4.5-119)
+  version: 2.2 (03-03-2020)
+  url: https://github.com/Hywan/LaMaisonVivante/blob/f8ce2f79e431ca0fadec221cb076348ff4ee50c5/transport/alfen/doc/Alfen_NG9xx_Modbus.pdf
+  sha256: 4426a798b1543f1bbaf31d3ac86d38bb8ebee78fc081fbec98c2dc6f31df6f84
+- id: alfen-modbus
+  title: alfen_modbus (Home Assistant integration)
+  url: https://github.com/ThaStealth/alfen_modbus
+  license: Apache-2.0
+  commit: c8f2a4cc87588b615b011a6a1770fe766678911d
+  path: custom_components/alfen_modbus/__init__.py, custom_components/alfen_modbus/const.py
+
+connection:
+  default_port: 502
+  default_unit: 200
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    max_gap: 16
+
+encoding:
+  byte_order: big
+  word_order: detect
+  # frequency of socket 1
+  detect:
+    table: holding
+    address: 336
+    type: f32
+    unit_id: 1
+    plausible:
+    - 40
+    - 70
+
+identify:
+  serial:
+    table: holding
+    address: 157
+    type: str
+    length: 11
+  checks:
+  - table: holding
+    address: 117
+    type: str
+    length: 5
+    prefix: Alfen
+
+points:
+  - {key: x.name, label: Name, table: holding, address: 100, type: str, length: 17, poll: slow}
+  - {key: x.manufacturer, label: Manufacturer, table: holding, address: 117, type: str, length: 5, poll: slow}
+  - {key: x.modbus_table_version, label: Modbus table version, table: holding, address: 122, type: s16, invalid: [-1], poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 123, type: str, length: 17, poll: slow}
+  - {key: x.platform_type, label: Platform type, table: holding, address: 140, type: str, length: 17, poll: slow, note: E.g. NG910.}
+  - {key: serial, label: Station serial number, table: holding, address: 157, type: str, length: 11, poll: slow}
+  - {key: x.clock, label: Date and time, table: holding, address: 168, type: datetime, length: 6, datetime: {year: {register: 0}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, poll: slow, note: 'Six SIGNED16 registers (year, month, day, hour, minute, second); only in the 2020 NG9xx document.'}
+  - {key: x.uptime, label: Uptime, table: holding, address: 174, type: u64, unit: s, scale: 0.001, poll: slow, note: Raw value in milliseconds.}
+  - {key: x.time_zone, label: Time zone, table: holding, address: 178, type: s16, unit: min, poll: slow, note: Offset to UTC in minutes; only in the 2020 NG9xx document.}
+  - {key: x.active_max_current, label: Station active max current, table: holding, address: 1100, type: f32, unit: A}
+  - {key: temperature, label: Board temperature, table: holding, address: 1102, type: f32, unit: °C, note: 'Board, not ambient, temperature.'}
+  - {key: x.ocpp_state, label: OCPP state, table: holding, address: 1104, type: u16, invalid: [65535], note: Whether the back office is connected; the codes aren't given.}
+  - {key: x.sockets, label: Number of sockets, table: holding, address: 1105, type: u16, invalid: [65535], poll: slow}
+  # Smart Charging Network (SCN) registers, from the 2020 NG9xx document
+  - {key: x.scn_name, label: SCN name, table: holding, address: 1400, type: str, length: 4, poll: slow}
+  - {key: x.scn_sockets, label: SCN sockets, table: holding, address: 1404, type: u16, invalid: [65535], poll: slow, note: Number of configured sockets.}
+  - {key: x.scn_consumption_l1, label: SCN total consumption phase L1, table: holding, address: 1405, type: f32, unit: A}
+  - {key: x.scn_consumption_l2, label: SCN total consumption phase L2, table: holding, address: 1407, type: f32, unit: A}
+  - {key: x.scn_consumption_l3, label: SCN total consumption phase L3, table: holding, address: 1409, type: f32, unit: A}
+  - {key: x.scn_actual_max_current_l1, label: SCN actual max current phase L1, table: holding, address: 1411, type: f32, unit: A}
+  - {key: x.scn_actual_max_current_l2, label: SCN actual max current phase L2, table: holding, address: 1413, type: f32, unit: A}
+  - {key: x.scn_actual_max_current_l3, label: SCN actual max current phase L3, table: holding, address: 1415, type: f32, unit: A}
+  - {key: x.scn_max_current_l1, label: SCN max current per phase L1, table: holding, address: 1417, type: f32, unit: A, writable: true}
+  - {key: x.scn_max_current_l2, label: SCN max current per phase L2, table: holding, address: 1419, type: f32, unit: A, writable: true}
+  - {key: x.scn_max_current_l3, label: SCN max current per phase L3, table: holding, address: 1421, type: f32, unit: A, writable: true}
+  - {key: x.scn_valid_time_l1, label: Remaining valid time max current phase L1, table: holding, address: 1423, type: u32, unit: s, invalid: [4294967295]}
+  - {key: x.scn_valid_time_l2, label: Remaining valid time max current phase L2, table: holding, address: 1425, type: u32, unit: s, invalid: [4294967295]}
+  - {key: x.scn_valid_time_l3, label: Remaining valid time max current phase L3, table: holding, address: 1427, type: u32, unit: s, invalid: [4294967295]}
+  - {key: x.scn_safe_current, label: SCN safe current, table: holding, address: 1429, type: f32, unit: A, poll: slow}
+  - {key: x.scn_max_current_enable, label: SCN Modbus slave max current enable, table: holding, address: 1431, type: u16, enum: enabled, invalid: [65535], poll: slow}
+
+enums:
+  enabled: {'0': Disabled, '1': Enabled}
+
+notes:
+- Station-wide registers answer on unit 200; each socket has its own unit (1, or 2 for the right socket of a dual station;
+  see alfen-eve-socket).
+- The 2025 guide contradicts itself on the word order of 32- and 64-bit values (low word first vs. network byte order); the
+  2020 NG9xx document says big endian (network order) throughout. Readers detect it on the frequency of socket 1 (unit 1);
+  the station registers use the same order.
+- The 2025 guide's tables print register numbers but its text says to subtract 1; the 2020 NG9xx document has the same printed
+  numbers and no such rule. The addresses here are the printed numbers (try one lower when "Alfen" isn't at 117).
+- The 2020 NG9xx document gives unit 200 for the identification, station status and SCN registers, and the data types of 1100–1105
+  (FLOAT32, FLOAT32, UNSIGNED16, UNSIGNED16). Date/time (168–173), time zone (178) and the SCN registers (1400–1431) are only
+  in that older document.
+- Reserved or unavailable values read as NaN (0xFFFF for 16-bit registers). Strings hold two ASCII characters per register
+  and end with a zero.
+- Needs the Active Load Balancing licence and Modbus TCP enabled on the charger (Eve NG9xx from firmware 4.2.0, AHP from 2.6.0).
+- AHP firmware rejects reads that start or end inside a multi-register value; read whole values only.
+- Station-wide registers (identification, clock, status, smart charging network) answer on unit id 200; each socket has its
+  own unit id (see alfen-eve-socket).
+- Registers 1400-1431 (smart charging network, SCN) are only meaningful when the station is part of an SCN.

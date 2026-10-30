@@ -1,0 +1,155 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Elektroteks-IN PCh Modbus table description (Описание таблицы ModBus, version 2.3, 2016-05-20), for
+# the transistor frequency converters 5.5 … 315 kW (panel PG-v5.1.01, controller FC-v5.1.01).
+
+modbusspec: 0
+id: elektroteksin-pch
+manufacturer: Elektroteks-IN (Электротекс-ИН)
+name: EIN-PCh04 frequency converter 5.5 … 315 kW (motor drive)
+kind: other
+
+sources:
+- title: 'ПЧ05: Описание таблицы ModBus (frequency converters, Modbus table description)'
+  version: 2.3 (2016-05-20)
+  url: https://etx-in.ru/files/%D0%9F%D0%A705%20%D0%9E%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20%D1%82%D0%B0%D0%B1%D0%BB%D0%B8%D1%86%D1%8B%20modbus%20%D1%80%D0%B5%D0%B4.2.3.pdf
+  sha256: ccc17818da13c1d9fe011ebd7c89cef60bba933bd4b62329d30bfba0b0d0c380
+  archive_url: https://web.archive.org/web/20180517130807/http://etx-in.ru:80/files/ETX-IN-FCseries-04-Modbus-guide_v2.3.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 32
+    type: str
+    length: 8
+
+points:
+  # Identity
+  - {key: firmware, label: Controller software version, table: holding, address: 0, type: str, length: 8, poll: slow, note: 'Up to 16 characters, zero-terminated, KOI8 encoding.'}
+  - {key: serial, label: Controller serial number, table: holding, address: 32, type: str, length: 8, poll: slow, note: 'Up to 16 characters, zero-terminated, KOI8 encoding.'}
+  - {key: x.rated_power, label: Converter rated power, table: holding, address: 583, type: u16, unit: W, scale: 100, poll: slow, note: 0.1 kW per step.}
+  # State
+  - {key: state, label: Overall converter state, table: holding, address: 264, type: u16, enum: state}
+  - {key: x.alarm_flags, label: Alarm flags, table: holding, address: 272, type: u16, flags: alarm_flags}
+  - {key: x.general_alarm, label: Generalised alarm, table: holding, address: 276, type: u16, flags: general_alarm}
+  - {key: x.controller_flags, label: Controller flags, table: holding, address: 296, type: u16, flags: controller_flags}
+  - {key: x.inverter_flags, label: Inverter flags, table: holding, address: 304, type: u16, flags: inverter_flags}
+  - {key: x.setpoint_source, label: Current setpoint source, table: holding, address: 416, type: u16, enum: setpoint_source, poll: slow}
+  - {key: x.command_source, label: Current command source, table: holding, address: 417, type: u16, enum: command_source, poll: slow}
+  - {key: x.active_stop_commands, label: Active stop commands, table: holding, address: 418, type: u16, flags: stop_commands}
+  - {key: x.control_mode, label: Current control mode, table: holding, address: 419, type: u16, enum: control_mode, poll: slow}
+  - {key: x.active_frequency_setpoint, label: Active frequency setpoint, table: holding, address: 420, type: s16, unit: Hz, scale: 0.01, verified: false, note: Signed assumed (setpoints range −65 … +65 Hz).}
+  - {key: x.active_rated_current, label: Actual rated current, table: holding, address: 422, type: u16, unit: A, scale: 0.1, poll: slow}
+  - {key: x.clock, label: Current date and time, table: holding, address: 496, type: datetime, length: 4, datetime: {second: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, day: {register: 2, bits: [0, 7]}, month: {register: 2, bits: [8, 15], offset: 1}, year: {register: 3}}, poll: slow, note: Register 0x01F1 bits 8 … 15 hold the weekday (0 = Sunday); the month is stored 0 … 11.}
+  # Measurements
+  - {key: x.output_frequency, label: Output frequency, table: holding, address: 512, type: s16, unit: Hz, scale: 0.01, verified: false, note: Signed assumed (not stated).}
+  - {key: x.output_current, label: Output current, table: holding, address: 528, type: u16, unit: A, scale: 0.1}
+  - {key: x.output_l1_current, label: Output current phase A, table: holding, address: 529, type: u16, unit: A, scale: 0.1}
+  - {key: x.output_l2_current, label: Output current phase B, table: holding, address: 530, type: u16, unit: A, scale: 0.1}
+  - {key: x.output_l3_current, label: Output current phase C, table: holding, address: 531, type: u16, unit: A, scale: 0.1}
+  - {key: x.output_voltage, label: Output voltage, table: holding, address: 544, type: u16, unit: V, scale: 0.1}
+  - {key: x.input_voltage, label: Input voltage (line-to-line), table: holding, address: 545, type: u16, unit: V, scale: 0.1}
+  - {key: x.input_voltage_uv, label: Input voltage U-V, table: holding, address: 546, type: u16, unit: V, scale: 0.1}
+  - {key: x.input_voltage_vw, label: Input voltage V-W, table: holding, address: 547, type: u16, unit: V, scale: 0.1}
+  - {key: x.input_voltage_wu, label: Input voltage W-U, table: holding, address: 548, type: u16, unit: V, scale: 0.1}
+  - {key: x.dc_voltage, label: DC link voltage, table: holding, address: 549, type: u16, unit: V, scale: 0.1}
+  - {key: temperature, label: Heatsink temperature, table: holding, address: 561, type: s16, unit: °C, verified: false, note: Signed assumed (not stated).}
+  - {key: x.output_power, label: Output active power, table: holding, address: 576, type: s16, unit: W, scale: 100, verified: false, note: 0.1 kW per step. Signed assumed (not stated).}
+  - {key: power_factor, label: Power factor, table: holding, address: 578, type: s16, scale: 0.0001, verified: false, note: Signed assumed (not stated).}
+  - {key: x.session_energy, label: Energy consumed in the session, table: holding, address: 579, type: u32, unit: kWh, poll: slow, verified: false, note: 32-bit; word order not stated (high word first assumed).}
+  - {key: consumer_energy, label: Total energy consumed, table: holding, address: 581, type: u32, unit: kWh, poll: slow, verified: false, note: 32-bit; word order not stated (high word first assumed).}
+  - {key: x.process_value, label: Current process value (PID feedback), table: holding, address: 592, type: s16, verified: false, note: Scale depends on the setting at holding 0x08B4; raw value given. Signed assumed.}
+  - {key: x.motor_overheat, label: Motor overheat, table: holding, address: 600, type: u16, unit: '%'}
+  - {key: x.restarts_left, label: Remaining restarts, table: holding, address: 608, type: u16}
+  - {key: x.digital_inputs, label: Digital inputs DIN1 … DIN8, table: holding, address: 640, type: u16, note: 'Bit 0 = DIN1 … bit 7 = DIN8, physical state (no inversion applied).'}
+  - {key: x.digital_outputs, label: Digital outputs DOUT1 … DOUT3, table: holding, address: 648, type: u16, note: Bit 0 = DOUT1 … bit 2 = DOUT3.}
+  - {key: x.ain1_frequency, label: Analog input AIN1 (frequency), table: holding, address: 672, type: s16, unit: Hz, scale: 0.01, verified: false, note: Signed assumed (not stated).}
+  - {key: x.ain2_frequency, label: Analog input AIN2 (frequency), table: holding, address: 673, type: s16, unit: Hz, scale: 0.01, verified: false, note: Signed assumed (not stated).}
+  - {key: x.earth_fault_sensor, label: Zero-sequence current sensor state, table: holding, address: 1784, type: u16, enum: earth_fault_sensor}
+  # Commands (coils)
+  - {key: x.cmd_stop, label: STOP command (remote panel / network), table: coil, address: 2048, type: bool, writable: true, poll: slow}
+  - {key: x.cmd_start, label: START command (remote panel / network), table: coil, address: 2049, type: bool, writable: true, poll: slow}
+  - {key: x.cmd_reverse, label: REVERSE command, table: coil, address: 2050, type: bool, writable: true, poll: slow}
+  - {key: x.cmd_emergency_stop, label: EMERGENCY STOP command (remote panel / network), table: coil, address: 2051, type: bool, writable: true, poll: slow}
+  - {key: x.cmd_fault_reset, label: FAULT RESET command, table: coil, address: 2052, type: bool, writable: true, poll: slow}
+  # Settings
+  - {key: x.frequency_setpoint, label: Frequency setpoint from network / remote panel, table: holding, address: 2048, type: s16, unit: Hz, scale: 0.01, writable: true, min: -65, max: 65, poll: slow, note: Used when the setpoint source is the network.}
+  - {key: x.max_frequency, label: Upper frequency limit, table: holding, address: 2049, type: s16, unit: Hz, scale: 0.01, writable: true, poll: slow}
+  - {key: x.min_frequency, label: Lower frequency limit, table: holding, address: 2050, type: s16, unit: Hz, scale: 0.01, writable: true, poll: slow}
+  - {key: x.process_setpoint, label: Process setpoint from network / remote panel, table: holding, address: 2064, type: s16, writable: true, min: -10000, max: 10000, poll: slow, note: Scale depends on the setting at holding 0x08B4.}
+  - {key: x.setpoint_source_setting, label: Setpoint source, table: holding, address: 2081, type: u16, enum: setpoint_source, writable: true, poll: slow}
+  - {key: x.command_source_setting, label: Command source, table: holding, address: 2082, type: u16, enum: command_source, writable: true, poll: slow}
+  - {key: x.motor_rated_power, label: Motor rated power, table: holding, address: 2096, type: u16, unit: W, scale: 100, writable: true, poll: slow, note: 0.1 kW per step.}
+  - {key: x.motor_rated_voltage, label: Motor rated voltage, table: holding, address: 2097, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.motor_rated_frequency, label: Motor rated frequency, table: holding, address: 2098, type: u16, unit: Hz, writable: true, poll: slow}
+  - {key: x.motor_rated_current, label: Motor rated current, table: holding, address: 2099, type: u16, unit: A, scale: 0.1, writable: true, poll: slow}
+  - {key: x.motor_rated_cos_phi, label: Motor rated cos φ, table: holding, address: 2101, type: u16, scale: 0.0001, writable: true, poll: slow}
+  - {key: x.stop_type, label: Stop type, table: holding, address: 2118, type: u16, enum: stop_type, writable: true, poll: slow}
+  - {key: x.accel_rate, label: Acceleration rate (linear curve), table: holding, address: 2121, type: u16, unit: Hz/s, scale: 0.01, writable: true, poll: slow}
+  - {key: x.decel_rate, label: Deceleration rate (linear curve), table: holding, address: 2122, type: u16, unit: Hz/s, scale: 0.01, writable: true, poll: slow}
+
+enums:
+  state: {'0': No communication, '1': Blocked, '2': Stopped, '3': Ready, '4': Flying start, '5': Running, '6': Holding, '7': Braking, '8': Waiting, '9': Fault, '10': Critical fault, '11': Service, '12': Calibration, '13': Unknown, '14': Supply fault, '15': Sleep mode, '16': Current limiting, '17': Emergency braking}
+  setpoint_source: {'0': Panel, '1': Network, '2': Analog input AIN1, '3': Analog input AIN2, '4': Analog inputs AIN1+AIN2, '5': Digital inputs, '6': Schedule}
+  command_source: {'0': Panel, '1': Network, '2': Digital inputs, '3': Schedule}
+  control_mode: {'0': Frequency (PID off), '1': Process value (PID on)}
+  earth_fault_sensor: {'0': Zero-sequence current normal, '1': Zero-sequence current exceeded}
+  stop_type: {'0': By selected curve, '1': DC brake, '2': Coast}
+
+flags:
+  alarm_flags: {'0': Emergency stop, '1': Emergency stop / lockout, '2': Normal stop / lockout, '3': Warning, '5': Fault reset required}
+  general_alarm: {'0': Internal error, '1': Wrong DIN sequence, '2': Communication fault, '3': Analog input fault, '4': External fault, '5': Load loss, '6': Temperature fault, '7': Current imbalance, '8': Schedule fault, '9': Input voltage fault, '10': Converter failure, '11': Low DC link voltage, '12': DC link overvoltage, '13': I²t overheat, '14': Critical current, '15': Hardware current protection}
+  controller_flags: {'0': Acceleration requested, '1': Acceleration inhibited, '2': Deceleration requested, '3': Deceleration inhibited, '4': Output current imbalance, '5': Load loss, '6': Brake chopper on, '7': Alternative setpoint source, '8': Alternative command source, '10': Mains OK, '13': Alternative rated current, '14': Alternative frequency limit}
+  inverter_flags: {'0': Zero speed, '1': Speed OK, '2': Process value OK, '3': Upper frequency limit, '4': Lower frequency limit, '6': Flying start, '7': Auxiliary motor changeover, '10': PID sleep mode}
+  stop_commands: {'0': Panel (stop), '1': Panel (emergency stop), '2': Network / remote panel (stop), '3': Network / remote panel (emergency stop), '4': DIN (stop), '5': DIN (emergency stop), '6': Schedule (stop), '7': Schedule (emergency stop)}
+
+problems:
+  - {when: {key: state, equals: 9}, kind: fault, text: Converter fault (state 9)}
+  - {when: {key: state, equals: 10}, kind: fault, text: Converter critical fault (state 10)}
+  - {when: {key: state, equals: 14}, kind: fault, text: Converter supply fault (state 14)}
+  - {when: {key: x.alarm_flags, bit: 3}, kind: warning, text: Converter warning (bit 3)}
+  - {when: {key: x.alarm_flags, bit: 5}, kind: warning, text: Fault reset required (bit 5)}
+  - {when: {key: x.general_alarm, bit: 0}, kind: warning, text: Internal error (bit 0)}
+  - {when: {key: x.general_alarm, bit: 1}, kind: warning, text: Wrong DIN sequence (bit 1)}
+  - {when: {key: x.general_alarm, bit: 2}, kind: warning, text: Communication fault (bit 2)}
+  - {when: {key: x.general_alarm, bit: 3}, kind: warning, text: Analog input fault (bit 3)}
+  - {when: {key: x.general_alarm, bit: 4}, kind: warning, text: External fault (bit 4)}
+  - {when: {key: x.general_alarm, bit: 5}, kind: warning, text: Load loss (bit 5)}
+  - {when: {key: x.general_alarm, bit: 6}, kind: warning, text: Temperature fault (bit 6)}
+  - {when: {key: x.general_alarm, bit: 7}, kind: warning, text: Current imbalance (bit 7)}
+  - {when: {key: x.general_alarm, bit: 8}, kind: warning, text: Schedule fault (bit 8)}
+  - {when: {key: x.general_alarm, bit: 9}, kind: warning, text: Input voltage fault (bit 9)}
+  - {when: {key: x.general_alarm, bit: 10}, kind: warning, text: Converter failure (bit 10)}
+  - {when: {key: x.general_alarm, bit: 11}, kind: warning, text: Low DC link voltage (bit 11)}
+  - {when: {key: x.general_alarm, bit: 12}, kind: warning, text: DC link overvoltage (bit 12)}
+  - {when: {key: x.general_alarm, bit: 13}, kind: warning, text: I²t overheat (bit 13)}
+  - {when: {key: x.general_alarm, bit: 14}, kind: warning, text: Critical current (bit 14)}
+  - {when: {key: x.general_alarm, bit: 15}, kind: warning, text: Hardware current protection (bit 15)}
+
+notes:
+- Elektroteks-IN (ООО «Электротекс-ИН», Oryol). The file is titled ПЧ05, its text names the converters EIN-PCh04 (ЭИН-ПЧ04).
+- The hex addresses of the document are taken as 0-based protocol addresses. Status values are read from holding registers;
+  many (voltages, temperature, process value, inputs) are also readable as input registers at the same address.
+- Data types aren't stated except for the strings and the 32-bit energy counters; 16-bit unsigned is assumed unless a point
+  says otherwise.
+- 'Generalised alarm bits are reported as warnings: the overall state (9, 10) tells whether the converter stopped.'
+- 'Detail: the active alarms are a bit field at holding 0x0120 … 0x0124 (bits 0 … 77) and, bit by bit, 76 coils from 0x0200;
+  not included here.'
+- RS485 with Modbus RTU or ASCII (selectable), 600 … 115200 baud, 8N1, addresses 1 … 126; set at holding 0x0EE0 … 0x0EE3 (write-only).
+  Default baud rate and address aren't stated; 9600 and 1 assumed.
+- 'Left out: U/f curve, acceleration tables, PID controller, protection, schedule, I/O function and expansion-module settings.'

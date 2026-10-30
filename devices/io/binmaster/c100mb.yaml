@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the BinMaster Model C-100MB SmartBob Console with Modbus Interface operators manual (925-0301 Rev C, 6/21/2017).
+
+modbusspec: 0
+id: binmaster-c100mb
+manufacturer: BinMaster
+name: C-100MB SmartBob console (bin level sensors)
+kind: io
+
+sources:
+- title: BinMaster Model C-100MB SmartBob Console with Modbus Interface, operators manual (925-0301)
+  version: Rev C, 6/21/2017
+  url: https://cancoppas.com/wp-content/uploads/2022/09/CAN_manual-smartbob-c-100-control-console-modbus.pdf
+  sha256: 895d4b06ddcacd201ac550ec342d276ddbbed3735d8a5983468114351270c6f1
+
+connection:
+  default_port: 502
+  default_unit: 247
+  transports:
+  - rtu
+  - ascii
+  serial:
+    baud: 19200
+    format: 8E1
+  limits:
+    max_registers: 120
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # hardware level
+  - table: holding
+    address: 1
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+    - 3
+  # reserved 2–6 read 0xFFFF
+  - table: holding
+    address: 2
+    type: u16
+    equals: 65535
+  - table: holding
+    address: 3
+    type: u16
+    equals: 65535
+  - table: holding
+    address: 4
+    type: u16
+    equals: 65535
+  - table: holding
+    address: 5
+    type: u16
+    equals: 65535
+  - table: holding
+    address: 6
+    type: u16
+    equals: 65535
+  # enabled SmartBobs
+  - table: holding
+    address: 7
+    type: u16
+    range:
+    - 0
+    - 120
+  # idle SmartBobs
+  - table: holding
+    address: 9
+    type: u16
+    range:
+    - 0
+    - 120
+
+points:
+  # Summary registers (console, unit id 247)
+  - {key: x.firmware_major, label: Firmware version (major), table: holding, address: 0, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.firmware_minor, label: Firmware version (minor), table: holding, address: 0, type: u16, bits: [0, 7], poll: slow, note: 'Two decimal digits: 0x0101 is v1.01.'}
+  - {key: x.hardware_level, label: Hardware level, table: holding, address: 1, type: u16, enum: hardware_level, poll: slow}
+  - {key: x.enabled_smartbobs, label: Number of enabled SmartBobs, table: holding, address: 7, type: u16}
+  - {key: x.initiate_measurements, label: Initiate measurements, table: holding, address: 8, type: u16, writable: true, write_only: true, note: 'Write a SmartBob address (1–120) to measure with that SmartBob, any value above 120 to measure with all enabled ones; 0 does nothing.'}
+  - {key: x.idle_smartbobs, label: Number of idle SmartBobs, table: holding, address: 9, type: u16, note: Includes SmartBobs not enabled; 120 = no measurement running.}
+  # Per SmartBob n (1–120): status at 9 + n, results at 129 + n, drop at 249 + n, product level at 369 + n. SmartBob 1:
+  - {key: x.smartbob1_measurement_status, label: Measurement status SmartBob 1, table: holding, address: 10, type: u16, enum: measurement_status}
+  - {key: x.smartbob1_results_status, label: Results status SmartBob 1, table: holding, address: 130, type: u16, bits: [8, 15], enum: results_status}
+  - {key: x.smartbob1_enabled, label: SmartBob status SmartBob 1, table: holding, address: 130, type: u16, bits: [0, 7], enum: smartbob_status}
+  - {key: x.smartbob1_drop, label: Drop measurement SmartBob 1, table: holding, address: 250, type: u16, unit: ft, scale: 0.0125, note: Distance dropped at the last successful measurement (headroom); valid only while the results status is 101 (valid data).}
+  - {key: x.smartbob1_product_level, label: Product percentage SmartBob 1, table: holding, address: 370, type: u16, unit: '%', scale: 0.01, note: Fill level computed by the console from the drop and the vessel settings.}
+
+enums:
+  hardware_level: {'0': 353-0084, '1': 353-0084 rev A, '2': 353-0084 rev B to F, '3': 530-0573 rev G or newer}
+  measurement_status: {'0': Idle, '1': Pending (waiting for SB-485 traffic), '2': Pending (initiating measurement), '3': Pending (waiting for status), '4': Dropping, '5': Retracting, '6': Retrieving results, '7': Pending (setting maximum drop)}
+  results_status: {'100': No data or invalid, '101': Valid data, '102': Override, '103': Communication error, '104': Bob stuck, '105': Did not drop, '106': Measurement error}
+  smartbob_status: {'0': Disabled, '1': Enabled}
+
+problems:
+  - {when: {key: x.smartbob1_results_status, equals: 103}, kind: warning, text: 'SmartBob 1: communication error'}
+  - {when: {key: x.smartbob1_results_status, equals: 104}, kind: fault, text: 'SmartBob 1: bob stuck'}
+  - {when: {key: x.smartbob1_results_status, equals: 105}, kind: warning, text: 'SmartBob 1: did not drop'}
+  - {when: {key: x.smartbob1_results_status, equals: 106}, kind: warning, text: 'SmartBob 1: measurement error'}
+
+notes:
+- 'Addresses are 0-based: the document''s 4x0001 is address 0 (the document says so itself).'
+- 'Modbus slave on the EX-485 port, RTU (8E1 default, 8O1, 8N2) or ASCII (7E1, 7O1, 7N2), 2400–57600 baud (default 19200).
+  Function 03 and 06 only; no broadcast. Port 502 applies only to a Modbus TCP gateway. Response timeout: at least 3 s at
+  2400 baud, 1.5 s at 4800, 1 s from 9600.'
+- 'The console answers on unit id 247 with the summary registers 0–489 (up to 120 registers per read). Each SmartBob sensor
+  n (1–120) also has its own unit id n with five registers: 0 initiate measurement (write > 0), 1 measurement status, 2 results
+  status (high byte) and enabled (low byte), 3 drop in 1/80 ft, 4 product percentage × 100 (up to 5 registers per read).'
+- Only SmartBob 1's summary registers are listed; SmartBob n's are at the same addresses + (n − 1).
+- 'A measurement takes time: write 8 (or the SmartBob''s register 0), wait until the idle count is 120 (or the SmartBob''s
+  status is 0), then read the results, which are valid only when the results status is 101.'
+- Results status values other than 100–106 mean an unknown error.

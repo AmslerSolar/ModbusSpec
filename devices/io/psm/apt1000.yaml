@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the PSM APT1000 Modbus Register Map Firmware Version 7 (Issue A, 3 January 2020).
+
+modbusspec: 0
+id: psm-apt1000
+manufacturer: PSM
+name: APT1000 tank level / pressure transmitter
+kind: io
+
+sources:
+- title: APT1000 Modbus Register Map Firmware Version 7
+  version: Issue A (2020-01-03)
+  url: https://psmmarine.com/wp-content/uploads/2020/03/APT1000-Modbus-Register-Map-FW7-Iss-A-03-01-20-1.pdf
+  sha256: 4bfefa5f87ec0c61b2108bceadab2e5f049ecd443511418f2a9141ed0dbbb81a
+  archive_url: https://web.archive.org/web/20241102142212/https://psmmarine.com/wp-content/uploads/2020/03/APT1000-Modbus-Register-Map-FW7-Iss-A-03-01-20-1.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 1000
+    type: u32
+
+points:
+  # Measurements
+  - {key: x.sensor_temperature, label: Secondary measured value (temperature), table: holding, address: 2, type: s16, scale: 0.1, unit: °C, verified: false, note: Signedness not stated; assumed signed.}
+  - {key: x.pressure, label: Actual measured value (pressure), table: holding, address: 4, type: s32, scale: 0.1, unit: mmH2O, verified: false, note: 'Scale for 1 decimal place (register 28, factory set, default 1); 2 or 3 decimals would need 0.01 or 0.001.'}
+  - {key: x.level_above_sensor, label: Liquid level above sensor, table: holding, address: 7, type: s32, scale: 0.1, unit: mm, verified: false, note: Pressure corrected for the specific gravity. Scale as for the pressure (register 28).}
+  - {key: x.level, label: Actual level, table: holding, address: 23, type: s32, scale: 0.1, unit: mm, verified: false, note: 'Level above the tank bottom: level above sensor plus the sensor offset. Scale as for the pressure (register 28).'}
+  - {key: x.level_percent, label: Percentage tank level, table: holding, address: 13, type: u32, scale: 0.01, unit: '%'}
+  - {key: x.volume, label: Actual volume, table: holding, address: 18, type: u32, scale: 0.1, verified: false, note: 'In the user''s volume unit, with the decimals of register 17 (1–3, default 1); the scale assumes the default.'}
+  - {key: x.volume_percent, label: Percentage tank volume, table: holding, address: 20, type: u32, scale: 0.01, unit: '%', note: From the tank look-up table (registers 143–243).}
+  - {key: x.status, label: Status register, table: holding, address: 30, type: u16, flags: status, verified: false, note: 'Bit numbering assumed with bit 0 = least significant; the document''s note on register 31 counts bits from the most significant end, so this is uncertain.'}
+  - {key: x.pressure_max, label: Maximum pressure, table: holding, address: 33, type: s32, scale: 0.1, unit: mmH2O, poll: slow, verified: false, note: Lifetime maximum. Scale as for the pressure (register 28).}
+  - {key: x.pressure_min, label: Minimum pressure, table: holding, address: 35, type: s32, scale: 0.1, unit: mmH2O, poll: slow, verified: false, note: Lifetime minimum. Scale as for the pressure (register 28).}
+  - {key: x.temperature_max, label: Maximum temperature, table: holding, address: 37, type: s16, scale: 0.1, unit: °C, poll: slow, verified: false, note: Lifetime maximum. Signedness assumed.}
+  - {key: x.temperature_min, label: Minimum temperature, table: holding, address: 38, type: s16, scale: 0.1, unit: °C, poll: slow, verified: false, note: Lifetime minimum. Signedness assumed.}
+
+  # Settings
+  - {key: x.modbus_address, label: Modbus slave address, table: holding, address: 0, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Changing it needs the address-edit enable bit in register 1 set first and cleared afterwards.}
+  - {key: x.specific_gravity, label: Specific gravity, table: holding, address: 6, type: u16, scale: 0.001, writable: true, min: 0.5, max: 3, poll: slow, note: Default 1.0.}
+  - {key: x.sensor_offset, label: Sensor position offset, table: holding, address: 9, type: s32, unit: mm, writable: true, poll: slow, note: 'Height of the sensor above (negative: below) the tank bottom; not scaled by register 28.'}
+  - {key: x.tank_height, label: Total tank height, table: holding, address: 12, type: u16, unit: mm, writable: true, min: 1, max: 50000, poll: slow, note: Default 10000 mm.}
+  - {key: x.tank_capacity, label: Tank capacity, table: holding, address: 15, type: u32, scale: 0.1, writable: true, poll: slow, verified: false, note: 'In the user''s volume unit, with the decimals of register 17; the scale assumes the default of 1.'}
+  - {key: x.volume_decimals, label: Decimal points - volume, table: holding, address: 17, type: u16, writable: true, min: 0, max: 3, poll: slow, note: Default 1. From firmware 6.7.}
+  - {key: x.rs485_delay, label: RS 485 delay time, table: holding, address: 22, type: u16, unit: ms, writable: true, min: 0, max: 5000, poll: slow, note: 'Reply delay, default 20 ms.'}
+  - {key: x.level_decimals, label: Decimal points - level, table: holding, address: 28, type: u16, poll: slow, note: 'Factory set (0–3, normally 1): decimals of the pressure and level values.'}
+  - {key: x.status_mask, label: Status register mask, table: holding, address: 31, type: u16, writable: true, poll: slow, note: Which status bits drive the 4–20 mA output to its fault current.}
+  - {key: x.pressure_trim, label: Pressure trim, table: holding, address: 40, type: s32, scale: 0.1, unit: mmH2O, writable: true, poll: slow, verified: false, note: Offset added to the measured pressure. Scale as for the pressure (register 28).}
+  - {key: x.alarm_tolerance, label: Alarm tolerance percentage, table: holding, address: 42, type: s16, scale: 0.01, unit: '%', writable: true, min: -100, max: 100, poll: slow, note: Default 5.00 %. Signed type assumed from the stated range −100…100 %.}
+  - {key: x.filter, label: User filter value, table: holding, address: 249, type: u16, writable: true, min: 1, max: 1200, poll: slow, note: Number of samples averaged; one sample every 90 ms.}
+  - {key: x.analog_output_source, label: Analogue output source, table: holding, address: 250, type: u16, enum: analog_output_source, writable: true, poll: slow}
+  - {key: x.forced_output, label: Forced analogue output percentage, table: holding, address: 263, type: u16, scale: 0.01, unit: '%', writable: true, poll: slow}
+
+  # Identity
+  - {key: serial, label: Serial number, table: holding, address: 1000, type: u32, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 1004, type: u16, scale: 0.1, poll: slow}
+  - {key: x.sensor_type, label: Sensor type, table: holding, address: 1011, type: u16, enum: sensor_type, poll: slow}
+  - {key: x.user_units, label: User unit characters, table: holding, address: 1012, type: str, length: 10, writable: true, poll: slow, note: 'Free text, up to 20 characters.'}
+  - {key: x.tag, label: Customer tagging, table: holding, address: 1022, type: str, length: 10, writable: true, poll: slow, note: 'Free text, up to 20 characters.'}
+
+enums:
+  analog_output_source: {'0': '% tank volume', '1': '% tank level', '2': Scaled pressure, '3': Actual pressure, '4': Off (3.2 mA), '5': Forced output}
+  sensor_type: {'1': Gauge, '2': Absolute, '3': Compound}
+
+flags:
+  status: {'0': Negative level, '1': Pressure above maximum (70000 mm), '3': Level above 100 %, '4': Volume above 100 %, '5': Level below 0 %}
+
+problems:
+  - {when: {key: x.status, bit: 1}, kind: fault, text: Pressure above the sensor maximum}
+  - {when: {key: x.status, bit: 0}, kind: warning, text: Negative level}
+  - {when: {key: x.status, bit: 3}, kind: warning, text: Tank level above 100 %}
+  - {when: {key: x.status, bit: 4}, kind: warning, text: Tank volume above 100 %}
+  - {when: {key: x.status, bit: 5}, kind: warning, text: Tank level below 0 %}
+
+notes:
+- The document doesn't name the maker; it is published by PSM (psmmarine.com).
+- The document gives plain register numbers (0, 1, 2 …) as "Word" or "Bit" entries without function codes; they are used as
+  0-based holding register addresses (function 03), which is assumed and unverified. Two-register values are listed high word
+  first.
+- Register 1 holds two setting bits (address-edit enable, temperature compensation enable); their bit positions aren't clear
+  from the document and they are left out. Factory calibration registers (25–27, 29, 32, 47–51, 299–451, 1005–1010, 1032–1033),
+  the 4–20 mA scaling (104–107), the RS 485 termination bit (53) and the tank look-up table (143–243) are left out.
+- Pressure and level values are integers whose decimals are set by the factory in register 28 (normally 1); the scales here
+  assume 1.
+- Serial settings and the transport aren't stated beyond RS 485 Modbus; unit id default 1 (range 1–247).

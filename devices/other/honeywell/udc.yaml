@@ -1,0 +1,121 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Honeywell Modbus RTU Serial Communications User Manual (51-52-25-66, Revision T, February 2013).
+
+modbusspec: 0
+id: honeywell-udc
+manufacturer: Honeywell
+name: UDC controllers and DR / X Series recorders (Modbus RTU)
+kind: other
+
+sources:
+- title: Modbus RTU Serial Communications User Manual (51-52-25-66)
+  version: Revision T (February 2013)
+  url: https://www.honeywellprocess.com/library/support/Public/Documents/51-52-25-66.pdf
+  sha256: f173e23a611f2400c640d0a03b0f79542b06b6045705d0929a815e017b0c5b8e
+  archive_url: https://web.archive.org/web/20210415080758/https://www.honeywellprocess.com/library/support/Public/Documents/51-52-25-66.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 22
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Loop 1, floating point (0x0040 ff.; loop n starts at 0x0040 + (n − 1) × 0x100, see notes)
+  - {key: x.pv, label: PV, table: holding, address: 64, type: f32, note: Engineering units as configured.}
+  - {key: x.remote_setpoint, label: RV; Remote set point; SP2, table: holding, address: 66, type: f32}
+  - {key: x.working_setpoint, label: Working set point, table: holding, address: 68, type: f32}
+  - {key: x.output, label: Output, table: holding, address: 70, type: f32, note: 'Read-only on UDC2500, UDC3200 and UDC3500.'}
+  - {key: x.input1, label: 'Input #1', table: holding, address: 72, type: f32}
+  - {key: x.input2, label: 'Input #2', table: holding, address: 74, type: f32}
+  - {key: x.direction, label: Direction, table: holding, address: 78, type: f32, enum: direction, poll: slow}
+  - {key: x.pv_low_range, label: PV low range, table: holding, address: 86, type: f32, poll: slow}
+  - {key: x.pv_high_range, label: PV high range, table: holding, address: 88, type: f32, poll: slow}
+  - {key: x.local_setpoint1, label: 'LSP #1', table: holding, address: 106, type: f32, writable: true, poll: slow}
+  - {key: x.local_setpoint2, label: 'LSP #2', table: holding, address: 108, type: f32, writable: true, poll: slow}
+  - {key: x.setpoint_low_limit, label: SP low limit, table: holding, address: 116, type: f32, writable: true, poll: slow}
+  - {key: x.setpoint_high_limit, label: SP high limit, table: holding, address: 118, type: f32, writable: true, poll: slow}
+  - {key: x.operator_setpoint, label: Working set point (operator), table: holding, address: 120, type: f32, writable: true, poll: slow, note: 'Writes go to the currently selected set point; meant for operator changes, computer set points go to SP override (0x0082). Read-only on DR4300 / DR4500.'}
+  - {key: x.output_low_limit, label: Output low limit, table: holding, address: 122, type: f32, writable: true, poll: slow}
+  - {key: x.output_high_limit, label: Output high limit, table: holding, address: 124, type: f32, writable: true, poll: slow}
+  - {key: x.setpoint_override, label: SP override value, table: holding, address: 130, type: f32, writable: true, poll: slow, note: UDC2300 / 2500 / 3200 / 3300 / 3500 only.}
+  - {key: x.output_override, label: Output override value, table: holding, address: 132, type: f32, writable: true, poll: slow, note: UDC2300 / 2500 / 3200 / 3300 / 3500 only.}
+  - {key: x.deviation, label: Deviation, table: holding, address: 138, type: f32}
+  - {key: x.auto_manual, label: Auto/manual state, table: holding, address: 250, type: u16, bits: [0, 0], enum: auto_manual, writable: true}
+  - {key: x.setpoint_state, label: Set point state, table: holding, address: 251, type: u16, enum: setpoint_state, writable: true}
+  - {key: x.remote_local, label: Remote/local set point state, table: holding, address: 252, type: u16, bits: [0, 0], enum: remote_local, writable: true}
+  - {key: x.loop_status, label: Loop status, table: holding, address: 254, type: u16, flags: loop_status}
+
+  # Device status (integer map, loop 1)
+  - {key: x.device_status, label: Device status, table: holding, address: 63, type: u16, flags: device_status, note: 'UDC2500, UDC3200 and UDC3500 only. Writing any value (function 06) clears bits 6 and 7.'}
+
+  # Analog inputs, totalizer, alarms
+  - {key: x.analog_input1, label: 'Analog input #1', table: holding, address: 6144, type: f32}
+  - {key: x.analog_input2, label: 'Analog input #2', table: holding, address: 6146, type: f32}
+  - {key: x.analog_input3, label: 'Analog input #3', table: holding, address: 6148, type: f32}
+  - {key: x.analog_input4, label: 'Analog input #4', table: holding, address: 6150, type: f32}
+  - {key: x.totalizer1, label: 'Totalizer value #1', table: holding, address: 6912, type: f32, writable: true, poll: slow, note: Writing a value sets the totalizer to it (0.0 resets it).}
+  - {key: x.alarm_status, label: 'Alarm status #1 - #16', table: holding, address: 7152, type: u16, flags: alarm_status}
+  - {key: x.alarm1_sp1, label: 'Alarm set point value #1 (alarm 1 SP1)', table: holding, address: 7168, type: f32, writable: true, poll: slow}
+  - {key: x.alarm1_sp2, label: 'Alarm set point value #2 (alarm 1 SP2)', table: holding, address: 7170, type: f32, writable: true, poll: slow}
+  - {key: x.alarm2_sp1, label: 'Alarm set point value #3 (alarm 2 SP1)', table: holding, address: 7172, type: f32, writable: true, poll: slow}
+  - {key: x.alarm2_sp2, label: 'Alarm set point value #4 (alarm 2 SP2)', table: holding, address: 7174, type: f32, writable: true, poll: slow}
+
+  # Clock
+  - {key: x.clock, label: 'Time (hours, minutes, seconds, month, day, year)', table: holding, address: 7136, type: datetime, length: 6, datetime: {hour: {register: 0}, minute: {register: 1}, second: {register: 2}, month: {register: 3}, day: {register: 4}, year: {register: 5, offset: 2000}}, writable: true, poll: slow, verified: false, note: 'Year 00–99 (2000 added, assumed); VPR / VRX return 1970–2037 instead. Write all six (or seven, with the week day at 0x1BE6) registers in one request.'}
+
+enums:
+  direction: {'0': Direct, '1': Reverse}
+  auto_manual: {'0': Manual, '1': Auto}
+  remote_local: {'0': Local set point, '1': Remote set point}
+  setpoint_state: {'0': SP1, '1': SP2, '2': SP3, '3': SP4}
+
+flags:
+  loop_status: {'0': Auto mode (else manual), '1': SP2 selected (else SP1), '2': Remote set point (else local), '3': Tune set 2 (else 1), '4': LSP3, '5': LSP4, '6': CSP, '7': Tune set 1 (UDC3500), '8': Tune set 3 (UDC3500), '9': Tune set 4 (UDC3500), '11': Run/hold (UDC3500), '12': Any digital input active (UDC3500), '13': Any alarm active (UDC3500), '14': Cascade (UDC3500), '15': Guaranteed soak deviation out of limit (UDC3500)}
+  device_status: {'0': Emergency manual, '1': Failsafe, '2': Working calibration checksum error, '3': Configuration checksum error, '4': Factory calibration error, '5': Hardware failure, '6': Restart after shed, '7': Configuration / calibration memory changed}
+  alarm_status: {'0': 'Alarm #1', '1': 'Alarm #2', '2': 'Alarm #3 (UDC3500)', '3': 'Alarm #4 (UDC3500)'}
+
+problems:
+  - {when: {key: x.device_status, bit: 0}, kind: warning, text: Emergency manual}
+  - {when: {key: x.device_status, bit: 1}, kind: fault, text: Failsafe}
+  - {when: {key: x.device_status, bit: 2}, kind: fault, text: Working calibration checksum error}
+  - {when: {key: x.device_status, bit: 3}, kind: fault, text: Configuration checksum error}
+  - {when: {key: x.device_status, bit: 4}, kind: fault, text: Factory calibration error}
+  - {when: {key: x.device_status, bit: 5}, kind: fault, text: Hardware failure}
+  - {when: {key: x.alarm_status, bit: 0}, kind: warning, text: Alarm 1 active}
+  - {when: {key: x.alarm_status, bit: 1}, kind: warning, text: Alarm 2 active}
+  - {when: {key: x.alarm_status, bit: 2}, kind: warning, text: Alarm 3 active}
+  - {when: {key: x.alarm_status, bit: 3}, kind: warning, text: Alarm 4 active}
+
+notes:
+- 'One map shared by many Honeywell instruments: UDC2300 / 2500 / 3200 / 3300 / 3500 / 5300 controllers, DR4300 / DR4500 chart
+  recorders, RSX, VPR, VRX, DPR100 / 180 / 250, Minitrend / Multitrend V5, QX / SX (X Series) recorders and Herculine smart
+  actuators. Each has only part of it; unsupported registers inside the map read as 0. Values are in the engineering units
+  the instrument is configured for.'
+- Addresses are the document's hex addresses (0-based); its register numbers are address + 40001. Functions 03 and 04 read
+  the same registers; floats take two registers and must be read whole.
+- Floats are IEEE 754, high word first (FP B, the order of the document's examples; the default isn't stated); the instruments
+  can be set to byte-swapped or little-endian orders (FP BB, FP L, FP LB), which this file doesn't detect.
+- Loop 2 to 24 repeat the loop 1 float block at 0x0140, 0x0240, … 0x1740 (loop 9 onwards at 0x0840 …). A 16-bit integer copy
+  of loop 1 (×10 prescale) sits at 0x0000–0x003F; RSX / VPR / VRX / UDC5300 use 0x0000–0x0002 for instrument mode instead.
+- 'Serial: 8 data bits, no parity, 1 stop bit; 300–38400 baud selectable (9600 assumed as default; not stated). The slave
+  address is set on the instrument; 1 is assumed. Up to 22 registers (11 floats) per read for the UDC models; other instruments
+  allow more (up to 192). UDC models write floats only (function 10h, one float per request); older UDC and DR firmware need
+  about 20 ms between requests.'
+- Function 17 (report device ID) returns the instrument type and a 16-character description (e.g. 'UDC3500 x.y'); it isn't
+  a register and can't be described here.
+- 'Left out: tuning parameters (gain, reset, rate, cycle time, ratio / bias), math / calculated values (0x18C0), communication
+  values (0x1880), totalizer status, HealthWatch counters, set point programmer and segment maps, Herculine actuator maps
+  and the DR chart map; digital inputs and outputs (function 01 / 02) vary per model.'

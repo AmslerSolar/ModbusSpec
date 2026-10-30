@@ -1,0 +1,94 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Teracom TSV300 AC/DC voltage transducer with Modbus RTU interface user manual (Revision 1.1, March 2024).
+
+modbusspec: 0
+id: teracom-tsv300
+manufacturer: Teracom
+name: TSV300 AC/DC voltage transducer (3 inputs), Modbus RTU
+kind: io
+
+sources:
+- title: Teracom TSV300 AC/DC voltage transducer with Modbus RTU interface, user manual
+  version: 1.1 (March 2024)
+  url: https://www.omniinstruments.co.uk/wp-content/uploads/2025/06/TSV300-AC-DC-Voltage-Transducer-with-Modbus-RTU-Interface.pdf
+  sha256: 3680108da6c50aaf03b2f290a565993beb8217875016bada5638b71ef458be66
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: detect
+  # Data order
+  detect:
+    table: holding
+    address: 13
+    type: u16
+    word_orders:
+      '1': big
+      '2': little
+
+identify:
+  checks:
+  - table: holding
+    address: 14
+    type: u16
+    equals: 257
+  - table: holding
+    address: 91
+    type: u16
+    equals: 999
+
+points:
+  # AC (true RMS)
+  - {key: x.ac_voltage_1, label: Input AC voltage 1, table: holding, address: 100, type: f32, unit: V}
+  - {key: x.ac_voltage_2, label: Input AC voltage 2, table: holding, address: 102, type: f32, unit: V}
+  - {key: x.ac_voltage_3, label: Input AC voltage 3, table: holding, address: 104, type: f32, unit: V}
+  - {key: x.ac_voltage_1_min, label: Input AC voltage 1 min., table: holding, address: 120, type: f32, unit: V, poll: slow}
+  - {key: x.ac_voltage_2_min, label: Input AC voltage 2 min., table: holding, address: 122, type: f32, unit: V, poll: slow}
+  - {key: x.ac_voltage_3_min, label: Input AC voltage 3 min., table: holding, address: 124, type: f32, unit: V, poll: slow}
+  - {key: x.ac_voltage_1_max, label: Input AC voltage 1 max., table: holding, address: 140, type: f32, unit: V, poll: slow}
+  - {key: x.ac_voltage_2_max, label: Input AC voltage 2 max., table: holding, address: 142, type: f32, unit: V, poll: slow}
+  - {key: x.ac_voltage_3_max, label: Input AC voltage 3 max., table: holding, address: 144, type: f32, unit: V, poll: slow}
+  # DC
+  - {key: x.dc_voltage_1, label: Input DC voltage 1, table: holding, address: 500, type: f32, unit: V}
+  - {key: x.dc_voltage_2, label: Input DC voltage 2, table: holding, address: 502, type: f32, unit: V}
+  - {key: x.dc_voltage_3, label: Input DC voltage 3, table: holding, address: 504, type: f32, unit: V}
+  - {key: x.dc_voltage_1_min, label: Input DC voltage 1 min., table: holding, address: 520, type: f32, unit: V, poll: slow}
+  - {key: x.dc_voltage_2_min, label: Input DC voltage 2 min., table: holding, address: 522, type: f32, unit: V, poll: slow}
+  - {key: x.dc_voltage_3_min, label: Input DC voltage 3 min., table: holding, address: 524, type: f32, unit: V, poll: slow}
+  - {key: x.dc_voltage_1_max, label: Input DC voltage 1 max., table: holding, address: 540, type: f32, unit: V, poll: slow}
+  - {key: x.dc_voltage_2_max, label: Input DC voltage 2 max., table: holding, address: 542, type: f32, unit: V, poll: slow}
+  - {key: x.dc_voltage_3_max, label: Input DC voltage 3 max., table: holding, address: 544, type: f32, unit: V, poll: slow}
+  - {key: x.reset_min_max, label: Reset min and max values, table: holding, address: 1000, type: u16, writable: true, poll: slow, verified: false, note: The value to write is not stated in the document.}
+  # Module settings and identity
+  - {key: x.modbus_address, label: RS-485 address, table: holding, address: 10, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 11, type: u16, unit: bps, writable: true, poll: slow, note: '2400, 4800, 9600, 19200, 38400 or 57600; takes effect after a power cycle.'}
+  - {key: x.serial_format, label: 'Parity, data, stop bits', table: holding, address: 12, type: u16, enum: serial_format, writable: true, poll: slow, note: Takes effect after a power cycle.}
+  - {key: x.data_order, label: Data order, table: holding, address: 13, type: u16, enum: data_order, writable: true, poll: slow}
+  - {key: x.device_code, label: Device code, table: holding, address: 14, type: u16, poll: slow, note: 0x0101 for the TSV300.}
+  - {key: firmware, label: FW version, table: holding, address: 15, type: u16, poll: slow, verified: false, note: Encoding of the version number not stated in the document.}
+  - {key: x.vendor_url, label: Vendor URL, table: holding, address: 18, type: str, length: 32, poll: slow, note: '64 bytes UTF-8, "teracomsystems.com".'}
+
+enums:
+  serial_format: {'1': 8E1, '2': 8O1, '3': 8N1}
+  data_order: {'1': Most significant word first, '2': Least significant word first}
+
+notes:
+- 'Addresses are the document''s PDU addresses (0-based); its logical column adds 40001 (one typo there: unsigned test value
+  LSW is PDU 94). All registers are holding registers (function 03; writes 06 / 16).'
+- Inputs A1–A3 measure 0–264 V AC (true RMS) or 0 to ±370 V DC; wired L1/L2/L3 against N they give the phase voltages. Keys
+  stay generic since the inputs may be used for anything.
+- The word order of 32-bit values is set by register 13 (1 = most significant word first, the default). Test register 91 always
+  reads 999.
+- 'Left out: the same values as unsigned integers × 100 (400–442 AC, 600–642 DC), the per-input multiplier and offset (2101–2223,
+  read-only here) and the remaining test registers.'
+- The document gives no request size limit and no fault or alarm registers.

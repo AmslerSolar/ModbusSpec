@@ -1,0 +1,252 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the GoodWe Protocol for Goodwe Modbus, hybrid inverters, English (V1.3, 2017-11-10).
+
+modbusspec: 0
+id: goodwe-es
+manufacturer: GoodWe
+name: ES / EM / BP hybrid inverters
+kind: inverter
+
+sources:
+- title: Protocol for Goodwe Modbus (hybrid inverters, English)
+  version: 1.3 (2017-11-10)
+  url: https://github.com/tobiasfaust/SolaxModbusGateway/blob/d512ac7f57d1e363b1a80f1d59d44e4a2d003bff/docs/ModbusProtocolReferences/goodwe/Goodwe-ModbusPROTOCOLHybrid-ENV1-3EMseries.pdf
+  sha256: 6a513b676b364fbb18ceb19bdc45d0985c88006bc0dd9ff6229a6d2ed097f258
+  related:
+  - title: Hybrid Inverter ET Series / ET Plus Series 5.0-10.0kW, AC-Coupled Inverter BT Series 5.0-10.0kW – User Manual,
+      V2.0 (2026-09-20)
+    what: fault tables
+  - title: Hybrid Inverter ET Series | ET Plus Series – User Manual, V1.1 (2021-02-10)
+    what: fault tables
+  - title: ET Series 15-30 kW – User Manual, V2.2 (2026-05-25)
+    what: fault tables
+  - title: ET Series 25-50 kW – User Manual
+    what: fault tables
+  - title: ET-L Series (ET-LV) – User Manual, V1.7 (2026-10-20)
+    what: fault tables
+- id: goodwe
+  title: goodwe (Python library used by Home Assistant)
+  url: https://github.com/marcelblijleven/goodwe
+  license: MIT
+  commit: 66dfcdd9cd947bfd799f2bddb40b4e05ba9db6f6
+  path: goodwe/es.py, goodwe/sensor.py, goodwe/const.py, goodwe/model.py
+
+connection:
+  default_port: 502
+  default_unit: 247
+  transports:
+  - rtu
+  - tcp
+  - rtu_over_udp
+  serial:
+    baud: 9600
+    format: 8N1
+  ports:
+    rtu_over_udp: 8899
+  reply_prefix: AA55
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 512
+    type: str
+    length: 8
+
+points:
+  # Grid protection settings (0x0000…)
+  - {key: x.min_feeding_pv_voltage, label: Lowest Feeding Voltage of PV, table: holding, address: 0, type: u16, unit: V, scale: 0.1, poll: slow, writable: true}
+  - {key: x.reconnect_time, label: Reconnect Time, table: holding, address: 1, type: u16, unit: s, poll: slow, writable: true}
+  - {key: x.grid_voltage_high_limit, label: High limit of Grid Voltage, table: holding, address: 2, type: u16, unit: V, scale: 0.1, poll: slow, writable: true, note: 'The document''s ranges for 0x0002 and 0x0003 look swapped (high 110–230 V, low 230–270 V).'}
+  - {key: x.grid_voltage_low_limit, label: Low limit of Grid Voltage, table: holding, address: 3, type: u16, unit: V, scale: 0.1, poll: slow, writable: true}
+  - {key: x.grid_frequency_high_limit, label: High limit of Grid Frequency, table: holding, address: 4, type: u16, unit: Hz, scale: 0.01, poll: slow, writable: true}
+  - {key: x.grid_frequency_low_limit, label: Low limit of Grid Frequency, table: holding, address: 5, type: u16, unit: Hz, scale: 0.01, poll: slow, writable: true}
+
+  # Real-time clock: two values per register, high byte first
+  - {key: x.clock, label: RTC date&time, table: holding, address: 16, type: datetime, length: 3, poll: slow, writable: true, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}, note: Two-digit year (13–99 = 2013–2099).}
+
+  # Identity
+  - {key: serial, label: Serial Number Of Inverter, table: holding, address: 512, type: str, length: 8, poll: slow}
+  - {key: x.model_name, label: Model Name of Inverter, table: holding, address: 528, type: str, length: 5, poll: slow}
+
+  # PV
+  - {key: x.pv1_voltage, label: Vpv1, table: holding, address: 1280, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: Ipv1, table: holding, address: 1281, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv1_mode, label: PV1 Mode, table: holding, address: 1282, type: u16, enum: pv_mode}
+  - {key: x.pv2_voltage, label: Vpv2, table: holding, address: 1283, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: Ipv2, table: holding, address: 1284, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv2_mode, label: PV2 Mode, table: holding, address: 1285, type: u16, enum: pv_mode}
+  - {key: x.pv3_voltage, label: Vpv3, table: holding, address: 1337, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv3_current, label: Ipv3, table: holding, address: 1338, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv3_mode, label: PV3 Mode, table: holding, address: 1339, type: u16, enum: pv_mode}
+
+  # Battery and BMS
+  - {key: battery_voltage, label: Vbattery1, table: holding, address: 1286, type: u16, unit: V, scale: 0.1}
+  - {key: x.bms_status, label: BMS Status, table: holding, address: 1288, type: u16}
+  - {key: battery_temperature, label: BMS Pack Temperature, table: holding, address: 1289, type: u16, unit: °C, scale: 0.1, note: Unsigned in the document; a pack below 0 °C would read wrongly if the value is really signed.}
+  - {key: x.battery1_current, label: Ibattery1, table: holding, address: 1290, type: u16, unit: A, scale: 0.1, note: Unsigned; the direction is given by Battery1 Mode (0x0512).}
+  - {key: x.bms_max_charge_current, label: BMS Charge Imax, table: holding, address: 1291, type: u16, unit: A}
+  - {key: x.bms_max_discharge_current, label: BMS Discharge Imax, table: holding, address: 1292, type: u16, unit: A}
+  - {key: x.bms_error, label: BMS Error Code, table: holding, address: 1293, type: u16, flags: bms_alarm, note: 'Bits in table 8-8, as for the BMS warning code.'}
+  - {key: battery_soc, label: SOC, table: holding, address: 1294, type: u16, unit: '%'}
+  - {key: x.es_warning, label: ES Warning, table: holding, address: 1295, type: u16, note: The document has no table for it; shown as hex.}
+  - {key: battery_soh, label: BMS SOH, table: holding, address: 1297, type: u16, unit: '%'}
+  - {key: x.battery1_mode, label: Battary1 Mode, table: holding, address: 1298, type: u16, enum: battery_mode}
+  - {key: x.bms_warning, label: BMS Warning Code, table: holding, address: 1299, type: u32, flags: bms_alarm, note: 'High word 0x0513, low word 0x0514.'}
+
+  # Grid
+  - {key: x.meter_status, label: Meter Status, table: holding, address: 1301, type: u16, enum: meter_ok}
+  - {key: l1_voltage, label: Vgrid, table: holding, address: 1302, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Igrid, table: holding, address: 1303, type: u16, unit: A, scale: 0.1}
+  - {key: x.grid_power, label: Pgrid, table: holding, address: 1304, type: s16, unit: W, verified: false, note: 'Signed in the document, but no sign is stated; the direction is also given by the grid in-out flag (0x052F), so the value may be a magnitude. Not mapped to grid_power until checked on a device.'}
+  - {key: frequency, label: Fgrid, table: holding, address: 1305, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.grid_mode, label: Grid Mode, table: holding, address: 1306, type: u16, enum: grid_mode}
+  - {key: x.grid_in_out, label: Grid in-out flag, table: holding, address: 1327, type: u16, enum: grid_in_out}
+  - {key: x.meter_power_factor, label: MeterPowerFactor, table: holding, address: 1329, type: u16, unit: '%'}
+  - {key: x.grid_uo_voltage, label: VgridUo, table: holding, address: 1340, type: u16, unit: V, scale: 0.1, note: Second grid phase (named Uo); presumably on three-phase models only.}
+  - {key: x.grid_uo_current, label: IgridUo, table: holding, address: 1341, type: u16, unit: A, scale: 0.1}
+  - {key: x.grid_wo_voltage, label: VgridWo, table: holding, address: 1342, type: u16, unit: V, scale: 0.1, note: Third grid phase (named Wo); presumably on three-phase models only.}
+  - {key: x.grid_wo_current, label: IgridWo, table: holding, address: 1343, type: u16, unit: A, scale: 0.1}
+
+  # Load (back-up) port
+  - {key: x.load_voltage, label: Vload, table: holding, address: 1307, type: u16, unit: V, scale: 0.1}
+  - {key: x.load_current, label: Iload, table: holding, address: 1308, type: u16, unit: A, scale: 0.1}
+  - {key: x.load_port_power, label: Pload, table: holding, address: 1309, type: u16, unit: W}
+  - {key: x.load_frequency, label: Fload, table: holding, address: 1310, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.load_mode, label: Load Mode, table: holding, address: 1311, type: u16, enum: load_mode}
+  - {key: x.backup_load_power, label: Back-Up Load, table: holding, address: 1328, type: u16, unit: W}
+
+  # Inverter
+  - {key: state, label: Work Mode, table: holding, address: 1312, type: u16, enum: work_mode}
+  - {key: temperature, label: Temperature, table: holding, address: 1313, type: u16, unit: °C, scale: 0.1, note: Inverter internal temperature.}
+  - {key: error_code, label: Error Message, table: holding, address: 1314, type: u32, flags: error_message, note: 'High word 0x0522, low word 0x0523.'}
+  - {key: x.inverter_power, label: TotalPower, table: holding, address: 1324, type: s16, unit: W, verified: false, note: 'Total power of the inverter; signed, but the sign is not stated.'}
+  - {key: x.diagnosis_status, label: DiagStatus, table: holding, address: 1330, type: u32, flags: diagnosis, note: 'High word 0x0532, low word 0x0533. Why the battery doesn''t charge or discharge; explanations, not faults.'}
+  - {key: x.drm_status, label: DRMStatus, table: holding, address: 1332, type: u16, flags: drm}
+
+  # Energy
+  - {key: x.e_total, label: E-Total, table: holding, address: 1316, type: u32, unit: kWh, scale: 0.1, poll: slow, note: Described as total energy fed to the grid; whether it counts the inverter's output or the meter's export is not stated.}
+  - {key: x.operating_hours, label: h-Total, table: holding, address: 1318, type: u32, unit: h, poll: slow}
+  - {key: x.e_day, label: E-Day, table: holding, address: 1320, type: u16, unit: kWh, scale: 0.1, note: Energy fed to the grid today (same doubt as E-Total).}
+  - {key: x.load_energy_today, label: E-Load-Day, table: holding, address: 1321, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.load_energy, label: E-Total-Load, table: holding, address: 1322, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_export_energy, label: E-Total-Sell, table: holding, address: 1333, type: f32, unit: kWh, poll: slow, verified: false, note: A float; the document gives no unit. kWh assumed.}
+  - {key: grid_import_energy, label: E-Total-Buy, table: holding, address: 1335, type: f32, unit: kWh, poll: slow, verified: false, note: A float; the document gives no unit. kWh assumed.}
+  - {key: x.battery_charge_energy, label: E-BatteryCharge, table: holding, address: 1344, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_discharge_energy, label: E-BatteryDischarge, table: holding, address: 1346, type: u32, unit: kWh, scale: 0.1, poll: slow}
+
+  # Settings (0x0550…)
+  - {key: x.charge_time_start, label: ChargerTimeStart, table: holding, address: 1360, type: u16, poll: slow, writable: true, note: 'Grid charge start: high byte hour (0–23), low byte minute (0–59).'}
+  - {key: x.charge_time_end, label: ChargerTimeEnd, table: holding, address: 1361, type: u16, poll: slow, writable: true, note: 'Grid charge end: high byte hour, low byte minute.'}
+  - {key: x.grid_charge_power_max, label: BatChargePowerMax, table: holding, address: 1362, type: u16, unit: '%', poll: slow, writable: true, min: 0, max: 100}
+  - {key: x.discharge_time_start, label: DisChargerTimeStart, table: holding, address: 1363, type: u16, poll: slow, writable: true, note: 'High byte hour, low byte minute.'}
+  - {key: x.discharge_time_end, label: DisChargerTimeEnd, table: holding, address: 1364, type: u16, poll: slow, writable: true, note: 'High byte hour, low byte minute.'}
+  - {key: x.discharge_power_set, label: BatDisPowerSet, table: holding, address: 1365, type: u16, unit: '%', poll: slow, writable: true, min: 0, max: 100}
+  - {key: x.backup_enable, label: BackUpEnable, table: holding, address: 1366, type: u16, enum: on_off, poll: slow, writable: true}
+  - {key: x.offgrid_auto_charge, label: OffGridAutoCharge, table: holding, address: 1367, type: u16, enum: on_off, poll: slow}
+  - {key: x.mppt_shadow_scan, label: EnableMPPT4Shadow, table: holding, address: 1368, type: u16, enum: on_off, poll: slow, writable: true}
+  - {key: x.feed_power_disable, label: FeedPowerEnable, table: holding, address: 1369, type: u16, enum: feed_power, poll: slow, writable: true, note: 'Inverted: 0 = feeding allowed, 1 = not.'}
+  - {key: x.meter_protocol_code, label: ManufacturerCode, table: holding, address: 1370, type: u16, poll: slow}
+  - {key: x.lead_battery_capacity, label: LeadBatCapacity, table: holding, address: 1371, type: u16, unit: Ah, poll: slow, writable: true, min: 50, max: 2000}
+  - {key: x.battery_charge_voltage_max, label: BattChargeVoltMax, table: holding, address: 1372, type: u16, unit: V, scale: 0.1, poll: slow, writable: true, min: 50, max: 60}
+  - {key: x.battery_charge_current_max, label: BattChargeCurrMax, table: holding, address: 1373, type: u16, unit: A, scale: 0.1, poll: slow, writable: true, min: 0, max: 100}
+  - {key: x.battery_discharge_current_max, label: BattDisChgCurrMax, table: holding, address: 1374, type: u16, unit: A, scale: 0.1, poll: slow, writable: true, min: 0, max: 100}
+  - {key: x.battery_voltage_min, label: BattVoltUnderMin, table: holding, address: 1375, type: u16, unit: V, scale: 0.1, poll: slow, writable: true, min: 40, max: 48}
+  - {key: x.battery_soc_min, label: BattSOCUnderMin, table: holding, address: 1376, type: u16, unit: '%', poll: slow, writable: true, min: 0, max: 100}
+  - {key: x.battery_type_index, label: BattTypeIndex, table: holding, address: 1382, type: u16, poll: slow}
+  - {key: x.export_limit, label: FeedPowerPara, table: holding, address: 1383, type: u16, unit: W, poll: slow, writable: true}
+  - {key: x.offgrid_auto_start, label: AutoStartBackup, table: holding, address: 1384, type: u16, enum: on_off, poll: slow, writable: true}
+  - {key: x.soc_protect_off, label: StopSocProtect, table: holding, address: 1385, type: u16, enum: on_off, poll: slow, writable: true, note: 1 = SOC protection off.}
+  - {key: x.ems_mode, label: WgPowerMode, table: holding, address: 1390, type: u16, enum: ems_mode, poll: slow, writable: true, note: 'Mode codes from table 8-16, which describes them as a command with a power value; the value goes to WgPowerSet (0x056F).'}
+  - {key: x.ems_power, label: WgPowerSet, table: holding, address: 1391, type: u16, unit: W, poll: slow, writable: true}
+  - {key: x.no_grid_charge, label: NoGridChargeEnable, table: holding, address: 1393, type: u16, enum: on_off_12, poll: slow}
+  - {key: x.discharge_with_pv, label: DisChgWithPVEnable, table: holding, address: 1394, type: u16, enum: on_off_12, poll: slow}
+  - {key: x.app_mode_index, label: AppModeIndex, table: holding, address: 1396, type: u16, poll: slow, writable: true, note: The document gives no value table.}
+  - {key: x.safety_country, label: SafetyCountry, table: holding, address: 1433, type: u16, enum: safety_country, poll: slow}
+  - {key: x.meter_connect_status, label: bMeterConnectStatus, table: holding, address: 1437, type: u16, enum: meter_connect}
+  - {key: x.fast_charging, label: Fast Charging Enabled, table: holding, address: 47545, type: u16, invalid: [65535], writable: true, verified: false, sources: [goodwe]}
+  - {key: x.fast_charging_soc, label: Fast Charging SoC, table: holding, address: 47546, type: u16, unit: '%', invalid: [65535], writable: true, verified: false, sources: [goodwe]}
+  - {key: x.eco_mode_1_switch, label: Eco Mode Group 1 Switch, table: holding, address: 47549, type: u16, bits: [8, 15], signed: true, writable: true, verified: false, sources: [goodwe]}
+  - {key: x.eco_mode_2_switch, label: Eco Mode Group 2 Switch, table: holding, address: 47555, type: u16, bits: [8, 15], signed: true, writable: true, verified: false, sources: [goodwe]}
+  - {key: x.eco_mode_3_switch, label: Eco Mode Group 3 Switch, table: holding, address: 47561, type: u16, bits: [8, 15], signed: true, writable: true, verified: false, sources: [goodwe]}
+  - {key: x.eco_mode_4_switch, label: Eco Mode Group 4 Switch, table: holding, address: 47567, type: u16, bits: [8, 15], signed: true, writable: true, verified: false, sources: [goodwe]}
+
+enums:
+  pv_mode: {'0': No PV, '1': Standby, '2': Producing}
+  battery_mode: {'0': No battery or disconnected, '1': Standby, '2': Discharging, '3': Charging, '4': Waiting to charge, '5': Waiting to discharge}
+  grid_mode: {'0': Disconnected from the grid, '1': Connected to the grid, '2': Fault}
+  load_mode: {'0': On (load port supplied), '1': Off (load port disconnected)}
+  work_mode: {'1': Waiting, '2': On-grid, '4': Battery mode (inverter as AC source), '16': Fault}
+  grid_in_out: {'0': No exchange with the grid, '1': Exporting to the grid, '2': Importing from the grid}
+  meter_ok: {'0': Not OK, '1': OK}
+  meter_connect: {'0': Not OK, '1': OK, '2': Reversed, '3': CT error}
+  on_off: {'0': 'Off', '1': 'On'}
+  on_off_12: {'1': 'On', '2': 'Off'}
+  feed_power: {'0': Feeding to the grid allowed, '1': No feeding to the grid}
+  ems_mode: {'1': Auto, '2': Charge, '3': Discharge, '4': Import, '5': Export, '6': Conserve, '7': Off-grid, '255': Stopped}
+  safety_country: {'0': Italy, '1': Czech, '2': Germany, '3': Spain, '4': Greece mainland, '5': Denmark, '6': Belgium, '7': Romania, '8': G83 or G59 (by model), '9': Australia, '10': France, '11': China, '12': 60 Hz grid default, '13': Poland, '14': South Africa, '15': Australia L, '16': Brazil, '17': Thailand MEA, '18': Thailand PEA, '19': Mauritius, '20': Holland, '21': Northern Ireland, '22': China (higher voltage), '23': French 50 Hz, '24': French 60 Hz, '25': Australia Ergon, '26': Australia Energex, '27': Holland 16/20 A, '28': Korea, '29': China station, '30': Austria, '31': India, '32': 50 Hz grid default, '33': Warehouse, '34': Philippines, '35': Ireland, '36': Taiwan, '37': Bulgaria, '38': Barbados, '39': China (highest voltage)}
+
+flags:
+  error_message: {'0': GFCI device check failure, '1': AC HCT check failure, '3': DCI consistency failure, '4': GFCI consistency failure, '6': GFCI device failure, '7': Relay device failure, '8': AC HCT failure, '9': Utility loss, '10': Ground current failure, '11': DC bus high, '12': Internal fan failure (back-up overload on ES), '13': Over-temperature, '14': Auto test failure, '15': PV over-voltage, '16': External fan failure, '17': Grid voltage failure (Vac), '18': Isolation failure, '19': DC injection high, '22': Fac consistency failure, '23': Vac consistency failure, '25': Relay check failure, '29': Grid frequency failure (Fac), '30': EEPROM R/W failure, '31': Internal communication failure}
+  bms_alarm: {'0': Battery over-temperature, '1': Battery under-temperature, '2': Cell voltage difference, '3': Battery total voltage too high, '4': Discharge over-current, '5': Charge over-current, '6': SOC too low, '7': Battery total voltage too low, '8': BMS communication failure, '9': Battery output short circuit, '10': SOC too high, '11': BMS module fault, '12': BMS system fault, '13': BMS internal fault}
+  diagnosis: {'0': Battery voltage low, '1': Battery SOC low, '2': Battery SOC not yet back, '3': BMS does not allow discharge, '4': Discharge time set, '5': Charge time set, '6': Discharge driver on, '7': BMS discharge current low, '8': Discharge current low, '9': Meter communication lost, '10': Meter connected reversed, '11': 'Self-use, load too low', '12': EMS discharge current zero, '13': Bus voltage too high for discharge, '14': Battery disconnected, '15': Battery overcharged, '16': BMS over-temperature, '17': BMS overcharge, '18': BMS does not allow charge, '19': Self-use mode off, '20': SOC difference out of range, '21': Battery self-discharge, '22': SOC low in off-grid operation, '23': Unstable grid waveform, '24': Export power limit set, '25': Power factor set, '26': Active power limit set, '27': DC output on, '28': SOC protection off, '29': BP discharge mode}
+  drm: {'0': DRM0, '1': DRM1, '2': DRM2, '3': DRM3, '4': DRM4, '5': DRM5, '6': DRM6, '7': DRM7, '8': DRM8, '15': DRED connected}
+
+problems:
+  - {when: {key: error_code, bit: 31}, kind: fault, text: Internal communication failure (error bit 31)}
+  - {when: {key: error_code, bit: 30}, kind: fault, text: EEPROM R/W failure (error bit 30)}
+  - {when: {key: error_code, bit: 29}, kind: fault, text: Grid frequency failure (Fac) (error bit 29)}
+  - {when: {key: error_code, bit: 25}, kind: fault, text: Relay check failure (error bit 25)}
+  - {when: {key: error_code, bit: 23}, kind: fault, text: Vac consistency failure (error bit 23)}
+  - {when: {key: error_code, bit: 22}, kind: fault, text: Fac consistency failure (error bit 22)}
+  - {when: {key: error_code, bit: 19}, kind: fault, text: DC injection high (error bit 19)}
+  - {when: {key: error_code, bit: 18}, kind: fault, text: Isolation failure (error bit 18)}
+  - {when: {key: error_code, bit: 17}, kind: fault, text: Grid voltage failure (Vac) (error bit 17)}
+  - {when: {key: error_code, bit: 16}, kind: fault, text: External fan failure (error bit 16)}
+  - {when: {key: error_code, bit: 15}, kind: fault, text: PV over-voltage (error bit 15)}
+  - {when: {key: error_code, bit: 14}, kind: fault, text: Auto test failure (error bit 14)}
+  - {when: {key: error_code, bit: 13}, kind: fault, text: Over-temperature (error bit 13)}
+  - {when: {key: error_code, bit: 12}, kind: fault, text: Internal fan failure / back-up overload (error bit 12)}
+  - {when: {key: error_code, bit: 11}, kind: fault, text: DC bus high (error bit 11)}
+  - {when: {key: error_code, bit: 10}, kind: fault, text: Ground current failure (error bit 10)}
+  - {when: {key: error_code, bit: 9}, kind: mains_lost, text: Utility loss (error bit 9)}
+  - {when: {key: error_code, bit: 8}, kind: fault, text: AC HCT failure (error bit 8)}
+  - {when: {key: error_code, bit: 7}, kind: fault, text: Relay device failure (error bit 7)}
+  - {when: {key: error_code, bit: 6}, kind: fault, text: GFCI device failure (error bit 6)}
+  - {when: {key: error_code, bit: 4}, kind: fault, text: GFCI consistency failure (error bit 4)}
+  - {when: {key: error_code, bit: 3}, kind: fault, text: DCI consistency failure (error bit 3)}
+  - {when: {key: error_code, bit: 1}, kind: fault, text: AC HCT check failure (error bit 1)}
+  - {when: {key: error_code, bit: 0}, kind: fault, text: GFCI device check failure (error bit 0)}
+  - {when: {key: state, equals: 16}, kind: fault, text: Fault mode (work mode 0x10)}
+  - {when: {key: state, equals: 4}, kind: backup_mode, text: 'Battery mode, inverter as AC source (work mode 4)'}
+  - {when: {key: x.grid_mode, equals: 2}, kind: fault, text: Grid fault (grid mode 2)}
+  - {when: {key: x.bms_error, not: 0}, kind: fault, text: 'BMS error code 0x{value:X}'}
+  - {when: {key: x.bms_warning, not: 0}, kind: warning, text: 'BMS warning code 0x{value:X}'}
+  - {when: {key: x.es_warning, not: 0}, kind: warning, text: 'Warning code 0x{value:X}'}
+  - {when: {key: x.meter_connect_status, equals: 2}, kind: warning, text: Meter connected reversed}
+  - {when: {key: x.meter_connect_status, equals: 3}, kind: warning, text: Meter CT error}
+
+notes:
+- All addresses are as the document writes them, in hex, and are already 0-based protocol addresses (its example reads 0x0000
+  for the first register). All values are holding registers (function 03); writes use function 10.
+- The document describes RS485 (Modbus RTU) only, 9600 baud, 1 start, 8 data, 1 stop bit (no parity). The TCP port is not
+  stated; 502 is a placeholder.
+- 32-bit values are two registers, high word first; E-Total-Sell / E-Total-Buy are floats.
+- 'Grid and battery directions are not given by signs: the grid in-out flag (0x052F) and Battery1 Mode (0x0512) tell them,
+  and Ibattery1 is unsigned. There is no battery power or PV power register; voltage × current gives them.'
+- 'Left out: the active and reactive power limits at 0x0100/0x0101 (write-only), the grid protection and reactive-power curve
+  parameters 0x0561…0x0598 except the safety country, battery maintenance settings, the ISO limit and the BMS current coefficient.
+  The document''s tables 8-1 and 8-3 are not referenced by any register.'
+- Table 8-16 lists the EMS modes as AA55-style commands (Fcode 0x03, Ccode 0x3A); only the mode codes are taken for WgPowerMode.
+- 'Family detected by a model tag in the serial number: ESU, EMU, ESA, BPS, BPU, EMJ, IJL.'
+- The library reaches these registers over Modbus TCP or as RTU frames over UDP through the Wi-Fi/LAN dongle; the dongle puts
+  AA 55 before each RTU reply.
+- Runtime data and most settings use GoodWe's AA55 protocol, not Modbus, and are left out.
+- These settings need ARM firmware 14 (eco-mode switches) or 19 (fast charging).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

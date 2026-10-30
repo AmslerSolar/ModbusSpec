@@ -1,0 +1,58 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Halisense Soil TH & TH-EC Sensor Manual (V1.1) and the ComWinTop Soil THC-S (RS485 type) sensor manual (V1.0).
+
+modbusspec: 0
+id: comwintop-soil-thc-s
+manufacturer: ComWinTop
+name: Soil THC-S / TH-EC sensor (temperature, moisture, conductivity), RS485
+kind: io
+
+sources:
+- title: Halisense Soil TH & TH-EC Sensor Manual (3pin probe)
+  version: V1.1
+  url: https://dl.artronshop.co.th/RS485%20Sensor/Soil%20TH%20&%20TH-EC%20(3pin%20probe)%20manual_V1.1.pdf
+  sha256: a5a94954bc39f7a83bd374e0f311f1c766ccaa6c082d2bec063e0a18751da73f
+  archive_url: https://web.archive.org/web/20251015235556/https://dl.artronshop.co.th/RS485%20Sensor/Soil%20TH%20&%20TH-EC%20(3pin%20probe)%20manual_V1.1.pdf
+- title: ComWinTop (CWT) Soil THC-S (RS485 type) sensor manual
+  version: V1.0
+  url: https://dl.artronshop.co.th/CWT-RS485-Soil/THC-S%20manual.pdf
+  sha256: 06558cc7d731a781a327a4f2f5594b02b32e2cc8c99d6fd22267b89465110345
+  archive_url: https://web.archive.org/web/20240204111845/https://dl.artronshop.co.th/CWT-RS485-Soil/THC-S%20manual.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 4800
+    format: 8N1
+
+points:
+  - {key: x.soil_moisture, label: Humidity, table: holding, address: 0, type: u16, unit: '%', scale: 0.1, note: 'Volumetric soil moisture, 0–100 %.'}
+  - {key: x.soil_temperature, label: Temperature, table: holding, address: 1, type: s16, unit: °C, scale: 0.1, note: Two's complement below 0 (0xFF9B = −10.1 °C).}
+  - {key: x.conductivity, label: Conductivity, table: holding, address: 2, type: u16, unit: µS/cm, note: EC; 0 or missing on the TH-only version.}
+  - {key: x.salinity, label: Salinity, table: holding, address: 3, type: u16, verified: false, note: Derived from EC with the salinity factor; the document gives no unit.}
+  - {key: x.tds, label: TDS, table: holding, address: 4, type: u16, verified: false, note: 'Total dissolved solids, derived from EC with the TDS factor; the document gives no unit.'}
+  # Calibration and settings
+  - {key: x.conductivity_temp_factor, label: Conductivity factor, table: holding, address: 34, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 10, poll: slow, note: Default 0.}
+  - {key: x.salinity_factor, label: Salinity factor, table: holding, address: 35, type: u16, scale: 0.01, writable: true, min: 0, max: 1, poll: slow, note: Default 0.55.}
+  - {key: x.tds_factor, label: TDS factor, table: holding, address: 36, type: u16, scale: 0.01, writable: true, min: 0, max: 1, poll: slow, note: Default 0.5.}
+  - {key: x.temperature_offset, label: Temperature offset, table: holding, address: 80, type: s16, unit: °C, scale: 0.1, writable: true, poll: slow, verified: false, note: Signed type assumed.}
+  - {key: x.moisture_offset, label: Humidity offset, table: holding, address: 81, type: s16, unit: '%', scale: 0.1, writable: true, poll: slow, verified: false, note: Signed type assumed.}
+  - {key: x.conductivity_offset, label: Conductivity offset, table: holding, address: 82, type: s16, unit: µS/cm, writable: true, poll: slow, verified: false, note: Signed type assumed.}
+  - {key: x.modbus_address, label: Slave ID, table: holding, address: 2000, type: u16, writable: true, min: 1, max: 254, poll: slow, note: 'The sensor answers a read of this register on broadcast unit 0xFF, to find an unknown address.'}
+  - {key: x.baud_rate, label: baud rate, table: holding, address: 2001, type: u16, enum: baud_rate, writable: true, poll: slow}
+
+enums:
+  baud_rate: {'0': 2400 bps, '1': 4800 bps, '2': 9600 bps}
+
+notes:
+- The same sensor is sold as ComWinTop (Shenzhen CWT) THC-S and as Halisense Soil TH / TH-EC; both manuals give the same register
+  map. ComWinTop is taken as the maker.
+- Addresses are the hex register addresses of the documents (0-based; the PLC column is 40001-based). The tables say 'read
+  function code 0x30', but every example uses 03 (holding registers); 03 is used.
+- 'Writing the slave id and baud rate: the Halisense manual uses function 06, the ComWinTop manual names 0x10.'
+- 'Not stated in the documents: units of salinity and TDS, and whether the offsets are signed.'

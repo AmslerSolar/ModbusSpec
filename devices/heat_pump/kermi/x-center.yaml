@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: kermi-x-center
+manufacturer: Kermi
+name: x-center pro heat pump
+kind: heat_pump
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/charger/kermi.yaml
+- id: openhab
+  title: openHAB add-ons (Modbus bindings)
+  url: https://github.com/openhab/openhab-addons
+  license: EPL-2.0
+  commit: 391d63d8597d9b5b535ee83c85f557cad4fba2c7
+  path: bundles/org.openhab.binding.modbus.kermi/src/main/java/org/openhab/binding/modbus/kermi/internal/dto, bundles/org.openhab.binding.modbus.kermi/src/main/java/org/openhab/binding/modbus/kermi/internal/modbus/KermiModbusConstans.java
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/consumers/kermi/kermi/consumer.py
+
+connection:
+  default_port: 502
+  default_unit: 40
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - openhab
+
+points:
+  - {key: x.exit_temperature, label: Exit temperature, table: holding, address: 1, type: s16, unit: °C, scale: 0.1}
+  - {key: x.incoming_temperature, label: Incoming temperature, table: holding, address: 2, type: s16, unit: °C, scale: 0.1}
+  - {key: x.outside_temperature, label: Outside temperature, table: holding, address: 3, type: s16, unit: °C, scale: 0.1}
+  - {key: x.flow_temperature, label: Flow temperature, table: holding, address: 50, type: s16, unit: °C, scale: 0.1}
+  - {key: x.return_flow_temperature, label: Return flow temperature, table: holding, address: 51, type: s16, unit: °C, scale: 0.1}
+  - {key: x.flow_speed, label: Flow speed, table: holding, address: 52, type: s16, unit: l/min, scale: 0.1}
+  - {key: x.cop, label: Cop, table: holding, address: 100, type: u16, scale: 0.1}
+  - {key: x.cop_heating, label: Cop heating, table: holding, address: 101, type: u16, scale: 0.1}
+  - {key: x.cop_drinkingwater, label: Cop drinkingwater, table: holding, address: 102, type: u16, scale: 0.1}
+  - {key: x.cop_cooling, label: Cop cooling, table: holding, address: 103, type: u16, scale: 0.1}
+  - {key: x.power, label: Power, table: holding, address: 104, type: u16, unit: W, scale: 100}
+  - {key: x.power_heating, label: Power heating, table: holding, address: 105, type: u16, unit: W, scale: 100}
+  - {key: x.power_drinkingwater, label: Power drinkingwater, table: holding, address: 106, type: u16, unit: W, scale: 100}
+  - {key: x.power_cooling, label: Power cooling, table: holding, address: 107, type: u16, unit: W, scale: 100}
+  - {key: consumer_power, label: Power, table: holding, address: 108, type: s16, unit: W, scale: 100, positive: consumption, sources: [evcc, openwb], conflicts: [{sources: [openhab], type: u16, label: Electric power}]}
+  - {key: x.electric_power_heating, label: Electric power heating, table: holding, address: 109, type: u16, unit: W, scale: 100}
+  - {key: x.electric_power_drinkingwater, label: Electric power drinkingwater, table: holding, address: 110, type: u16, unit: W, scale: 100}
+  - {key: x.electric_power_cooling, label: Electric power cooling, table: holding, address: 111, type: u16, unit: W, scale: 100}
+  - {key: x.work_hours_fan, label: Work hours fan, table: holding, address: 150, type: u16, unit: h, scale: 0.1}
+  - {key: x.work_hours_storage_loading_pump, label: Work hours storage loading pump, table: holding, address: 151, type: u16, unit: h, scale: 0.1}
+  - {key: x.work_hours_compressor, label: Work hours compressor, table: holding, address: 152, type: u16, unit: h, scale: 0.1}
+  - {key: x.global_state_id, label: Global State, table: holding, address: 200, type: u16, enum: global_state}
+  - {key: x.alarm_is_active, label: Alarm state, table: holding, address: 250, type: u16, note: 'The binding takes one bit of this register as ''alarm active'' (bit index given as the block size, 1); treat any non-zero value with care.'}
+  - {key: x.pv_modulation_active, label: PV modulation active, table: holding, address: 300, type: u16, bits: [0, 0]}
+  - {key: x.setmaxpower_301, label: Power limit (write), table: holding, address: 301, type: s16, unit: W, scale: 0.1, writable: true, sources: [evcc, openwb], conflicts: [{sources: [openhab], type: u16, label: Pv modulation power}]}
+  - {key: x.pv_target_temperature_heating, label: Pv target temperature heating, table: holding, address: 302, type: u16, unit: °C, scale: 0.1}
+  - {key: x.pv_target_temperature_drinkingwater, label: Pv target temperature drinkingwater, table: holding, address: 303, type: u16, unit: °C, scale: 0.1}
+  - {key: x.temp_1, label: Temperature, table: holding, address: 1, type: s16, unit: °C, scale: 0.1, unit_id: 50, note: Used by evcc only with the template option tempsource = buffer., sources: [evcc]}
+  - {key: x.limittemp_2, label: Temperature limit, table: holding, address: 2, type: s16, unit: °C, scale: 0.1, unit_id: 50, note: Used by evcc only with the template option tempsource = buffer., sources: [evcc]}
+  - {key: x.temp, label: Temperature, table: holding, address: 100, type: s16, unit: °C, scale: 0.1, unit_id: 51, note: Used by evcc only with the template option tempsource = warmwater., sources: [evcc]}
+  - {key: x.limittemp, label: Temperature limit, table: holding, address: 101, type: s16, unit: °C, scale: 0.1, unit_id: 51, note: Used by evcc only with the template option tempsource = warmwater., sources: [evcc]}
+
+enums:
+  global_state: {'0': Standby, '1': Alarm, '2': DrinkingWater, '4': Heating, '5': Defrost, '6': Preparing, '7': Blocked, '8': EVU Blocktime, '9': Unavailable}
+
+notes:
+- 'evcc template `kermi` (single device) lists: Bösch x-change; Kermi x-center pro.'
+- The template has the option `tempsource` (default unset); points used only with another value say so in their note.
+- The binding reads all blocks with function 03 from the heat pump's unit id (40; cascade slaves 41, 42, …).
+- Taken from the openHAB binding (see sources); not checked against manufacturer documents.
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

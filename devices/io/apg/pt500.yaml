@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the APG PT-500 Modbus Series User Manual (Doc #9003999, Rev C, 07/19).
+
+modbusspec: 0
+id: apg-pt500
+manufacturer: APG (Automation Products Group)
+name: PT-500 L5 / L31 submersible pressure and level transducers (Modbus series)
+kind: io
+
+sources:
+#9003999, Part #200245)
+- title: APG PT-500 Modbus Series User Manual (Doc
+  version: Rev C, 07/19
+  url: https://cms.intrinsicallysafestore.com/wp-content/uploads/Intrinsically-Safe-Submersible-Pressure-Transducer-APG-PT-500-P1-Series-Modbus-Manual.pdf
+  sha256: 95fb4ff1ce1c19d6512de0de056166b82bdaf75a58ef19e6105222a3c493960c
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    min_interval_ms: 300
+
+encoding:
+  byte_order: big
+  word_order: big
+
+model_choice: user
+
+models:
+  - {id: l5, name: PT-500 L5 (pressure)}
+  - {id: l31, name: PT-500 L31 (level)}
+
+points:
+  # Input registers (function 04)
+  - {key: x.model_type, label: Model type, table: input, address: 298, type: u16, poll: slow, note: The values are not listed in the document.}
+  - {key: x.pressure, label: Pressure, table: input, address: 299, type: u16, unit: psi, models: [l5], verified: false, note: 'Raw reading in PSI; scaling and signedness not stated (see the pressure decimal setting, holding 407).'}
+  - {key: x.pressure, label: Pressure, table: input, address: 299, type: u16, unit: mmH2O, models: [l31], verified: false, note: Raw reading in mm of water; signedness not stated.}
+  - {key: x.temperature, label: Temperature, table: input, address: 301, type: s16, unit: °C, verified: false, note: Signed °C; a scale is not stated (1 assumed).}
+  - {key: x.calculated, label: Calculated reading (raw), table: input, address: 302, type: u32, verified: false, note: 'Returned without decimal point: divide by 10^(decimal setting, holding 403). In the units set by holding 400 / 402. Word order and signedness not stated; high word first assumed.'}
+  - {key: x.battery_voltage, label: Battery voltage, table: input, address: 307, type: u16, verified: false, note: Unit and scale not stated.}
+  - {key: x.trip1_status, label: Trip 1 status, table: input, address: 308, type: u16}
+  - {key: x.trip2_status, label: Trip 2 status, table: input, address: 309, type: u16}
+  # Holding registers (function 03): settings
+  - {key: x.device_address, label: Device address, table: holding, address: 399, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.units, label: Units, table: holding, address: 400, type: u16, enum: units_l5, models: [l5], writable: true, poll: slow}
+  - {key: x.units, label: Units, table: holding, address: 400, type: u16, enum: units_l31, models: [l31], writable: true, poll: slow, note: 'Used when the application type is 0, 1, 7 or 11.'}
+  - {key: x.application_type, label: Application type, table: holding, address: 401, type: u16, enum: application_l5, models: [l5], writable: true, poll: slow}
+  - {key: x.application_type, label: Application type, table: holding, address: 401, type: u16, enum: application_l31, models: [l31], writable: true, poll: slow}
+  - {key: x.volume_units, label: Volume units, table: holding, address: 402, type: u16, enum: volume_units, models: [l31], writable: true, poll: slow, note: 'Used for the tank volume application types (2–6, 9–11).'}
+  - {key: x.decimal_calculated, label: Decimal (calculated reading), table: holding, address: 403, type: u16, writable: true, min: 0, max: 3, poll: slow, note: Decimal places of the calculated reading.}
+  - {key: x.max_pressure, label: Max pressure, table: holding, address: 404, type: u16, unit: psi, models: [l5], poll: slow, note: Factory calibrated.}
+  - {key: x.max_level, label: Max level, table: holding, address: 404, type: u16, unit: mm, models: [l31], poll: slow, note: Factory calibrated.}
+  - {key: x.full_pressure, label: Full pressure, table: holding, address: 405, type: u16, unit: psi, models: [l5], writable: true, poll: slow}
+  - {key: x.full_level, label: Full level, table: holding, address: 405, type: u16, unit: mm, models: [l31], writable: true, poll: slow}
+  - {key: x.zero_offset, label: Zero offset, table: holding, address: 406, type: s16, unit: psi, models: [l5], writable: true, min: -15000, max: 30000, poll: slow}
+  - {key: x.zero_offset, label: Zero offset, table: holding, address: 406, type: u16, unit: mm, models: [l31], writable: true, min: 0, max: 610, poll: slow}
+  - {key: x.pressure_decimal, label: Pressure decimal, table: holding, address: 407, type: u16, models: [l5], writable: true, min: 0, max: 3, poll: slow}
+  - {key: x.specific_gravity, label: Specific gravity, table: holding, address: 409, type: u16, models: [l31], writable: true, min: 1, max: 2000, poll: slow, verified: false, note: Scale not stated (probably thousandths).}
+  - {key: x.averaging, label: Averaging, table: holding, address: 411, type: u16, writable: true, min: 0, max: 10, poll: slow}
+  - {key: x.sample_rate, label: Sample rate, table: holding, address: 414, type: u16, unit: ms, writable: true, min: 10, max: 1000, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 418, type: u16, writable: true, min: 0, max: 3, poll: slow, verified: false, note: 'The document lists only 2400, 9600 and 19200 and doesn''t map the codes.'}
+  - {key: x.parity, label: Parity, table: holding, address: 419, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: x.stop_bits, label: Stop bits, table: holding, address: 420, type: u16, enum: stop_bits, writable: true, poll: slow}
+  - {key: x.trip1_setpoint, label: Trip 1 pressure, table: holding, address: 429, type: s16, unit: psi, models: [l5], writable: true, poll: slow}
+  - {key: x.trip1_setpoint, label: Trip 1 level, table: holding, address: 429, type: u16, unit: mm, models: [l31], writable: true, poll: slow}
+  - {key: x.trip1_window, label: Trip 1 window, table: holding, address: 430, type: u16, models: [l5, l31], writable: true, poll: slow, note: 'PSI on the L5, mm on the L31.'}
+  - {key: x.trip1_type, label: Trip 1 type, table: holding, address: 431, type: u16, writable: true, min: 0, max: 29, poll: slow, note: The codes are not listed.}
+  - {key: x.trip2_setpoint, label: Trip 2 pressure, table: holding, address: 432, type: s16, unit: psi, models: [l5], writable: true, poll: slow}
+  - {key: x.trip2_setpoint, label: Trip 2 level, table: holding, address: 432, type: u16, unit: mm, models: [l31], writable: true, poll: slow}
+  - {key: x.trip2_window, label: Trip 2 window, table: holding, address: 433, type: u16, writable: true, poll: slow, note: 'PSI on the L5, mm on the L31.'}
+  - {key: x.trip2_type, label: Trip 2 type, table: holding, address: 434, type: u16, writable: true, min: 0, max: 29, poll: slow, note: The codes are not listed.}
+  - {key: x.multiplier, label: Multiplier, table: holding, address: 435, type: f32, models: [l5], writable: true, min: 0.001, max: 99.9999, poll: slow, verified: false, note: Used with application type 8 (custom). Word order not stated.}
+  - {key: x.description, label: Description, table: holding, address: 437, type: str, length: 8, models: [l5], writable: true, poll: slow, verified: false, note: '16 characters (A–Z, 0–9, /.-,+*), the label for a custom unit. The document gives 40438-40439 but 16 characters fill 40438-40445.'}
+  - {key: x.temperature_offset, label: Temperature offset, table: holding, address: 445, type: s16, writable: true, min: -20, max: 20, poll: slow}
+
+enums:
+  units_l5: {'0': PSI, '1': bar, '2': mbar, '3': kPa, '4': MPa, '5': mmH2O, '6': cmH2O, '7': mH2O, '8': inH2O, '9': ftH2O, '10': mmHg, '11': cmHg, '12': inHg, '13': kg/cm², '14': inSW, '15': ftSW, '16': mSW}
+  units_l31: {'1': Feet, '2': Inches, '3': Meters}
+  application_l5: {'0': Standard (units from the units register), '8': 'Custom (units × multiplier, with description)'}
+  application_l31: {'0': Distance, '1': Level, '2': Standing cylindrical tank (± hemispherical bottom), '3': Standing cylindrical tank (± conical bottom), '4': Standing rectangular tank (± chute bottom), '5': Horizontal cylindrical tank (± spherical ends), '6': Spherical tank, '7': Pounds (linear scaling), '9': Vertical oval tank, '10': Horizontal oval tank, '11': Strapping chart}
+  volume_units: {'1': Cubic feet, '2': Million cubic feet, '3': Gallons, '4': Cubic meters, '5': Liters, '6': Cubic inches, '7': Barrels}
+  parity: {'0': None, '1': Even, '2': Odd}
+  stop_bits: {'0': 1 stop bit, '1': 2 stop bits}
+
+notes:
+- 'Modbus RTU on RS485, slave only; default 9600 baud, 8N1. At least 300 ms between requests when reading all registers; shorter
+  requests need less. Supply 5–28 V DC. APG labels its RS485 lines the other way round: connect TX+ to TX+ and TX− to TX−
+  rather than A to A.'
+- The document numbers input registers 3xxxx and holding registers 4xxxx; converted to 0-based protocol addresses the usual
+  way (30299 → input 298, 40400 → holding 399). The document doesn't state the offset; unverified on a device.
+- The model-type register's values aren't listed, so the user picks L5 (pressure) or L31 (level). Neither a serial number
+  nor a manufacturer register is documented.
+- 'Left out: factory calibration registers (A/D gain, calibration value / flag, scale, offset, voltage offset, pressure and
+  temperature polynomial coefficients) and the L31 tank geometry parameters 40436–40445 (dimensions in mm or strapping coefficients,
+  32-bit, meaning by application type).'
+- Writing 1 to holding 410 (parameter default) restores the defaults.

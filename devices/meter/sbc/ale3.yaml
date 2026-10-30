@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Saia-Burgess Controls ALE3 data sheet (26/527 EN02, 12.2012) and the ALE3-Modbus mounting
+# instructions (4 319 5113 0a, 11.2012).
+
+modbusspec: 0
+id: sbc-ale3
+manufacturer: Saia-Burgess Controls
+name: ALE3 three-phase energy meter
+kind: meter
+
+sources:
+- title: Data sheet – Energy meter with integrated Serial Modbus interface (ALE3)
+  version: 26/527 EN02, 12.2012
+  url: http://saia-bg.com/files/saia/energymeters/ale3/26-527_EN02_DS_EnergyMeter-ALE3-with-Modbus_CS4-2012-12-14_300dpi.pdf
+  sha256: cf87a220930f05c4746cfaa504e8ab25480e8b4af87e2c67e8eee295353b161e
+- title: ALE3 Modbus – mounting and user instructions (multilingual)
+  version: 4 319 5113 0a, 11.2012
+  url: http://saia-bg.com/files/saia/energymeters/ale3/431951130a_MIUG_ALE3-Modbus_CS4-2012-11-01_300dpi.pdf
+  sha256: 3ce3b4a4d8569b90c94da845a55c686bb05e9f562ed910132ae0d2305a778107
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/sbc.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  limits:
+    max_registers: 20
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 15
+    type: u32
+  checks:
+  - table: holding
+    address: 6
+    type: str
+    length: 2
+    prefix: ALE3
+
+points:
+  - {key: firmware, label: Firmware-Version, table: holding, address: 0, type: u16, scale: 0.1, poll: slow, note: 11 = FW 1.1.}
+  - {key: x.register_count, label: Number of supported registers, table: holding, address: 1, type: u16, poll: slow, note: Reads 52.}
+  - {key: x.baud_rate, label: Baudrate, table: holding, address: 3, type: u32, unit: bd, poll: slow, note: The rate the meter detected on the bus.}
+  - {key: x.type_code, label: Type / ASN function, table: holding, address: 6, type: str, length: 8, poll: slow, note: 'Order number text, two characters per register: ALE3D5FD10C followed by blanks.'}
+  - {key: x.hardware_version, label: HW vers. Modif., table: holding, address: 14, type: u16, scale: 0.1, poll: slow, note: 11 = HW 1.1.}
+  - {key: serial, label: Serial number, table: holding, address: 15, type: u32, poll: slow}
+  - {key: x.status_protect, label: Status / Protect, table: holding, address: 21, type: u16, enum: status_protect}
+  - {key: x.modbus_timeout, label: Modbus Timeout, table: holding, address: 22, type: u16, unit: ms, poll: slow}
+  - {key: x.modbus_address, label: Modbus Address, table: holding, address: 23, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Not writable with a broadcast message.}
+  - {key: error_code, label: Error register, table: holding, address: 24, type: u16, enum: phase_error}
+  - {key: x.tariff, label: Tariff register, table: holding, address: 26, type: u16, enum: tariff}
+  - {key: x.energy_tariff1, label: WT1 total, table: holding, address: 27, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.energy_tariff1_partial, label: WT1 partial, table: holding, address: 29, type: u32, unit: kWh, scale: 0.01, writable: true, poll: slow, note: Reset by writing 0 to both registers in one message.}
+  - {key: x.energy_tariff2, label: WT2 total, table: holding, address: 31, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.energy_tariff2_partial, label: WT2 partial, table: holding, address: 33, type: u32, unit: kWh, scale: 0.01, writable: true, poll: slow, note: Reset by writing 0 to both registers in one message.}
+  - {key: l1_voltage, label: URMS phase 1, table: holding, address: 35, type: u16, unit: V}
+  - {key: l1_current, label: IRMS phase 1, table: holding, address: 36, type: u16, unit: A, scale: 0.1}
+  - {key: l1_power, label: PRMS phase 1, table: holding, address: 37, type: u16, unit: W, scale: 10, positive: import, verified: false}
+  - {key: x.reactive_power_l1, label: QRMS phase 1, table: holding, address: 38, type: s16, unit: var, scale: 10, verified: false}
+  - {key: x.cosphi_l1, label: cos phi phase 1, table: holding, address: 39, type: u16, scale: 0.01}
+  - {key: l2_voltage, label: URMS phase 2, table: holding, address: 40, type: u16, unit: V}
+  - {key: l2_current, label: IRMS phase 2, table: holding, address: 41, type: u16, unit: A, scale: 0.1}
+  - {key: l2_power, label: PRMS phase 2, table: holding, address: 42, type: u16, unit: W, scale: 10, positive: import, verified: false}
+  - {key: x.reactive_power_l2, label: QRMS phase 2, table: holding, address: 43, type: s16, unit: var, scale: 10, verified: false}
+  - {key: x.cosphi_l2, label: cos phi phase 2, table: holding, address: 44, type: u16, scale: 0.01}
+  - {key: l3_voltage, label: URMS phase 3, table: holding, address: 45, type: u16, unit: V}
+  - {key: l3_current, label: IRMS phase 3, table: holding, address: 46, type: u16, unit: A, scale: 0.1}
+  - {key: l3_power, label: PRMS phase 3, table: holding, address: 47, type: u16, unit: W, scale: 10, positive: import, verified: false}
+  - {key: x.reactive_power_l3, label: QRMS phase 3, table: holding, address: 48, type: s16, unit: var, scale: 10, verified: false}
+  - {key: x.cosphi_l3, label: cos phi phase 3, table: holding, address: 49, type: u16, scale: 0.01}
+  - {key: grid_power, label: PRMS total, table: holding, address: 50, type: u16, unit: W, scale: 10, positive: import, verified: false, note: 'The documents state no sign or signedness; the meter only counts drawn energy, so positive = import and unsigned are assumed.'}
+  - {key: reactive_power, label: QRMS total, table: holding, address: 51, type: s16, unit: var, scale: 10, verified: false}
+
+derived:
+  - {key: grid_import_energy, label: Energy total (tariff 1 + tariff 2), unit: kWh, sum: [{key: x.energy_tariff1}, {key: x.energy_tariff2}]}
+
+enums:
+  status_protect: {'0': No problem, '1': Problem with the last communication request}
+  phase_error: {'0': No error, '1': Error phase 1, '2': Error phase 2, '3': Error phases 1 and 2, '4': Error phase 3, '5': Error phases 1 and 3, '6': Error phases 2 and 3, '7': 'Error phases 1, 2 and 3'}
+  tariff: {'0': Tariff 1, '4': Tariff 2}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: warning, text: 'Meter phase error: {text}'}
+
+notes:
+- Powers are given in 0.01 kW / 0.01 kvar steps (scale 10 to W / var).
+- The documents number registers from 1 and say register R is sent as R − 1; the addresses here are R − 1 (e.g. URMS phase
+  1, register 36, is address 35).
+- Only function 03 (read holding registers) and 16 (write multiple registers) are supported; at most 20 registers per request.
+  Double registers are sent high word first.
+- RS485 Modbus RTU, 8 data bits, even parity, 1 stop bit; the baud rate (1200 … 115200) is detected automatically, so 9600
+  is just a choice. The documents don't state a default Modbus address; 1 is assumed.
+- The meter refreshes its data every 10 s; reading the same value more often gives nothing new. Communication starts 30 s
+  after power-on and only works with phase 1 connected.
+- 'The meter has no export counter: WT1 and WT2 are the two tariff counters of drawn energy. The documents state no signedness
+  for the power registers; active power is read unsigned and reactive power signed (assumed).'
+- mbmd (type code SBC) detects the meter by reading L1 Voltage (holding register 35, u16); its bus scan accepts a value within
+  10% of 110 or 230 V.
+- Identification as mbmd recognises the device (not checked against a document).

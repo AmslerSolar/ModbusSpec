@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: shelly-gen4-switch
+manufacturer: Shelly
+name: Gen4 relays (1 / 1PM / 2PM / 1L / 2L)
+kind: io
+
+sources:
+- id: shelly-modbus-home-assistant
+  title: shelly-modbus-home-assistant (Home Assistant integration)
+  url: https://github.com/sphings79/shelly-modbus-home-assistant
+  license: MIT
+  commit: 48005d1f19c8c56451ec258132c23002d85f5f73
+  path: custom_components/shelly_modbus/registers/components.yaml, custom_components/shelly_modbus/registers/models.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 0
+    type: str
+    length: 6
+    byte_order: little
+  any:
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 4SWS0-101XE6
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 4SWS0-108XUE
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 4SWS0-1A1XUE
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 4SWS0-101PE6
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 4SWS0-108PUE
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 4SWS0-201PE6
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 4SWS0-2A4XUE
+
+defaults:
+  verified: false
+  sources:
+  - shelly-modbus-home-assistant
+
+models:
+  - {id: s4sw_001x16eu, name: Shelly 1 Gen4 (S4SW-001X16EU), match: {table: input, address: 6, type: str, length: 10, prefix: 4SWS0-101XE6}}
+  - {id: s4sw_001x8eu, name: Shelly 1 Mini Gen4 (S4SW-001X8EU), match: {table: input, address: 6, type: str, length: 10, prefix: 4SWS0-108XUE}}
+  - {id: s4sw_0a1x1eul, name: Shelly 1L Gen4 (S4SW-0A1X1EUL), match: {table: input, address: 6, type: str, length: 10, prefix: 4SWS0-1A1XUE}}
+  - {id: s4sw_001p16eu, name: Shelly 1PM Gen4 (S4SW-001P16EU), match: {table: input, address: 6, type: str, length: 10, prefix: 4SWS0-101PE6}}
+  - {id: s4sw_001p8eu, name: Shelly 1PM Mini Gen4 (S4SW-001P8EU), match: {table: input, address: 6, type: str, length: 10, prefix: 4SWS0-108PUE}}
+  - {id: s4sw_002p16eu, name: Shelly 2PM Gen4 (S4SW-002P16EU), match: {table: input, address: 6, type: str, length: 10, prefix: 4SWS0-201PE6}}
+  - {id: s4sw_0a2x4eul, name: Shelly 2L Gen4 (S4SW-0A2X4EUL), match: {table: input, address: 6, type: str, length: 10, prefix: 4SWS0-2A4XUE}}
+
+points:
+  - {key: x.switch_0_output_coil, label: Switch 1 Output control, table: coil, address: 100, type: bool, writable: true, note: 'Writing 1 switches the relay on, 0 off; the project reads the state from input register 3000.'}
+  - {key: x.switch_1_output_coil, label: Switch 2 Output control, table: coil, address: 110, type: bool, models: [s4sw_002p16eu, s4sw_0a2x4eul], writable: true, note: 'Writing 1 switches the relay on, 0 off; the project reads the state from input register 3020.'}
+  - {key: x.input_0_state, label: Input 1 State, table: discrete, address: 100, type: bool}
+  - {key: x.input_1_state, label: Input 2 State, table: discrete, address: 110, type: bool, models: [s4sw_002p16eu, s4sw_0a2x4eul]}
+  - {key: x.mac, label: MAC Address, table: input, address: 0, type: str, length: 6, byte_order: little}
+  - {key: x.model, label: Model, table: input, address: 6, type: str, length: 10, byte_order: little}
+  - {key: x.device_name, label: Device Name, table: input, address: 16, type: str, length: 32, byte_order: little}
+  - {key: x.switch_0_output, label: Switch 1 Output, table: input, address: 3000, type: u16, enum: boolean, note: 'Relay state (0 = off, 1 = on); the relay is switched through coil 100.'}
+  - {key: x.switch_0_voltage, label: Switch 1 Voltage, table: input, address: 3001, type: f32, unit: V, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_0_current, label: Switch 1 Current, table: input, address: 3003, type: f32, unit: A, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_0_act_power, label: Switch 1 Active Power, table: input, address: 3005, type: f32, unit: W, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu], note: Signed; the project treats positive as drawn from the grid when the channels meter the grid.}
+  - {key: x.switch_0_freq, label: Switch 1 Frequency, table: input, address: 3007, type: f32, unit: Hz, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_0_pf, label: Switch 1 Power Factor, table: input, address: 3009, type: f32, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_0_act_energy, label: Switch 1 Active Energy, table: input, address: 3011, type: f32, unit: kWh, scale: 0.001, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_0_act_ret_energy, label: Switch 1 Active Returned Energy, table: input, address: 3013, type: f32, unit: kWh, scale: 0.001, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_0_undervoltage_error, label: Switch 1 Undervoltage, table: input, address: 3015, type: u16, enum: boolean, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_0_overvoltage_error, label: Switch 1 Overvoltage, table: input, address: 3016, type: u16, enum: boolean, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_0_overcurrent_error, label: Switch 1 Overcurrent, table: input, address: 3017, type: u16, enum: boolean, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_0_overpower_error, label: Switch 1 Overpower, table: input, address: 3018, type: u16, enum: boolean, models: [s4sw_001p16eu, s4sw_001p8eu, s4sw_002p16eu]}
+  - {key: x.switch_1_output, label: Switch 2 Output, table: input, address: 3020, type: u16, enum: boolean, models: [s4sw_002p16eu, s4sw_0a2x4eul], note: 'Relay state (0 = off, 1 = on); the relay is switched through coil 110.'}
+  - {key: x.switch_1_voltage, label: Switch 2 Voltage, table: input, address: 3021, type: f32, unit: V, models: [s4sw_002p16eu]}
+  - {key: x.switch_1_current, label: Switch 2 Current, table: input, address: 3023, type: f32, unit: A, models: [s4sw_002p16eu]}
+  - {key: x.switch_1_act_power, label: Switch 2 Active Power, table: input, address: 3025, type: f32, unit: W, models: [s4sw_002p16eu], note: Signed; the project treats positive as drawn from the grid when the channels meter the grid.}
+  - {key: x.switch_1_freq, label: Switch 2 Frequency, table: input, address: 3027, type: f32, unit: Hz, models: [s4sw_002p16eu]}
+  - {key: x.switch_1_pf, label: Switch 2 Power Factor, table: input, address: 3029, type: f32, models: [s4sw_002p16eu]}
+  - {key: x.switch_1_act_energy, label: Switch 2 Active Energy, table: input, address: 3031, type: f32, unit: kWh, scale: 0.001, models: [s4sw_002p16eu]}
+  - {key: x.switch_1_act_ret_energy, label: Switch 2 Active Returned Energy, table: input, address: 3033, type: f32, unit: kWh, scale: 0.001, models: [s4sw_002p16eu]}
+  - {key: x.switch_1_undervoltage_error, label: Switch 2 Undervoltage, table: input, address: 3035, type: u16, enum: boolean, models: [s4sw_002p16eu]}
+  - {key: x.switch_1_overvoltage_error, label: Switch 2 Overvoltage, table: input, address: 3036, type: u16, enum: boolean, models: [s4sw_002p16eu]}
+  - {key: x.switch_1_overcurrent_error, label: Switch 2 Overcurrent, table: input, address: 3037, type: u16, enum: boolean, models: [s4sw_002p16eu]}
+  - {key: x.switch_1_overpower_error, label: Switch 2 Overpower, table: input, address: 3038, type: u16, enum: boolean, models: [s4sw_002p16eu]}
+
+enums:
+  boolean: {'0': 'No', '1': 'Yes'}
+
+notes:
+- Values are input registers (function 04); holding registers aren't implemented. Relay outputs are switched through coils
+  (function 05), physical inputs are discrete inputs (function 02).
+- 32-bit values have the low word first. Strings (MAC, model, name) have the two bytes of each register swapped (byte order
+  little); the model match strings are written in that swapped form.
+- The unit id is ignored by the device.
+- Identification as shelly-modbus-home-assistant recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

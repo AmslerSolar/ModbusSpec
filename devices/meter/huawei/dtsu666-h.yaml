@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from a register reading of a real Huawei DTSU666-H (model text HW_DTSU666-HW.001_3*230V5A_V1.20), 2026-10-25.
+
+modbusspec: 0
+id: huawei-dtsu666-h
+manufacturer: Huawei
+name: DTSU666-H
+kind: meter
+
+sources:
+- title: 'Register reading of a DTSU666-H (HW_DTSU666-HW.001_3*230V5A_V1.20, software version 117): every address 0–65535
+    with functions 03 and 04, then the blocks read again as a whole; only L1 connected, no load'
+  version: '2026-10-25'
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/huawei-meter.yaml
+
+connection:
+  default_port: 502
+  default_unit: 11
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 106
+  blocks:
+  - table: input
+    address: 28672
+    count: 16
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: input
+    address: 28672
+    type: str
+    length: 16
+    prefix: HW_DTSU666
+
+points:
+  # Identity and settings
+  - {key: x.model, label: Model text, table: input, address: 28672, type: str, length: 16, poll: slow, note: HW_DTSU666-HW.001_3*230V5A_V1.20 on the meter read. Answers only to a read of the whole 16-register block., verified: true}
+  - {key: firmware, label: Software version (REV.), table: holding, address: 0, type: u16, poll: slow, note: 117 on the meter read; the same value at 2003., verified: true}
+  - {key: x.wiring, label: Wiring (net), table: holding, address: 3, type: u16, enum: wiring, poll: slow, verified: true}
+  - {key: x.ct_ratio, label: Current transformer ratio (IrAt), table: holding, address: 6, type: u16, poll: slow, note: 1 on the meter read., verified: true}
+  - {key: x.pt_ratio, label: Voltage transformer ratio (UrAt), table: holding, address: 7, type: u16, poll: slow, note: '10 on the meter read, although no voltage transformer is fitted.', verified: true}
+  - {key: x.baud_rate, label: Baud rate (bAud), table: holding, address: 45, type: u16, enum: baud_rate, poll: slow, verified: true}
+  - {key: x.bus_address, label: Modbus address (Addr), table: holding, address: 46, type: u16, poll: slow, note: The meter's own bus address; the same value at 2027., verified: true}
+  # Measurements, IEEE 754 float, high word first (the block starts at 2102)
+  - {key: l1_current, label: Current L1, table: holding, address: 2102, type: f32, unit: A, note: Read as 0 (no load).}
+  - {key: l2_current, label: Current L2, table: holding, address: 2104, type: f32, unit: A, note: Read as 0 (no load).}
+  - {key: l3_current, label: Current L3, table: holding, address: 2106, type: f32, unit: A, note: Read as 0 (no load).}
+  - {key: x.voltage_avg, label: Average phase voltage, table: holding, address: 2108, type: f32, unit: V, verified: true}
+  - {key: l1_voltage, label: Phase voltage L1, table: holding, address: 2110, type: f32, unit: V, verified: true}
+  - {key: l2_voltage, label: Phase voltage L2, table: holding, address: 2112, type: f32, unit: V, verified: true}
+  - {key: l3_voltage, label: Phase voltage L3, table: holding, address: 2114, type: f32, unit: V, verified: true}
+  - {key: x.line_voltage_avg, label: Average line voltage, table: holding, address: 2116, type: f32, unit: V, verified: true}
+  - {key: x.l1_l2_voltage, label: Line voltage L1-L2, table: holding, address: 2118, type: f32, unit: V, verified: true}
+  - {key: x.l2_l3_voltage, label: Line voltage L2-L3, table: holding, address: 2120, type: f32, unit: V, verified: true}
+  - {key: x.l3_l1_voltage, label: Line voltage L3-L1, table: holding, address: 2122, type: f32, unit: V, verified: true}
+  - {key: frequency, label: Frequency, table: holding, address: 2124, type: f32, unit: Hz, verified: true}
+  - {key: power_factor, label: Power factor total, table: holding, address: 2150, type: f32, note: Read as 1 (no load); the sign convention isn't known.}
+  - {key: x.l1_power_factor, label: Power factor L1, table: holding, address: 2152, type: f32}
+  - {key: x.l2_power_factor, label: Power factor L2, table: holding, address: 2154, type: f32}
+  - {key: x.l3_power_factor, label: Power factor L3, table: holding, address: 2156, type: f32}
+  # Energy, float, kWh, in groups of four (total, then three per phase)
+  - {key: x.net_energy, label: Net active energy (import − export), table: holding, address: 2158, type: f32, unit: kWh, poll: slow, verified: true}
+  - {key: grid_import_energy, label: Import active energy, table: holding, address: 2166, type: f32, unit: kWh, poll: slow, verified: true}
+  - {key: grid_export_energy, label: Export active energy, table: holding, address: 2174, type: f32, unit: kWh, poll: slow, verified: true}
+  - {key: x.net_reactive_energy, label: Net reactive energy, table: holding, address: 2206, type: f32, unit: kvarh, poll: slow, verified: true}
+  - {key: x.reactive_energy_import, label: 'Reactive energy (import side, Q1 + Q2)', table: holding, address: 2214, type: f32, unit: kvarh, poll: slow, verified: true}
+  - {key: x.reactive_energy_export, label: 'Reactive energy (export side, Q3 + Q4)', table: holding, address: 2222, type: f32, unit: kvarh, poll: slow, verified: true}
+  - {key: x.reactive_energy_q1, label: Reactive energy quadrant 1, table: holding, address: 2230, type: f32, unit: kvarh, poll: slow, verified: true}
+  - {key: x.reactive_energy_q2, label: Reactive energy quadrant 2, table: holding, address: 2238, type: f32, unit: kvarh, poll: slow, verified: true}
+  - {key: x.reactive_energy_q3, label: Reactive energy quadrant 3, table: holding, address: 2246, type: f32, unit: kvarh, poll: slow, verified: true}
+  - {key: x.reactive_energy_q4, label: Reactive energy quadrant 4, table: holding, address: 2254, type: f32, unit: kvarh, poll: slow, verified: true}
+  - {key: grid_power, label: Grid power, table: holding, address: 2126, type: f32, unit: W, positive: import, note: 'evcc reads it for the usages grid, pv, charge. evcc negates it for the PV power.', verified: false, sources: [evcc]}
+  - {key: l1_power, label: Grid L1 power, table: holding, address: 2128, type: f32, unit: W, positive: import, note: 'evcc reads it for the usages grid, pv, charge. evcc negates it for the PV L1 power.', verified: false, sources: [evcc]}
+  - {key: l2_power, label: Grid L2 power, table: holding, address: 2130, type: f32, unit: W, positive: import, note: 'evcc reads it for the usages grid, pv, charge. evcc negates it for the PV L2 power.', verified: false, sources: [evcc]}
+  - {key: l3_power, label: Grid L3 power, table: holding, address: 2132, type: f32, unit: W, positive: import, note: 'evcc reads it for the usages grid, pv, charge. evcc negates it for the PV L3 power.', verified: false, sources: [evcc]}
+
+enums:
+  wiring: {'0': 3 phase 4 wire}
+  baud_rate: {'3': '9600'}
+
+notes:
+- 'Written from a reading of one meter (only L1 connected, no load): voltages, frequency, energies, identity and settings
+  are as read (verified); current, power and power factor were only seen as 0 / 1, so their scale and sign aren''t confirmed.
+  Active power (2126 total, 2128–2132 per phase) and reactive / apparent power (2134–2148, by position) are not in this file
+  for that reason.'
+- 'At most 106 registers per request (from 2102, 106 answer and 108 are refused). A request that starts in a gap is refused
+  with exception 2 even if most of it is inside a block: the measurement block starts at 2102.'
+- The model text at input 28672–28687 answers only to a read of all 16 registers; a 2-register read inside the block returns
+  the first two registers again.
+- The same settings answer on input 0–55 and again in a Huawei layout at holding 2000–2029 (2003 version, 2027 address, 2028
+  baud code).
+- Energy comes in groups of four (total, then three per phase); with only L1 connected the per-phase value showed at +6, not
+  at +2, so the phase order of the per-phase energies isn't settled and they are left out.
+- The Chint DTSU666 live values (input 8192 block, in the Chint manual's integer scale, and the energy block at input 4096)
+  answer on input registers here; holding 8192–8275 is refused. Input 5376–5455 holds the same values in real units (5454
+  = frequency).
+- Each input area ends in floats that grow ×16 from one register pair to the next (e.g. 4176–4185); they aren't values. Single-register
+  reads at block edges sometimes answer with junk where a block read is refused.
+- 'evcc template `huawei-meter` (grid, pv, charge) lists: Huawei DTSU666-H; CHINT DTSU666 (Huawei firmware).'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

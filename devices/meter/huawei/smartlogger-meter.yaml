@@ -1,0 +1,126 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Huawei SmartLogger ModBus Interface Definitions (issue 35, 2020-02-20).
+
+modbusspec: 0
+id: huawei-smartlogger-meter
+manufacturer: Huawei
+name: Power meter connected to a SmartLogger
+kind: meter
+
+sources:
+- title: SmartLogger ModBus Interface Definitions
+  version: Issue 35 (2020-02-20)
+  url: https://github.com/bohdan-s/Sungrow-Inverter/blob/755ae6fda3e9f2c897ccd11427e2d5df050409ee/Modbus%20Information/SmartLogger%20ModBus%20Interface%20Definitions.pdf
+  sha256: 87a0b6d3b183df1d558659be610f865f0b0941387461d21e048e7212cc88dadb
+- id: huawei-solar
+  title: huawei-solar-lib (Python library used by Home Assistant)
+  url: https://github.com/wlcrs/huawei-solar-lib
+  license: AGPL-3.0
+  commit: 19dfcfb642f362890b037ce781fb93c396fabc2e
+  path: src/huawei_solar/registers.py, src/huawei_solar/register_names.py, src/huawei_solar/register_values.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  any:
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    prefix: PowerMeter
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    prefix: Meter
+  - - table: holding
+      address: 30000
+      type: str
+      length: 15
+      answers: false
+    - table: holding
+      address: 40713
+      type: str
+      length: 10
+      answers: false
+    - table: holding
+      address: 32278
+      type: s32
+      answers: true
+
+
+points:
+  - {key: l1_voltage, label: Phase A voltage, table: holding, address: 32260, type: u32, unit: V, scale: 0.01}
+  - {key: l2_voltage, label: Phase B voltage, table: holding, address: 32262, type: u32, unit: V, scale: 0.01}
+  - {key: l3_voltage, label: Phase C voltage, table: holding, address: 32264, type: u32, unit: V, scale: 0.01}
+  - {key: x.line_voltage_l1_l2, label: A-B line voltage, table: holding, address: 32266, type: u32, unit: V, scale: 0.01}
+  - {key: x.line_voltage_l2_l3, label: B-C line voltage, table: holding, address: 32268, type: u32, unit: V, scale: 0.01}
+  - {key: x.line_voltage_l3_l1, label: C-A line voltage, table: holding, address: 32270, type: u32, unit: V, scale: 0.01}
+  - {key: l1_current, label: Phase A current, table: holding, address: 32272, type: s32, unit: A, scale: 0.1}
+  - {key: l2_current, label: Phase B current, table: holding, address: 32274, type: s32, unit: A, scale: 0.1}
+  - {key: l3_current, label: Phase C current, table: holding, address: 32276, type: s32, unit: A, scale: 0.1}
+  - {key: grid_power, label: Active power, table: holding, address: 32278, type: s32, unit: W, positive: import, note: The document gives no sign; positive = import (from the grid) assumed., verified: false}
+  - {key: reactive_power, label: Reactive power, table: holding, address: 32280, type: s32, unit: var}
+  - {key: power_factor, label: Power factor, table: holding, address: 32284, type: s16, scale: 0.001}
+  - {key: apparent_power, label: Apparent power, table: holding, address: 32287, type: s32, unit: VA}
+  - {key: l1_power, label: Phase A active power, table: holding, address: 32335, type: s32, unit: W, positive: import, note: Sign not stated; taken like 32278 (assumed)., verified: false}
+  - {key: l2_power, label: Phase B active power, table: holding, address: 32337, type: s32, unit: W, positive: import, note: Sign not stated; taken like 32278 (assumed)., verified: false}
+  - {key: l3_power, label: Phase C active power, table: holding, address: 32339, type: s32, unit: W, positive: import, note: Sign not stated; taken like 32278 (assumed)., verified: false}
+  - {key: x.total_active_energy, label: Total active electricity, table: holding, address: 32341, type: s64, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.total_reactive_energy, label: Total reactive electricity, table: holding, address: 32345, type: s64, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: grid_export_energy, label: Negative active electricity, table: holding, address: 32349, type: s64, unit: kWh, scale: 0.01, poll: slow, note: 'Negative = export assumed, matching the power sign assumed for 32278; not stated in the document.', verified: false}
+  - {key: x.negative_reactive_energy, label: Negative reactive electricity, table: holding, address: 32353, type: s64, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: grid_import_energy, label: Positive active electricity, table: holding, address: 32357, type: s64, unit: kWh, scale: 0.01, poll: slow, note: Positive = import assumed (see 32349); not stated in the document., verified: false}
+  - {key: x.positive_reactive_energy, label: Positive reactive electricity, table: holding, address: 32361, type: s64, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.smartlogger_external_meter_active_electricity, label: smartlogger_external_meter_active_electricity, table: holding, address: 32282, type: s32, unit: kWh, scale: 0.1, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_reactive_electricity, label: smartlogger_external_meter_reactive_electricity, table: holding, address: 32285, type: s32, unit: kvarh, scale: 0.1, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_positive_active_electricity, label: smartlogger_external_meter_positive_active_electricity, table: holding, address: 32289, type: s32, unit: kWh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_positive_reactive_electricity, label: smartlogger_external_meter_positive_reactive_electricity, table: holding, address: 32291, type: s32, unit: kvarh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_electricity_in_positive_active_electricity_price_segment_1, label: smartlogger_external_meter_electricity_in_positive_active_electricity_price_segment_1, table: holding, address: 32299, type: s32, unit: kWh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_electricity_in_positive_active_electricity_price_segment_2, label: smartlogger_external_meter_electricity_in_positive_active_electricity_price_segment_2, table: holding, address: 32301, type: s32, unit: kWh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_electricity_in_positive_active_electricity_price_segment_3, label: smartlogger_external_meter_electricity_in_positive_active_electricity_price_segment_3, table: holding, address: 32303, type: s32, unit: kWh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_electricity_in_positive_active_electricity_price_segment_4, label: smartlogger_external_meter_electricity_in_positive_active_electricity_price_segment_4, table: holding, address: 32305, type: s32, unit: kWh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_electricity_in_negative_active_electricity_price_segment_1, label: smartlogger_external_meter_electricity_in_negative_active_electricity_price_segment_1, table: holding, address: 32307, type: s32, unit: kWh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_electricity_in_negative_active_electricity_price_segment_2, label: smartlogger_external_meter_electricity_in_negative_active_electricity_price_segment_2, table: holding, address: 32309, type: s32, unit: kWh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_electricity_in_negative_active_electricity_price_segment_3, label: smartlogger_external_meter_electricity_in_negative_active_electricity_price_segment_3, table: holding, address: 32311, type: s32, unit: kWh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_electricity_in_negative_active_electricity_price_segment_4, label: smartlogger_external_meter_electricity_in_negative_active_electricity_price_segment_4, table: holding, address: 32313, type: s32, unit: kWh, scale: 0.01, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_1, label: smartlogger_external_meter_custom_1, table: holding, address: 32315, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_2, label: smartlogger_external_meter_custom_2, table: holding, address: 32317, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_3, label: smartlogger_external_meter_custom_3, table: holding, address: 32319, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_4, label: smartlogger_external_meter_custom_4, table: holding, address: 32321, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_5, label: smartlogger_external_meter_custom_5, table: holding, address: 32323, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_6, label: smartlogger_external_meter_custom_6, table: holding, address: 32325, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_7, label: smartlogger_external_meter_custom_7, table: holding, address: 32327, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_8, label: smartlogger_external_meter_custom_8, table: holding, address: 32329, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_9, label: smartlogger_external_meter_custom_9, table: holding, address: 32331, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+  - {key: x.smartlogger_external_meter_custom_10, label: smartlogger_external_meter_custom_10, table: holding, address: 32333, type: s32, scale: 0.001, invalid: [2147483647], sources: [huawei-solar], verified: false}
+
+notes:
+- 'Read through the SmartLogger over Modbus TCP: the unit id is the meter''s RS485 address as set on the SmartLogger (not
+  fixed; 1 assumed here). All registers are holding registers (function 03).'
+- Signs of the active power and which of the positive / negative energy counters is import aren't stated in the document;
+  the assumptions are marked unverified.
+- 'Left out: the registers the document marks as reserved (32282, 32285, 32289, 32291), the price-segment counters 32299–32313
+  (DL/T 645 meters only) and the ten custom values 32315–32333.'
+- 'No identification registers: the meter''s model and serial number are only known from the SmartLogger''s device list.'
+- Identification as huawei-solar recognises the device (not checked against a document).
+- huawei-solar-lib reads and writes everything as holding registers (function 03, writes 06/16).
+- Huawei devices accept only one Modbus TCP connection at a time.
+- The library waits 1 s after connecting and 50 ms between requests.
+- Read at the meter's own unit id behind a SmartLogger; detected by reading 32278 (active power). Model name and serial number
+  are only available through the SmartLogger's device list.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

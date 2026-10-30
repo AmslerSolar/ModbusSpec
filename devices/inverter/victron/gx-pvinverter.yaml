@@ -1,0 +1,90 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Victron's GX Modbus-TCP register list dbus_modbustcp 744e228 (revision 55) and dbus_modbustcp's attributes.csv.
+
+modbusspec: 0
+id: victron-gx-pvinverter
+manufacturer: Victron Energy
+name: 'GX Modbus-TCP: PV inverter (com.victronenergy.pvinverter)'
+kind: inverter
+
+sources:
+- title: Victron GX Modbus-TCP register list (CCGX-Modbus-TCP-register-list)
+  version: dbus_modbustcp 744e228 (revision 55)
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/CCGX-Modbus-TCP-register-list.xlsx
+- title: dbus_modbustcp attributes.csv (Victron's register table in the Modbus-TCP service source)
+  version: commit 744e228
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/attributes.csv
+- id: hass-victron
+  title: hass-victron (Home Assistant integration)
+  url: https://github.com/sfstar/hass-victron
+  license: Apache-2.0
+  commit: 3d3ec1e6cb7768d3c6d49ed23e9b52814477c205
+  path: custom_components/victron/const.py
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.victron
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 1039
+    type: str
+    length: 7
+
+points:
+  - {key: x.position, label: Position, table: holding, address: 1026, type: u16, enum: position}
+  - {key: l1_voltage, label: L1 Voltage, table: holding, address: 1027, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: L1 Current, table: holding, address: 1028, type: s16, unit: A, scale: 0.1}
+  - {key: x.ac_l1_power_1029, label: L1 Power, table: holding, address: 1029, type: u16, unit: W}
+  - {key: x.ac_l1_energy_forward_1030, label: L1 Energy, table: holding, address: 1030, type: u16, unit: kWh, scale: 0.01, poll: slow, note: Deprecated; use 1046.}
+  - {key: l2_voltage, label: L2 Voltage, table: holding, address: 1031, type: u16, unit: V, scale: 0.1}
+  - {key: l2_current, label: L2 Current, table: holding, address: 1032, type: s16, unit: A, scale: 0.1}
+  - {key: x.ac_l2_power_1033, label: L2 Power, table: holding, address: 1033, type: u16, unit: W}
+  - {key: x.ac_l2_energy_forward_1034, label: L2 Energy, table: holding, address: 1034, type: u16, unit: kWh, scale: 0.01, poll: slow, note: Deprecated; use 1048.}
+  - {key: l3_voltage, label: L3 Voltage, table: holding, address: 1035, type: u16, unit: V, scale: 0.1}
+  - {key: l3_current, label: L3 Current, table: holding, address: 1036, type: s16, unit: A, scale: 0.1}
+  - {key: x.ac_l3_power_1037, label: L3 Power, table: holding, address: 1037, type: u16, unit: W}
+  - {key: x.ac_l3_energy_forward_1038, label: L3 Energy, table: holding, address: 1038, type: u16, unit: kWh, scale: 0.01, poll: slow, note: Deprecated; use 1050.}
+  - {key: serial, label: Serial, table: holding, address: 1039, type: str, length: 7, poll: slow}
+  - {key: x.ac_l1_energy_forward, label: L1 Energy, table: holding, address: 1046, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.ac_l2_energy_forward, label: L2 Energy, table: holding, address: 1048, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.ac_l3_energy_forward, label: L3 Energy, table: holding, address: 1050, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: pv_power, label: Total Power, table: holding, address: 1052, type: s32, unit: W}
+  - {key: x.ac_max_power, label: Maximum Power Capacity, table: holding, address: 1054, type: u32, unit: W}
+  - {key: x.ac_power_limit, label: Power limit, table: holding, address: 1056, type: u32, unit: W, writable: true}
+  - {key: x.ac_l1_power, label: L1 Power, table: holding, address: 1058, type: u32, unit: W}
+  - {key: x.ac_l2_power, label: L2 Power, table: holding, address: 1060, type: u32, unit: W}
+  - {key: x.ac_l3_power, label: L3 Power, table: holding, address: 1062, type: u32, unit: W}
+  - {key: frequency, label: AC Frequency, table: holding, address: 1064, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.custom_name, label: Custom Name, table: holding, address: 1070, type: str, length: 8, writable: true, poll: slow}
+
+enums:
+  position: {'0': AC input 1, '1': AC output, '2': AC input 2}
+
+notes:
+- 'No fixed unit id: the GX assigns them (since Venus OS 2.60), normally the device instance; see Settings → Integrations
+  → Modbus TCP server → Available services. 1 is only a placeholder.'
+- Addresses are the list's numbers, which are the protocol addresses (no 30001/40001 offset); read them as holding registers
+  (function 03). Strings carry two characters per register, first character in the high byte.
+- Registers the device or firmware doesn't have make the GX answer the whole request with an exception; read them in separate
+  requests or skip them.
+- Taken from the register list dbus_modbustcp 744e228 (revision 55); attributes.csv (Victron's dbus_modbustcp source) filled
+  in what the list leaves out.
+- The unit id is the GX device instance of this service; hass-victron finds it by scanning a fixed list of unit ids.

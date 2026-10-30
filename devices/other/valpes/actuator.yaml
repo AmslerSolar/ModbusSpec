@@ -1,0 +1,147 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Valpes MODBUS-RTU fieldbus for electric actuator installation and operation manual (DSBA3305,
+# rev. 07/04/2025), English part.
+
+modbusspec: 0
+id: valpes-actuator
+manufacturer: Valpes
+name: Electric valve actuators with Modbus RTU (ER+, VR, VS, LT, DV, VRX, VSX, VT+, MT)
+kind: other
+
+sources:
+- title: MODBUS-RTU fieldbus for electric actuator – Installation and Operation Manual (DSBA3305)
+  version: rev. 07/04/2025
+  url: https://www.valpes.com/wp-content/uploads/2024/07/valpes-dt-modbus-rtu.pdf
+  sha256: 4c4a0fd30e7f10b98d1e5ca9ea4c5036084af631954409a032f24b8d37e7b405
+  archive_url: https://web.archive.org/web/20250625134153/https://www.valpes.com/wp-content/uploads/2024/07/valpes-dt-modbus-rtu.pdf
+
+connection:
+  default_port: 502
+  default_unit: 247
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+model_choice: user
+
+models:
+  - {id: gmb_v1, name: 'ER+ / VR / VS / LT / DV / VRX / VSX standard (GMB) or 3-position (GF3), bought before 12/2021'}
+  - {id: gmb, name: 'ER+ / VR / VS / LT / DV / VRX / VSX standard (GMB) or 3-position (GF3), bought after 12/2021'}
+  - {id: bbpr, name: 'ER+ / VR / VS / DV with BBPR board (GS6, 3-position GFS)'}
+  - {id: posi, name: 'ER+ / VR / VS / LT / DV / VRX / VSX positioning (POSI GP8, POSI-BBPR GPS)'}
+  - {id: vt, name: VT+ / MT, match: {table: holding, address: 40, type: u16, in: [17, 18, 33, 34]}}
+
+points:
+  # Models bought before 12/2021 (GMB / GF3)
+  - {key: x.cycles, label: Number of cycles, table: holding, address: 1, type: u16, models: [gmb_v1], poll: slow}
+  - {key: x.operating_hours, label: Operating time (hours), table: holding, address: 2, type: u16, unit: h, models: [gmb_v1], poll: slow}
+  - {key: x.operating_seconds, label: Operating time (seconds), table: holding, address: 3, type: u16, unit: s, models: [gmb_v1], poll: slow, note: 0 … 3599 on top of the hours.}
+  - {key: firmware, label: Software version, table: holding, address: 4, type: u16, models: [gmb_v1], poll: slow}
+  - {key: x.eeprom_errors, label: EEPROM errors number, table: holding, address: 5, type: u16, models: [gmb_v1], poll: slow}
+  - {key: x.faults_detected, label: Detected faults number (current limitation + safety temperature), table: holding, address: 6, type: u16, models: [gmb_v1], poll: slow}
+  - {key: x.heating_status, label: Heating status, table: holding, address: 7, type: u16, enum: heating_status, models: [gmb_v1, gmb]}
+  - {key: x.max_temperature, label: Max recorded temperature, table: holding, address: 10, type: s16, unit: °C, models: [gmb_v1], poll: slow}
+  - {key: x.min_temperature, label: Min recorded temperature, table: holding, address: 11, type: s16, unit: °C, models: [gmb_v1], poll: slow}
+  - {key: temperature, label: Actuator temperature, table: holding, address: 12, type: s16, unit: °C, models: [gmb_v1]}
+  - {key: state, label: Position, table: holding, address: 13, type: u16, enum: position_v1, models: [gmb_v1]}
+  - {key: x.fault_type, label: Type of fault, table: holding, address: 14, type: u16, enum: fault_type, models: [gmb_v1]}
+  - {key: x.modbus_address, label: Actuator address, table: holding, address: 28, type: u16, models: [gmb_v1], writable: true, min: 1, max: 247, poll: slow, note: Default 247; 255 neither acts nor answers.}
+  - {key: x.operation, label: Actuator operation, table: holding, address: 35, type: u16, enum: operation_v1, models: [gmb_v1], writable: true}
+  - {key: x.inter_command, label: INTER position command, table: holding, address: 36, type: u16, models: [gmb_v1], writable: true, note: 1 = go to the intermediate position; 3-position (GF3) models only.}
+
+  # Models bought after 12/2021, BBPR, POSI, VT+ / MT
+  - {key: firmware, label: Software version, table: holding, address: 1, type: u16, models: [gmb, bbpr, posi, vt], poll: slow}
+  - {key: x.modbus_address, label: Modbus address, table: holding, address: 9, type: u16, models: [gmb, bbpr, posi, vt], writable: true, min: 1, max: 247, poll: slow, note: Default 247.}
+  - {key: x.start_ramp, label: Start ramp, table: holding, address: 12, type: u16, unit: s, scale: 0.01, models: [gmb], poll: slow}
+  - {key: x.start_ramp, label: Start ramp, table: holding, address: 12, type: u16, unit: s, scale: 0.1, models: [bbpr, posi, vt], poll: slow}
+  - {key: x.motor_nominal_speed, label: Setting motor nominal speed, table: holding, address: 20, type: u16, unit: rpm, models: [vt], poll: slow}
+  - {key: x.overtorque_delay, label: Overtorque detection delay, table: holding, address: 21, type: u16, unit: s, scale: 0.01, models: [gmb], poll: slow}
+  - {key: x.overtorque_delay, label: Overtorque detection delay, table: holding, address: 21, type: u16, unit: s, scale: 0.1, models: [bbpr, posi, vt], poll: slow}
+  - {key: x.torque_limit, label: Torque limit, table: holding, address: 22, type: u16, unit: '%', models: [gmb, bbpr, posi, vt], poll: slow}
+  - {key: x.torque, label: Actuator torque, table: holding, address: 23, type: u16, unit: '%', models: [vt]}
+  - {key: x.torque_peak, label: Actuator torque peak, table: holding, address: 24, type: u16, unit: '%', models: [vt]}
+  - {key: x.motor_speed, label: Motor speed, table: holding, address: 26, type: u16, unit: rpm, models: [vt]}
+  - {key: x.gear_unlock, label: Gear unlock, table: holding, address: 27, type: u16, unit: s, scale: 0.01, models: [gmb], poll: slow}
+  - {key: x.gear_unlock, label: Gear unlock, table: holding, address: 27, type: u16, unit: s, scale: 0.1, models: [bbpr, posi, vt], poll: slow}
+  - {key: x.motor_speed_setting, label: Setting motor speed, table: holding, address: 29, type: u16, unit: '%', models: [vt], poll: slow}
+  - {key: x.safety_temperature, label: Safety temperature, table: holding, address: 30, type: u16, unit: °C, scale: 5, offset: 40, models: [gmb], poll: slow, note: 'Steps of 5 °C from 40 °C (raw 0) to 100 °C (raw 12, default).'}
+  - {key: x.safety_temperature, label: Safety temperature, table: holding, address: 30, type: u16, unit: °C, models: [bbpr, posi, vt], poll: slow}
+  - {key: x.regulation_temperature, label: Regulation temperature, table: holding, address: 33, type: u16, unit: °C, scale: 5, offset: 10, models: [gmb], poll: slow, note: Steps of 5 °C from 10 °C (raw 0) to 40 °C (raw 6); default raw 2 = 20 °C.}
+  - {key: x.regulation_temperature, label: Regulation temperature, table: holding, address: 33, type: u16, unit: °C, models: [vt], poll: slow}
+  - {key: x.min_temperature, label: Min. temperature, table: holding, address: 34, type: s16, unit: °C, models: [gmb, bbpr, posi, vt], poll: slow}
+  - {key: x.max_temperature, label: Max. temperature, table: holding, address: 35, type: s16, unit: °C, models: [gmb, bbpr, posi, vt], poll: slow}
+  - {key: temperature, label: Temperature, table: holding, address: 36, type: s16, unit: °C, models: [gmb]}
+  - {key: temperature, label: Temperature, table: holding, address: 36, type: s16, unit: °C, scale: 0.1, models: [bbpr, posi, vt]}
+  - {key: x.actuator_type, label: Type of actuator, table: holding, address: 40, type: u16, enum: actuator_type, models: [vt], poll: slow}
+  - {key: x.wiring, label: Wiring type, table: holding, address: 41, type: u16, enum: wiring, models: [bbpr, vt], writable: true, poll: slow}
+  - {key: x.safety_position, label: Safety position, table: holding, address: 42, type: u16, enum: safety_position, models: [bbpr, posi, vt], writable: true, poll: slow, note: 'VT+ / MT: GS6, GFS and GPS versions only.'}
+  - {key: x.setpoint_signal, label: Setpoint signal, table: holding, address: 50, type: u16, enum: analog_signal, models: [posi, vt], writable: true, poll: slow, note: 'VT+ / MT: GP7 and GPS versions only.'}
+  - {key: x.setpoint_polarity, label: Polarity setpoint signal, table: holding, address: 51, type: u16, enum: polarity, models: [posi, vt], writable: true, poll: slow}
+  - {key: x.feedback_signal, label: Feedback signal, table: holding, address: 60, type: u16, enum: analog_signal, models: [posi, vt], writable: true, poll: slow}
+  - {key: x.feedback_polarity, label: Polarity feedback signal, table: holding, address: 61, type: u16, enum: polarity, models: [posi, vt], writable: true, poll: slow}
+  - {key: x.setpoint, label: Setpoint, table: holding, address: 62, type: u16, unit: '%', scale: 0.1, models: [posi, vt], writable: true, write_only: true, min: 0, max: 100, note: Manual mode only.}
+  - {key: x.position_feedback, label: Setpoint feedback, table: holding, address: 63, type: u16, unit: '%', scale: 0.1, models: [posi, vt]}
+  - {key: x.bbpr_status, label: BBPR status, table: holding, address: 90, type: u16, enum: bbpr_status, models: [bbpr, posi, vt], note: 'POSI: GPS only; VT+ / MT: GS6, GFS and GPS only.'}
+  - {key: x.backup_battery, label: Battery charge, table: holding, address: 91, type: u16, enum: backup_battery, models: [bbpr, posi, vt]}
+  - {key: x.failure_report, label: Failure report, table: holding, address: 92, type: u16, enum: failure_report, models: [bbpr, posi]}
+  - {key: x.mode, label: Current mode, table: holding, address: 100, type: u16, enum: mode, models: [bbpr, posi, vt], writable: true, note: The actuator must be in manual mode to be controlled over Modbus.}
+  - {key: x.command, label: Command, table: holding, address: 101, type: u16, enum: command_gmb, models: [gmb], writable: true, write_only: true}
+  - {key: x.command, label: Command, table: holding, address: 101, type: u16, enum: command, models: [bbpr, vt], writable: true, write_only: true}
+  - {key: x.motion, label: Position (motion), table: holding, address: 102, type: u16, enum: motion, models: [bbpr, posi, vt], note: 'The VT+ / MT table for models bought before 12/2021 (v.34) gives 0 = opening, 1 = closing, 2 = stop, 3 = overtorque instead; the newer (v.35) values are used.'}
+  - {key: state, label: Position, table: holding, address: 103, type: u16, enum: position, models: [gmb, bbpr, posi, vt]}
+  - {key: x.inter_command, label: INTER position command, table: holding, address: 105, type: u16, enum: inter_command, models: [gmb], writable: true, write_only: true, note: 3-position (GF3) models only.}
+  - {key: x.fault_type, label: Type of fault, table: holding, address: 106, type: u16, enum: fault_type, models: [gmb]}
+  - {key: x.cycles, label: Nb. of cycles, table: holding, address: 120, type: u16, models: [gmb, bbpr, posi, vt], poll: slow}
+  - {key: x.faults, label: Nb. of faults, table: holding, address: 122, type: u16, models: [gmb, bbpr, posi, vt], poll: slow}
+  - {key: x.power_failures, label: Number of power failures, table: holding, address: 123, type: u16, models: [bbpr, posi, vt], poll: slow}
+  - {key: x.operating_hours, label: Operating time (hours), table: holding, address: 124, type: u16, unit: h, models: [gmb, bbpr, posi, vt], poll: slow}
+  - {key: x.operating_minutes, label: Operating time (minutes), table: holding, address: 125, type: u16, unit: min, models: [bbpr, posi, vt], poll: slow}
+  - {key: x.operating_seconds, label: Operating time (seconds), table: holding, address: 126, type: u16, unit: s, models: [gmb], poll: slow, note: 0 … 3599 on top of the hours.}
+  - {key: x.operating_seconds, label: Operating time (seconds), table: holding, address: 126, type: u16, unit: s, models: [bbpr, posi, vt], poll: slow, note: 0 … 59 on top of the minutes.}
+
+enums:
+  heating_status: {'0': Not measured, '1': Heating, '2': 'Off'}
+  position_v1: {'256': Stop, '257': Intermediate, '258': Open, '260': Closed, '512': Opening, '1024': Closing}
+  position: {'1': Open, '2': Closed, '3': Intermediate, '4': Stop, '5': Open to intermediate, '6': Closed to intermediate, '16': Overtorque, '17': Opening, '18': Closing}
+  motion: {'4': Stop, '7': Opening, '8': Closing, '10': Overtorque}
+  fault_type: {'0': No fault, '1': Overtorque, '2': Temperature too high}
+  operation_v1: {'0': Stop, '1': Open, '2': Close}
+  command_gmb: {'1': Open, '2': Close, '4': Stop}
+  command: {'1': Open, '2': Close, '3': Intermediate, '4': Stop}
+  inter_command: {'0': Wire control, '1': Intermediate}
+  actuator_type: {'17': VT+ 4 poles, '18': VT+ 6 poles, '33': MT 4 poles, '34': MT 6 poles}
+  wiring: {'1': Standard, '2': 4 wires}
+  safety_position: {'1': Open, '2': Close, '4': Inactive}
+  analog_signal: {'1': 0–10 V, '2': 4–20 mA}
+  polarity: {'1': Normal, '2': Inverted}
+  bbpr_status: {'0': Not available, '1': Available}
+  backup_battery: {'1': Out of service, '2': Charging, '3': Charged, '4': Charged}
+  failure_report: {'0': Not active, '1': Active}
+  mode: {'1': Manual, '2': Positioning, '4': Program, '8': Wire control, '16': Learning, '64': Fail-safe (BBPR)}
+
+problems:
+  - {when: {key: x.fault_type, not: 0}, kind: fault, text: 'Actuator fault: {text}'}
+  - {when: {key: state, equals: 16}, kind: fault, text: 'Overtorque (position {value})'}
+  - {when: {key: x.motion, equals: 10}, kind: fault, text: 'Overtorque (motion state {value})'}
+  - {when: {key: x.failure_report, equals: 1}, kind: warning, text: Failure report active}
+  - {when: {key: x.backup_battery, equals: 1}, kind: warning, text: Fail-safe battery out of service}
+
+notes:
+- 'Addresses are the document''s register numbers, used as 0-based protocol addresses (the document calls the first readable
+  register @0); not checked on a device. All registers are holding registers of one 16-bit word: read with function 03, write
+  with 06 or 16 as the table says.'
+- RS485, 9600 baud, 8N1; default address 247. Functions 03, 06, 16 and 23.
+- The register map depends on the actuator's electronics (standard / 3-position main board, BBPR fail-safe board, POSI positioning
+  board, VT+ / MT) and, for the standard boards, on whether it was bought before or after 12/2021; the user picks the model.
+  Only VT+ / MT have a type register (40).
+- Function 23 (read / write multiple) reads registers 0 … 41 and writes 20 … 29.
+- The battery charge table names 3 and 4 both as charged.
+- There is no serial number register, so the file has no identify.

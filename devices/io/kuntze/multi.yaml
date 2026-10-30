@@ -1,0 +1,132 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Kuntze Neon Multi / Krypton Multi Short manual modbus RTU (version 2019/04).
+
+modbusspec: 0
+id: kuntze-multi
+manufacturer: Kuntze Instruments
+name: Neon Multi / Krypton Multi water analysis and dosing controller
+kind: io
+
+sources:
+- title: Kuntze Neon Multi / Krypton Multi Short manual modbus RTU
+  version: 2019/04
+  url: https://www.kuntze.com/wp-content/uploads/2021/05/2019_Manual_Modbus-RTU_ENG.pdf
+  sha256: 66667e157c8791be884dd65d7f78fd5d096aa42b907e60d894588ebdab8c6dd9
+  archive_url: https://web.archive.org/web/20210927100939/https://www.kuntze.com/wp-content/uploads/2021/05/2019_Manual_Modbus-RTU_ENG.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 1024
+    type: str
+    length: 12
+  checks:
+  # unit code of the measured pH value: pH
+  - table: holding
+    address: 4138
+    type: u16
+    equals: 1422
+
+points:
+  # Measured values: value, then decimals (bits 0-7) / percentage flag (bit 8), then unit code (, range min, max)
+  - {key: x.ph, label: Measured pH value, table: holding, address: 4136, type: s16, unit: pH, scale_exponent_from: {table: holding, address: 4137, type: u16, bits: [0, 7], negate: true}}
+  - {key: x.water_temperature, label: Measured temperature value, table: holding, address: 4160, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 4161, type: u16, bits: [0, 7], negate: true}, note: °C or °F by the temperature unit setting (10280); the unit code follows in 4162. °C taken.}
+  - {key: x.dis1, label: Measured DIS 1 value, table: holding, address: 4680, type: s16, scale_exponent_from: {table: holding, address: 4681, type: u16, bits: [0, 7], negate: true}, note: 'Disinfectant (chlorine, chlorine dioxide, ozone or H2O2, by 4464); unit in x.dis1_unit.'}
+  - {key: x.dis1_unit, label: Measured DIS 1 value unit, table: holding, address: 4682, type: u16, enum: unit_code, poll: slow}
+  - {key: x.dis2, label: Measured DIS 2 value, table: holding, address: 6000, type: s16, scale_exponent_from: {table: holding, address: 6001, type: u16, bits: [0, 7], negate: true}, optional: true, note: Only with the DIS 2 add-on; unit in x.dis2_unit.}
+  - {key: x.dis2_unit, label: Measured DIS 2 value unit, table: holding, address: 6002, type: u16, enum: unit_code, poll: slow, optional: true}
+  - {key: x.redox, label: Measured Redox value, table: holding, address: 4688, type: s16, unit: mV, scale_exponent_from: {table: holding, address: 4689, type: u16, bits: [0, 7], negate: true}, optional: true, verified: false, note: Only with the Rx add-on. Unit not stated for this register; mV taken from the unit table.}
+  - {key: x.ec, label: Measured EC value, table: holding, address: 4728, type: s16, scale_exponent_from: {table: holding, address: 4729, type: u16, bits: [0, 7], negate: true}, optional: true, note: Only with the EC add-on; unit in x.ec_unit.}
+  - {key: x.ec_unit, label: Measured EC value unit, table: holding, address: 4730, type: u16, enum: unit_code, poll: slow, optional: true}
+  - {key: x.ocl, label: Measured OCl value, table: holding, address: 5832, type: s16, scale_exponent_from: {table: holding, address: 5833, type: u16, bits: [0, 7], negate: true}, optional: true, note: Unit in x.ocl_unit.}
+  - {key: x.ocl_unit, label: Measured OCl value unit, table: holding, address: 5834, type: u16, enum: unit_code, poll: slow, optional: true}
+  # Controller outputs (5 registers each, same layout)
+  - {key: x.controller_s1_ph, label: Controller S1 pH, table: holding, address: 7608, type: s16, scale_exponent_from: {table: holding, address: 7609, type: u16, bits: [0, 7], negate: true}, verified: false, note: Unit (code in 7610) not stated; may be a percentage of the range (see notes).}
+  - {key: x.controller_s2_ph, label: Controller S2 pH, table: holding, address: 7616, type: s16, scale_exponent_from: {table: holding, address: 7617, type: u16, bits: [0, 7], negate: true}, verified: false}
+  - {key: x.controller_s1_dis1, label: Controller S1 DIS 1, table: holding, address: 7624, type: s16, scale_exponent_from: {table: holding, address: 7625, type: u16, bits: [0, 7], negate: true}, verified: false}
+  - {key: x.controller_s2_dis1, label: Controller S2 DIS 1, table: holding, address: 7632, type: s16, scale_exponent_from: {table: holding, address: 7633, type: u16, bits: [0, 7], negate: true}, verified: false}
+  - {key: x.controller_s1_redox, label: Controller S1 Redox, table: holding, address: 7640, type: s16, scale_exponent_from: {table: holding, address: 7641, type: u16, bits: [0, 7], negate: true}, verified: false, optional: true}
+  - {key: x.controller_s2_redox, label: Controller S2 Redox, table: holding, address: 7648, type: s16, scale_exponent_from: {table: holding, address: 7649, type: u16, bits: [0, 7], negate: true}, verified: false, optional: true}
+  - {key: x.controller_s1_ec, label: Controller S1 EC, table: holding, address: 7656, type: s16, scale_exponent_from: {table: holding, address: 7657, type: u16, bits: [0, 7], negate: true}, verified: false, optional: true}
+  # Digital inputs and relays (value register of a 3-register variable)
+  - {key: x.digital_input_1, label: Status digital input 1, table: holding, address: 6152, type: u16}
+  - {key: x.digital_input_2, label: Status digital input 2, table: holding, address: 6184, type: u16}
+  - {key: x.digital_input_3, label: Status digital input 3, table: holding, address: 7536, type: u16}
+  - {key: x.digital_input_4, label: Status digital input 4, table: holding, address: 7544, type: u16}
+  - {key: x.digital_input_5, label: Status digital input 5, table: holding, address: 7552, type: u16}
+  - {key: x.digital_input_6, label: Status digital input 6, table: holding, address: 7560, type: u16}
+  - {key: x.relay_1, label: Status Relay 1, table: holding, address: 6544, type: u16}
+  - {key: x.relay_2, label: Status Relay 2, table: holding, address: 6568, type: u16}
+  - {key: x.relay_3, label: Status Relay 3, table: holding, address: 6592, type: u16, note: Relay 3 is the alarm relay (event 101).}
+  - {key: x.relay_4, label: Status Relay 4, table: holding, address: 7568, type: u16}
+  - {key: x.relay_5, label: Status Relay 5, table: holding, address: 7576, type: u16}
+  - {key: x.relay_6, label: Status Relay 6, table: holding, address: 7584, type: u16}
+  - {key: x.relay_7, label: Status Relay 7, table: holding, address: 7592, type: u16}
+  - {key: x.relay_8, label: Status Relay 8, table: holding, address: 7600, type: u16}
+  # Event and calibration logs
+  - {key: x.event_log_index, label: 'Event log, index of the first entry', table: holding, address: 200, type: u16, note: 'Up to 100 entries of 4 registers (day+month, year+hour, minute+second, code) from 201 to 600.'}
+  - {key: x.event_1_time, label: Event log first entry time, table: holding, address: 201, type: datetime, length: 3, datetime: {day: {register: 0, bits: [8, 15]}, month: {register: 0, bits: [0, 7]}, year: {register: 1, bits: [8, 15], offset: 2000}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}, verified: false, note: The year is one byte; the 2000 offset is assumed.}
+  - {key: x.event_1_code, label: Event log first entry code, table: holding, address: 204, type: u16, enum: event_code, note: Events listed as going have the code + 126.}
+  - {key: x.calibration_log_index, label: 'Calibration log, index of the first entry', table: holding, address: 100, type: u16, poll: slow, note: 'Up to 10 entries of 5 registers (day+month, year+hour, minute+second, slope, zero point) from 101 to 150.'}
+  # Instrument data
+  - {key: serial, label: Serial number, table: holding, address: 1024, type: str, length: 12, poll: slow}
+  - {key: firmware, label: Software version, table: holding, address: 1056, type: str, length: 10, poll: slow}
+  - {key: x.instrument_id, label: ID, table: holding, address: 2056, type: u32, poll: slow, verified: false, note: 'Listed as 4 registers, type u32; only the first two are taken.'}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 2464, type: u32, poll: slow, verified: false}
+  - {key: x.production_date, label: Production date, table: holding, address: 2448, type: u32, poll: slow, verified: false, note: Format not stated.}
+  - {key: x.addons, label: Activated add-ons, table: holding, address: 2128, type: u32, flags: addons, poll: slow, verified: false, note: Word order of the 32-bit values isn't stated; big taken.}
+  - {key: x.operating_hours, label: Operating hours, table: holding, address: 2080, type: u32, unit: h, poll: slow, verified: false}
+  - {key: x.time, label: Time, table: holding, address: 0, type: u32, poll: slow, writable: true, verified: false, note: Format not stated.}
+  # Settings
+  - {key: x.operation_mode, label: Operation mode, table: holding, address: 2240, type: u16, poll: slow, note: Read only. Its texts aren't listed; the unit-code register (2242) names the text table.}
+  - {key: x.dis1_measurement, label: DIS 1 measurement, table: holding, address: 4464, type: u16, enum: disinfectant, poll: slow, writable: true, verified: false, note: Enum taken from text table 3019; which table applies is given in 4466.}
+  - {key: x.temperature_unit, label: Temperature unit, table: holding, address: 10280, type: u16, enum: temperature_unit, poll: slow, writable: true, verified: false, note: Enum taken from text table 3035; which table applies is given in 10282.}
+  - {key: x.ph_lower_limit, label: Lower limit pH, table: holding, address: 11512, type: s16, poll: slow, writable: true, note: 'Given as a percentage of the range (flag set): value = min + raw / 10000 × (max − min), range in 11515 / 11516.'}
+  - {key: x.ph_upper_limit, label: Upper limit pH, table: holding, address: 11520, type: s16, poll: slow, writable: true, verified: false, note: Assumed to be a percentage of the range like the lower limit.}
+  - {key: x.ph_setpoint, label: pH Std setpoint, table: holding, address: 8312, type: s16, poll: slow, writable: true, verified: false, note: Value register of a 5-register variable; check decimals and percentage flag in 8313.}
+  - {key: x.dis1_setpoint, label: DIS 1 Std setpoint, table: holding, address: 8576, type: s16, poll: slow, writable: true, verified: false, note: Value register of a 5-register variable; check decimals and percentage flag in 8577.}
+  - {key: x.redox_setpoint, label: Rx Std setpoint, table: holding, address: 8864, type: s16, poll: slow, writable: true, verified: false, optional: true}
+  - {key: x.alarm_delay, label: Alarm delay, table: holding, address: 6328, type: u16, poll: slow, writable: true, verified: false}
+  - {key: x.bus_address, label: Bus address, table: holding, address: 6608, type: u16, poll: slow, note: 1 … 31; read only over Modbus.}
+  - {key: x.test_mode, label: Test mode, table: holding, address: 2152, type: u16, writable: true, poll: slow, note: Switches the test menu on and off; relays and mA outputs can then be set (6552 ff.).}
+
+enums:
+  unit_code: {'1001': °C, '1054': s, '1058': min, '1059': h, '1060': days, '1211': mA, '1243': mV, '1283': MOhm, '1302': mS/cm, '1342': '%', '1353': l/h, '1422': pH, '1423': ppm, '1552': µS/cm, '1558': mg/l, '1559': g/l, '1660': Times per week, '1661': Ppk, '1662': g/l, '1663': m³/h, '1664': nA/ppm, '1670': /cm, '1671': m³, '1672': m³/h, '1673': ml/m³, '1993': Pulse/h, '1994': l/Pulse, '1995': l/l, '1996': no unit}
+  disinfectant: {'0': Chlorine, '1': Chlorine dioxide, '2': Ozone, '3': H2O2}
+  temperature_unit: {'0': °C, '1': °F}
+  event_code: {'3': Start, '4': Internal error, '5': Internal error, '6': Internal error, '7': Internal error, '8': Internal error, '9': Internal error, '10': Internal error, '11': Internal error, '12': Internal error, '14': Check pH input, '15': Check temperature input, '16': Check DIS 1 input, '17': Check Rx input, '18': Check DIS 2 input, '19': Check EC input, '20': Below measurement range pH, '21': Above measurement range pH, '22': Below measurement range temperature, '23': Above measurement range temperature, '24': Below measurement range DIS 1, '25': Above measurement range DIS 1, '26': Below measurement range Rx, '27': Above measurement range Rx, '28': Below measurement range DIS 2, '29': Above measurement range DIS 2, '30': Below measurement range EC, '31': Above measurement range EC, '32': Internal error, '33': Zero point pH, '34': Zero point Rx, '35': Zero point DIS 1, '36': Zero point EC, '38': Zero point DIS 2, '39': Slope pH, '40': Slope DIS 1, '41': Slope Rx, '42': Slope EC, '44': Slope DIS 2, '45': Calibration pH, '46': Calibration DIS 1, '47': Calibration Rx, '48': Calibration temperature, '49': Calibration EC, '51': Calibration DIS 2, '52': Clean filter, '53': Clean armature, '54': Clean sensors, '55': Clean seals, '56': Check safety functions, '57': Change sensor pH, '58': Change sensor DIS 1, '59': Change sensor Rx, '62': Change sensor DIS 2, '65': 'SD card: logging stop', '66': No SD card for saving, '67': No SD card, '68': 'SD card: invalid format', '69': 'SD card: full', '70': 'SD card: load error', '71': 'SD card: saving error', '72': 'SD card: write error', '73': 'SD card: read error', '75': No communication with the measurement module, '76': Unknown measurement module, '77': No program file, '78': Unknown program file, '80': Lower limit pH, '81': Upper limit pH, '82': Lower limit DIS 1, '83': Upper limit DIS 1, '84': Lower limit Rx, '85': Upper limit Rx, '86': Lower limit temperature, '87': Upper limit temperature, '88': Lower limit EC, '89': Upper limit EC, '92': Lower limit DIS 2, '93': Upper limit DIS 2, '94': Digital input 1 no water, '95': Digital input 2 external stop, '96': Digital input 3 level, '97': Digital input 4 level, '98': Digital input 5 eco mode, '99': Digital input 6 leakage, '100': Dosage surveillance, '101': Relay 3 (alarm relay), '102': Error RS485, '103': Delay-time controller, '104': Delay-time controller pH, '105': Delay-time controller DIS 1, '106': Delay-time controller Rx, '107': Delay-time controller EC, '109': Delay-time controller DIS 2, '110': mA 1 out of range, '111': mA 2 out of range, '112': mA 3 out of range, '113': mA 4 out of range, '114': mA 5 out of range, '115': Load impedance mA 1 too high, '116': Load impedance mA 2 too high, '117': Load impedance mA 3 too high, '118': Load impedance mA 4 too high, '119': Load impedance mA 5 too high, '120': Calibration, '122': Delay time cleaning, '123': Cleaning, '124': 'Cleaning, base load dosing'}
+
+flags:
+  addons: {'9': pH, '10': Rx, '11': DIS 1, '12': EC, '14': DIS 2, '19': Analog outputs, '20': Controller, '22': Modbus RTU, '24': Data log, '25': ASR}
+
+notes:
+- 'Modbus RTU only (RS485 add-on): 19200 baud, 8E1, bus address 1 … 31 (default 1). Function 03 reads, 06 / 16 write; at most
+  125 registers per request. Addresses are the document''s register numbers, which it gives as protocol addresses (0x0000
+  … 0xFFFF).'
+- Every numeric variable spans 3 registers (value; decimals in bits 0-7 and a percentage flag in bit 8; unit code) or 5 (plus
+  range minimum and maximum). With the percentage flag set the value is 0 … 10000 = 0 … 100 % of the range, and the real value
+  is min + value / 10000 × (max − min); this file can't express that and assumes the flag is clear for measured values. Text
+  variables are one ASCII character per register.
+- Unit codes 1000 … 1996 are units; codes 3001 … 3044 name text tables, where the value is an index (from 0) into that table.
+- There is no register for the active alarms; the event log (200 ff.) and the alarm relay (relay 3) are what the document
+  offers, so there are no problems here.
+- 'Left out: raw sensor values (4440, 4448, 4656, 4664, 4736), the log entries after the first, most configuration parameters
+  (measurement, controller parameter sets, data log, analog outputs, expert menu, maintenance intervals, codes) and the test
+  outputs. Which exist depends on the activated add-ons.'

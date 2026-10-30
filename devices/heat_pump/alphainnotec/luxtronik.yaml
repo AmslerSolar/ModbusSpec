@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: alphainnotec-luxtronik
+manufacturer: alpha innotec
+name: Luxtronik 2.1 heat pump controller
+kind: heat_pump
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/charger/luxtronik.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/consumers/luxtronik/luxtronik/consumer.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - evcc
+  - openwb
+
+points:
+  - {key: x.getmode_heat, label: Operating mode (input HEAT), table: holding, address: 10000, type: u16, writable: true, note: evcc feeds it into a script that computes the operating mode.}
+  - {key: x.heating_offset, label: Heating offset, table: holding, address: 10002, type: s16, unit: K, scale: 0.1, writable: true, sources: [openwb]}
+  - {key: x.getmode_ww, label: Operating mode (input WW), table: holding, address: 10005, type: u16, writable: true, note: evcc feeds it into a script that computes the operating mode.}
+  - {key: x.dhw_offset, label: Hot water offset, table: holding, address: 10007, type: s16, unit: K, scale: 0.1, writable: true, sources: [openwb]}
+  - {key: x.getmode_lpc, label: Operating mode (input LPC), table: holding, address: 10040, type: u16, writable: true, note: 'evcc feeds it into a script that computes the operating mode. evcc writes setmode 1: 2; setmode 2: 0; setmode 3: 0.'}
+  - {key: x.temp, label: Temperature, table: input, address: 10100, type: u16, unit: °C, scale: 0.1, sources: [evcc]}
+  - {key: x.limittemp, label: Temperature limit, table: input, address: 10101, type: s16, unit: °C, scale: 0.1, sources: [evcc]}
+  - {key: consumer_power, label: Power, table: input, address: 10301, type: u16, unit: W, scale: 100, positive: consumption}
+  - {key: consumer_energy, label: Energy, table: input, address: 10311, type: u16, unit: kWh, scale: 0.1, sources: [evcc]}
+
+notes:
+- 'evcc template `luxtronik` (single device) lists: Buderus Logamatic HMC 20; Buderus Logamatic HMC 20 Z; alpha innotec; CTA
+  All-In-One Aeroplus; Elco; Nibe AP-AW10; Roth ThermoAura; Roth ThermoTerra; Novelan WPR NET; Wolf BWL; Wolf BWS.'
+- openWB switches on by setting heating and hot water mode to offset with its boost offset, and off by writing 0 to both modes
+  and to register 10040.
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

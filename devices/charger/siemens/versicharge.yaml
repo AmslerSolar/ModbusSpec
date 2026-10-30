@@ -1,0 +1,187 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From Siemens' VersiCharge AC Series ModBus Map A5E52200882-AJ (firmware ≥ 2.135), with the differences of the
+# older map A5E52200882-AA (firmware ≥ 2.118) as a second model.
+
+modbusspec: 0
+id: siemens-versicharge
+manufacturer: Siemens
+name: VersiCharge AC wallboxes
+kind: charger
+
+sources:
+- title: VersiCharge AC Series ModBus Map (A5E52200882-AJ)
+  version: AJ (06/2024), firmware ≥ V2.135
+  url: https://cache.industry.siemens.com/dl/files/359/109814359/att_1291322/v1/versicharge_wallbox_modBus_map_en-US.pdf
+  sha256: 8bf40ac5e3b78390feb0da56fa3f5bb77b6c02133d4e0e4dc0845695ab93d842
+- title: VersiCharge AC Series ModBus Map (A5E52200882-AA)
+  version: AA (10/2022), firmware ≥ V2.118
+  url: https://assets.new.siemens.com/siemens/assets/api/uuid:ee5e40d6-fad5-47ca-8c5b-9a5b1dbc615f/versicharge-wallbox-modBus-map-en-US..pdf
+  sha256: f36ace266d07b5abfb3334d57dc41eb8ceb4ac698779365c09f0ef29df5255b3
+  archive_url: https://web.archive.org/web/20240620183946/https://assets.new.siemens.com/siemens/assets/api/uuid:ee5e40d6-fad5-47ca-8c5b-9a5b1dbc615f/versicharge-wallbox-modBus-map-en-US..pdf
+- id: siemens-sentron
+  title: ha-siemens-sentron (Home Assistant integration)
+  url: https://github.com/powerassistant/ha-siemens-sentron
+  license: MIT
+  commit: dfb1773af007be60193f1a4ad83770d3400c057f
+  path: custom_components/siemens_sentron/versicharge.py
+
+connection:
+  default_port: 502
+  default_unit: 2
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 38400
+    format: 8E1
+  limits:
+    max_registers: 125
+    min_interval_ms: 5000
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 7
+    type: str
+    length: 5
+  checks:
+  - table: holding
+    address: 0
+    type: str
+    length: 5
+    prefix: Siemens
+
+models:
+  - {id: al, name: Firmware ≥ 2.135 (map A5E52200882-AJ)}
+  - {id: af, name: Firmware 2.118–2.134 (map A5E52200882-AA)}
+
+points:
+  # Charger specification
+  - {key: x.manufacturer, label: Manufacturer Name, table: holding, address: 0, type: str, length: 5, poll: slow, note: '"Siemens AG".'}
+  - {key: x.production_year, label: Production Date (word 1), table: holding, address: 5, type: u16, poll: slow, note: Year; derived from the serial number., conflicts: [{sources: [siemens-sentron], type: datetime, length: 2, word_order: big, label: Production date}]}
+  - {key: x.production_month, label: 'Production Date (word 2, byte 3)', table: holding, address: 6, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.production_day, label: 'Production Date (word 2, byte 4)', table: holding, address: 6, type: u16, bits: [0, 7], poll: slow}
+  - {key: serial, label: Serial Number, table: holding, address: 7, type: str, length: 5, poll: slow}
+  - {key: x.model, label: MLFB Number, table: holding, address: 12, type: str, length: 10, poll: slow, note: Product catalog number.}
+  - {key: x.platform_type, label: Platform Type, table: holding, address: 22, type: u16, enum: platform_type, poll: slow}
+  - {key: x.number_of_outlets, label: Number of Outlets, table: holding, address: 24, type: u16, poll: slow}
+  - {key: x.outlet_type, label: Type of Outlet, table: holding, address: 25, type: u16, enum: outlet_type, poll: slow}
+  - {key: x.delay_setting, label: Delay Button Status, table: holding, address: 26, type: u16, enum: delay_setting, poll: slow, note: Read-only on AJ; the AA map lists it read/write.}
+  - {key: x.connectivity, label: Utilized Connectivity Stream, table: holding, address: 27, type: u16, enum: connectivity, models: [al], poll: slow, note: The Modbus application starts only on a commissioned charger with "Modbus" set to true in its VersiCloud group.}
+  - {key: x.connectivity, label: Utilized Connectivity Stream, table: holding, address: 27, type: u16, enum: connectivity_aa, models: [af], poll: slow}
+  - {key: x.rated_current, label: Rated Current, table: holding, address: 28, type: u16, unit: A, poll: slow}
+  - {key: x.installation_current, label: Installation Current (DIP switch), table: holding, address: 29, type: u16, unit: A, poll: slow, note: The lower of the rated current and the DIP switch setting.}
+  - {key: x.meter_type, label: Meter Type, table: holding, address: 30, type: u16, enum: meter_type, poll: slow}
+  - {key: firmware, label: A8 FW Version, table: holding, address: 31, type: str, length: 5, poll: slow, note: E.g. "2.135"; selects the model.}
+  - {key: x.m0_firmware, label: M0 FW Version, table: holding, address: 36, type: str, length: 5, poll: slow}
+  - {key: x.modbus_app_version, label: Modbus App Version, table: holding, address: 41, type: u16, poll: slow}
+  - {key: x.firmware_variant, label: A8 FW Variant, table: holding, address: 42, type: str, length: 6, models: [al], poll: slow, note: Blank (spaces) when the build has no variant name.}
+  - {key: x.firmware_release_date, label: A8 FW Release Date, table: holding, address: 48, type: str, length: 3, models: [al], poll: slow, note: Year and work week of the build; blank when unknown.}
+  - {key: x.rfid_authorization, label: RFID Authorization Status, table: holding, address: 79, type: u16, enum: disabled_enabled, writable: true, poll: slow}
+
+  # State of charger
+  - {key: x.evse_state, label: EVSE State, table: holding, address: 1599, type: str, length: 1, models: [al], note: 'J1772 state letter and digit: A1, A2, B1, B2, C1, C2 or F.'}
+  - {key: x.error_code, label: EVSE Error Code, table: holding, address: 1600, type: s16, enum: error, models: [al]}
+  - {key: state, label: OCPP State, table: holding, address: 1601, type: u16, enum: ocpp_state, models: [al], note: Reads 1 (Available) when no OCPP backend is connected.}
+  - {key: temperature, label: PCBA Temperature, table: holding, address: 1602, type: s16, unit: °C, poll: slow}
+
+  # Load management and charging values
+  - {key: x.pause, label: Get/Set Pause, table: holding, address: 1629, type: u16, enum: pause, models: [af], writable: true, note: AA map only; a buffer register on AJ.}
+  - {key: x.charging_current_limit, label: Charging Current Limit, table: holding, address: 1633, type: u16, unit: A, models: [al], writable: true, verified: false, note: 'Writes ≤ 100 are amperes, 101–8000 are 0.01 A; reads back in the 0–80 A range (unit assumed whole A, the map''s examples are cut off). Below 6 A pauses charging. Limited further by OCPP or the cloud.'}
+  - {key: x.charging_current_limit, label: Max Charging Current, table: holding, address: 1633, type: u16, unit: A, models: [af], writable: true}
+  - {key: x.session_energy_target, label: Charging Session Energy Phase Sum, table: holding, address: 1640, type: u32, unit: kWh, scale: 0.001, models: [al], writable: true, min: 0.05, max: 8191, persistent: true, note: Charging stops when the energy counter grows by this much. Applies to one session only., conflicts: [{sources: [siemens-sentron], scale: 1, label: Session energy target}]}
+  - {key: x.charger_phase, label: Charger Phase, table: holding, address: 1642, type: u16, enum: charger_phase, poll: slow, note: Read-only on AJ; the AA map lists it as a writable 1/3-phase switch.}
+  - {key: l1_current, label: Charging Current Phase L1, table: holding, address: 1647, type: u16, unit: A}
+  - {key: l2_current, label: Charging Current Phase L2, table: holding, address: 1648, type: u16, unit: A, note: Three-phase chargers only.}
+  - {key: l3_current, label: Charging Current Phase L3, table: holding, address: 1649, type: u16, unit: A, note: Three-phase chargers only.}
+  - {key: x.current_phase_sum, label: Average Charging Current, table: holding, address: 1650, type: u16, unit: A, note: Named "Average" but described as the phase sum.}
+  - {key: l1_voltage, label: Charging Voltage Phase V(L1-N), table: holding, address: 1651, type: u16, unit: V}
+  - {key: l2_voltage, label: Charging Voltage Phase V(L2-N), table: holding, address: 1652, type: u16, unit: V, note: Three-phase chargers only.}
+  - {key: l3_voltage, label: Charging Voltage Phase V(L3-N), table: holding, address: 1653, type: u16, unit: V, note: Three-phase chargers only.}
+  - {key: x.voltage_l1_l2, label: Charging Voltage Line V(L1-L2), table: holding, address: 1654, type: u16, unit: V, models: [al], note: Three-phase chargers; 0 on the ERK variant.}
+  - {key: x.voltage_l2_l3, label: Charging Voltage Line V(L2-L3), table: holding, address: 1655, type: u16, unit: V, models: [al], note: Three-phase chargers; 0 on the ERK variant.}
+  - {key: x.voltage_l3_l1, label: Charging Voltage Line V(L3-L1), table: holding, address: 1656, type: u16, unit: V, models: [al], note: Three-phase chargers; 0 on the ERK variant.}
+  - {key: x.fallback_current, label: Fallback Current Phase Sum, table: holding, address: 1660, type: u16, unit: A, writable: true, persistent: false, poll: slow, note: 0 or 6 A up to the charger's capacity; used when Modbus is silent for the fallback time.}
+  - {key: x.fallback_time, label: Fallback Time, table: holding, address: 1661, type: u16, unit: s, writable: true, min: 0, max: 600, persistent: false, poll: slow, note: 0 or 60–600 s.}
+  - {key: l1_power, label: Current Charging Speed L1, table: holding, address: 1662, type: u16, unit: W, positive: consumption, verified: false, note: 'Unsigned, so positive = consumption (derived).', conflicts: [{sources: [siemens-sentron], type: s16, label: Active power L1}]}
+  - {key: l2_power, label: Current Charging Speed L2, table: holding, address: 1663, type: u16, unit: W, positive: consumption, verified: false, note: 'Unsigned, so positive = consumption (derived). Three-phase chargers only.', conflicts: [{sources: [siemens-sentron], type: s16, label: Active power L2}]}
+  - {key: l3_power, label: Current Charging Speed L3, table: holding, address: 1664, type: u16, unit: W, positive: consumption, verified: false, note: 'Unsigned, so positive = consumption (derived). Three-phase chargers only.', conflicts: [{sources: [siemens-sentron], type: s16, label: Active power L3}]}
+  - {key: consumer_power, label: Current Charging Speed Phase Sum, table: holding, address: 1665, type: u16, unit: W, positive: consumption, models: [al], verified: false, note: 'Unsigned, so positive = consumption (derived). On a single-phase charger this is the L1 power.', conflicts: [{sources: [siemens-sentron], type: s16, label: Active power total reported}]}
+  - {key: consumer_power, label: Active Power Phase Sum, table: holding, address: 1665, type: u16, unit: W, scale: 0.1, positive: consumption, models: [af], verified: false, note: 'Unsigned, so positive = consumption (derived). The AA map gives factor 0.1 here but 1 for the phase values.'}
+  - {key: x.power_factor_l1, label: Power Factor Phase L1, table: holding, address: 1666, type: u16, scale: 0.001, models: [al]}
+  - {key: x.power_factor_l1, label: Power Factor Phase L1, table: holding, address: 1666, type: u16, scale: 0.01, models: [af]}
+  - {key: x.power_factor_l2, label: Power Factor Phase L2, table: holding, address: 1667, type: u16, scale: 0.001, models: [al]}
+  - {key: x.power_factor_l2, label: Power Factor Phase L2, table: holding, address: 1667, type: u16, scale: 0.01, models: [af]}
+  - {key: x.power_factor_l3, label: Power Factor Phase L3, table: holding, address: 1668, type: u16, scale: 0.001, models: [al]}
+  - {key: x.power_factor_l3, label: Power Factor Phase L3, table: holding, address: 1668, type: u16, scale: 0.01, models: [af]}
+  - {key: power_factor, label: Average Power Factor, table: holding, address: 1669, type: u16, unit: '', scale: 0.001, models: [al], note: 'Average over all three phases, so a single-phase load on a three-phase charger reads a third of its power factor.'}
+  - {key: power_factor, label: Average Power Factor, table: holding, address: 1669, type: u16, unit: '', scale: 0.01, models: [af]}
+  - {key: x.apparent_power_l1, label: Apparent Power Phase L1, table: holding, address: 1670, type: u16, unit: VA}
+  - {key: x.apparent_power_l2, label: Apparent Power Phase L2, table: holding, address: 1671, type: u16, unit: VA}
+  - {key: x.apparent_power_l3, label: Apparent Power Phase L3, table: holding, address: 1672, type: u16, unit: VA}
+  - {key: apparent_power, label: Apparent Power Phase Sum, table: holding, address: 1673, type: u16, unit: VA}
+  - {key: x.reactive_power_l1, label: Reactive Power Phase L1, table: holding, address: 1674, type: s16, unit: var, models: [al]}
+  - {key: x.reactive_power_l1, label: Reactive Power Phase L1, table: holding, address: 1674, type: u16, unit: var, models: [af]}
+  - {key: x.reactive_power_l2, label: Reactive Power Phase L2, table: holding, address: 1675, type: s16, unit: var, models: [al]}
+  - {key: x.reactive_power_l2, label: Reactive Power Phase L2, table: holding, address: 1675, type: u16, unit: var, models: [af]}
+  - {key: x.reactive_power_l3, label: Reactive Power Phase L3, table: holding, address: 1676, type: s16, unit: var, models: [al]}
+  - {key: x.reactive_power_l3, label: Reactive Power Phase L3, table: holding, address: 1676, type: u16, unit: var, models: [af]}
+  - {key: reactive_power, label: Reactive Power Phase Sum, table: holding, address: 1677, type: u16, unit: var, note: Unsigned in both maps although the phase values are signed on AJ.}
+  - {key: consumer_energy, label: Real Energy Consumed Phase Sum, table: holding, address: 1692, type: u32, unit: kWh, scale: 0.001, models: [al], poll: slow, note: Wh.}
+  - {key: consumer_energy, label: Real Energy Consumed Phase Sum, table: holding, address: 1692, type: u32, unit: kWh, scale: 0.0001, models: [af], poll: slow, note: 0.1 Wh.}
+
+  # Settings
+  - {key: x.rtu_slave_address, label: RTU Slave Address, table: holding, address: 1825, type: u16, models: [al], writable: true, min: 1, max: 247, poll: slow, note: Default 2; takes about 20 s to apply.}
+  - {key: x.error_code_legacy, label: Error code, table: holding, address: 1600, type: s16, enum: error_legacy, invalid: [-1], models: [af], verified: false, sources: [siemens-sentron]}
+  - {key: x.temperature_offboard_a, label: Temperature offboard a, table: holding, address: 1603, type: s16, unit: °C, invalid: [-1], verified: false, sources: [siemens-sentron]}
+  - {key: x.temperature_onboard_a, label: Temperature onboard a, table: holding, address: 1604, type: s16, unit: °C, invalid: [-1], verified: false, sources: [siemens-sentron]}
+  - {key: x.temperature_offboard_b, label: Temperature offboard b, table: holding, address: 1605, type: s16, unit: °C, invalid: [-1], verified: false, sources: [siemens-sentron]}
+
+enums:
+  platform_type: {'1': Residential, '2': Commercial, '3': ERK}
+  outlet_type: {'0': 'Left: socket type 2', '1': 'Left: cable type 2 (7 m)', '2': 'Left: shuttered socket type 2 (France)', '3': 'Left: cable type 1 (7 m)', '4': 'Left: cable GB/T (6 m)', '5': 'Front: SAE J1772 (20 ft)', '6': 'Front: SAE J1772 (25 ft)', '7': 'Right: socket type 2', '8': 'Right: cable type 2 (7 m)', '9': 'Right: type 2 cover with shutter and E plug', '10': 'Right: cable type 1 (7 m)', '11': 'Right: type 2 cover with shutter and F plug', '12': 'Right: type 2 cover with shutter only', '13': Reserved, '14': 'Left and right: socket type 2', '15': 'Left and right: cable type 2 (7 m)', '16': 'Left and right: type 2 cover (France, 7 m)', '17': 'Left and right: cable type 1 (7 m)', '18': 'Left and right: cable GB/T (7 m)', '19': CCS1 / J1772 (25 ft), '20': Reserved, '21': Reserved, '22': Blocked}
+  delay_setting: {'0': No delay, '1': 2 hours, '2': 4 hours, '3': 6 hours, '4': 8 hours}
+  connectivity: {'0': Not commissioned, '1': Wi-Fi, '2': Cellular, '3': Ethernet}
+  connectivity_aa: {'1': Wi-Fi, '2': Ethernet, '3': Cellular}
+  meter_type: {'0': No metering, '1': Basic, '2': ANSI, '3': MID, '4': Integrated meter MID, '5': Eichrecht (ERK), '7': CMC meter, '9': Onboard CMC, '25': Blocked}
+  disabled_enabled: {'0': Disabled, '1': Enabled}
+  pause: {'1': Pause on, '2': Pause off}
+  charger_phase: {'0': Single-phase, '1': Three-phase}
+  ocpp_state: {'1': Available, '2': Preparing, '3': Charging, '4': Suspended EV, '5': Suspended EVSE, '6': Faulted, '7': Finishing}
+  error: {'0': No fault, '2': Line phase A undervoltage, '3': Line phase B undervoltage, '4': Line phase C undervoltage, '6': Line phase A overvoltage, '7': Line phase B overvoltage, '8': Line phase C overvoltage, '10': Line phase A zero voltage, '11': Line phase B zero voltage, '12': Line phase C zero voltage, '22': Load phase A zero voltage, '23': Load phase B zero voltage, '24': Load phase C zero voltage, '25': Bad pilot voltage, '26': Bad amp switch position, '27': ADC fault, '28': Static memory fault, '29': CCID fault, '30': CCID self-test fault, '35': EEPROM read/write fault, '36': FRAM read/write fault, '37': Metering chip read/write fault, '38': CCID close-on fault, '40': Connector lock fault, '41': Cable max temperature fault, '42': Welded contact phase A, '43': Welded contact phase B, '44': Welded contact phase C, '45': Diode fault, '46': Ground monitoring fault, '47': On-board temperature fault, '48': Overcurrent fault}
+  error_legacy: {'0': no_fault, '1': any_line_phase_under_voltage, '2': line_phase_a_under_voltage, '3': line_phase_b_under_voltage, '4': line_phase_c_under_voltage, '5': any_line_phase_over_voltage, '6': line_phase_a_over_voltage, '7': line_phase_b_over_voltage, '8': line_phase_c_over_voltage, '9': any_line_phase_zero_voltage, '10': line_phase_a_zero_voltage, '11': line_phase_b_zero_voltage, '12': line_phase_c_zero_voltage, '13': any_load_phase_under_voltage, '14': load_phase_a_under_voltage, '15': load_phase_b_under_voltage, '16': load_phase_c_under_voltage, '17': any_load_phase_over_voltage, '18': load_phase_a_over_voltage, '19': load_phase_b_over_voltage, '20': load_phase_c_over_voltage, '21': any_load_phase_zero_voltage, '22': load_phase_a_zero_voltage, '23': load_phase_b_zero_voltage, '24': load_phase_c_zero_voltage, '25': bad_pilot_voltage, '26': bad_amp_switch_position, '27': adc_fault, '28': static_memory_fault, '29': ccid_fault, '30': ccid_self_test_fault, '31': contactor_open, '32': over_temperature, '33': j1772_communication_fault, '34': sgd_communication_fault}
+
+problems:
+  - {when: {key: x.error_code, not: 0}, kind: fault, text: 'Charging station error (code {value})'}
+  - {when: {key: state, equals: 6}, kind: fault, text: Charge point faulted (OCPP state 6)}
+  - {when: {key: x.evse_state, equals: E}, kind: fault, text: Charging station fault E (recoverable)}
+  - {when: {key: x.evse_state, equals: F}, kind: fault, text: Charging station fault F (not recoverable)}
+
+notes:
+- Addresses are the maps' "internal" 0-based column; the external numbers are 40001 higher (41634 = holding 1633). Everything
+  is read with function 03; writes with 06 or 16.
+- 'Unit id 2 by default (RTU and, assumed, TCP); RS485 38400 baud, 8 data bits, even parity, 1 stop bit. TCP port 502, fixed.
+  AJ asks for at least 5 s between polls and a 10 s timeout (AA: 1 s and 2 s).'
+- Register blocks with gaps (e.g. holding 23 and 1604–1628 are buffers) and requests over 125 registers are rejected with
+  exception 0x02.
+- The model follows the A8 firmware string at holding 31; there is no register that tells the maps apart directly. The AA
+  map has no EVSE state, error code or OCPP state (1599–1601) and no firmware variant / release date (42–50).
+- Dynamic values may lag several polls behind. When the charger is controlled over OCPP, Modbus is mainly for monitoring.
+- No unavailable marker is documented; registers for phases a single-phase charger lacks read 0.
+- 'Left out: RFID card add/remove and whitelists (80–337, 1852–1877), reboot, factory reset and RTU address reset (1826–1844,
+  1878).'
+- Everything is read with function 03 from holding registers; unit id 2, on some units 1.
+- 'The firmware version (A8 firmware string at holding 31) selects the register map: from 2.135 the energy counter counts
+  Wh and power factors 0.001; before, 0.1 Wh and 0.01. The error-code table and charger states changed with 2.136, so firmware
+  2.135 uses the new scaling with the old error codes.'
+- Holding register 23 doesn't exist; blocks are read around it. Registers 42–50 exist only on the newer map.
+- Manufacturer string at holding 0 reads "Siemens AG"; the model string at 12 starts with 8EM or contains VERSICHARGE.
+- Identification as siemens-sentron recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Socomec RESYS B40 Modbus version – Modbus register set (553488A).
+
+modbusspec: 0
+id: socomec-resys-b40
+manufacturer: Socomec
+name: RESYS B40 residual current relay (Modbus version, 49313602)
+kind: other
+
+sources:
+- title: RESYS B40 Modbus version – Modbus register set
+  version: 553488A
+  url: https://www.socomec.co.uk/sites/default/files/2025-10/RESYS-B40-Modbus-version---MODBUS-REGIST_COMMUNICATION-TABLE_2025-10-08-15-04-38_553488_English_PLURI.pdf
+  sha256: 2157dfb5a386866e722182319baf256d7db0be011c3a282865f493ccc3696145
+  date: 2025-06
+  language: en
+  devices:
+  - RESYS B40 (49313602)
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+defaults:
+  verified: false
+
+points:
+  # Measures, long format (0x0100); every value is 2 registers
+  - {key: x.current_total, label: Current total, table: holding, address: 256, type: u32, unit: A, scale: 0.001}
+  - {key: x.current_dc, label: Current DC, table: holding, address: 258, type: u32, unit: A, scale: 0.001}
+  - {key: x.current_ac, label: Current AC, table: holding, address: 260, type: u32, unit: A, scale: 0.001}
+  - {key: x.current_ac_filter, label: Current AC-filter, table: holding, address: 262, type: u32, unit: A, scale: 0.001}
+  - {key: x.max_current_total, label: Max current total, table: holding, address: 264, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: x.max_current_dc, label: Max current DC, table: holding, address: 266, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: x.max_current_ac, label: Max current AC, table: holding, address: 268, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: x.max_current_ac_filter, label: Max current AC-filter, table: holding, address: 270, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: x.thd, label: THD, table: holding, address: 272, type: u32, unit: '%', scale: 0.01}
+  - {key: x.tdd, label: TDD, table: holding, address: 274, type: u32, unit: '%', scale: 0.01}
+  - {key: x.crest_factor, label: Crest factor, table: holding, address: 276, type: u32, scale: 0.001}
+  - {key: x.current_dc_signed, label: Current DC (signed), table: holding, address: 278, type: s32, unit: A, scale: 0.001}
+  - {key: x.status, label: Status, table: holding, address: 280, type: u32, flags: status}
+  # Last event (event 1); events 2–4 follow at 0x6820, 0x6840 and 0x6860 with the same layout
+  - {key: x.last_event_type, label: Event 1 (last) type, table: holding, address: 26624, type: u32, enum: event_type, poll: slow}
+  - {key: x.last_event_time, label: Event 1 (last) time, table: holding, address: 26626, type: datetime, length: 2, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 1, bits: [8, 15]}, second: {register: 1, bits: [0, 7]}}, poll: slow, note: 'Bytes in order: empty, hour, minute, second.'}
+  - {key: x.last_event_date, label: Event 1 (last) date, table: holding, address: 26628, type: datetime, length: 2, datetime: {day: {register: 0, bits: [8, 15]}, month: {register: 0, bits: [0, 7]}, year: {register: 1}}, poll: slow, note: 'Bytes in order: day, month, year (two bytes).'}
+  - {key: x.last_event_current_total, label: Event 1 (last) current total, table: holding, address: 26630, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: x.last_event_current_dc, label: Event 1 (last) current DC, table: holding, address: 26632, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: x.last_event_current_ac, label: Event 1 (last) current AC, table: holding, address: 26634, type: u32, unit: A, scale: 0.001, poll: slow}
+  # Trip setup (0x2100); write both registers of a value at once
+  - {key: x.trip_reset_mode, label: Trip reset mode, table: holding, address: 8448, type: u32, enum: trip_reset_mode, poll: slow, writable: true}
+  - {key: x.trip_threshold, label: Trip threshold, table: holding, address: 8450, type: u32, unit: A, scale: 0.001, poll: slow, writable: true, note: 20–30 000 mA or 20–10 000 mA depending on the version; the default too.}
+  - {key: x.trip_delay, label: Trip delay, table: holding, address: 8452, type: u32, unit: ms, poll: slow, writable: true, note: A multiple of 20 ms at 50 Hz.}
+  - {key: x.trip_hysteresis, label: Trip hysteresis, table: holding, address: 8454, type: u32, unit: '%', poll: slow, writable: true, min: 50, max: 95, note: Default 90.}
+  - {key: x.trip_fail_safe, label: Trip fail safe, table: holding, address: 8456, type: u32, enum: disable_enable, poll: slow, writable: true}
+  - {key: x.trip_ac_filter, label: AC-filter, table: holding, address: 8458, type: u32, enum: ac_filter, poll: slow, writable: true}
+  - {key: x.reclosing_number, label: Self reclosing number, table: holding, address: 8460, type: u32, poll: slow, writable: true, min: 1, max: 10, note: Default 3.}
+  - {key: x.reclosing_delay, label: Self reclosing delay, table: holding, address: 8462, type: u32, poll: slow, writable: true, min: 5, max: 600, note: Default 10; the unit isn't stated.}
+  - {key: x.reclosing_reset_try, label: Self reclosing reset try, table: holding, address: 8464, type: u32, poll: slow, writable: true, min: 10, max: 600, note: Default 60; the unit isn't stated.}
+  # Alarm setup (0x2180)
+  - {key: x.alarm_reset_mode, label: Alarm reset mode, table: holding, address: 8576, type: u32, enum: alarm_reset_mode, poll: slow, writable: true}
+  - {key: x.alarm_threshold, label: Alarm threshold, table: holding, address: 8578, type: u32, unit: A, scale: 0.001, poll: slow, writable: true}
+  - {key: x.alarm_delay, label: Alarm delay, table: holding, address: 8580, type: u32, unit: ms, poll: slow, writable: true}
+  - {key: x.alarm_hysteresis, label: Alarm hysteresis, table: holding, address: 8582, type: u32, unit: '%', poll: slow, writable: true}
+  - {key: x.alarm_fail_safe, label: Alarm fail safe, table: holding, address: 8584, type: u32, enum: disable_enable, poll: slow, writable: true}
+  # Clock (0x2A80); each part is 2 registers
+  - {key: x.clock, label: Real time clock, table: holding, address: 10880, type: datetime, length: 12, datetime: {hour: {register: 1}, minute: {register: 3}, second: {register: 5}, day: {register: 7}, month: {register: 9}, year: {register: 11}}, poll: slow, writable: true, note: 'Hour, minute, second, day, month, year (2023–2099), each a 2-register value; the value is taken to be in the second (low) register.'}
+
+enums:
+  event_type: {'1': Trip, '2': Alarm, '3': Test, '4': AC open, '5': DC open / power on}
+  trip_reset_mode: {'0': Manual, '1': Automatic, '2': Reclosing}
+  alarm_reset_mode: {'0': 'Off', '1': Manual, '2': Automatic}
+  disable_enable: {'0': Disabled, '1': Enabled}
+  ac_filter: {'0': Disabled, '1': 3rd harmonic (RCM), '2': 21st harmonic (RCM), '3': IEC 60479 (RCM), '4': IEC 62423 (RCM)}
+
+flags:
+  status: {'0': Alarm, '1': Trip, '2': Open, '3': Disabled, '4': AC over, '5': Memory, '6': DC over, '7': Toroid error}
+
+problems:
+  - {when: {key: x.status, bit: 1}, kind: fault, text: Residual current trip}
+  - {when: {key: x.status, bit: 0}, kind: warning, text: Residual current alarm}
+  - {when: {key: x.status, bit: 7}, kind: fault, text: Toroid (current transformer) error}
+  - {when: {key: x.status, bit: 4}, kind: warning, text: AC residual current over the limit}
+  - {when: {key: x.status, bit: 6}, kind: warning, text: DC residual current over the limit}
+
+notes:
+- 'The document gives each register in hex and decimal (e.g. 0x0100 = 256); these are used as protocol addresses. It doesn''t
+  name the function code, the register table, the serial settings, the unit id or the word order of the 2-register values:
+  holding registers (function 3), high word first and unit 1 are assumed, so every point is unverified.'
+- Every value is 2 registers; settings must be written as a whole (both registers in one request).
+- 'The same measurements as 32-bit floats are at 0x0200–0x0214 (same order); left out. Also left out: harmonics 1–63 (0x1000
+  ff., % × 100), the live and last-trip AC / DC waveforms (0x6000, 0x6200, 0x7000, 0x7200, 256 samples, a new waveform after
+  each read of 256 or 512), events 2–4.'
+- 'Event type: the document gives 5 both for DC open and for power on.'
+- 'Write-only commands: 0x2A00 manual reset (write 0x0A0A), 0x2A20 test (write 0x5050). The password / maintenance registers
+  are listed at 0x2180 / 0x2182, the same addresses as the alarm setup; left out.'

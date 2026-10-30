@@ -1,0 +1,161 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the inepro PRO380 user manual (V2.18-8).
+
+modbusspec: 0
+id: inepro-pro380
+manufacturer: inepro Metering
+name: PRO380-Mod three-phase energy meter
+kind: meter
+
+sources:
+- title: inepro PRO380 Series MID three phase energy meter, user manual (appendix 3, A3.2 Modbus register map)
+  version: 2.18-8
+  url: https://cdn.prod.website-files.com/6617f74190bf0a53bfd776e8/69f0b42e8df8da5157fb250d_PRO380%20user%20manual%20V2.18-8.pdf
+  sha256: 95d86483e85bc92836cba6713d0c271ec247bf5fecaa1a5edc8f6e5539b1b83d
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/inepro.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  limits:
+    max_registers: 50
+    max_gap: 12
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 16384
+    type: u32
+  checks:
+  - table: holding
+    address: 20488
+    type: f32
+    range:
+    - 40
+    - 70
+
+points:
+  # Measurements
+  - {key: l1_voltage, label: L1 Voltage, table: holding, address: 20482, type: f32, unit: V}
+  - {key: l2_voltage, label: L2 Voltage, table: holding, address: 20484, type: f32, unit: V}
+  - {key: l3_voltage, label: L3 Voltage, table: holding, address: 20486, type: f32, unit: V}
+  - {key: frequency, label: Grid frequency, table: holding, address: 20488, type: f32, unit: Hz}
+  - {key: l1_current, label: L1 Current, table: holding, address: 20492, type: f32, unit: A}
+  - {key: l2_current, label: L2 Current, table: holding, address: 20494, type: f32, unit: A}
+  - {key: l3_current, label: L3 Current, table: holding, address: 20496, type: f32, unit: A}
+  - {key: grid_power, label: Total active power, table: holding, address: 20498, type: f32, unit: W, scale: 1000, positive: import, verified: false, note: 'The register map gives no sign. The manual calls consumed energy "forward" and shows reverse flow as negative in its combination code example; derived: positive = forward = import.'}
+  - {key: l1_power, label: L1 Active power, table: holding, address: 20500, type: f32, unit: W, scale: 1000, positive: import, verified: false, note: Derived like the total power.}
+  - {key: l2_power, label: L2 Active power, table: holding, address: 20502, type: f32, unit: W, scale: 1000, positive: import, verified: false, note: Derived like the total power.}
+  - {key: l3_power, label: L3 Active power, table: holding, address: 20504, type: f32, unit: W, scale: 1000, positive: import, verified: false, note: Derived like the total power.}
+  - {key: reactive_power, label: Total reactive power, table: holding, address: 20506, type: f32, unit: var, scale: 1000}
+  - {key: x.l1_reactive_power, label: L1 Reactive power, table: holding, address: 20508, type: f32, unit: var, scale: 1000}
+  - {key: x.l2_reactive_power, label: L2 Reactive power, table: holding, address: 20510, type: f32, unit: var, scale: 1000}
+  - {key: x.l3_reactive_power, label: L3 Reactive power, table: holding, address: 20512, type: f32, unit: var, scale: 1000}
+  - {key: apparent_power, label: Total apparent power, table: holding, address: 20514, type: f32, unit: VA, scale: 1000}
+  - {key: x.l1_apparent_power, label: L1 Apparent power, table: holding, address: 20516, type: f32, unit: VA, scale: 1000}
+  - {key: x.l2_apparent_power, label: L2 Apparent power, table: holding, address: 20518, type: f32, unit: VA, scale: 1000}
+  - {key: x.l3_apparent_power, label: L3 Apparent power, table: holding, address: 20520, type: f32, unit: VA, scale: 1000}
+  - {key: power_factor, label: Power factor, table: holding, address: 20522, type: f32, unit: ''}
+  - {key: x.l1_power_factor, label: L1 Power factor, table: holding, address: 20524, type: f32, unit: ''}
+  - {key: x.l2_power_factor, label: L2 Power factor, table: holding, address: 20526, type: f32, unit: ''}
+  - {key: x.l3_power_factor, label: L3 Power factor, table: holding, address: 20528, type: f32, unit: ''}
+
+  # Energy
+  - {key: x.total_energy, label: Total active energy, table: holding, address: 24576, type: f32, unit: kWh, note: Combined from forward and reverse according to the combination code.}
+  - {key: x.l1_total_energy, label: L1 Total active energy, table: holding, address: 24582, type: f32, unit: kWh}
+  - {key: x.l2_total_energy, label: L2 Total active energy, table: holding, address: 24584, type: f32, unit: kWh}
+  - {key: x.l3_total_energy, label: L3 Total active energy, table: holding, address: 24586, type: f32, unit: kWh}
+  - {key: grid_import_energy, label: Forward active energy, table: holding, address: 24588, type: f32, unit: kWh}
+  - {key: x.import_energy_t1, label: T1 Forward active energy, table: holding, address: 24590, type: f32, unit: kWh}
+  - {key: x.import_energy_t2, label: T2 Forward active energy, table: holding, address: 24592, type: f32, unit: kWh}
+  - {key: x.l1_import_energy, label: L1 Forward active energy, table: holding, address: 24594, type: f32, unit: kWh}
+  - {key: x.l2_import_energy, label: L2 Forward active energy, table: holding, address: 24596, type: f32, unit: kWh}
+  - {key: x.l3_import_energy, label: L3 Forward active energy, table: holding, address: 24598, type: f32, unit: kWh}
+  - {key: grid_export_energy, label: Reverse active energy, table: holding, address: 24600, type: f32, unit: kWh}
+  - {key: x.export_energy_t1, label: T1 Reverse active energy, table: holding, address: 24602, type: f32, unit: kWh}
+  - {key: x.export_energy_t2, label: T2 Reverse active energy, table: holding, address: 24604, type: f32, unit: kWh}
+  - {key: x.l1_export_energy, label: L1 Reverse active energy, table: holding, address: 24606, type: f32, unit: kWh}
+  - {key: x.l2_export_energy, label: L2 Reverse active energy, table: holding, address: 24608, type: f32, unit: kWh}
+  - {key: x.l3_export_energy, label: L3 Reverse active energy, table: holding, address: 24610, type: f32, unit: kWh}
+  - {key: x.reactive_energy, label: Total reactive energy, table: holding, address: 24612, type: f32, unit: kvarh, poll: slow}
+  - {key: x.import_reactive_energy, label: Forward reactive energy, table: holding, address: 24624, type: f32, unit: kvarh, poll: slow}
+  - {key: x.export_reactive_energy, label: Reverse reactive energy, table: holding, address: 24636, type: f32, unit: kvarh, poll: slow}
+  - {key: x.tariff, label: Tariff, table: holding, address: 24648, type: s16, poll: slow, writable: true, note: 'Written as 1 = T1, 2 = T2, 11 / 12 = T1 / T2 not saved.'}
+  - {key: x.day_counter, label: Resettable day counter, table: holding, address: 24649, type: f32, unit: kWh, poll: slow, writable: true, note: Forward energy since the last manual reset (write 0); not reset daily.}
+
+  # Meter information
+  - {key: serial, label: Serial number, table: holding, address: 16384, type: u32, poll: slow, note: Shown as 8 hex digits (data type HEX).}
+  - {key: x.meter_code, label: Meter code, table: holding, address: 16386, type: u16, poll: slow, note: The PRO380's value isn't documented.}
+  - {key: x.modbus_id, label: Modbus ID, table: holding, address: 16387, type: s16, poll: slow, writable: true}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 16388, type: s16, poll: slow, writable: true, note: The baud rate itself (e.g. 9600).}
+  - {key: x.protocol_version, label: Protocol version, table: holding, address: 16389, type: f32, poll: slow}
+  - {key: firmware, label: Software version, table: holding, address: 16391, type: f32, poll: slow}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 16393, type: f32, poll: slow}
+  - {key: x.meter_amps, label: Meter amps, table: holding, address: 16395, type: s16, unit: A, poll: slow}
+  - {key: x.ct_ratio, label: CT ratio, table: holding, address: 16396, type: u16, poll: slow, note: Data type HEX.}
+  - {key: x.s0_output_rate, label: S0 output rate, table: holding, address: 16397, type: f32, unit: imp/kWh, poll: slow, writable: true}
+  - {key: x.combination_code, label: Combination code, table: holding, address: 16399, type: s16, enum: combination_code, poll: slow, writable: true}
+  - {key: x.parity, label: Parity setting, table: holding, address: 16401, type: s16, enum: parity, poll: slow, writable: true}
+  - {key: x.l1_current_direction, label: Current direction, table: holding, address: 16402, type: str, length: 1, poll: slow}
+  - {key: x.l2_current_direction, label: L2 Current direction, table: holding, address: 16403, type: str, length: 1, poll: slow}
+  - {key: x.l3_current_direction, label: L3 Current direction, table: holding, address: 16404, type: str, length: 1, poll: slow}
+  - {key: x.power_down_counter, label: Power down counter, table: holding, address: 16406, type: s16, poll: slow, writable: true}
+  - {key: x.quadrant, label: Present quadrant, table: holding, address: 16407, type: s16, poll: slow}
+  - {key: x.l1_quadrant, label: L1 Quadrant, table: holding, address: 16408, type: s16, poll: slow}
+  - {key: x.l2_quadrant, label: L2 Quadrant, table: holding, address: 16409, type: s16, poll: slow}
+  - {key: x.l3_quadrant, label: L3 Quadrant, table: holding, address: 16410, type: s16, poll: slow}
+  - {key: x.active_status_word, label: Active status word, table: holding, address: 16413, type: u32, poll: slow, note: The bits aren't documented.}
+  - {key: x.ct_mode, label: CT mode, table: holding, address: 16415, type: s16, poll: slow}
+  - {key: x.voltage, label: Voltage, table: holding, address: 20480, type: f32, unit: V, verified: false, sources: [mbmd]}
+  - {key: x.current, label: Current, table: holding, address: 20490, type: f32, unit: A, verified: false, sources: [mbmd]}
+  - {key: x.sum_t1, label: Tariff 1 Sum, table: holding, address: 24578, type: f32, unit: kWh, verified: false, sources: [mbmd]}
+  - {key: x.sum_t2, label: Tariff 2 Sum, table: holding, address: 24580, type: f32, unit: kWh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_sum_t1, label: Tariff 1 Reactive, table: holding, address: 24614, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_sum_t2, label: Tariff 2 Reactive, table: holding, address: 24616, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_sum_l1, label: L1 Reactive, table: holding, address: 24618, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_sum_l2, label: L2 Reactive, table: holding, address: 24620, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_sum_l3, label: L3 Reactive, table: holding, address: 24622, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_import_t1, label: Tariff 1 Reactive Import, table: holding, address: 24626, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_import_t2, label: Tariff 2 Reactive Import, table: holding, address: 24628, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_import_l1, label: L1 Reactive Import, table: holding, address: 24630, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_import_l2, label: L2 Reactive Import, table: holding, address: 24632, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_import_l3, label: L3 Reactive Import, table: holding, address: 24634, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_export_t1, label: Tariff 1 Reactive Export, table: holding, address: 24638, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_export_t2, label: Tariff 2 Reactive Export, table: holding, address: 24640, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_export_l1, label: L1 Reactive Export, table: holding, address: 24642, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_export_l2, label: L2 Reactive Export, table: holding, address: 24644, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.reactive_export_l3, label: L3 Reactive Export, table: holding, address: 24646, type: f32, unit: kvarh, verified: false, sources: [mbmd]}
+
+enums:
+  combination_code: {'1': Forward only, '4': Reverse only, '5': Forward + reverse, '6': Reverse − forward, '9': Forward − reverse, '10': Forward − reverse (C-10), '11': Forward − reverse (C-11)}
+  parity: {'1': Even, '2': None, '3': Odd}
+
+notes:
+- All registers are holding registers (FC 03; writes with 06 / 16). Addresses are the hex values printed in the map and go
+  into the frame as they are (the write example sends 4003h).
+- 'Floats are IEEE 754 "ABCD": most significant word first. Power is in kW / kvar / kVA, energy in kWh / kvarh.'
+- This is the new register map of manual 2.18; the old V1.14 map still works but isn't used. Voltage* (5000h), Current* (500Ah)
+  and Error code* (4015h) are PRO1 only.
+- The meter can be recognised by a readable information block 4000h–401Fh and a plausible grid frequency at 5008h.
+- 'RS485 defaults: address 1, 9600 baud, 8 data bits, even parity, 1 stop bit. The manual gives no limit per request.'
+- mbmd (type code INEPRO) detects the meter by reading L1 Voltage (holding register 20482, f32); its bus scan accepts a value
+  within 10% of 110 or 230 V.
+- Identification as mbmd recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

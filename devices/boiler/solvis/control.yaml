@@ -1,0 +1,286 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Solvis SolvisControl 3 Modbus Spezifikationen (1.0, September 2021) and the SolvisRemote Modbus
+# Spezifikationen for SolvisControl 2 (1.0, January 2019). Holiday settings and the weekly schedules are left out.
+
+modbusspec: 0
+id: solvis-control
+manufacturer: Solvis
+name: SolvisControl 2/3
+kind: boiler
+
+sources:
+- title: Technische Info SolvisControl 3 Modbus Spezifikationen (TNF-SC-3, 31399-2a)
+  version: 1.0 (2021-09)
+  url: https://solvis-files.s3.eu-central-1.amazonaws.com/downloads-fk/regelung/sc-3/SC-3_ModBus_Schnittstellenbeschreibung.pdf
+  sha256: d96afe30c2928a20630815d0b88c64013fd9d1f4b301a81c90d0f2b3652dbb18
+  archive_url: https://web.archive.org/web/20231027204113/https://solvis-files.s3.eu-central-1.amazonaws.com/downloads-fk/regelung/sc-3/SC-3_ModBus_Schnittstellenbeschreibung.pdf
+- title: Technische Info SolvisRemote Modbus Spezifikationen (TNF-SRM-SC-2, 31054-3)
+  version: 1.0 (2019-01)
+  url: https://solvis-files.s3.eu-central-1.amazonaws.com/seiten/produkte/solvisremote/Download/SolvisRemote+Modbus+Spezifikationen+201906.pdf
+  sha256: e71082c080df2ab795796d36daae1ac86d7824487d50f02879bac140ecbfcac9
+  archive_url: https://web.archive.org/web/20211026182852/https://solvis-files.s3.eu-central-1.amazonaws.com/seiten/produkte/solvisremote/Download/SolvisRemote+Modbus+Spezifikationen+201906.pdf
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/charger/solvis.yaml
+- id: hassio-solvis-modbus
+  title: hassio-solvis-modbus (Home Assistant integration)
+  url: https://github.com/Patrick762/hassio-solvis-modbus
+  license: MIT
+  commit: 20e3d4269c77fdaa3159f34de8cadf5e022f479a
+  path: custom_components/solvis_modbus/const.py, custom_components/solvis_modbus/translations/en.json
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/consumers/solvis/solvis/consumer.py
+- id: solvis-control
+  title: hass_solvis_control (Home Assistant integration)
+  url: https://github.com/LarsK1/hass_solvis_control
+  license: GPL-3.0
+  commit: 509e35cd4863f813f74f8117cdbefefa7f4fd348
+  path: custom_components/solvis_control/const.py, custom_components/solvis_control/translations/en.json
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+model_choice: user
+
+models:
+  - {id: sc3, name: SolvisControl 3}
+  - {id: sc2, name: SolvisControl 2 (via SolvisRemote)}
+
+points:
+  # Input registers (function 04)
+  - {key: x.setup_1, label: Setup 1, table: input, address: 0, type: u16, poll: slow, note: Meaning not described in the documents.}
+  - {key: x.setup_2, label: Setup 2, table: input, address: 1, type: u16, poll: slow, note: Meaning not described in the documents.}
+  - {key: x.circulation_operating_mode, label: Zirkulation Betriebsart, table: input, address: 2049, type: s16, enum: circulation_mode_sc3, models: [sc3]}
+  - {key: x.circulation_operating_mode, label: Zirkulation Betriebsart, table: input, address: 2049, type: s16, enum: circulation_mode_sc2, models: [sc2]}
+  - {key: x.analog_out_o1_status, label: Analog Out 1 Status, table: input, address: 3840, type: s16, enum: analog_out_mode}
+  - {key: x.analog_out_o2_status, label: Analog Out 2 Status, table: input, address: 3845, type: s16, enum: analog_out_mode}
+  - {key: x.analog_out_o3_status, label: Analog Out 3 Status, table: input, address: 3850, type: s16, enum: analog_out_mode}
+  - {key: x.analog_out_o4_status, label: Analog Out 4 Status, table: input, address: 3855, type: s16, enum: analog_out_mode}
+  - {key: x.analog_out_o5_status, label: Analog Out 5 Status, table: input, address: 3860, type: s16, enum: analog_out_mode}
+  - {key: x.analog_out_o6_status, label: Analog Out 6 Status, table: input, address: 3865, type: s16, enum: analog_out_mode}
+  - {key: x.clock, label: Unix Timestamp, table: input, address: 32768, type: u32, epoch: {start: '1970-01-01', unit: s}, note: 'High word at 32768, low word at 32769.'}
+  - {key: firmware, label: Version SC3 / SC2, table: input, address: 32770, type: s16, poll: slow, note: Format not stated in the documents.}
+  - {key: x.version_nbg, label: Version NBG, table: input, address: 32771, type: s16, poll: slow, note: Format not stated in the documents.}
+  - {key: x.temp_s1, label: Temp S1, table: input, address: 33024, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s2, label: Temp S2, table: input, address: 33025, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s3, label: Temp S3, table: input, address: 33026, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s4, label: Temp S4, table: input, address: 33027, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s5, label: Temp S5, table: input, address: 33028, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s6, label: Temp S6, table: input, address: 33029, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s7, label: Temp S7, table: input, address: 33030, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s8, label: Temp S8, table: input, address: 33031, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s9, label: Temp S9, table: input, address: 33032, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s10, label: Temp S10, table: input, address: 33033, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s11, label: Temp S11, table: input, address: 33034, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300], conflicts: [{sources: [hassio-solvis-modbus], scale: 0.01, label: Cold water temperature}]}
+  - {key: x.temp_s12, label: Temp S12, table: input, address: 33035, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s13, label: Temp S13, table: input, address: 33036, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s14, label: Temp S14, table: input, address: 33037, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s15, label: Temp S15, table: input, address: 33038, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.temp_s16, label: Temp S16, table: input, address: 33039, type: s16, unit: °C, scale: 0.1, invalid: [2200, -300]}
+  - {key: x.flow_s17, label: Volumenstrom S17, table: input, address: 33040, type: s16, unit: l/min, verified: false, note: The documents give the unit l/min without a factor; scale 1 assumed., conflicts: [{sources: [hassio-solvis-modbus], scale: 0.1, label: Solar flow}]}
+  - {key: x.flow_s18, label: Volumenstrom S18, table: input, address: 33041, type: s16, unit: l/min, verified: false, note: The documents give the unit l/min without a factor; scale 1 assumed., conflicts: [{sources: [hassio-solvis-modbus, solvis-control], scale: 0.1, label: Domestic water flow}]}
+  - {key: x.analog_in_1, label: Analog In 1, table: input, address: 33042, type: s16, unit: V, scale: 0.1}
+  - {key: x.analog_in_2, label: Analog In 2, table: input, address: 33043, type: s16, unit: V, scale: 0.1}
+  - {key: x.analog_in_3, label: Analog In 3, table: input, address: 33044, type: s16, unit: V, scale: 0.1}
+  - {key: x.digin_error, label: DigIn Störungen, table: input, address: 33045, type: u16, flags: digin_error, note: The bit table is from the SolvisControl 3 document; the SolvisControl 2 document leaves it empty., conflicts: [{sources: [solvis-control], type: s16, label: DigIn error}]}
+  - {key: x.output_a1, label: Ausgang A1, table: input, address: 33280, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: Circulation pump (A1)}]}
+  - {key: x.output_a1, label: Ausgang A1, table: input, address: 33280, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a2, label: Ausgang A2, table: input, address: 33281, type: s16, unit: '%', scale: 0.5, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…200 and the unit "200"; read here as 200 = 100 %., conflicts: [{sources: [solvis-control], scale: 1, label: Heat pump Charging pump (A2)}]}
+  - {key: x.output_a2, label: Ausgang A2, table: input, address: 33281, type: s16, unit: '%', scale: 0.25, models: [sc2]}
+  - {key: x.output_a3, label: Ausgang A3, table: input, address: 33282, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: HKR1 Pump (A3)}]}
+  - {key: x.output_a3, label: Ausgang A3, table: input, address: 33282, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a4, label: Ausgang A4, table: input, address: 33283, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: HKR2 Pump (A4)}]}
+  - {key: x.output_a4, label: Ausgang A4, table: input, address: 33283, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a5, label: Ausgang A5, table: input, address: 33284, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: HKR3 Pump (A5)}]}
+  - {key: x.output_a5, label: Ausgang A5, table: input, address: 33284, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a6, label: Ausgang A6, table: input, address: 33285, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: HKR3 Mixer heating circuit open (A6)}]}
+  - {key: x.output_a6, label: Ausgang A6, table: input, address: 33285, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a7, label: Ausgang A7, table: input, address: 33286, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: HKR3 Mixer heating circuit closed (A7)}]}
+  - {key: x.output_a7, label: Ausgang A7, table: input, address: 33286, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a8, label: Ausgang A8, table: input, address: 33287, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], label: HKR1 Mixer heating circuit open (A8)}]}
+  - {key: x.output_a8, label: Ausgang A8, table: input, address: 33287, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a9, label: Ausgang A9, table: input, address: 33288, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], label: HKR1 Mixer heating circuit closed (A9)}]}
+  - {key: x.output_a9, label: Ausgang A9, table: input, address: 33288, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a10, label: Ausgang A10, table: input, address: 33289, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: HKR2 Mixer heating circuit open (A10)}]}
+  - {key: x.output_a10, label: Ausgang A10, table: input, address: 33289, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a11, label: Ausgang A11, table: input, address: 33290, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: HKR2 Mixer heating circuit closed (A11)}]}
+  - {key: x.output_a11, label: Ausgang A11, table: input, address: 33290, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a12, label: Ausgang A12, table: input, address: 33291, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: Burner status (A12)}]}
+  - {key: x.output_a12, label: Ausgang A12, table: input, address: 33291, type: s16, unit: '%', scale: 0.5, models: [sc2], conflicts: [{sources: [solvis-control], scale: 1, label: Burner status (A12)}]}
+  - {key: x.output_a13, label: Ausgang A13, table: input, address: 33292, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: Heat pump heating element stage 2 & 3 (A13)}]}
+  - {key: x.output_a13, label: Ausgang A13, table: input, address: 33292, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.output_a14, label: Ausgang A14, table: input, address: 33293, type: s16, unit: '%', scale: 1, models: [sc3], verified: false, note: The SolvisControl 3 document gives the range 0…100 and the unit "100"; read here as 100 = 100 %., conflicts: [{sources: [solvis-control], byte_order: little, label: Heat pump changeover valve (A14)}]}
+  - {key: x.output_a14, label: Ausgang A14, table: input, address: 33293, type: s16, unit: '%', scale: 0.5, models: [sc2]}
+  - {key: x.analog_out_o1, label: Analog Out O1, table: input, address: 33294, type: s16, models: [sc3], note: 'Unit by mode (register 3840): % in PWM mode, 0.1 V in 0–10 V mode.', conflicts: [{sources: [solvis-control], unit: '%', scale: 0.1, label: Burner modulation (O1)}]}
+  - {key: x.analog_out_o1, label: Analog Out O1, table: input, address: 33294, type: s16, unit: V, scale: 0.1, models: [sc2]}
+  - {key: x.analog_out_o2, label: Analog Out O2, table: input, address: 33295, type: s16, models: [sc3], note: 'Unit by mode (register 3845): % in PWM mode, 0.1 V in 0–10 V mode.', conflicts: [{sources: [solvis-control], unit: '%', scale: 0.1, label: Primary solar pump (O2)}]}
+  - {key: x.analog_out_o2, label: Analog Out O2, table: input, address: 33295, type: s16, unit: V, scale: 0.1, models: [sc2]}
+  - {key: x.analog_out_o3, label: Analog Out O3, table: input, address: 33296, type: s16, models: [sc3], note: 'Unit by mode (register 3850): % in PWM mode, 0.1 V in 0–10 V mode.', conflicts: [{sources: [solvis-control], unit: '%', scale: 0.1, label: Secondary solar pump (O3)}]}
+  - {key: x.analog_out_o3, label: Analog Out O3, table: input, address: 33296, type: s16, unit: V, scale: 0.1, models: [sc2]}
+  - {key: x.analog_out_o4, label: Analog Out O4, table: input, address: 33297, type: s16, models: [sc3], note: 'Unit by mode (register 3855): % in PWM mode, 0.1 V in 0–10 V mode.', conflicts: [{sources: [solvis-control], unit: '%', scale: 0.1, label: Heat pump Charging pump (O4)}]}
+  - {key: x.analog_out_o4, label: Analog Out O4, table: input, address: 33297, type: s16, unit: V, scale: 0.1, models: [sc2]}
+  - {key: x.analog_out_o5, label: Analog Out O5, table: input, address: 33298, type: s16, models: [sc3], note: 'Unit by mode (register 3860): % in PWM mode, 0.1 V in 0–10 V mode.', conflicts: [{sources: [solvis-control], unit: '%', scale: 0.1, label: Hot water pump (O5)}]}
+  - {key: x.analog_out_o5, label: Analog Out O5, table: input, address: 33298, type: s16, unit: V, scale: 0.1, models: [sc2]}
+  - {key: x.analog_out_o6, label: Analog Out O6, table: input, address: 33299, type: s16, models: [sc3], note: 'Unit by mode (register 3865): % in PWM mode, 0.1 V in 0–10 V mode.', conflicts: [{sources: [solvis-control], unit: '%', scale: 0.1, label: Analog Out (O6)}]}
+  - {key: x.analog_out_o6, label: Analog Out O6, table: input, address: 33299, type: s16, unit: V, scale: 0.1, models: [sc2]}
+  - {key: x.burner_stage1_runtime, label: Laufzeit Brennerstufe 1, table: input, address: 33536, type: u16, note: Unit not stated in the documents., conflicts: [{sources: [solvis-control], type: s16, unit: kWh, scale: 10, label: Solar thermal Heat output}]}
+  - {key: x.burner_stage1_starts, label: Brennerstarts Stufe 1, table: input, address: 33537, type: u16, conflicts: [{sources: [solvis-control], type: s16, unit: kWh, scale: 10, label: Heat pump Thermal heat output}]}
+  - {key: x.burner_stage2_runtime, label: Laufzeit Brennerstufe 2, table: input, address: 33538, type: u16, note: Unit not stated in the documents., conflicts: [{sources: [solvis-control], type: s16, unit: kWh, scale: 10, label: Burner Thermal heat output}]}
+  - {key: x.heat_generator_power, label: Wärmeerzeuger SX aktuelle Leistung, table: input, address: 33539, type: s16, unit: W, verified: false, note: The documents give the unit W without a factor; scale 1 assumed., conflicts: [{sources: [hassio-solvis-modbus], scale: 100, label: Gas burner power}]}
+  - {key: x.ionisation_current, label: Ionisationsstrom, table: input, address: 33540, type: s16, unit: mA, verified: false, note: The documents give the unit mA without a factor; scale 1 assumed., conflicts: [{sources: [solvis-control], unit: kWh, scale: 10, label: Hot water Heat output}]}
+  - {key: x.messages_number, label: Meldungen Anzahl, table: input, address: 33792, type: s16}
+  - {key: x.message_1_code, label: Meldung 1 Code, table: input, address: 33793, type: u16}
+  - {key: x.message_1_time, label: Meldung 1 UnixZeit, table: input, address: 33794, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  - {key: x.message_2_code, label: Meldung 2 Code, table: input, address: 33798, type: u16}
+  - {key: x.message_2_time, label: Meldung 2 UnixZeit, table: input, address: 33799, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  - {key: x.message_3_code, label: Meldung 3 Code, table: input, address: 33803, type: u16}
+  - {key: x.message_3_time, label: Meldung 3 UnixZeit, table: input, address: 33804, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  - {key: x.message_4_code, label: Meldung 4 Code, table: input, address: 33808, type: u16}
+  - {key: x.message_4_time, label: Meldung 4 UnixZeit, table: input, address: 33809, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  - {key: x.message_5_code, label: Meldung 5 Code, table: input, address: 33813, type: u16}
+  - {key: x.message_5_time, label: Meldung 5 UnixZeit, table: input, address: 33814, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  - {key: x.message_6_code, label: Meldung 6 Code, table: input, address: 33818, type: u16}
+  - {key: x.message_6_time, label: Meldung 6 UnixZeit, table: input, address: 33819, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  - {key: x.message_7_code, label: Meldung 7 Code, table: input, address: 33823, type: u16}
+  - {key: x.message_7_time, label: Meldung 7 UnixZeit, table: input, address: 33824, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  - {key: x.message_8_code, label: Meldung 8 Code, table: input, address: 33828, type: u16}
+  - {key: x.message_8_time, label: Meldung 8 UnixZeit, table: input, address: 33829, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  - {key: x.message_9_code, label: Meldung 9 Code, table: input, address: 33833, type: u16}
+  - {key: x.message_9_time, label: Meldung 9 UnixZeit, table: input, address: 33834, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  - {key: x.message_10_code, label: Meldung 10 Code, table: input, address: 33838, type: u16}
+  - {key: x.message_10_time, label: Meldung 10 UnixZeit, table: input, address: 33839, type: u32, epoch: {start: '1970-01-01', unit: s}}
+  # Holding registers (function 03, writes with 06 / 16)
+  - {key: x.clock_set, label: Unix Timestamp, table: holding, address: 32768, type: u32, models: [sc2], epoch: {start: '1970-01-01', unit: s}, writable: true, note: Only the SolvisControl 2 document lists it as a holding register.}
+  - {key: x.solar_primary_speed_max, label: Solar primär Drehzahl max, table: holding, address: 1542, type: s16, unit: '%', poll: slow, writable: true}
+  - {key: x.solar_primary_speed_min, label: Solar primär Drehzahl min, table: holding, address: 1543, type: s16, unit: '%', poll: slow, writable: true}
+  - {key: x.solar_secondary_speed_max, label: Solar sekundär Drehzahl max, table: holding, address: 1798, type: s16, unit: '%', poll: slow, writable: true}
+  - {key: x.solar_secondary_speed_min, label: Solar sekundär Drehzahl min, table: holding, address: 1799, type: s16, unit: '%', poll: slow, writable: true}
+  - {key: x.warm_water_mode, label: WW Modus, table: holding, address: 2304, type: s16, models: [sc3], poll: slow, writable: true, note: Values not described (0…32767).}
+  - {key: x.warm_water_mode, label: WW Modus, table: holding, address: 2054, type: s16, models: [sc2], poll: slow, writable: true, note: Values not described.}
+  - {key: x.warm_water_target_temp, label: WW Sollwert, table: holding, address: 2305, type: s16, unit: °C, poll: slow, writable: true, min: 10, max: 65, conflicts: [{sources: [evcc], type: u16, label: Temperature limit}]}
+  - {key: x.warm_water_reheat, label: WW Nachheizung Start, table: holding, address: 2328, type: s16, models: [sc3], writable: true, min: 0, max: 1}
+  - {key: x.warm_water_reheat, label: WW Nachheizung Start, table: holding, address: 2322, type: s16, models: [sc2], writable: true, min: 0, max: 1}
+  - {key: x.hkr1_warm_water_priority, label: HKR1 WW Vorrang, table: holding, address: 2817, type: s16, poll: slow, writable: true, min: 0, max: 1, note: '0 = off, 1 = on.'}
+  - {key: x.hkr1_operating_mode, label: HKR1 Betriebsart, table: holding, address: 2818, type: s16, enum: circuit_mode, writable: true, note: Settable 2…7.}
+  - {key: x.hkr1_fix_day_temp, label: HKR1 Fix Temperatur Tag, table: holding, address: 2820, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 75}
+  - {key: x.hkr1_fix_reduction_temp, label: HKR1 Fix Absenktemperatur, table: holding, address: 2821, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 75}
+  - {key: x.hkr1_heating_curve_day_temp_1, label: HKR1 Heizkurve Tag Temperatur 1, table: holding, address: 2822, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 50}
+  - {key: x.hkr1_heating_curve_day_temp_2, label: HKR1 Heizkurve Tag Temperatur 2, table: holding, address: 2823, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 30}
+  - {key: x.hkr1_heating_curve_day_temp_3, label: HKR1 Heizkurve Tag Temperatur 3, table: holding, address: 2824, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 30}
+  - {key: x.hkr1_heating_curve_reduction_temp, label: HKR1 Heizkurve Absenktemperatur, table: holding, address: 2825, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 30}
+  - {key: x.hkr1_heating_curve_slope, label: HKR1 Heizkurve Steilheit, table: holding, address: 2832, type: s16, scale: 0.1, models: [sc3], poll: slow, writable: true, min: 2, max: 25, verified: false, note: 'Raw 20…250, unit given as tenths (so 2.0…25.0); a slope range of 0.20…2.50 (hundredths) would be more usual. Not checked.'}
+  - {key: x.hkr1_heating_curve_slope, label: HKR1 Heizkurve Steilheit, table: holding, address: 2826, type: s16, scale: 0.1, models: [sc2], poll: slow, writable: true, min: 2, max: 25, verified: false, note: 'Raw 20…250, unit given as tenths (so 2.0…25.0); a slope range of 0.20…2.50 (hundredths) would be more usual. Not checked.', conflicts: [{sources: [solvis-control], scale: 0.01, label: HKR1 Slope of the heating curve}]}
+  - {key: x.hkr2_warm_water_priority, label: HKR2 WW Vorrang, table: holding, address: 3073, type: s16, poll: slow, writable: true, min: 0, max: 1, note: '0 = off, 1 = on.'}
+  - {key: x.hkr2_operating_mode, label: HKR2 Betriebsart, table: holding, address: 3074, type: s16, enum: circuit_mode, writable: true, note: Settable 2…7.}
+  - {key: x.hkr2_fix_day_temp, label: HKR2 Fix Temperatur Tag, table: holding, address: 3076, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 75}
+  - {key: x.hkr2_fix_reduction_temp, label: HKR2 Fix Absenktemperatur, table: holding, address: 3077, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 75}
+  - {key: x.hkr2_heating_curve_day_temp_1, label: HKR2 Heizkurve Tag Temperatur 1, table: holding, address: 3078, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 50}
+  - {key: x.hkr2_heating_curve_day_temp_2, label: HKR2 Heizkurve Tag Temperatur 2, table: holding, address: 3079, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 30}
+  - {key: x.hkr2_heating_curve_day_temp_3, label: HKR2 Heizkurve Tag Temperatur 3, table: holding, address: 3080, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 30}
+  - {key: x.hkr2_heating_curve_reduction_temp, label: HKR2 Heizkurve Absenktemperatur, table: holding, address: 3081, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 30}
+  - {key: x.hkr2_heating_curve_slope, label: HKR2 Heizkurve Steilheit, table: holding, address: 3088, type: s16, scale: 0.1, models: [sc3], poll: slow, writable: true, min: 2, max: 25, verified: false, note: 'Raw 20…250, unit given as tenths (so 2.0…25.0); a slope range of 0.20…2.50 (hundredths) would be more usual. Not checked.'}
+  - {key: x.hkr2_heating_curve_slope, label: HKR2 Heizkurve Steilheit, table: holding, address: 3082, type: s16, scale: 0.1, models: [sc2], poll: slow, writable: true, min: 2, max: 25, verified: false, note: 'Raw 20…250, unit given as tenths (so 2.0…25.0); a slope range of 0.20…2.50 (hundredths) would be more usual. Not checked.', conflicts: [{sources: [solvis-control], scale: 0.01, label: HKR2 Slope of the heating curve}]}
+  - {key: x.hkr3_warm_water_priority, label: HKR3 WW Vorrang, table: holding, address: 3329, type: s16, poll: slow, writable: true, min: 0, max: 1, note: '0 = off, 1 = on.'}
+  - {key: x.hkr3_operating_mode, label: HKR3 Betriebsart, table: holding, address: 3330, type: s16, enum: circuit_mode, writable: true, note: Settable 2…7.}
+  - {key: x.hkr3_fix_day_temp, label: HKR3 Fix Temperatur Tag, table: holding, address: 3332, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 75}
+  - {key: x.hkr3_fix_reduction_temp, label: HKR3 Fix Absenktemperatur, table: holding, address: 3333, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 75}
+  - {key: x.hkr3_heating_curve_day_temp_1, label: HKR3 Heizkurve Tag Temperatur 1, table: holding, address: 3334, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 50}
+  - {key: x.hkr3_heating_curve_day_temp_2, label: HKR3 Heizkurve Tag Temperatur 2, table: holding, address: 3335, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 30}
+  - {key: x.hkr3_heating_curve_day_temp_3, label: HKR3 Heizkurve Tag Temperatur 3, table: holding, address: 3336, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 30}
+  - {key: x.hkr3_heating_curve_reduction_temp, label: HKR3 Heizkurve Absenktemperatur, table: holding, address: 3337, type: s16, unit: °C, poll: slow, writable: true, min: 5, max: 30}
+  - {key: x.hkr3_heating_curve_slope, label: HKR3 Heizkurve Steilheit, table: holding, address: 3344, type: s16, scale: 0.1, models: [sc3], poll: slow, writable: true, min: 2, max: 25, verified: false, note: 'Raw 20…250, unit given as tenths (so 2.0…25.0); a slope range of 0.20…2.50 (hundredths) would be more usual. Not checked.'}
+  - {key: x.hkr3_heating_curve_slope, label: HKR3 Heizkurve Steilheit, table: holding, address: 3338, type: s16, scale: 0.1, models: [sc2], poll: slow, writable: true, min: 2, max: 25, verified: false, note: 'Raw 20…250, unit given as tenths (so 2.0…25.0); a slope range of 0.20…2.50 (hundredths) would be more usual. Not checked.', conflicts: [{sources: [solvis-control], scale: 0.01, label: HKR3 Slope of the heating curve}]}
+  - {key: x.hkr1_room_temp, label: Raumtemperatur 1, table: holding, address: 34304, type: s16, unit: °C, scale: 0.1, writable: true, note: Room temperature given to the controller over Modbus (set per heating circuit in the menu).}
+  - {key: x.hkr2_room_temp, label: Raumtemperatur 2, table: holding, address: 34305, type: s16, unit: °C, scale: 0.1, writable: true, note: Room temperature given to the controller over Modbus (set per heating circuit in the menu).}
+  - {key: x.hkr3_room_temp, label: Raumtemperatur 3, table: holding, address: 34306, type: s16, unit: °C, scale: 0.1, writable: true, note: Room temperature given to the controller over Modbus (set per heating circuit in the menu).}
+  - {key: x.heatpump_hybrid_warm_water_bivalence_temp, label: Heat pump hybrid hot water Bivalent temperature, table: holding, address: 838, type: s16, unit: °C, verified: false, sources: [solvis-control]}
+  - {key: x.heatpump_hybrid_heating_bivalence_temp, label: Heat pump hybrid heating Bivalent temperature, table: holding, address: 839, type: s16, unit: °C, verified: false, sources: [solvis-control]}
+  - {key: x.hkr1_flow_type, label: HKR1 Flow mode, table: holding, address: 2819, type: s16, enum: flow_type, verified: false, sources: [solvis-control]}
+  - {key: x.hkr2_flow_type, label: HKR2 Flow mode, table: holding, address: 3075, type: s16, enum: flow_type, verified: false, sources: [solvis-control]}
+  - {key: x.hkr3_flow_type, label: HKR3 Flow mode, table: holding, address: 3331, type: s16, enum: flow_type, verified: false, sources: [solvis-control]}
+  - {key: x.solar_power, label: Solar thermal power, table: holding, address: 33543, type: s16, unit: W, scale: 100, models: [sc3], verified: false, sources: [solvis-control]}
+  - {key: x.heatpump_power_output_thermal, label: Heat pump Thermal output, table: holding, address: 33544, type: s16, unit: W, scale: 100, verified: false, sources: [solvis-control]}
+  - {key: consumer_power, label: Power, table: holding, address: 33545, type: u16, unit: W, scale: 100, positive: consumption, verified: false, sources: [evcc], conflicts: [{sources: [solvis-control], type: s16, label: Heat pump Electrical power consumption}]}
+  - {key: x.pv2heat_power_electric, label: PV2Heat Electrical power, table: holding, address: 33548, type: s16, unit: W, scale: 100, verified: false, sources: [solvis-control]}
+  - {key: x.hkr_number, label: Number of heating circuits, table: input, address: 2, type: s16, verified: false, sources: [solvis-control]}
+  - {key: x.heating_circuits_energy, label: Heating circuits Heat output, table: input, address: 33541, type: s16, unit: kWh, scale: 10, models: [sc3], note: The project shows the absolute value of this register., verified: false, sources: [solvis-control]}
+  - {key: x.heat_pump_thermal_power, label: Heat pump thermal power, table: input, address: 33544, type: s16, unit: W, scale: 100, note: Read only when the user says the installation has a heat pump., verified: false, sources: [hassio-solvis-modbus]}
+  - {key: x.heat_pump_electric_power, label: Heat pump electric power, table: input, address: 33545, type: s16, unit: W, scale: 100, note: Read only when the user says the installation has a heat pump., verified: false, sources: [hassio-solvis-modbus, openwb]}
+  - {key: x.heat_generator_2_power_thermal, label: Heat generator 2 Thermal output, table: input, address: 33546, type: s16, unit: W, scale: 100, models: [sc3], verified: false, sources: [solvis-control]}
+  - {key: x.heat_generator_2_power_electric, label: Heat generator 2 Electrical power, table: input, address: 33547, type: s16, unit: W, scale: 100, models: [sc3], verified: false, sources: [solvis-control]}
+  - {key: x.warm_water_power, label: Hot water power, table: input, address: 33549, type: s16, unit: W, scale: 1000, models: [sc3], verified: false, sources: [solvis-control]}
+  - {key: x.heat_meter_power_thermal, label: Heat meter output, table: input, address: 33550, type: s16, unit: W, scale: 100, verified: false, sources: [solvis-control]}
+  - {key: x.solar_pump_primary_runtime, label: Solar pump primary Runtime, table: input, address: 33552, type: s16, unit: h, models: [sc3], note: The project shows the absolute value of this register., verified: false, sources: [solvis-control]}
+  - {key: x.solar_pump_secondary_runtime, label: Solar pump secondary Running time, table: input, address: 33553, type: s16, unit: h, models: [sc3], note: The project shows the absolute value of this register., verified: false, sources: [solvis-control]}
+
+enums:
+  circulation_mode_sc3: {'0': 'Off', '1': Pulse, '2': Time, '3': Pulse / time}
+  circulation_mode_sc2: {'1': 'Off', '2': Pulse, '3': Temperature, '4': Waiting}
+  analog_out_mode: {'0': Auto PWM, '1': Manual PWM, '2': Auto analog, '3': Manual analog}
+  circuit_mode: {'1': 'Off', '2': Automatic, '3': Day mode, '4': Set-back mode, '5': Standby, '6': Eco, '7': Holiday, '8': Hot water priority, '9': Frost protection, '10': Pump protection, '11': Screed drying}
+  flow_type: {'0': Heating curve, '1': Fixed}
+
+flags:
+  digin_error: {'0': Mains module fuse, '1': Burner fault, '2': STB 1 fault (safety temperature limiter), '3': STB 2 fault (safety temperature limiter), '4': Burner CM424, '5': Solar pressure, '7': System pressure, '8': Condensate}
+
+problems:
+  - {when: {key: x.digin_error, bit: 0}, kind: fault, text: Mains module fuse (bit 0)}
+  - {when: {key: x.digin_error, bit: 1}, kind: fault, text: Burner fault (bit 1)}
+  - {when: {key: x.digin_error, bit: 2}, kind: fault, text: Safety temperature limiter 1 tripped (bit 2)}
+  - {when: {key: x.digin_error, bit: 3}, kind: fault, text: Safety temperature limiter 2 tripped (bit 3)}
+  - {when: {key: x.digin_error, bit: 4}, kind: fault, text: Burner CM424 fault (bit 4)}
+  - {when: {key: x.digin_error, bit: 5}, kind: warning, text: Solar circuit pressure (bit 5)}
+  - {when: {key: x.digin_error, bit: 7}, kind: fault, text: System pressure (bit 7)}
+  - {when: {key: x.digin_error, bit: 8}, kind: warning, text: Condensate (bit 8)}
+
+notes:
+- Modbus TCP on port 502, on the controller itself (SolvisControl 3, LAN or WLAN) or through the SolvisRemote (SolvisControl
+  2, controller version MA205 or later). Modbus is off by default and is switched to read-only or read/write in the installer
+  menu.
+- The unit id is not stated in the documents; 1 is assumed.
+- Addresses are the documents' decimal (and hex) protocol addresses, used as they are.
+- Register types (signed / unsigned) are not stated; temperatures and settings are read as signed 16-bit numbers.
+- Nothing on the bus tells SolvisControl 2 and 3 apart in the documents; the user picks the controller.
+- 'Sensors S1–S16: 220 °C means an open circuit and −30 °C a short circuit (the SolvisControl 2 document says this for S1–S10).'
+- SolvisControl 2 does not answer writes of out-of-range values or writes in read-only mode with a Modbus error; the value
+  is simply not taken.
+- The two documents place some registers differently (hot water mode 2304 / 2054, reheat start 2328 / 2322, heating curve
+  slope 2832 / 2826 and holiday settings); these points have one entry per model.
+- Messages (33793 ff.) are 10 blocks of 5 registers (code, Unix time high, low, parameter 1, parameter 2); the parameters
+  are left out. The meaning of the message codes is not described.
+- Left out the holiday settings (e.g. 2870–2883 on SolvisControl 3, 2852–2859 on SolvisControl 2) and the weekly schedules
+  (34048–34299, quarter hours 0…95).
+- 'evcc template `solvis` (single device) lists: Solvis SolvisControl 2/3.'
+- The template has the option `tempsource` (default warmwater); points used only with another value say so in their note.
+- hassio-solvis-modbus is written for SolvisControl 3 and reads one register per request with function 04.
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- hass_solvis_control reads one register per request, every value as a signed 16-bit number, and writes with function 06 to
+  unit id 1.
+- Which controller is connected (SolvisControl 2 or 3) is chosen by the user; nothing on the bus tells them apart in the project.
+  On SolvisControl 2 the project reconnects before every poll and waits 0.3 s after each read.
+- On SolvisControl 2 the flow sensors S17 (33040) and S18 (33041) give a raw sensor value; the project turns it into l/min
+  as 60 / raw × 1000 / 42 (S17) and 60 / raw × 1000 / 84 (S18).
+- 'Firmware versions (32770, 32771) are 5-digit decimal numbers: 32016 means 3.20.16.'
+- The analog outputs O1–O6 (33294–33299) report a percentage; their mode (auto/manual, PWM/analog) is in 3840 + 5 × (n − 1).
+- 'Relay outputs A1–A14 (33280–33293) are 0 = off, anything else = on. On several of them the project swaps the two bytes
+  of the register before reading it (byte_order: little).'
+- Optional parts (heating circuits 2 and 3, solar, heat pump, heat meter, PV2Heat, room sensors) are only polled when the
+  user enables them; the registers are the same for every installation.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

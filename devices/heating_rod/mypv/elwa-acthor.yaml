@@ -1,0 +1,199 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the my-PV Documentation of Controls for the AC ELWA-E, AC ELWA 2 and AC-THOR / AC-THOR 9s.
+
+modbusspec: 0
+id: mypv-elwa-acthor
+manufacturer: my-PV
+name: AC ELWA-E, AC ELWA 2, AC•THOR and AC•THOR 9s PV heating controllers
+kind: heating_rod
+
+sources:
+- title: AC ELWA-E Documentation of Controls
+  version: '230725'
+  url: https://download.my-pv.com/acelwa_e/Documentation%20Controls%20AC%20ELWA-E%20EN230725.pdf
+  sha256: ffa42472934eb707de2229a288a321913cdca30c314824137fb68591350a6b29
+  archive_url: https://web.archive.org/web/20250811142553/https://download.my-pv.com/acelwa_e/Documentation%20Controls%20AC%20ELWA-E%20EN230725.pdf
+- title: AC ELWA 2 Documentation of Controls
+  version: '241205'
+  url: https://download.my-pv.com/acelwa2/AC_ELWA_2_Documentation-Controls_EN241205.pdf
+  sha256: e71b4e43e0af43549f3eef43b1e931676e62cfafca06eb247d11d7a469d3b3c1
+  archive_url: https://web.archive.org/web/20250811141841/https://download.my-pv.com/acelwa2/AC_ELWA_2_Documentation-Controls_EN241205.pdf
+- title: AC-THOR / AC-THOR 9s Documentation of Controls
+  version: '241205'
+  url: https://download.my-pv.com/acthor/Documentation-Controls_AC-THOR_AC-THOR%209s_EN241205.pdf
+  sha256: 0772430bdad739f4300aa159b054d3738e8a1e51ff4913ddcb027e5d1c39d67f
+  archive_url: https://web.archive.org/web/20250811140545/https://download.my-pv.com/acthor/Documentation-Controls_AC-THOR_AC-THOR%209s_EN241205.pdf
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.heat.mypv/src/io/openems/edge/heat/mypv/HeatMyPvImpl.java, io.openems.edge.heat.mypv/src/io/openems/edge/heat/mypv/acthor9s/HeatMyPvAcThor9sImpl.java
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/consumers/my_pv/acthor/consumer.py, packages/modules/consumers/my_pv/elwa_e/consumer.py, packages/modules/smarthome/acthor/watt.py,
+    packages/modules/smarthome/elwa/watt.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    max_gap: 4
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 1018
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 1018
+    type: u16
+    range:
+    - 12336
+    - 14649
+  - table: holding
+    address: 1025
+    type: u16
+    range:
+    - 12336
+    - 14649
+
+models:
+  - {id: elwa_e, name: AC ELWA-E, match: {table: holding, address: 1018, type: str, length: 3, in: ['160124', '160140', '160129', '160142']}}
+  - {id: elwa_2, name: AC ELWA 2, match: {table: holding, address: 1018, type: str, length: 3, in: ['160150', '160151', '160152']}}
+  - {id: thor, name: AC•THOR (also CH and i), match: {table: holding, address: 1018, type: str, length: 3, in: ['200100', '200101', '200103']}}
+  - {id: thor_9s, name: AC•THOR 9s, match: {table: holding, address: 1018, type: str, length: 3, equals: '200300'}}
+  - {id: other, name: Other my-PV device (common registers only)}
+  - {id: acthor, name: AC•THOR / AC ELWA 2 (openWB "my-PV Acthor oder Elwa2")}
+
+points:
+  # Common to all models
+  - {key: x.power_setpoint, label: Power, table: holding, address: 1000, type: u16, unit: W, writable: true, note: 'Commanded power (in multi-mode the sum of all devices), not a measurement.', conflicts: [{sources: [openems, openwb], type: s16, positive: consumption, label: Active power}]}
+  - {key: x.water_temperature, label: Temp 1 (water), table: holding, address: 1001, type: u16, unit: °C, scale: 0.1}
+  - {key: x.target_temperature, label: Target temperature (Tmax / HW 1 max), table: holding, address: 1002, type: u16, unit: °C, scale: 0.1, note: Writable on the ELWA 2 and AC•THOR; read only on the ELWA-E (set on the knob).}
+  - {key: state, label: Status, table: holding, address: 1003, type: u16, enum: elwa_e_status, models: [elwa_e], conflicts: [{sources: [openwb], type: s16, label: State}]}
+  - {key: state, label: Status, table: holding, address: 1003, type: u16, enum: elwa_2_status, models: [elwa_2]}
+  - {key: state, label: Status, table: holding, address: 1003, type: u16, enum: thor_status, models: [thor, thor_9s]}
+  - {key: state, label: Status, table: holding, address: 1003, type: u16, models: [other], verified: false, note: Status list unknown for other my-PV devices; shown as a number.}
+  - {key: x.power_timeout, label: Power timeout, table: holding, address: 1004, type: u16, unit: s, writable: true, min: 10, max: 600, persistent: true, poll: slow}
+  - {key: x.boost_mode, label: Boost (backup) mode, table: holding, address: 1005, type: u16, writable: true, persistent: true, poll: slow, note: 'Codes differ per model: ELWA-E 0 off / 2 on; ELWA 2 0 off, 1 on, 4 SELV relay, 5 AUX relay; AC•THOR 0 off, 1 on, 3 relay boost.'}
+  - {key: x.boost_temperature, label: Boost backup target temperature, table: holding, address: 1006, type: u16, unit: °C, writable: true, persistent: true, poll: slow, models: [elwa_e]}
+  - {key: x.boost_temperature, label: Tmin / HW 1 min (boost backup target), table: holding, address: 1006, type: u16, unit: °C, scale: 0.1, writable: true, persistent: true, poll: slow, models: [elwa_2, thor, thor_9s, other]}
+  - {key: x.boost_time_1_start, label: Boost time 1 start, table: holding, address: 1007, type: u16, unit: h, writable: true, min: 0, max: 23, persistent: true, poll: slow}
+  - {key: x.boost_time_1_stop, label: Boost time 1 stop, table: holding, address: 1008, type: u16, unit: h, writable: true, min: 0, max: 24, persistent: true, poll: slow}
+  - {key: x.device_number, label: Device number, table: holding, address: 1013, type: u16, writable: true, persistent: true, poll: slow}
+  - {key: x.fuse_type, label: Fuse type, table: holding, address: 1014, type: u16, unit: A, writable: true, persistent: true, poll: slow, models: [elwa_e], note: 13 or 16 A., conflicts: [{sources: [openwb], type: s16, label: Fuse}]}
+  - {key: x.max_power, label: Max power, table: holding, address: 1014, type: u16, unit: W, writable: true, persistent: true, poll: slow, models: [elwa_2, thor, thor_9s, other]}
+  - {key: temperature, label: tempchip (controller temperature), table: holding, address: 1015, type: u16, unit: °C, scale: 0.1, models: [elwa_2, thor, thor_9s, other]}
+  - {key: temperature, label: tempchip (controller temperature), table: holding, address: 1015, type: u16, unit: °C, scale: 0.1, models: [elwa_e], verified: false, note: The ELWA-E document gives no unit; 0.1 °C assumed like the other models.}
+  - {key: firmware, label: Controller (IP) firmware main version, table: holding, address: 1016, type: u16, poll: slow}
+  - {key: x.power_stage_firmware, label: Power stage firmware version, table: holding, address: 1017, type: u16, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 1018, type: str, length: 8, poll: slow}
+  - {key: x.boost_time_2_start, label: Boost time 2 start, table: holding, address: 1026, type: u16, unit: h, writable: true, min: 0, max: 23, persistent: true, poll: slow}
+  - {key: x.boost_time_2_stop, label: Boost time 2 stop, table: holding, address: 1027, type: u16, unit: h, writable: true, min: 0, max: 24, persistent: true, poll: slow}
+  - {key: x.firmware_sub, label: Controller firmware sub version, table: holding, address: 1028, type: u16, poll: slow}
+
+  # Further temperatures (on the ELWA-E 1030 is a meter value instead, not read)
+  - {key: x.temperature_2, label: Temp 2, table: holding, address: 1030, type: u16, unit: °C, scale: 0.1, models: [elwa_2, thor, thor_9s], verified: false, note: Not-connected sensors may read 0 or a placeholder (unknown).}
+  - {key: x.temperature_3, label: Temp 3, table: holding, address: 1031, type: u16, unit: °C, scale: 0.1, models: [thor, thor_9s], verified: false, note: Not-connected sensors may read 0 or a placeholder (unknown).}
+  - {key: x.temperature_4, label: Temp 4, table: holding, address: 1032, type: u16, unit: °C, scale: 0.1, models: [thor, thor_9s], verified: false, note: Not-connected sensors may read 0 or a placeholder (unknown).}
+
+  # Relays, load, electrical values
+  - {key: x.relay_status, label: Relay status, table: holding, address: 1058, type: u16, flags: elwa_2_relays, models: [elwa_2]}
+  - {key: x.relay_status, label: Relay 1 status, table: holding, address: 1058, type: u16, models: [thor, thor_9s], note: '0 off, 1 on.'}
+  - {key: x.load_state, label: Load state, table: holding, address: 1059, type: u16, flags: thor_load_state, models: [thor, thor_9s]}
+  - {key: x.load_nominal_power, label: Load nominal power, table: holding, address: 1060, type: u16, unit: W, models: [thor, thor_9s]}
+  - {key: l1_voltage, label: U L1, table: holding, address: 1061, type: u16, unit: V, models: [elwa_2, thor, thor_9s], note: On the ELWA 2 the power stage input voltage., conflicts: [{sources: [openems], type: s16, scale: 0.001, label: Voltage L1}]}
+  - {key: l1_current, label: I L1, table: holding, address: 1062, type: u16, unit: A, scale: 0.1, models: [thor, thor_9s], conflicts: [{sources: [openems], type: s16, scale: 0.001, label: Current L1}]}
+  - {key: x.output_voltage, label: U Out, table: holding, address: 1063, type: u16, unit: V, models: [thor, thor_9s]}
+  - {key: frequency, label: Freq, table: holding, address: 1064, type: u16, unit: Hz, scale: 0.001, models: [elwa_2, thor, thor_9s]}
+  - {key: x.operation_mode, label: Operation mode, table: holding, address: 1065, type: u16, writable: true, persistent: true, poll: slow, models: [elwa_2, thor, thor_9s]}
+  - {key: x.state_9s, label: 9s state, table: holding, address: 1066, type: u16, models: [thor_9s], note: Firmware ≥ a0021200. Shown for the 9s only.}
+  - {key: x.aux_voltage, label: U L2 (AUX relay voltage), table: holding, address: 1067, type: u16, unit: V, models: [elwa_2], conflicts: [{sources: [openems], type: s16, scale: 0.001, label: Voltage L2}]}
+  - {key: x.aux_current, label: I L2 (AUX relay current), table: holding, address: 1068, type: u16, unit: A, scale: 0.1, models: [elwa_2], conflicts: [{sources: [openems], type: s16, scale: 0.001, label: Current L2}]}
+  - {key: l2_voltage, label: U L2, table: holding, address: 1067, type: u16, unit: V, models: [thor, thor_9s], invalid: [0], note: 9s only; the AC•THOR replies 0.}
+  - {key: l2_current, label: I L2, table: holding, address: 1068, type: u16, unit: A, scale: 0.1, models: [thor, thor_9s], note: 9s only; the AC•THOR replies 0.}
+  - {key: grid_power, label: Meter power, table: holding, address: 1069, type: s16, unit: W, positive: import, models: [elwa_e, elwa_2, thor, thor_9s], note: The grid meter value the device works from; negative = feed-in.}
+  - {key: x.control_type, label: Control type, table: holding, address: 1070, type: u16, writable: true, persistent: true, poll: slow, models: [elwa_e, elwa_2, thor, thor_9s], note: Must be Modbus TCP (2) for power commands. The code tables differ per model and firmware.}
+  - {key: x.max_power_possible, label: 'Pmax_abs (max. power currently possible, incl. slaves)', table: holding, address: 1071, type: u16, unit: W, models: [elwa_e, elwa_2, thor, thor_9s]}
+  - {key: l3_voltage, label: U L3, table: holding, address: 1072, type: u16, unit: V, models: [thor, thor_9s], invalid: [0], note: 9s only; the AC•THOR replies 0., conflicts: [{sources: [openems], type: s16, scale: 0.001, label: Voltage L3}]}
+  - {key: l3_current, label: I L3, table: holding, address: 1073, type: u16, unit: A, scale: 0.1, models: [thor, thor_9s], note: 9s only; the AC•THOR replies 0., conflicts: [{sources: [openems], type: s16, scale: 0.001, label: Current L3}]}
+  - {key: x.power_out_1, label: P out1, table: holding, address: 1074, type: u16, unit: W, models: [elwa_2, thor, thor_9s], note: 'ELWA 2: power at the immersion heater. AC•THOR: 9s only, the AC•THOR replies 0.', conflicts: [{sources: [openems], type: s16, positive: consumption, label: Active power L1}]}
+  - {key: x.power_out_2, label: P out2, table: holding, address: 1075, type: u16, unit: W, models: [elwa_2, thor, thor_9s], note: 'ELWA 2: power at the AUX relay. AC•THOR: 9s only, the AC•THOR replies 0.', conflicts: [{sources: [openems], type: s16, positive: consumption, label: Active power L2}]}
+  - {key: x.power_out_3, label: P out3, table: holding, address: 1076, type: u16, unit: W, models: [thor_9s], conflicts: [{sources: [openems], type: s16, positive: consumption, label: Active power L3}]}
+  - {key: x.operation_state, label: Operation state (screen icon), table: holding, address: 1077, type: u16, models: [elwa_2, thor, thor_9s], conflicts: [{sources: [openems], type: s16, label: Status}]}
+  - {key: x.device_state, label: Device state, table: holding, address: 1081, type: u16, writable: true, min: 0, max: 1, persistent: true, models: [elwa_e, elwa_2, thor, thor_9s]}
+  - {key: consumer_power, label: Power of the queried device, table: holding, address: 1082, type: u16, unit: W, positive: consumption, models: [elwa_e, elwa_2, thor, thor_9s], verified: false, note: 'Unsigned, without slaves; = solar part (1083) + grid part (1084). Direction derived (a heater only draws power). Since ELWA-E 00203.00 and AC•THOR a0020303; older firmware: see notes.'}
+  - {key: x.solar_power_part, label: Solar part of device power, table: holding, address: 1083, type: u16, unit: W, models: [elwa_2, thor, thor_9s]}
+  - {key: x.grid_power_part, label: Grid part of device power, table: holding, address: 1084, type: u16, unit: W, models: [elwa_2, thor, thor_9s]}
+  - {key: x.pwm_out, label: PWM-out, table: holding, address: 1085, type: u16, unit: '%', models: [thor, thor_9s], note: Firmware ≥ a0020500.}
+  - {key: x.co_controller_firmware, label: Co-controller firmware version, table: holding, address: 1086, type: u16, poll: slow, models: [elwa_2]}
+  - {key: x.meter_power_32, label: Meter measurement value (32-bit), table: holding, address: 1087, type: s32, unit: W, models: [elwa_e, elwa_2, thor, thor_9s], note: 'Same meter value as 1069 for values outside the 16-bit range; negative = feed-in. Firmware ≥ ELWA-E 00206.00, ELWA 2 e0000300, AC•THOR a0021002. Read both registers together.'}
+  - {key: x.status, label: Status, table: holding, address: 1003, type: s16, models: [acthor], note: '0 off, 1-8 device start, 9 operation, 200 and above power stage fault (openWB legacy script).', verified: false, sources: [openwb]}
+  - {key: x.temp1, label: Temperature 2, table: holding, address: 1030, type: s16, unit: °C, scale: 0.1, models: [acthor], note: 0 when no sensor is connected., verified: false, sources: [openwb]}
+  - {key: x.temp2, label: Temperature 3, table: holding, address: 1031, type: s16, unit: °C, scale: 0.1, models: [acthor], note: 0 when no sensor is connected; openWB's legacy script ignores it on E2M1 / E2M3., verified: false, sources: [openwb]}
+  - {key: x.voltage_l1_1061, label: Voltage L1, table: holding, address: 1061, type: s16, unit: V, scale: 0.001, verified: false, sources: [openems], models: [acthor]}
+  - {key: x.current_l1_1062, label: Current L1, table: holding, address: 1062, type: s16, unit: A, scale: 0.001, verified: false, sources: [openems], models: [acthor]}
+  - {key: x.voltage_l2_1067, label: Voltage L2, table: holding, address: 1067, type: s16, unit: V, scale: 0.001, verified: false, sources: [openems], models: [acthor]}
+  - {key: x.current_l2_1068, label: Current L2, table: holding, address: 1068, type: s16, unit: A, scale: 0.001, verified: false, sources: [openems], models: [acthor]}
+  - {key: x.voltage_l3_1072, label: Voltage L3, table: holding, address: 1072, type: s16, unit: V, scale: 0.001, verified: false, sources: [openems], models: [acthor]}
+  - {key: x.current_l3_1073, label: Current L3, table: holding, address: 1073, type: s16, unit: A, scale: 0.001, verified: false, sources: [openems], models: [acthor]}
+  - {key: l1_power, label: Active power L1, table: holding, address: 1074, type: s16, unit: W, positive: consumption, verified: false, sources: [openems], models: [acthor]}
+  - {key: l2_power, label: Active power L2, table: holding, address: 1075, type: s16, unit: W, positive: consumption, verified: false, sources: [openems], models: [acthor]}
+  - {key: l3_power, label: Active power L3, table: holding, address: 1076, type: s16, unit: W, positive: consumption, verified: false, sources: [openems], models: [acthor]}
+  - {key: x.status_1077, label: Status, table: holding, address: 1077, type: s16, enum: status, verified: false, sources: [openems], models: [acthor]}
+  - {key: x.fuse_input, label: Fuse, table: input, address: 1014, type: s16, unit: A, models: [elwa_e], note: openWB's current consumer module reads it with function 04; its legacy script reads the holding register., verified: false, sources: [openwb]}
+
+enums:
+  elwa_e_status: {'2': Heating, '3': Standby, '4': Boost heating, '5': Heat finished, '9': Setup, '201': 'Error: overtemperature, fuse blown', '202': 'Error: overtemperature measured', '203': 'Error: overtemperature electronics', '204': 'Error: hardware fault', '205': 'Error: temperature sensor', '209': 'Error: mainboard'}
+  elwa_2_status: {'1': No control signal, '2': Heating, '3': Standby, '4': Boost heating, '5': Heat finished, '20': Legionella boost active, '21': Device disabled, '22': Device blocked, '201': 'Error: safety thermostat (STL) triggered', '202': 'Error: power stage overtemperature', '203': 'Error: power stage temperature probe', '204': 'Error: hardware fault', '205': 'Error: immersion heater temperature sensor', '209': 'Error: mainboard'}
+  thor_status: {'0': 'Off', '1': Starting up, '2': Starting up, '3': Starting up, '4': Starting up, '5': Starting up, '6': Starting up, '7': Starting up, '8': Starting up, '9': Operation}
+  status: {'0': Standby, '1': Excess, '2': Control is not allowed, '3': Temperature reached, '4': No control signal, '5': Error}
+
+flags:
+  elwa_2_relays: {'0': AUX relay on, '1': SELV relay on}
+  thor_load_state: {'1': Load on output 1 (9s), '2': Load on output 2 (9s), '3': Load on output 3 (9s)}
+
+problems:
+  - {when: {key: state, range: [200, 65535]}, kind: fault, text: 'Device error (status {value})'}
+
+notes:
+- Set the control type ("kind of control") to Modbus TCP in the web interface to accept power commands. Reading without it
+  is assumed to work (unverified).
+- Port 502 and unit id 1 are in none of the documents (unverified).
+- Addresses are the documents' real (0-based) addresses. Read with FC 03. Every register is a 16-bit unsigned value except
+  1069 (signed), 1078/1079 and 1087/1088 (32-bit, high word at the lower address).
+- Model detection uses the 16-digit serial number's first six digits (1018–1020); my-PV discourages this but lists the prefixes.
+  Other prefixes (e.g. SOL•THOR 140100) get the common registers 1000–1028 only.
+- 'Power drawn: 1082 where the firmware has it; otherwise the sum of the output powers (ELWA 2: 1074 + 1075, AC•THOR 9s: 1074
+  + 1075 + 1076); otherwise the power setpoint 1000, which is only the commanded value (unverified as a measurement).'
+- 'AC•THOR status: 0 off, 1–8 start-up, 9 operation, every value ≥ 200 is a power stage error. The ELWA-E and ELWA 2 documents
+  list error codes 201–205 and 209 only; the problem covers every status ≥ 200 on all models.'
+- The ELWA-E status list in its document has 2–5, 9 and 201–209.
+- 'Firmware: main version in 1016, sub version in 1028.'
+- Writable registers other than 1000 (and on the ELWA 2 / AC•THOR 1009–1012, 1078–1080) must not be written more than once
+  a day (non-volatile memory).
+- Models acthor come from projects and are listed after a model without a match, so detection never reaches them; their points
+  apply only when a reader selects such a model by hand.
+- HeatMyPvAcThor9sImpl.java reads holding register 1001 as temperature with type s16; HeatMyPvImpl.java (kept here) reads
+  type u16.
+- 'openWB scales the power it writes to register 1000 of an AC•THOR / ELWA 2 by the model''s full power over the configured
+  maximum: 9s45 45000 W, 9s27 27000 W, 9s18 18000 W, 9s 9000 W, M3 6000 W, E2M3 6500 W, E2M1 3500 W, M1 3000 W.'
+- openWB caps the power written to an AC ELWA-E at 4000 W and writes nothing during boost heat (state 4).
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

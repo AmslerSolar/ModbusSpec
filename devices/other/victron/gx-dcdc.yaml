@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Victron's GX Modbus-TCP register list dbus_modbustcp 744e228 (revision 55) and dbus_modbustcp's attributes.csv.
+
+modbusspec: 0
+id: victron-gx-dcdc
+manufacturer: Victron Energy
+name: 'GX Modbus-TCP: DC-DC converter (com.victronenergy.dcdc)'
+kind: other
+
+sources:
+- title: Victron GX Modbus-TCP register list (CCGX-Modbus-TCP-register-list)
+  version: dbus_modbustcp 744e228 (revision 55)
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/CCGX-Modbus-TCP-register-list.xlsx
+- title: dbus_modbustcp attributes.csv (Victron's register table in the Modbus-TCP service source)
+  version: commit 744e228
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/attributes.csv
+- id: hass-victron
+  title: hass-victron (Home Assistant integration)
+  url: https://github.com/sfstar/hass-victron
+  license: Apache-2.0
+  commit: 3d3ec1e6cb7768d3c6d49ed23e9b52814477c205
+  path: custom_components/victron/const.py
+
+connection:
+  default_port: 502
+  default_unit: 226
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.product_id, label: Product ID, table: holding, address: 4800, type: u16, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 4801, type: u32, poll: slow}
+  - {key: error_code, label: Error code, table: holding, address: 4803, type: u16, enum: error_code}
+  - {key: x.dc_0_voltage, label: Battery voltage, table: holding, address: 4804, type: u16, unit: V, scale: 0.01}
+  - {key: x.dc_0_current, label: Battery current, table: holding, address: 4805, type: s16, unit: A, scale: 0.1}
+  - {key: x.dc_0_temperature, label: Battery temperature, table: holding, address: 4806, type: s16, unit: °C, scale: 0.1}
+  - {key: x.mode, label: Switch position, table: holding, address: 4807, type: u16, enum: mode, writable: true}
+  - {key: state, label: Charge state, table: holding, address: 4808, type: u16, enum: state}
+  - {key: x.dc_in_v, label: Input voltage (before DC/DC converter), table: holding, address: 4809, type: u16, unit: V, scale: 0.01}
+  - {key: x.dc_in_p, label: Input power, table: holding, address: 4810, type: u16, unit: W}
+  - {key: x.history_cumulative_user_charged_ah, label: Accumulated Ah converted, table: holding, address: 4811, type: u16, unit: Ah, scale: 0.1}
+  - {key: x.custom_name, label: Custom Name, table: holding, address: 4820, type: str, length: 8, writable: true, poll: slow}
+
+enums:
+  error_code: {'0': No error, '1': Battery temperature too high, '2': Battery voltage too high, '3': Battery temperature sensor miswired (+), '4': Battery temperature sensor miswired (-), '5': Battery temperature sensor disconnected, '6': Battery voltage sense miswired (+), '7': Battery voltage sense miswired (-), '8': Battery voltage sense disconnected, '9': Battery voltage wire losses too high, '17': Charger temperature too high, '18': Charger over-current, '19': Charger current polarity reversed, '20': Bulk time limit reached, '22': Charger temperature sensor miswired, '23': Charger temperature sensor disconnected, '34': Input current too high}
+  mode: {'1': 'On', '4': 'Off'}
+  state: {'0': 'Off', '2': Fault, '3': Bulk, '4': Absorption, '5': Float, '6': Storage, '7': Equalize, '11': Power Supply}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'DC-DC converter error {value}'}
+  - {when: {key: state, equals: 2}, kind: fault, text: DC-DC converter fault (state 2)}
+
+notes:
+- No fixed unit id (since Venus OS 2.60 the GX assigns them, normally the device instance; see Settings → Integrations → Modbus
+  TCP server → Available services). 226 is the list's id for the Cerbo GX VE.Direct port 1; other ports and GX models have
+  other ids.
+- Addresses are the list's numbers, which are the protocol addresses (no 30001/40001 offset); read them as holding registers
+  (function 03). Strings carry two characters per register, first character in the high byte.
+- Registers the device or firmware doesn't have make the GX answer the whole request with an exception; read them in separate
+  requests or skip them.
+- Taken from the register list dbus_modbustcp 744e228 (revision 55); attributes.csv (Victron's dbus_modbustcp source) filled
+  in what the list leaves out.
+- The unit id is the GX device instance of this service; hass-victron finds it by scanning a fixed list of unit ids.

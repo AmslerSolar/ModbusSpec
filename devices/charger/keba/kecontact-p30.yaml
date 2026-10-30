@@ -1,0 +1,120 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the KeContact P30 Modbus TCP Programmers Guide (1.07).
+
+modbusspec: 0
+id: keba-kecontact-p30
+manufacturer: KEBA
+name: KeContact P30 wallbox (c-series ≥ 3.10.16, x-series ≥ 1.11)
+kind: charger
+
+sources:
+- title: KeContact P30 Modbus TCP Programmers Guide
+  version: 1.07 (12.2025)
+  url: https://a.storyblok.com/f/40131/x/44932c2bc8/kecontactp30modbustcp_pgen.pdf
+  sha256: b54ff1dd2036d69b28cf418eb2e640c67c449af97c35e07a0e5f852b10d7f686
+- title: KeContact P30 Modbus TCP Programmers Guide (document no. 132578)
+  version: 1.05 (02.2024)
+  url: https://www.keba.com/download/x/dea7ae6b84/kecontactp30modbustcp_pgen.pdf
+  sha256: 7e8a7617cbd471fcc5ab6397f8ec0b1625590f3b883d086a6a238b731fab99a3
+  archive_url: https://web.archive.org/web/20240521034746/https://www.keba.com/download/x/dea7ae6b84/kecontactp30modbustcp_pgen.pdf
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.evse.chargepoint.keba/src/io/openems/edge/evcs/keba/modbus/EvcsKebaModbusImpl.java, io.openems.edge.evse.chargepoint.keba/src/io/openems/edge/evse/chargepoint/keba/modbus/EvseKebaModbusImpl.java
+
+connection:
+  default_port: 502
+  default_unit: 255
+  transports:
+  - tcp
+  limits:
+    max_registers: 2
+    min_interval_ms: 500
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 1014
+    type: u32
+  checks:
+  - table: holding
+    address: 1016
+    type: u32
+    range:
+    - 300000
+    - 399999
+  - table: holding
+    address: 1000
+    type: u32
+    range:
+    - 0
+    - 5
+
+points:
+  - {key: state, label: Charging state, table: holding, address: 1000, type: u32, enum: charging_state}
+  - {key: x.cable_state, label: Cable state, table: holding, address: 1004, type: u32, enum: cable_state}
+  - {key: error_code, label: Error code, table: holding, address: 1006, type: u32, note: Shown as hex.}
+  - {key: l1_current, label: Charging current phase 1, table: holding, address: 1008, type: u32, unit: A, scale: 0.001}
+  - {key: l2_current, label: Charging current phase 2, table: holding, address: 1010, type: u32, unit: A, scale: 0.001}
+  - {key: l3_current, label: Charging current phase 3, table: holding, address: 1012, type: u32, unit: A, scale: 0.001}
+  - {key: consumer_power, label: Active power, table: holding, address: 1020, type: u32, unit: W, scale: 0.001, positive: consumption}
+  - {key: session_energy, label: Charged energy (session), table: holding, address: 1502, type: u32, unit: kWh, scale: 0.0001, note: 0.1 Wh per the 1.07 guide; the 1.05 guide gives whole Wh (see notes).}
+  - {key: consumer_energy, label: Total energy, table: holding, address: 1036, type: u32, unit: kWh, scale: 0.0001, poll: slow, note: 0.1 Wh per the 1.07 guide; the 1.05 guide gives whole Wh (see notes).}
+  - {key: l1_voltage, label: Voltage phase 1, table: holding, address: 1040, type: u32, unit: V, poll: slow}
+  - {key: l2_voltage, label: Voltage phase 2, table: holding, address: 1042, type: u32, unit: V, poll: slow}
+  - {key: l3_voltage, label: Voltage phase 3, table: holding, address: 1044, type: u32, unit: V, poll: slow}
+  - {key: power_factor, label: Power factor, table: holding, address: 1046, type: u32, unit: '', scale: 0.001, poll: slow, conflicts: [{sources: [openems], scale: 0.1}]}
+  - {key: x.max_charging_current, label: Max. charging current, table: holding, address: 1100, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: x.max_supported_current, label: Max. supported current, table: holding, address: 1110, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 1014, type: u32, poll: slow}
+  - {key: x.product_type, label: Product type, table: holding, address: 1016, type: u32, poll: slow, note: 'Decimal digits: type, cable, current, series, meter, RFID.'}
+  - {key: firmware, label: Firmware version, table: holding, address: 1018, type: u32, poll: slow, verified: false, note: Hex bytes; the guide's example (0x030A0D00 → 3.10.14) doesn't match its own digits. Register 1013 in P30 Modbus TCP version 1.11 (see notes).}
+  - {key: x.rfid_tag, label: RFID tag, table: holding, address: 1500, type: u32, poll: slow, note: 'First 4 bytes of the RFID card''s UID, shown as hex; only when the session was authorised by card (0 = none).'}
+  - {key: x.phase_switching_source, label: Phase switching source, table: holding, address: 1550, type: u32, enum: phase_switching_source, poll: slow}
+  - {key: x.phase_switching_state, label: Phase switching state, table: holding, address: 1552, type: u32, enum: phase_switching_state, poll: slow}
+  - {key: x.failsafe_current, label: Failsafe current setting, table: holding, address: 1600, type: u32, unit: A, scale: 0.001, poll: slow, note: The active value from the last failsafe command; may differ from the stored setting.}
+  - {key: x.failsafe_timeout, label: Failsafe timeout setting, table: holding, address: 1602, type: u32, unit: s, poll: slow, note: The active value from the last failsafe command; may differ from the stored setting., conflicts: [{sources: [openems]}]}
+  - {key: x.set_charging_current, label: Set charging current, table: holding, address: 5004, type: u16, unit: A, scale: 0.001, writable: true, verified: false, sources: [openems]}
+  - {key: x.set_energy_limit, label: Set energy limit, table: holding, address: 5010, type: u16, unit: kWh, scale: 0.01, writable: true, verified: false, sources: [openems]}
+  - {key: x.set_unlock_plug, label: Set unlock plug, table: holding, address: 5012, type: u16, enum: set_unlock, writable: true, verified: false, sources: [openems]}
+  - {key: x.set_enable, label: Set enable, table: holding, address: 5014, type: u16, enum: set_enable, writable: true, verified: false, sources: [openems]}
+  - {key: x.set_phase_switch_source, label: Set phase switch source, table: holding, address: 5050, type: u16, enum: phase_switch_source, writable: true, verified: false, sources: [openems]}
+  - {key: x.set_trigger_phase_switch, label: Set trigger phase switch, table: holding, address: 5052, type: u16, enum: trigger_phase_switch, writable: true, verified: false, sources: [openems]}
+
+enums:
+  charging_state: {'0': Starting, '1': Not ready, '2': 'Ready, waiting for car', '3': Charging, '4': Error, '5': Interrupted (temperature / suspended)}
+  cable_state: {'0': No cable, '1': Cable at station, '3': 'Cable at station, locked', '5': Cable at station and car, '7': 'Cable at station and car, locked'}
+  phase_switching_source: {'0': None, '1': OCPP, '2': REST API, '3': Modbus TCP, '4': UDP}
+  phase_switching_state: {'1': Single-phase charging, '3': Three-phase charging possible}
+  phase_switch_source: {'0': No phase toggle source is available, '1': Toggle via OCPP, '2': Direct toggle command via RESTAPI, '3': Toggle via Modbus, '4': Toggle via UDP}
+  set_unlock: {'0': Set Unlock}
+  set_enable: {'0': Disable charging station (Suspended mode), '1': Enable charging station (Charging)}
+  trigger_phase_switch: {'0': 1 phase, '1': 3 phases}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charging station error (code 0x{value:X})'}
+  - {when: {key: state, equals: 4}, kind: fault, text: Charging station error (state 4)}
+
+notes:
+- Enable on the device with DIP switch DSW1.3 = ON; don't use Modbus TCP together with the UDP interface.
+- Every value is a UINT32 over two registers; read one value per request, more than 0.5 s apart.
+- The guide gives no word order; most significant word first is assumed (not checked on a device).
+- 'Firmware: in P30 Modbus TCP version 1.11 the firmware register is 1013 instead of 1018 (guide §3.9). It isn''t a point
+  here because 1013 is the second register of the phase 3 current (1012); readers try 1018 first and read 1013 (two registers,
+  UINT32) only when 1018 is refused.'
+- 'Energy unit of 1036 and 1502: the 1.07 guide gives 0.1 Wh, the older 1.05 guide (02.2024) whole Wh (example 38101 = 38.101
+  kWh). The unit likely depends on the firmware; KEBA''s P40 guide lists Wh instead of 0.1 Wh in these registers as a known
+  bug of P40 software below 1.2.1. Which P30 firmware changed it is not documented; a reading 10× too small points to a Wh
+  firmware (unverified).'
+- EvseKebaModbusImpl.java reads holding register 1502 as energy_session with unit none; EvcsKebaModbusImpl.java (kept here)
+  reads unit Wh.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

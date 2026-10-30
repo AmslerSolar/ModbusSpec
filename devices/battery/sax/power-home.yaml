@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: sax-power-home
+manufacturer: SAX
+name: SAX Power Home (Plus)
+kind: battery
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/sax.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.ess.saxpower
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/saxpower/saxpower
+
+connection:
+  default_port: 502
+  default_unit: 64
+  transports:
+  - tcp
+
+defaults:
+  verified: false
+  sources:
+  - openems
+
+points:
+  - {key: x.batterymode_43, label: Battery mode control (write), table: holding, address: 43, type: u16, writable: true, note: 'evcc writes battery mode normal: 4600; battery mode hold: 0.', sources: [evcc, openwb]}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 46, type: u16, unit: '%', sources: [evcc], conflicts: [{sources: [openwb], type: s16}]}
+  - {key: x.battery_power_1, label: Battery power (part 1), table: holding, address: 47, type: u16, unit: W, note: evcc adds it to the other registers of the battery power., sources: [evcc], conflicts: [{sources: [openwb], type: s16, label: Battery power (part)}]}
+  - {key: x.grid_power_1, label: Grid power (part 1), table: holding, address: 48, type: u16, unit: W, note: evcc adds it to the other registers of the grid power., sources: [evcc], conflicts: [{sources: [openwb], type: s16, label: Counter power (part)}]}
+  - {key: battery_power, label: Active power, table: holding, address: 40029, type: s16, unit: W, positive: discharge}
+  - {key: x.power_target, label: Power target, table: holding, address: 40049, type: s16, writable: true}
+  - {key: x.timeout, label: Timeout, table: holding, address: 40050, type: u16, unit: s, writable: true}
+  - {key: x.control_mode, label: Control mode, table: holding, address: 40051, type: u16, writable: true}
+  - {key: x.reference_maximum_power, label: Reference maximum power, table: holding, address: 40053, type: u16, unit: W}
+  - {key: grid_power, label: Active power, table: holding, address: 40072, type: s16, unit: W, scale: 10, positive: export}
+  - {key: x.active_power_l1, label: Active power l1, table: holding, address: 40073, type: s16, unit: W, scale: 10, note: 'Positive = export (OpenEMS channel active power l1, after negating the register).'}
+  - {key: x.active_power_l2, label: Active power l2, table: holding, address: 40074, type: s16, unit: W, scale: 10, note: 'Positive = export (OpenEMS channel active power l2, after negating the register).'}
+  - {key: x.active_power_l3, label: Active power l3, table: holding, address: 40075, type: s16, unit: W, scale: 10, note: 'Positive = export (OpenEMS channel active power l3, after negating the register).'}
+  - {key: x.capacity, label: Capacity, table: holding, address: 40097, type: s16, unit: kWh, scale: 0.001}
+  - {key: x.allowed_charge_power, label: Allowed charge power, table: holding, address: 40098, type: s16, unit: W, note: OpenEMS negates this register for its channel.}
+  - {key: x.allowed_discharge_power, label: Allowed discharge power, table: holding, address: 40099, type: s16, unit: W}
+  - {key: x.soc, label: State of Charge of the energy storage system, table: holding, address: 40102, type: s16, unit: '%'}
+
+notes:
+- 'evcc template `sax` (grid, battery) lists: SAX SAX Power Home (Plus).'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

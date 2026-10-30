@@ -1,0 +1,251 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Shelly Gen2 API pages (Modbus, EM, EMData) below.
+
+modbusspec: 0
+id: shelly-pro-3em
+manufacturer: Shelly
+name: Pro 3EM three-phase energy meter (EM / EMData, three-phase profile)
+kind: meter
+
+sources:
+- title: Shelly Gen2 API, Components and Services, Modbus
+  version: 1.0 (saved 2026-10-21)
+  url: https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/Modbus
+  sha256: 6d65902ee819b5a46fa97c5870c0dbb4be31848444aae6796818fb780dcccc2b
+- title: Shelly Gen2 API, Components and Services, EM
+  version: 1.0 (saved 2026-10-21)
+  url: https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/EM
+  sha256: bb9685f7108759b7cc60d18d09a64ce17352206eb3264552cd9408f9ac7a1f80
+- title: Shelly Gen2 API, Components and Services, EMData
+  version: 1.0 (saved 2026-10-21)
+  url: https://shelly-api-docs.shelly.cloud/gen2/ComponentsAndServices/EMData
+  sha256: e11261f687bf68dccb4cb6725ba44b04870bead109e80572432abeac0f06a121
+- id: shelly-modbus-home-assistant
+  title: shelly-modbus-home-assistant (Home Assistant integration)
+  url: https://github.com/sphings79/shelly-modbus-home-assistant
+  license: MIT
+  commit: 48005d1f19c8c56451ec258132c23002d85f5f73
+  path: custom_components/shelly_modbus/registers/components.yaml, custom_components/shelly_modbus/registers/models.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    max_gap: 16
+
+encoding:
+  byte_order: big
+  word_order: detect
+  detect:
+    table: input
+    address: 1033
+    type: f32
+    plausible:
+    - 40
+    - 70
+
+identify:
+  serial:
+    table: input
+    address: 0
+    type: str
+    length: 6
+  checks:
+  - table: input
+    address: 1033
+    type: f32
+    range:
+    - 0
+    - 70
+  - table: input
+    address: 1020
+    type: f32
+    range:
+    - 0
+    - 1000
+  # device model; a device answering 0 or FFFFh everywhere is not this one
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    printable: true
+
+models:
+  - {id: spem_003cebeu120, name: Shelly Pro 3EM-120 (SPEM-003CEBEU120), match: {table: input, address: 6, type: str, length: 10, prefix: PSME0-30ECEB1U02}}
+  - {id: spem_003cebeu400, name: Shelly Pro 3EM-400 (SPEM-003CEBEU400), match: {table: input, address: 6, type: str, length: 10, prefix: PSME0-30ECEB4U00}}
+  - {id: spem_003cebeu63, name: Shelly Pro 3EM-3CT63 (SPEM-003CEBEU63), match: {table: input, address: 6, type: str, length: 10, prefix: PSME0-30ECEB6U}}
+  - {id: s3em_003cxceu63, name: Shelly 3EM-63 Gen3 (S3EM-003CXCEU63), match: {table: input, address: 6, type: str, length: 10, prefix: 3SME0-30XCEC6U}}
+  - {id: spem_003cebeu, name: Shelly Pro 3EM (SPEM-003CEBEU), match: {table: input, address: 6, type: str, length: 10, prefix: PSME0-30ECEB}}
+
+points:
+  # Device info (tables 30000 ff.)
+  - {key: x.mac, label: Device MAC, table: input, address: 0, type: str, length: 6, poll: slow, verified: false, note: 'ASCII; byte order within a register not stated, high byte first assumed.', conflicts: [{sources: [shelly-modbus-home-assistant], byte_order: little, label: MAC Address}]}
+  - {key: x.model, label: Device model, table: input, address: 6, type: str, length: 10, poll: slow, verified: false, note: 'ASCII, zero padded; byte order within a register not stated, high byte first assumed.', conflicts: [{sources: [shelly-modbus-home-assistant], byte_order: little, label: Model}]}
+  - {key: x.device_name, label: Device name, table: input, address: 16, type: str, length: 32, poll: slow, verified: false, note: 'ASCII, zero padded; byte order within a register not stated, high byte first assumed.', conflicts: [{sources: [shelly-modbus-home-assistant], byte_order: little, label: Device Name}]}
+  # EM (tables 31000 ff.)
+  - {key: x.em_timestamp, label: Timestamp of the last update, table: input, address: 1000, type: u32, note: Unix time (s).}
+  - {key: x.l1_meter_error, label: Phase A meter error, table: input, address: 1002, type: u16, enum: boolean}
+  - {key: x.l2_meter_error, label: Phase B meter error, table: input, address: 1003, type: u16, enum: boolean}
+  - {key: x.l3_meter_error, label: Phase C meter error, table: input, address: 1004, type: u16, enum: boolean}
+  - {key: x.neutral_meter_error, label: Neutral meter error, table: input, address: 1005, type: u16, enum: boolean}
+  - {key: x.phase_sequence_error, label: Phase sequence error, table: input, address: 1006, type: u16, enum: boolean}
+  - {key: x.neutral_current, label: Neutral current, table: input, address: 1007, type: f32, unit: A}
+  - {key: x.neutral_current_mismatch, label: Neutral current mismatch, table: input, address: 1009, type: u16, enum: boolean}
+  - {key: x.neutral_overcurrent, label: Neutral overcurrent error, table: input, address: 1010, type: u16, enum: boolean}
+  - {key: x.total_current, label: Total current, table: input, address: 1011, type: f32, unit: A, note: Sum of all available phases.}
+  - {key: grid_power, label: Total active power, table: input, address: 1013, type: f32, unit: W, positive: import, verified: false, note: 'The pages give no sign. Implied only: the EM status example shows a negative phase power, and EMData keeps separate "active" and "active returned" energy counters, so positive = drawn from the grid.'}
+  - {key: apparent_power, label: Total apparent power, table: input, address: 1015, type: f32, unit: VA, note: Sum of all available phases.}
+  - {key: l1_voltage, label: Phase A voltage, table: input, address: 1020, type: f32, unit: V}
+  - {key: l1_current, label: Phase A current, table: input, address: 1022, type: f32, unit: A}
+  - {key: l1_power, label: Phase A active power, table: input, address: 1024, type: f32, unit: W, positive: import, verified: false, note: Sign not stated; derived like the total active power.}
+  - {key: x.l1_apparent_power, label: Phase A apparent power, table: input, address: 1026, type: f32, unit: VA}
+  - {key: x.l1_power_factor, label: Phase A power factor, table: input, address: 1028, type: f32}
+  - {key: x.l1_overpower, label: Phase A overpower error, table: input, address: 1030, type: u16, enum: boolean}
+  - {key: x.l1_overvoltage, label: Phase A overvoltage error, table: input, address: 1031, type: u16, enum: boolean}
+  - {key: x.l1_overcurrent, label: Phase A overcurrent error, table: input, address: 1032, type: u16, enum: boolean}
+  - {key: frequency, label: Phase A frequency, table: input, address: 1033, type: f32, unit: Hz}
+  - {key: l2_voltage, label: Phase B voltage, table: input, address: 1040, type: f32, unit: V}
+  - {key: l2_current, label: Phase B current, table: input, address: 1042, type: f32, unit: A}
+  - {key: l2_power, label: Phase B active power, table: input, address: 1044, type: f32, unit: W, positive: import, verified: false, note: Sign not stated; derived like the total active power.}
+  - {key: x.l2_apparent_power, label: Phase B apparent power, table: input, address: 1046, type: f32, unit: VA}
+  - {key: x.l2_power_factor, label: Phase B power factor, table: input, address: 1048, type: f32}
+  - {key: x.l2_overpower, label: Phase B overpower error, table: input, address: 1050, type: u16, enum: boolean}
+  - {key: x.l2_overvoltage, label: Phase B overvoltage error, table: input, address: 1051, type: u16, enum: boolean}
+  - {key: x.l2_overcurrent, label: Phase B overcurrent error, table: input, address: 1052, type: u16, enum: boolean}
+  - {key: x.l2_frequency, label: Phase B frequency, table: input, address: 1053, type: f32, unit: Hz}
+  - {key: l3_voltage, label: Phase C voltage, table: input, address: 1060, type: f32, unit: V}
+  - {key: l3_current, label: Phase C current, table: input, address: 1062, type: f32, unit: A}
+  - {key: l3_power, label: Phase C active power, table: input, address: 1064, type: f32, unit: W, positive: import, verified: false, note: Sign not stated; derived like the total active power.}
+  - {key: x.l3_apparent_power, label: Phase C apparent power, table: input, address: 1066, type: f32, unit: VA}
+  - {key: x.l3_power_factor, label: Phase C power factor, table: input, address: 1068, type: f32}
+  - {key: x.l3_overpower, label: Phase C overpower error, table: input, address: 1070, type: u16, enum: boolean}
+  - {key: x.l3_overvoltage, label: Phase C overvoltage error, table: input, address: 1071, type: u16, enum: boolean}
+  - {key: x.l3_overcurrent, label: Phase C overcurrent error, table: input, address: 1072, type: u16, enum: boolean}
+  - {key: x.l3_frequency, label: Phase C frequency, table: input, address: 1073, type: f32, unit: Hz}
+  # EMData (tables 31160 ff.)
+  - {key: x.emdata_timestamp, label: Timestamp of the last update (energy), table: input, address: 1160, type: u32, poll: slow, note: Unix time (s).}
+  - {key: grid_import_energy, label: Total active energy (perpetual), table: input, address: 1162, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: grid_export_energy, label: Total active returned energy (perpetual), table: input, address: 1164, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_active_energy_counter, label: Phase A total active energy, table: input, address: 1170, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_fundamental_active_energy, label: Phase A fundamental active energy, table: input, address: 1172, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_returned_energy_counter, label: Phase A total active returned energy, table: input, address: 1174, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_fundamental_returned_energy, label: Phase A fundamental active returned energy, table: input, address: 1176, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_lagging_reactive_energy, label: Phase A lagging reactive energy, table: input, address: 1178, type: f32, unit: varh, poll: slow}
+  - {key: x.l1_leading_reactive_energy, label: Phase A leading reactive energy, table: input, address: 1180, type: f32, unit: varh, poll: slow}
+  - {key: x.l1_active_energy, label: Phase A total active energy (perpetual), table: input, address: 1182, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_returned_energy, label: Phase A total active returned energy (perpetual), table: input, address: 1184, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_active_energy_counter, label: Phase B total active energy, table: input, address: 1190, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_fundamental_active_energy, label: Phase B fundamental active energy, table: input, address: 1192, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_returned_energy_counter, label: Phase B total active returned energy, table: input, address: 1194, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_fundamental_returned_energy, label: Phase B fundamental active returned energy, table: input, address: 1196, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_lagging_reactive_energy, label: Phase B lagging reactive energy, table: input, address: 1198, type: f32, unit: varh, poll: slow}
+  - {key: x.l2_leading_reactive_energy, label: Phase B leading reactive energy, table: input, address: 1200, type: f32, unit: varh, poll: slow}
+  - {key: x.l2_active_energy, label: Phase B total active energy (perpetual), table: input, address: 1202, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_returned_energy, label: Phase B total active returned energy (perpetual), table: input, address: 1204, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_active_energy_counter, label: Phase C total active energy, table: input, address: 1210, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_fundamental_active_energy, label: Phase C fundamental active energy, table: input, address: 1212, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_returned_energy_counter, label: Phase C total active returned energy, table: input, address: 1214, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_fundamental_returned_energy, label: Phase C fundamental active returned energy, table: input, address: 1216, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_lagging_reactive_energy, label: Phase C lagging reactive energy, table: input, address: 1218, type: f32, unit: varh, poll: slow}
+  - {key: x.l3_leading_reactive_energy, label: Phase C leading reactive energy, table: input, address: 1220, type: f32, unit: varh, poll: slow}
+  - {key: x.l3_active_energy, label: Phase C total active energy (perpetual), table: input, address: 1222, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_returned_energy, label: Phase C total active returned energy (perpetual), table: input, address: 1224, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.em1_0_timestamp, label: Channel 1 Last Update, table: input, address: 2000, type: u32, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_0_error, label: Channel 1 Meter Error, table: input, address: 2002, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_0_voltage, label: Channel 1 Voltage, table: input, address: 2003, type: f32, unit: V, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_0_current, label: Channel 1 Current, table: input, address: 2005, type: f32, unit: A, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_0_act_power, label: Channel 1 Active Power, table: input, address: 2007, type: f32, unit: W, note: Signed; the project treats positive as drawn from the grid when the channels meter the grid., verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_0_aprt_power, label: Channel 1 Apparent Power, table: input, address: 2009, type: f32, unit: VA, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_0_pf, label: Channel 1 Power Factor, table: input, address: 2011, type: f32, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_0_overpower_error, label: Channel 1 Overpower, table: input, address: 2013, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_0_overvoltage_error, label: Channel 1 Overvoltage, table: input, address: 2014, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_0_overcurrent_error, label: Channel 1 Overcurrent, table: input, address: 2015, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_0_freq, label: Channel 1 Frequency, table: input, address: 2016, type: f32, unit: Hz, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_1_timestamp, label: Channel 2 Last Update, table: input, address: 2020, type: u32, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_1_error, label: Channel 2 Meter Error, table: input, address: 2022, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_1_voltage, label: Channel 2 Voltage, table: input, address: 2023, type: f32, unit: V, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_1_current, label: Channel 2 Current, table: input, address: 2025, type: f32, unit: A, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_1_act_power, label: Channel 2 Active Power, table: input, address: 2027, type: f32, unit: W, note: Signed; the project treats positive as drawn from the grid when the channels meter the grid., verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_1_aprt_power, label: Channel 2 Apparent Power, table: input, address: 2029, type: f32, unit: VA, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_1_pf, label: Channel 2 Power Factor, table: input, address: 2031, type: f32, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_1_overpower_error, label: Channel 2 Overpower, table: input, address: 2033, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_1_overvoltage_error, label: Channel 2 Overvoltage, table: input, address: 2034, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_1_overcurrent_error, label: Channel 2 Overcurrent, table: input, address: 2035, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_1_freq, label: Channel 2 Frequency, table: input, address: 2036, type: f32, unit: Hz, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_2_timestamp, label: Channel 3 Last Update, table: input, address: 2040, type: u32, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_2_error, label: Channel 3 Meter Error, table: input, address: 2042, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_2_voltage, label: Channel 3 Voltage, table: input, address: 2043, type: f32, unit: V, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_2_current, label: Channel 3 Current, table: input, address: 2045, type: f32, unit: A, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_2_act_power, label: Channel 3 Active Power, table: input, address: 2047, type: f32, unit: W, note: Signed; the project treats positive as drawn from the grid when the channels meter the grid., verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_2_aprt_power, label: Channel 3 Apparent Power, table: input, address: 2049, type: f32, unit: VA, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_2_pf, label: Channel 3 Power Factor, table: input, address: 2051, type: f32, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1_2_overpower_error, label: Channel 3 Overpower, table: input, address: 2053, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_2_overvoltage_error, label: Channel 3 Overvoltage, table: input, address: 2054, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_2_overcurrent_error, label: Channel 3 Overcurrent, table: input, address: 2055, type: u16, enum: boolean, verified: false, sources: [shelly-modbus-home-assistant]}
+  - {key: x.em1_2_freq, label: Channel 3 Frequency, table: input, address: 2056, type: f32, unit: Hz, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_0_timestamp, label: Channel 1 Energy Last Update, table: input, address: 2300, type: u32, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_0_total_act_energy_period, label: Channel 1 Active Energy (Period), table: input, address: 2302, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_0_total_act_ret_energy_period, label: Channel 1 Active Returned Energy (Period), table: input, address: 2304, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_0_lagging_react_energy, label: Channel 1 Lagging Reactive Energy, table: input, address: 2306, type: f32, unit: varh, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_0_leading_react_energy, label: Channel 1 Leading Reactive Energy, table: input, address: 2308, type: f32, unit: varh, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_0_total_act_energy, label: Channel 1 Active Energy, table: input, address: 2310, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_0_total_act_ret_energy, label: Channel 1 Active Returned Energy, table: input, address: 2312, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_1_timestamp, label: Channel 2 Energy Last Update, table: input, address: 2320, type: u32, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_1_total_act_energy_period, label: Channel 2 Active Energy (Period), table: input, address: 2322, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_1_total_act_ret_energy_period, label: Channel 2 Active Returned Energy (Period), table: input, address: 2324, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_1_lagging_react_energy, label: Channel 2 Lagging Reactive Energy, table: input, address: 2326, type: f32, unit: varh, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_1_leading_react_energy, label: Channel 2 Leading Reactive Energy, table: input, address: 2328, type: f32, unit: varh, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_1_total_act_energy, label: Channel 2 Active Energy, table: input, address: 2330, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_1_total_act_ret_energy, label: Channel 2 Active Returned Energy, table: input, address: 2332, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_2_timestamp, label: Channel 3 Energy Last Update, table: input, address: 2340, type: u32, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_2_total_act_energy_period, label: Channel 3 Active Energy (Period), table: input, address: 2342, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_2_total_act_ret_energy_period, label: Channel 3 Active Returned Energy (Period), table: input, address: 2344, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_2_lagging_react_energy, label: Channel 3 Lagging Reactive Energy, table: input, address: 2346, type: f32, unit: varh, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_2_leading_react_energy, label: Channel 3 Leading Reactive Energy, table: input, address: 2348, type: f32, unit: varh, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_2_total_act_energy, label: Channel 3 Active Energy, table: input, address: 2350, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+  - {key: x.em1data_2_total_act_ret_energy, label: Channel 3 Active Returned Energy, table: input, address: 2352, type: f32, unit: kWh, scale: 0.001, verified: false, sources: [shelly-modbus-home-assistant], word_order: little}
+
+enums:
+  boolean: {'0': 'No', '1': 'Yes'}
+
+problems:
+  - {when: {key: x.l1_meter_error, not: 0}, kind: warning, text: L1 meter error}
+  - {when: {key: x.l2_meter_error, not: 0}, kind: warning, text: L2 meter error}
+  - {when: {key: x.l3_meter_error, not: 0}, kind: warning, text: L3 meter error}
+  - {when: {key: x.neutral_meter_error, not: 0}, kind: warning, text: Neutral meter error}
+  - {when: {key: x.phase_sequence_error, not: 0}, kind: warning, text: Phase sequence error}
+  - {when: {key: x.neutral_current_mismatch, not: 0}, kind: warning, text: Neutral current mismatch}
+  - {when: {key: x.neutral_overcurrent, not: 0}, kind: warning, text: Neutral overcurrent}
+
+notes:
+- Enable the Modbus TCP server first (Modbus.SetConfig with enable = true, or in the web interface); it listens on port 502.
+- The pages number the registers 30000 / 31000 ff.; the protocol address is that number minus 30000 (their own modbus_cli
+  examples read the EM timestamp at input 1000 and phase A voltage at input 1020).
+- The function code isn't stated; the examples use input registers (function 04).
+- Word order isn't stated and can differ; the examples decode floats and uint32 with low word first ("mixed"). It is detected
+  from phase A frequency (1033, 40–70 Hz).
+- Booleans take one register each; any non-zero value means set.
+- The unit id isn't stated; 1 is assumed.
+- The per-phase overpower / overvoltage / overcurrent flags follow the user's own alarm thresholds, so they aren't listed
+  as problems.
+- A second EM / EMData component would sit 80 / 70 registers higher; the Pro 3EM in the three-phase profile has one. In the
+  monophase profile the EM1 / EM1Data registers (2000 ff.) apply instead; they aren't described here.
+- Reads may span the reserved registers between blocks (up to 16); if the meter refuses such a read, read the values one block
+  at a time. Unverified.
+- 'Byte order of the ASCII registers isn''t stated: high byte first is assumed here; shelly-modbus-home-assistant reads the
+  bytes of each register swapped, and its model prefixes depend on that.'
+- Values are input registers (function 04); holding registers aren't implemented. Relay outputs are switched through coils
+  (function 05), physical inputs are discrete inputs (function 02).
+- 32-bit values have the low word first. Strings (MAC, model, name) have the two bytes of each register swapped (byte order
+  little); the model match strings are written in that swapped form.
+- The unit id is ignored by the device.
+- The device runs either as one three-phase meter (em/emdata registers from 1000) or as three single-phase meters (em1/em1data
+  registers from 2000), depending on its profile; only the registers of the active profile carry data.
+- Identification as shelly-modbus-home-assistant recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

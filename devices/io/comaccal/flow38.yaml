@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Comac Cal FLOW 38 v8.x MODBUS RTU communication protocol specification (d.v. 21/6/2013).
+
+modbusspec: 0
+id: comaccal-flow38
+manufacturer: Comac Cal
+name: FLOW 38 flow meter
+kind: io
+
+sources:
+- title: FLOW 38 v8.x communication protocol specification MODBUS RTU
+  version: d.v. 21/6/2013
+  url: https://www.comaccal.cz/storage/typ/FL38/flow38-manual-modbus-rtu-en.pdf
+  sha256: f9056d3453d1e0f3c47c0c702f8f90846d38bf5bf183682c9aa8a9967e861330
+  archive_url: https://web.archive.org/web/20251111051534/https://www.comaccal.cz/storage/typ/FL38/flow38-manual-modbus-rtu-en.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    even_address: true
+    min_interval_ms: 250
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 0
+    type: u32
+
+
+points:
+  - {key: serial, label: Fabrication No., table: holding, address: 0, type: u32, poll: slow}
+  - {key: x.volume_total, label: Volume ∑, table: holding, address: 2, type: u32, poll: slow, note: In display digits; scale and unit follow the meter's display resolution (see notes)., verified: false}
+  - {key: x.volume_forward, label: Volume +, table: holding, address: 4, type: u32, poll: slow, note: In display digits (see notes)., verified: false}
+  - {key: x.volume_reverse, label: Volume -, table: holding, address: 6, type: u32, poll: slow, note: In display digits (see notes)., verified: false}
+  - {key: x.volume_user, label: Volume user, table: holding, address: 8, type: u32, poll: slow, note: In display digits (see notes)., verified: false}
+  - {key: x.flow, label: Flow, table: holding, address: 10, type: s32, note: 'In display digits (see notes); the document''s example: 5.6 m³/h reads 56. Negative presumably for reverse flow; not stated.', verified: false}
+  - {key: error_code, label: Error code, table: holding, address: 12, type: u16, flags: errors}
+
+flags:
+  errors: {'0': Volume overflow (unreasonable increment), '1': FRAM error, '2': Empty tube, '3': Pulse output overflow}
+
+problems:
+  - {when: {key: error_code, bit: 0}, kind: warning, text: 'Volume overflow, unreasonable increment (error bit 0)'}
+  - {when: {key: error_code, bit: 1}, kind: fault, text: FRAM error (error bit 1)}
+  - {when: {key: error_code, bit: 2}, kind: warning, text: Empty tube (error bit 2)}
+  - {when: {key: error_code, bit: 3}, kind: warning, text: Pulse output overflow (error bit 3)}
+
+notes:
+- 'Addresses are the document''s hex register addresses (0-based), read with function 03 only. Requests must start at an even
+  address (odd addresses 1 … 11 answer exception 2). Two-register values: high word first (from the document''s read example).'
+- Volumes and flow are the digits the meter's display shows, without the decimal point (e.g. 53.4 m³ reads 534, 689.89 l reads
+  68989); scale and unit therefore depend on the meter's display resolution and unit, which the document doesn't list.
+- The error code's high byte is always 0; the bits are in the low byte (bits 4 … 7 reserved). Which bits stop the measurement
+  isn't stated; the fault / warning split here is assumed.
+- RS485, 1200 / 2400 / 4800 / 9600 baud (default 9600), 8 data bits, 1 stop bit, no parity stated. Unit ids 1 … 255; the default
+  unit id isn't stated (1 assumed). Response time 160 … 250 ms; at least 250 ms between a response and the next request.
+- Registers 0xFE00 … 0xFFFF are system registers and blocked.

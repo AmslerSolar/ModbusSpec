@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Eastron SDM120CTM Smart Meter Modbus Protocol Implementation (V1.3).
+
+modbusspec: 0
+id: eastron-sdm120ct
+manufacturer: Eastron
+name: SDM120CT single-phase CT energy meter
+kind: meter
+
+sources:
+- title: Eastron SDM120CTM Smart Meter Modbus Protocol Implementation
+  version: '1.3'
+  url: https://www.eastroneurope.com/images/uploads/products/protocol/SDM120CT_Modbus_protocol.pdf
+  sha256: b739e1dbd6d38d7979452327d50533c91a8956fab8804f1f4ea156eab08b57f5
+  archive_url: https://web.archive.org/web/20240518060429/https://www.eastroneurope.com/images/uploads/products/protocol/SDM120CT_Modbus_protocol.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 2400
+    format: 8N1
+  limits:
+    even_address: true
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 64512
+    type: u32
+  checks:
+  - table: input
+    address: 70
+    type: f32
+    range:
+    - 40
+    - 70
+  - table: holding
+    address: 50
+    type: f32
+    range:
+    - 5
+    - 9999
+
+points:
+  # Measurements (input registers, function 04)
+  - {key: l1_voltage, label: Voltage, table: input, address: 0, type: f32, unit: V}
+  - {key: l1_current, label: Current, table: input, address: 6, type: f32, unit: A}
+  - {key: grid_power, label: Active power, table: input, address: 12, type: f32, unit: W, positive: import, verified: false, note: The document gives no sign; assumed positive = import like the other Eastron meters.}
+  - {key: apparent_power, label: Apparent power, table: input, address: 18, type: f32, unit: VA}
+  - {key: reactive_power, label: Reactive power, table: input, address: 24, type: f32, unit: var}
+  - {key: power_factor, label: Power factor, table: input, address: 30, type: f32, unit: ''}
+  - {key: frequency, label: Frequency, table: input, address: 70, type: f32, unit: Hz}
+  - {key: grid_import_energy, label: Import active energy, table: input, address: 72, type: f32, unit: kWh, poll: slow}
+  - {key: grid_export_energy, label: Export active energy, table: input, address: 74, type: f32, unit: kWh, poll: slow}
+  - {key: x.import_reactive_energy, label: Import reactive energy, table: input, address: 76, type: f32, unit: kvarh, poll: slow}
+  - {key: x.export_reactive_energy, label: Export reactive energy, table: input, address: 78, type: f32, unit: kvarh, poll: slow}
+  - {key: x.total_power_demand, label: Total system power demand, table: input, address: 84, type: f32, unit: W, poll: slow}
+  - {key: x.max_total_power_demand, label: Maximum total system power demand, table: input, address: 86, type: f32, unit: W, poll: slow}
+  - {key: x.import_power_demand, label: Import system power demand, table: input, address: 88, type: f32, unit: W, poll: slow}
+  - {key: x.max_import_power_demand, label: Maximum Import system power demand, table: input, address: 90, type: f32, unit: W, poll: slow}
+  - {key: x.export_power_demand, label: Export system power demand, table: input, address: 92, type: f32, unit: W, poll: slow}
+  - {key: x.max_export_power_demand, label: Maximum Export system power demand, table: input, address: 94, type: f32, unit: W, poll: slow}
+  - {key: x.current_demand, label: Current demand, table: input, address: 258, type: f32, unit: A, poll: slow}
+  - {key: x.max_current_demand, label: Maximum current demand, table: input, address: 264, type: f32, unit: A, poll: slow}
+  - {key: x.total_active_energy, label: Total active energy, table: input, address: 342, type: f32, unit: kWh, poll: slow, note: What it counts depends on the measurement mode (holding 0xF920); import + export by default.}
+  - {key: x.total_reactive_energy, label: Total reactive energy, table: input, address: 344, type: f32, unit: kvarh, poll: slow}
+
+  # Settings and identity (holding registers, function 03; write with function 16)
+  - {key: x.demand_time, label: Demand Time, table: holding, address: 0, type: f32, unit: min, poll: slow, note: Minutes into the first demand period; demand values are valid once it reaches the demand period.}
+  - {key: x.demand_period, label: Demand Period, table: holding, address: 2, type: f32, unit: min, writable: true, min: 0, max: 60, poll: slow, note: Default 60; 0 = demand off.}
+  - {key: x.pulse_width, label: Relay Pulse Width, table: holding, address: 12, type: f32, unit: ms, writable: true, poll: slow, note: '60, 100 or 200; default 100.'}
+  - {key: x.parity_stop, label: Network Parity Stop, table: holding, address: 18, type: f32, enum: parity_stop, writable: true, poll: slow, note: Takes effect after a restart.}
+  - {key: x.node_address, label: Meter ID, table: holding, address: 20, type: f32, writable: true, min: 1, max: 247, poll: slow, note: Default 1.}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 28, type: f32, enum: baud_rate, writable: true, poll: slow, note: 'An index into the table, not the rate itself.'}
+  - {key: x.ct_primary, label: CT1, table: holding, address: 50, type: f32, unit: A, writable: true, min: 5, max: 9999, poll: slow, note: CT primary current; default 5.}
+  - {key: x.ct_secondary, label: CT2, table: holding, address: 52, type: f32, unit: A, writable: true, poll: slow, note: 'CT secondary current, 1 or 5 A; default 5.'}
+  - {key: x.pulse_energy_type, label: Pulse 1 output mode, table: holding, address: 86, type: f32, enum: pulse_energy_type, writable: true, poll: slow, note: Default export active energy.}
+  - {key: x.demand_reset, label: Reset historical data, table: holding, address: 61456, type: u16, writable: true, write_only: true, note: 0x0000 clears the demand values.}
+  - {key: x.scroll_time, label: Time of scroll display, table: holding, address: 63744, type: bcd16, unit: s, writable: true, min: 0, max: 30, poll: slow, note: Default 0 = the display doesn't scroll.}
+  - {key: x.pulse_rate, label: Pulse 1 output, table: holding, address: 63760, type: u16, enum: pulse_rate, writable: true, poll: slow}
+  - {key: x.measurement_mode, label: Measurement mode, table: holding, address: 63776, type: u16, enum: measurement_mode, writable: true, poll: slow, note: Sets what the total active energy (input 0x0156) counts.}
+  - {key: serial, label: Serial number, table: holding, address: 64512, type: u32, poll: slow}
+
+enums:
+  parity_stop: {'0': 8N1, '1': 8E1, '2': 8O1, '3': 8N2}
+  baud_rate: {'0': '2400', '1': '4800', '2': '9600', '5': '1200'}
+  pulse_energy_type: {'1': Import active energy, '2': Import + export active energy, '4': Export active energy, '5': Import reactive energy, '6': Import + export reactive energy, '8': Export reactive energy}
+  pulse_rate: {'0': 0.001 kWh/imp, '1': 0.01 kWh/imp, '2': 0.1 kWh/imp, '3': 1 kWh/imp, '4': 10 kWh/imp, '5': 100 kWh/imp, '6': 1000 kWh/imp}
+  measurement_mode: {'1': Total = import, '2': Total = import + export, '3': Total = import − export}
+
+notes:
+- 'Addresses: the document numbers registers 30001 ff. (input) and 40001 ff. (holding) and gives the hex start address; the
+  hex address is used here (register number − 30001 or − 40001). The F0xx … FCxx settings are numbered 4xxxxx (e.g. 461457
+  = 0xF010).'
+- Measurements are input registers (FC 04), settings holding registers (FC 03, write with FC 16, one value per write). Every
+  value is an IEEE 754 float in two registers, most significant register first (the document's example), except the F010h,
+  F900h, F910h and F920h settings (one register each) and the serial number (u32). Start address and count must be even.
+- The document gives no request size limit and no register-order setting. Its page headers say "SDM120MVRTU Protocol".
+- 'Defaults: node address 1, 2400 baud, no parity, 1 stop bit; 1200 … 9600 baud selectable. Broadcast not supported. Pulse
+  1 output default 0.01 kWh/imp; measurement mode default import + export.'
+- 'Identification: frequency plausible and a CT primary (holding 0x0032) in its documented range. The CT check is an assumption
+  that the non-CT SDM120 doesn''t answer there with such a value; unverified. The document lists no meter code register.'

@@ -1,0 +1,226 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Nilan CTS700 Modbus User Guide (30030066, revision 3, 2018-04-20).
+
+modbusspec: 0
+id: nilan-cts700
+manufacturer: Nilan
+name: CTS700 controller (Compact P, with GEO / AIR9 heat pump)
+kind: ventilation
+
+sources:
+- title: NILAN - CTS700 Modbus User Guide (30030066)
+  version: 3 (2018-04-20)
+  url: https://github.com/Hywan/LaMaisonVivante/blob/f8ce2f79e431ca0fadec221cb076348ff4ee50c5/dhw-ventilation/nilan/doc/CTS700_Modbus.pdf
+  sha256: ff394308be19ab889dc486879a34eff03bd8e7019247450a7d493a3e7f911856
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 20002
+    type: u16
+    equals: 65535
+  - table: holding
+    address: 20003
+    type: u16
+    equals: 0
+  - table: holding
+    address: 21680
+    type: u16
+    in:
+    - 0
+    - 1
+
+defaults:
+  verified: false
+
+models:
+  - {id: compact_p, name: Compact P, match: {table: holding, address: 21680, type: u16, equals: 0}}
+  - {id: compact_p_polar, name: Compact P Polar, match: {table: holding, address: 21680, type: u16, equals: 1}}
+
+points:
+  # Control and identity
+  - {key: x.addressing_check_ffff, label: PLC clarification of addressing (20002), table: holding, address: 20002, type: u16, poll: slow, note: Constant -1 (65535).}
+  - {key: x.addressing_check_zero, label: PLC clarification of addressing (20003), table: holding, address: 20003, type: u16, poll: slow, note: Constant 0; reading -1 here means the client's numbering is one off (add 1 to every address).}
+  - {key: x.product_type, label: Product type, table: holding, address: 21680, type: u16, enum: product_type, poll: slow}
+  - {key: x.geo_product_type, label: Product type (GEO board), table: holding, address: 21839, type: u16, unit_id: 4, optional: true, poll: slow, note: 8 = GEO.}
+  - {key: x.air_product_type, label: Product type (AIR9 board), table: holding, address: 21899, type: u16, unit_id: 4, optional: true, poll: slow, note: 9 = AIR.}
+  # Compact P live data
+  - {key: state, label: System state, table: holding, address: 21770, type: u16, enum: system_state}
+  - {key: x.supply_fan_speed, label: Supply fan speed, table: holding, address: 21771, type: u16, unit: '%'}
+  - {key: x.extract_fan_speed, label: Extract fan speed, table: holding, address: 21772, type: u16, unit: '%'}
+  - {key: x.bypass_damper, label: Bypass damper, table: holding, address: 21773, type: u16, enum: closed_open}
+  - {key: x.after_heating_element, label: After heating element, table: holding, address: 21774, type: u16, unit: '%'}
+  - {key: x.compressor_state, label: Compressor state, table: holding, address: 21775, type: u16, enum: compressor_state}
+  - {key: x.humidity, label: Actual air humidity, table: holding, address: 21776, type: u16, unit: '%'}
+  - {key: x.co2, label: CO2 level, table: holding, address: 21778, type: u16, unit: ppm}
+  - {key: x.fire_alarm, label: Fire alarm, table: holding, address: 21779, type: u16, enum: fire_alarm}
+  - {key: x.user_programme_1, label: User programme 1, table: holding, address: 21780, type: u16, enum: on_off}
+  - {key: x.user_programme_2, label: User programme 2, table: holding, address: 21781, type: u16, enum: on_off}
+  - {key: x.anti_legionella_active, label: Anti legionella, table: holding, address: 21785, type: u16, enum: on_off}
+  - {key: x.heat_pump_high_pressure_alarm, label: Heat pump high pressure alarm, table: holding, address: 21786, type: u16, note: The document gives no values.}
+  - {key: x.anode_state, label: Warm water sacrificial anode, table: holding, address: 21787, type: u16, enum: anode_state}
+  - {key: x.hot_water_electric_heater, label: Warm water electric supply, table: holding, address: 21788, type: u16, enum: on_off}
+  - {key: x.exchanger_deicing, label: De-icing heat exchanger, table: holding, address: 21789, type: u16, note: The document gives no values.}
+  - {key: x.heat_pump_deicing, label: De-icing heat pump, table: holding, address: 21790, type: u16, note: The document gives no values.}
+  - {key: x.alarm_state, label: Alarm, table: holding, address: 21792, type: u16, enum: alarm_state}
+  # Temperatures and sensor states
+  - {key: x.text_room_temperature, label: Text room temperature (C), table: holding, address: 20280, type: s16, unit: °C}
+  - {key: x.text_room_sensor_state, label: Text room temperature State, table: holding, address: 20281, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t1_outdoor_temperature, label: T1 outdoor air temperature (C), table: holding, address: 20282, type: s16, unit: °C}
+  - {key: x.t1_outdoor_sensor_state, label: T1 outdoor air temperature State, table: holding, address: 20283, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t2_supply_temperature, label: T2 supply air temperature (C), table: holding, address: 20284, type: s16, unit: °C}
+  - {key: x.t2_supply_sensor_state, label: T2 supply air temperature State, table: holding, address: 20285, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t3_extract_temperature, label: 'T3 extract air, room temperature (C)', table: holding, address: 20286, type: s16, unit: °C}
+  - {key: x.t3_extract_sensor_state, label: 'T3 extract air, room temperature State', table: holding, address: 20287, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t4_discharge_temperature, label: 'T4 discharge air, after heat exchanger (C)', table: holding, address: 20288, type: s16, unit: °C}
+  - {key: x.t4_discharge_sensor_state, label: 'T4 discharge air, after heat exchanger State', table: holding, address: 20289, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t5_discharge_after_heat_pump_temperature, label: 'T5 discharge air, after heat pump (C)', table: holding, address: 20290, type: s16, unit: °C}
+  - {key: x.t5_discharge_after_heat_pump_sensor_state, label: 'T5 discharge air, after heat pump State', table: holding, address: 20291, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t6_evaporator_temperature, label: T6 evaporator temperature (C), table: holding, address: 20292, type: s16, unit: °C}
+  - {key: x.t6_evaporator_sensor_state, label: T6 evaporator temperature State, table: holding, address: 20293, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t7_supply_after_heater_temperature, label: T7 supply air temperature after-heater (C), table: holding, address: 20294, type: s16, unit: °C}
+  - {key: x.t7_supply_after_heater_sensor_state, label: T7 supply air temperature after-heater State, table: holding, address: 20295, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t8_outdoor_before_preheater_temperature, label: T8 outdoor air before pre-heater (C), table: holding, address: 20296, type: s16, unit: °C}
+  - {key: x.t8_outdoor_before_preheater_sensor_state, label: T8 outdoor air before pre-heater State, table: holding, address: 20297, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t9_water_after_heater_temperature, label: T9 temperature in water after heater (C), table: holding, address: 20298, type: s16, unit: °C}
+  - {key: x.t9_water_after_heater_sensor_state, label: T9 temperature in water after heater State, table: holding, address: 20299, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t11_dhw_top_temperature, label: T11 top temperature in DHW water tank (C), table: holding, address: 20520, type: s16, unit: °C}
+  - {key: x.t11_dhw_top_sensor_state, label: T11 top temperature in DHW water tank State, table: holding, address: 20521, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t12_dhw_bottom_temperature, label: T12 bottom temperature in DHW water tank (C), table: holding, address: 20522, type: s16, unit: °C}
+  - {key: x.t12_dhw_bottom_sensor_state, label: T12 bottom temperature in DHW water tank State, table: holding, address: 20523, type: u16, enum: sensor_state, poll: slow}
+  - {key: x.t21_shw_top_temperature, label: T21 top temperature in SHW tank (C), table: holding, address: 20580, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.t21_shw_top_sensor_state, label: T21 top temperature in SHW tank State, table: holding, address: 20581, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.t22_shw_bottom_temperature, label: T22 bottom temperature in SHW tank (C), table: holding, address: 20582, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.t22_shw_bottom_sensor_state, label: T22 bottom temperature in SHW tank State, table: holding, address: 20583, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.geo_t13_brine_in_temperature, label: T13 brine before evaporator (GEO) (C), table: holding, address: 20645, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.geo_t13_brine_in_sensor_state, label: T13 brine before evaporator (GEO) State, table: holding, address: 20646, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.geo_t14_brine_out_temperature, label: T14 brine after evaporator (GEO) (C), table: holding, address: 20647, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.geo_t14_brine_out_sensor_state, label: T14 brine after evaporator (GEO) State, table: holding, address: 20648, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.geo_t16_before_condenser_temperature, label: T16 before condenser (GEO) (C), table: holding, address: 20649, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.geo_t16_before_condenser_sensor_state, label: T16 before condenser (GEO) State, table: holding, address: 20650, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.geo_t17_after_condenser_temperature, label: T17 after condenser (GEO) (C), table: holding, address: 20651, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.geo_t17_after_condenser_sensor_state, label: T17 after condenser (GEO) State, table: holding, address: 20652, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.geo_t18_supply_flow_temperature, label: T18 supply flow (GEO) (C), table: holding, address: 20653, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.geo_t18_supply_flow_sensor_state, label: T18 supply flow (GEO) State, table: holding, address: 20654, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.geo_t20_outdoor_temperature, label: T20 outdoor temperature (GEO) (C), table: holding, address: 20655, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.geo_t20_outdoor_sensor_state, label: T20 outdoor temperature (GEO) State, table: holding, address: 20656, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.air_t17_supply_flow_outdoor_unit_temperature, label: T17 supply flow outdoor unit (AIR) (C), table: holding, address: 20684, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.air_t17_supply_flow_outdoor_unit_sensor_state, label: T17 supply flow outdoor unit (AIR) State, table: holding, address: 20685, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.air_t18_buffer_tank_temperature, label: T18 supply flow buffer tank (AIR) (C), table: holding, address: 20686, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.air_t18_buffer_tank_sensor_state, label: T18 supply flow buffer tank (AIR) State, table: holding, address: 20687, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.air_t20_outdoor_temperature, label: T20 outdoor temperature (AIR) (C), table: holding, address: 20688, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.air_t20_outdoor_sensor_state, label: T20 outdoor temperature (AIR) State, table: holding, address: 20689, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  - {key: x.air_t23_evaporator_temperature, label: T23 evaporator (AIR) (C), table: holding, address: 20690, type: s16, unit: °C, unit_id: 4, optional: true}
+  - {key: x.air_t23_evaporator_sensor_state, label: T23 evaporator (AIR) State, table: holding, address: 20691, type: u16, enum: sensor_state, unit_id: 4, optional: true, poll: slow}
+  # GEO / AIR9 heat pump board (unit 4)
+  - {key: x.geo_system_state, label: System state (GEO), table: holding, address: 21840, type: u16, enum: system_state, unit_id: 4, optional: true}
+  - {key: x.geo_compressor_level, label: Compressor level (GEO), table: holding, address: 21841, type: u16, unit: '%', unit_id: 4, optional: true}
+  - {key: x.geo_brine_pump, label: Brine circulation pump (GEO), table: holding, address: 21842, type: u16, unit: '%', unit_id: 4, optional: true}
+  - {key: x.geo_central_heating_pump, label: Central heating pump (GEO), table: holding, address: 21843, type: u16, unit: '%', unit_id: 4, optional: true}
+  - {key: x.geo_high_pressure, label: High pressure alarm (GEO), table: holding, address: 21854, type: u16, enum: failure_ok, unit_id: 4, optional: true}
+  - {key: x.geo_low_pressure, label: Low pressure alarm (GEO), table: holding, address: 21855, type: u16, enum: failure_ok, unit_id: 4, optional: true}
+  - {key: x.geo_brine_pressure, label: Brine pressure (GEO), table: holding, address: 21856, type: u16, enum: failure_ok, unit_id: 4, optional: true}
+  - {key: x.air_system_state, label: System state (AIR9), table: holding, address: 21900, type: u16, enum: system_state, unit_id: 4, optional: true}
+  - {key: x.air_evaporator_fan_speed, label: Speed evaporator fan (AIR9), table: holding, address: 21901, type: u16, unit: '%', unit_id: 4, optional: true}
+  - {key: x.air_compressor_level, label: Compressor level (AIR9), table: holding, address: 21902, type: u16, unit: '%', unit_id: 4, optional: true}
+  - {key: x.air_outdoor_unit_pump, label: Circulation pump outdoor unit (AIR9), table: holding, address: 21903, type: u16, unit: '%', unit_id: 4, optional: true}
+  - {key: x.air_central_heating_pump, label: Central heating pump (AIR9), table: holding, address: 21904, type: u16, unit: '%', unit_id: 4, optional: true}
+  # Alarms
+  - {key: x.alarm_present, label: Is any alarm or error present, table: holding, address: 22490, type: u16}
+  - {key: x.alarm_reset, label: Reset all warnings and alarms, table: holding, address: 22491, type: u16, writable: true, write_only: true, note: Writing 48815 clears all events.}
+  - {key: x.event_outdoor_filter, label: ID007 Outdoor air filter must be changed, table: holding, address: 22507, type: u16}
+  - {key: x.event_extract_filter, label: ID008 Extract air filter must be changed, table: holding, address: 22508, type: u16}
+  - {key: x.event_heater_overheat, label: ID012 Safety active for electrical after heating surface, table: holding, address: 22512, type: u16}
+  - {key: x.event_heater_frost_alarm, label: ID016 High risk of ice in the water after heating element, table: holding, address: 22516, type: u16}
+  - {key: x.event_defrost_time, label: ID020 De-icing time exceeded, table: holding, address: 22520, type: u16}
+  - {key: x.event_fire_alarm, label: ID021 Fire input activated, table: holding, address: 22521, type: u16}
+  - {key: x.event_slave_lost, label: ID029 Lost communication with slave device, table: holding, address: 22529, type: u16}
+  - {key: x.event_defrost_fail, label: ID031 Failure in de-icing, table: holding, address: 22531, type: u16}
+  - {key: x.event_anode_fail, label: ID044 Failure on anode in domestic hot water tank, table: holding, address: 22544, type: u16}
+  - {key: x.event_legionella_fail, label: ID046 Failure in anti legionella function, table: holding, address: 22546, type: u16}
+  - {key: x.event_compressor_high_pressure_alarm, label: ID049 Compressor high pressure alarm, table: holding, address: 22549, type: u16}
+  - {key: x.event_compressor_high_pressure, label: ID066 High pressure fault on the compressor, table: holding, address: 22566, type: u16}
+  - {key: x.event_compressor_low_pressure, label: ID067 Low pressure fault on the compressor, table: holding, address: 22567, type: u16}
+  - {key: x.event_brine_leak, label: ID074 Leak in the GEO brine circuit, table: holding, address: 22574, type: u16}
+  - {key: x.event_sensor_fault, label: ID075 Sensor fault, table: holding, address: 22575, type: u16}
+  - {key: x.event_klixon_fault, label: ID077 Severe Klixon error, table: holding, address: 22577, type: u16}
+  # Settings
+  - {key: x.ventilation_pause, label: Set ventilation on pause, table: holding, address: 20100, type: u16, enum: on_off, writable: true}
+  - {key: x.outdoor_filter_interval, label: Outdoor air filter days between filter change, table: holding, address: 20102, type: u16, unit: d, writable: true, min: 30, max: 180, poll: slow}
+  - {key: x.outdoor_filter_days_left, label: Outdoor air filter days to next filter change, table: holding, address: 20103, type: u16, unit: d, poll: slow}
+  - {key: x.extract_filter_interval, label: Extract air filter days between filter change, table: holding, address: 20106, type: u16, unit: d, writable: true, min: 30, max: 180, poll: slow}
+  - {key: x.extract_filter_days_left, label: Extract air filter days to next filter change, table: holding, address: 20107, type: u16, unit: d, poll: slow}
+  - {key: x.operating_mode, label: Operating mode, table: holding, address: 20120, type: u16, enum: system_state, writable: true}
+  - {key: x.average_humidity, label: Average humidity, table: holding, address: 20164, type: u16, unit: '%'}
+  - {key: x.room_temperature_setpoint, label: Wanted room temperature (C), table: holding, address: 20260, type: u16, unit: °C, writable: true, min: 5, max: 40, poll: slow}
+  - {key: x.hot_water_pause, label: Pause hot water production, table: holding, address: 20440, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.hot_water_setpoint, label: Hot water set point (C), table: holding, address: 20460, type: u16, unit: °C, writable: true, min: 10, max: 60, poll: slow}
+  - {key: x.hot_water_electric_supplement, label: Electrical supplement heater (hot water), table: holding, address: 20464, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.central_heating_pause, label: Pause central heating, table: holding, address: 20600, type: u16, enum: on_off, unit_id: 4, optional: true, writable: true, poll: slow}
+  - {key: x.geo_supply_flow_setpoint, label: Setpoint supply flow temperature (GEO), table: holding, address: 20640, type: u16, unit: °C, unit_id: 4, optional: true, writable: true, min: 5, max: 50, poll: slow}
+  - {key: x.air_supply_flow_setpoint, label: Setpoint supply flow temperature (AIR), table: holding, address: 20680, type: u16, unit: °C, unit_id: 4, optional: true, writable: true, min: 5, max: 50, poll: slow}
+  - {key: x.language, label: Change language, table: holding, address: 20900, type: u16, enum: language, writable: true, poll: slow}
+  - {key: x.smart_grid_enable, label: Smart Grid Enable, table: holding, address: 21500, type: u16, enum: on_off, writable: true, poll: slow, note: Applied after a restart.}
+  - {key: x.system_power, label: System power, table: holding, address: 21520, type: u16, enum: on_off, writable: true}
+
+enums:
+  on_off: {'0': 'Off', '1': 'On'}
+  closed_open: {'0': Closed, '1': Open}
+  product_type: {'0': Compact P, '1': Compact P Polar}
+  system_state: {'0': Auto, '1': Cooling, '2': Heating}
+  compressor_state: {'0': 'Off', '100': 'On'}
+  fire_alarm: {'0': Activated, '1': Not activated}
+  alarm_state: {'0': Active, '1': Not active}
+  anode_state: {'1': OK, '3': Failure}
+  failure_ok: {'0': Failure, '1': OK}
+  sensor_state: {'0': OK, '1': Fault, '2': Missing, '3': Missing}
+  language: {'0': English, '32': Danish, '33': German, '44': Finnish, '47': French, '72': Italian, '117': Norwegian, '128': Polish}
+
+problems:
+  - {when: {key: x.fire_alarm, equals: 0}, kind: fault, text: Fire alarm input activated}
+  - {when: {key: x.alarm_present, equals: 1}, kind: warning, text: One or more warnings or errors present}
+  - {when: {key: x.event_outdoor_filter, equals: 1}, kind: warning, text: Outdoor air filter must be changed (ID007)}
+  - {when: {key: x.event_extract_filter, equals: 1}, kind: warning, text: Extract air filter must be changed (ID008)}
+  - {when: {key: x.event_heater_overheat, equals: 1}, kind: fault, text: Overheat safety of the electrical after-heater active (ID012)}
+  - {when: {key: x.event_heater_frost_alarm, equals: 1}, kind: fault, text: High risk of ice in the after-heater water (ID016)}
+  - {when: {key: x.event_defrost_time, equals: 1}, kind: warning, text: De-icing time exceeded (ID020)}
+  - {when: {key: x.event_slave_lost, equals: 1}, kind: fault, text: Lost communication with the slave board (ID029)}
+  - {when: {key: x.event_defrost_fail, equals: 1}, kind: fault, text: De-icing failed (ID031)}
+  - {when: {key: x.event_anode_fail, equals: 1}, kind: warning, text: Hot water tank anode failure (ID044)}
+  - {when: {key: x.event_legionella_fail, equals: 1}, kind: warning, text: Anti-legionella function failed (ID046)}
+  - {when: {key: x.event_compressor_high_pressure_alarm, equals: 1}, kind: fault, text: Compressor high pressure alarm (ID049)}
+  - {when: {key: x.event_compressor_high_pressure, equals: 1}, kind: fault, text: Compressor high pressure fault (ID066)}
+  - {when: {key: x.event_compressor_low_pressure, equals: 1}, kind: fault, text: Compressor low pressure fault (ID067)}
+  - {when: {key: x.event_brine_leak, equals: 1}, kind: fault, text: Leak in the GEO brine circuit (ID074)}
+  - {when: {key: x.event_sensor_fault, equals: 1}, kind: warning, text: Sensor fault (ID075)}
+  - {when: {key: x.event_klixon_fault, equals: 1}, kind: fault, text: Severe Klixon error (ID077)}
+
+notes:
+- 'Addresses are the register numbers of the document, used as 0-based protocol addresses: the document says a client reading
+  -1 at 20003 (constant 0) must add 1 to every number, so the numbers as listed are right when 20003 reads 0.'
+- 'Not stated in the document; assumed (hence every point unverified): holding registers (it lists function codes 3, 4, 6
+  and 16 but names no table), signed 16-bit temperatures in whole °C (no scale is given; some setting ranges such as 1.0 …
+  5.0 °C hint at a finer resolution), percentages and counts as plain unsigned values.'
+- Modbus over TCP/IP to the board's IP address (default 192.168.5.107), port 502; the document calls it Modbus RTU over TCP/IP,
+  so a client may need RTU framing over TCP instead of Modbus TCP (unverified).
+- 'A system has up to 3 boards: the Compact P answers on unit 1, an attached GEO or AIR9 heat pump board on unit 4. Points
+  with unit_id 4 are only there with such a board (optional). Alarm list registers 22500 ff. are listed for units 1 and 4;
+  they are read on unit 1 here.'
+- 'Event registers 22500 ff.: 0 = event not present, 1 = present.'
+- Settings marked as applied after a restart (Smart Grid) need a restart (write 57005 to 20000) or a flash save (48815 to
+  20004).
+- 'Left out: most configuration parameters (humidity, cooling, CO2, frost protection, de-icing, legionella, compressor, weather
+  compensation and Smart Grid tuning), the remaining event registers (start/stop, Smart Grid and information events) and the
+  remaining Compact P / GEO / AIR9 information registers.'

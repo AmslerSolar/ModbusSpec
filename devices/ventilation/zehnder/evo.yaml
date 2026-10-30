@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Zehnder EVO Connect ModBus Manual (installer and user manual, undated).
+
+modbusspec: 0
+id: zehnder-evo
+manufacturer: Zehnder
+name: EVO ventilation units via EVO Connect ModBus
+kind: ventilation
+
+sources:
+- title: Zehnder EVO Connect ModBus – Installer and user manual
+  version: undated (downloaded 2025)
+  url: https://zehnder.lv/wp-content/uploads/2025/09/Zehnder_EVO_Connect_ModBus_Manual.pdf
+  sha256: 89571ebaa8bc2b39e5c4f4d82517e7135cf3b78fb9e94c8e51b2950cda561689
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.rf_comm_error, label: RF communication status, table: holding, address: 101, type: u16, enum: rf_status, poll: fast}
+  - {key: x.battery_status, label: Battery status, table: holding, address: 102, type: u16, invalid: [65535], note: 0xFFFF = no battery; other values are not explained.}
+  - {key: x.fan_fault, label: Fault status, table: holding, address: 103, type: u16, enum: fan_fault, poll: fast}
+  - {key: x.fan_speed, label: Current fan speed, table: holding, address: 1000, type: u16, enum: fan_speed, poll: fast}
+  - {key: error_code, label: Error code, table: holding, address: 1003, type: u16, enum: error_code, poll: fast}
+  - {key: x.extract_temperature, label: Extraction temperature, table: holding, address: 1005, type: f32, unit: °C, poll: fast, note: NaN when unknown; below −273 °C means a sensor problem.}
+  - {key: x.outdoor_temperature, label: Outdoor temperature, table: holding, address: 1007, type: f32, unit: °C, poll: fast, note: NaN when unknown; below −273 °C means a sensor problem.}
+  - {key: x.discharge_temperature, label: Air discharge temperature, table: holding, address: 1009, type: f32, unit: °C, poll: fast, note: NaN when unknown; below −273 °C means a sensor problem.}
+  - {key: x.supply_temperature, label: Flow temperature, table: holding, address: 1011, type: f32, unit: °C, poll: fast, note: NaN when unknown; below −273 °C means a sensor problem.}
+  - {key: x.preheater, label: Preheater, table: holding, address: 1013, type: u16, unit: '%', invalid: [239], note: '0 = off, 100 = maximum; 0xEF = not available.'}
+  - {key: x.dirty_filter, label: Dirty filter, table: holding, address: 1014, type: u16, enum: dirty_filter}
+  - {key: x.defrosting, label: Defrosting, table: holding, address: 1015, type: u16, enum: defrosting}
+  - {key: x.bypass, label: Bypass operating status, table: holding, address: 1016, type: u16, unit: '%', note: '0 = closed, 100 = open; above 120 means an error.'}
+  - {key: x.indoor_humidity, label: Indoor humidity, table: holding, address: 1017, type: u16, unit: '%', invalid: [239, 240, 241, 242, 243, 244, 245, 255], note: '0xEF not available, 0xF0 sensor short circuit, 0xF1 sensor open, 0xF2 error not available, 0xF3 out of range high, 0xF4 out of range low, 0xF5 unreliable, 0xF6–0xFE reserved errors, 0xFF unspecified error.'}
+  - {key: x.outdoor_humidity, label: Outdoor humidity, table: holding, address: 1018, type: u16, unit: '%', invalid: [239, 240, 241, 242, 243, 244, 245, 255], note: Special values as for indoor humidity; 0xEF does not occur on VMD-02RPS78 and VMD-0RPS66.}
+  - {key: x.supply_flow, label: Delivery flow rate, table: holding, address: 1019, type: f32, unit: m³/h, poll: fast, verified: false, note: 'Given as a float over two registers, yet with 16-bit special values (0x7FFF not available, 0x8000–0x85FF sensor error); how these appear in the float is not explained.'}
+  - {key: x.extract_flow, label: Extraction flow rate, table: holding, address: 1021, type: f32, unit: m³/h, poll: fast, verified: false, note: Special values as for the delivery flow rate.}
+  - {key: x.air_quality, label: Air quality, table: holding, address: 1023, type: u16, unit: '%', invalid: [239], note: '0 = poor, 100 = excellent; 0xEF = not available.'}
+  - {key: x.air_quality_basis, label: Baseline air quality, table: holding, address: 1024, type: u16, flags: air_quality_basis}
+  - {key: x.co2, label: CO2 level, table: holding, address: 1025, type: u16, unit: ppm, verified: false, note: Not available is printed as 7FFh in the document (probably 0x7FFF); 0x8000–0xFFFF = sensor error.}
+  - {key: x.after_heater, label: After-heater, table: holding, address: 1026, type: u16, unit: '%', invalid: [239], note: '0 = off, 100 = maximum; 0xEF = not available.'}
+  - {key: x.capabilities, label: Fan speed bits, table: holding, address: 1027, type: u16, flags: capabilities, poll: slow}
+  - {key: x.filter_days_left, label: Filter time remaining, table: holding, address: 1040, type: u16, unit: d, poll: slow, note: Reading this register makes the unit poll the filter's service life and percentage.}
+  - {key: x.filter_interval, label: Air filter service life timer, table: holding, address: 1041, type: u16, unit: d, poll: slow}
+  - {key: x.filter_percentage, label: Air filter percentage timer, table: holding, address: 1042, type: u16, unit: '%', poll: slow}
+  - {key: x.ventilation_speed_request, label: Ventilation speed required, table: holding, address: 1500, type: u16, enum: speed_request, writable: true}
+  - {key: x.disable_speed_1_minutes, label: Fan speed 1 disabling time, table: holding, address: 1501, type: u16, unit: min, writable: true, write_only: true, max: 1080, note: Speed 1 is disabled temporarily for this time (at most 18 hours).}
+  - {key: x.disable_speed_2_minutes, label: Fan speed 2 disabling time, table: holding, address: 1502, type: u16, unit: min, writable: true, write_only: true, max: 1080, note: At most 18 hours.}
+  - {key: x.disable_speed_3_minutes, label: Fan speed 3 disabling time, table: holding, address: 1503, type: u16, unit: min, writable: true, write_only: true, max: 1080, note: At most 18 hours.}
+  - {key: x.filter_timer_reset, label: Air filter timer reset, table: holding, address: 2000, type: u16, writable: true, write_only: true, note: 0 resets the filter timer.}
+  - {key: x.standby_supply, label: Standby speed – delivery, table: holding, address: 2001, type: u16, unit: '%', writable: true, min: 0, max: 40, poll: slow, note: Setting of label 61.}
+  - {key: x.standby_extract, label: Standby speed – extraction, table: holding, address: 2002, type: u16, unit: '%', writable: true, min: 0, max: 40, poll: slow, note: Setting of label 62.}
+  - {key: x.speed_1_supply, label: 'Fan speed 1, low – delivery', table: holding, address: 2003, type: u16, unit: '%', writable: true, min: 0, max: 80, poll: slow, note: Setting of label 63.}
+  - {key: x.speed_1_extract, label: 'Fan speed 1, low – extraction', table: holding, address: 2004, type: u16, unit: '%', writable: true, min: 0, max: 80, poll: slow, note: Setting of label 64.}
+  - {key: x.speed_2_supply, label: 'Fan speed 2, medium – delivery', table: holding, address: 2005, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, note: Setting of label 65.}
+  - {key: x.speed_2_extract, label: 'Fan speed 2, medium – extraction', table: holding, address: 2006, type: u16, unit: '%', writable: true, min: 10, max: 100, poll: slow, note: Setting of label 66.}
+  - {key: x.speed_3_supply, label: 'Fan speed 3, high – delivery', table: holding, address: 2007, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, note: Setting of label 67.}
+  - {key: x.speed_3_extract, label: 'Fan speed 3, high – extraction', table: holding, address: 2008, type: u16, unit: '%', writable: true, min: 10, max: 100, poll: slow, note: Setting of label 68.}
+  - {key: x.frost_protection_setpoint, label: Frost protection preheater setpoint, table: holding, address: 2009, type: f32, unit: °C, writable: true, min: -20, max: 50, poll: slow, verified: false, note: Setting of label 39. Two registers without a stated data type; float assumed like the temperatures.}
+  - {key: x.preheater_setpoint, label: Preheater setpoint, table: holding, address: 2011, type: f32, unit: °C, writable: true, min: -20, max: 50, poll: slow, verified: false, note: Setting of label 46. Float assumed.}
+  - {key: x.after_heater_setpoint, label: After-heater setpoint, table: holding, address: 2013, type: f32, unit: °C, writable: true, min: 0, max: 30, poll: slow, verified: false, note: Setting of label 117. Float assumed.}
+  - {key: x.after_heater_setpoint_k, label: After-heater setpoint (K), table: holding, address: 2015, type: f32, unit: K, writable: true, min: 1, max: 10, poll: slow, verified: false, note: 'Setting of label 132; the document names it after-heater setpoint as well, in kelvin, so probably a temperature difference. Float assumed.'}
+
+enums:
+  rf_status: {'0': No errors, '1': Error (no communication for at least 30 minutes)}
+  fan_fault: {'0': Fan OK, '1': Fan fault}
+  fan_speed: {'0': 'Off', '1': 'Fan speed 1, low', '2': 'Fan speed 2, medium', '3': 'Fan speed 3, high', '11': Fan speed 1 temporarily disabled (timer), '12': Fan speed 2 temporarily disabled (timer), '13': Fan speed 3 temporarily disabled (timer), '21': Absolute minimum fan speed (away), '23': Absolute maximum speed (boost), '24': Automatic mode}
+  error_code: {'0': No errors, '1': Unspecified fault, '2': Emergency stop, '3': Fan 1 power supply error, '4': X22 sensor error, '5': X23 sensor error, '6': X21 sensor error, '7': X20 sensor error, '8': Fan 2 error, '254': Connection mode active, '255': Device identification active}
+  dirty_filter: {'0': Filter OK, '1': Dirty filter}
+  defrosting: {'0': Not active, '1': Active}
+  speed_request: {'0': 'Off', '1': Absolute minimum fan speed, '2': 'Fan speed 1, low', '3': 'Fan speed 2, medium', '4': 'Fan speed 3, high', '5': Automatic mode, '7': Absolute maximum speed (boost)}
+
+flags:
+  air_quality_basis: {'0': Based on VOC, '1': Based on CO2, '2': Based on RH}
+  capabilities: {'0': Preheater available, '1': After-heater available, '3': Overnight capacity, '4': Speed 10 capacity, '5': Speed 9 capacity, '6': Speed 8 capacity, '7': Speed 7 capacity, '8': Speed 6 capacity, '9': Speed 5 capacity, '10': Speed 4 capacity, '11': Automatic capacity, '12': Supply capacity, '13': Compatible with timer, '15': Compatible with switch-off}
+
+problems:
+  - {when: {key: x.rf_comm_error, equals: 1}, kind: fault, text: No RF communication with the ventilation unit for 30 minutes}
+  - {when: {key: x.fan_fault, equals: 1}, kind: fault, text: Fan fault}
+  - {when: {key: error_code, range: [1, 253]}, kind: fault, text: 'Ventilation unit error: {text} ({value})'}
+  - {when: {key: x.dirty_filter, equals: 1}, kind: warning, text: 'Filter dirty, replace it'}
+
+notes:
+- The EVO Connect ModBus is an RS485 Modbus converter linked by RF (Ramses II, 868 MHz) to a Zehnder EVO ventilation unit;
+  the values come from the unit and are cached by the converter.
+- 'The document numbers the registers as 40000–42016 (''log'' numbers) and states that range as supported, so log 40000 is
+  taken as protocol address 0 (address = log − 40000) in the holding table (function 03). Assumed: the document names neither
+  the offset nor the function codes.'
+- Registers typed UINT8 are read as one 16-bit register each (value in the low byte, assumed). Floats span two registers;
+  the word order is not stated, big-endian assumed.
+- 'Left out: 41004, the countdown of a temporary speed disabling (given as a one-register float in °C, which can''t be right).'
+- Serial settings and the default slave address are not stated; unit 1 is assumed. Port 502 only applies behind a gateway.
+- Error codes 254 (connection mode) and 255 (identification) are states, not faults.

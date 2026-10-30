@@ -1,0 +1,141 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Schneider Electric's Conext Gateway Modbus Interface Specification (503), 990-6271B (Rev B, firmware v1.07).
+
+modbusspec: 0
+id: schneider-conext-gateway
+manufacturer: Schneider Electric
+name: Conext Gateway / Insight Home (Conext XW / XW Pro system totals, port 503)
+kind: inverter
+
+sources:
+- title: Conext Gateway Modbus Interface Specification (503), 990-6271B
+  version: Rev B (2020-06-04), firmware v1.07
+  url: https://solar.se.com/us/wp-content/uploads/sites/7/2022/02/Conext-Gateway-InsightHome-InsightFacility-Modbus-Maps.zip
+  sha256: 53c392723857815225b014896860b3072722b826df7a5968e2698e6acc6df81a
+
+connection:
+  default_port: 503
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    max_gap: 0
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 43
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 40
+    type: u16
+    equals: 1
+
+defaults:
+  verified: false
+
+points:
+  # Gateway identity
+  - {key: x.device_name, label: Device Name, table: holding, address: 0, type: str, length: 8, poll: slow, note: Function code assumed (see notes).}
+  - {key: x.fga_number, label: FGA Number, table: holding, address: 10, type: str, length: 8, poll: slow, note: Function code assumed (see notes).}
+  - {key: firmware, label: Firmware Version, table: holding, address: 30, type: str, length: 10, poll: slow, note: Function code assumed (see notes).}
+  - {key: x.modbus_address, label: Modbus Address, table: holding, address: 40, type: u16, poll: slow, note: Function code assumed (see notes).}
+  - {key: serial, label: Hardware Serial Number, table: holding, address: 43, type: str, length: 8, poll: slow, note: Function code assumed (see notes).}
+
+  # System status
+  - {key: x.power_flow, label: Bit mask of system status, table: holding, address: 64, type: u16, flags: power_flow, note: Function code assumed (see notes).}
+  - {key: x.active_faults, label: System Wide Number of Active Faults, table: holding, address: 65, type: u16, note: Function code assumed (see notes).}
+  - {key: x.generator_state, label: Generator State, table: holding, address: 66, type: u16, enum: generator_state, note: Function code assumed (see notes).}
+  - {key: x.active_warnings, label: System Wide Number of Active Warnings, table: holding, address: 67, type: u16, note: Function code assumed (see notes).}
+
+  # Solar
+  - {key: pv_power, label: PV Total Power, table: holding, address: 1018, type: u32, unit: W, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: x.pv_harvest_power, label: PV Harvest Power, table: holding, address: 68, type: u32, unit: W, invalid: [4294967295], note: Charge controllers only; an alternative when 0x03FA doesn't answer. Function code and word order assumed.}
+  - {key: pv_energy_today, label: PV Total Energy Today, table: holding, address: 1044, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: x.pv_input_energy_today, label: PV Input Energy Today, table: holding, address: 308, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], note: Fallback for 0x0414. Function code and word order assumed.}
+  - {key: pv_energy, label: PV Total Energy Lifetime, table: holding, address: 1052, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow, note: Function code and word order assumed (see notes).}
+  - {key: x.pv_input_energy, label: PV Input Energy Lifetime, table: holding, address: 324, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow, note: Fallback for 0x041C. Function code and word order assumed.}
+
+  # Grid
+  - {key: x.grid_input_power, label: Grid Input Power, table: holding, address: 82, type: u32, unit: W, invalid: [4294967295], note: 'Unsigned, power bought from the grid (import). Function code and word order assumed.'}
+  - {key: x.grid_output_power, label: Grid Output Power, table: holding, address: 88, type: u32, unit: W, invalid: [4294967295], note: 'Unsigned, power sold to the grid (export). Function code and word order assumed.'}
+  - {key: x.grid_net_power, label: Grid Net Power, table: holding, address: 1016, type: s32, unit: W, invalid: [-2147483648, 2147483647], note: Sign not documented. Function code and word order assumed.}
+  - {key: x.grid_voltage, label: Grid Voltage, table: holding, address: 76, type: u32, unit: V, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: frequency, label: Grid Frequency, table: holding, address: 78, type: u32, unit: Hz, scale: 0.01, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: l1_voltage, label: Grid Voltage Line 1, table: holding, address: 936, type: u32, unit: V, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: l1_current, label: Grid Current Line 1, table: holding, address: 938, type: s32, unit: A, scale: 0.001, invalid: [-2147483648, 2147483647], note: Signed; sign not documented. Function code and word order assumed.}
+  - {key: l2_voltage, label: Grid Voltage Line 2, table: holding, address: 940, type: u32, unit: V, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: l2_current, label: Grid Current Line 2, table: holding, address: 942, type: s32, unit: A, scale: 0.001, invalid: [-2147483648, 2147483647], note: Signed; sign not documented. Function code and word order assumed.}
+  - {key: l3_voltage, label: Grid Voltage Line 3, table: holding, address: 944, type: u32, unit: V, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: l3_current, label: Grid Current Line 3, table: holding, address: 946, type: s32, unit: A, scale: 0.001, invalid: [-2147483648, 2147483647], note: Signed; sign not documented. Function code and word order assumed.}
+  - {key: x.grid_import_energy_today, label: GRID Input Energy Today, table: holding, address: 212, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: grid_import_energy, label: GRID Input Energy Lifetime, table: holding, address: 228, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow, note: Function code and word order assumed (see notes).}
+  - {key: x.grid_export_energy_today, label: GRID Output Energy Today, table: holding, address: 236, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: grid_export_energy, label: GRID Output Energy Lifetime, table: holding, address: 252, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow, note: Function code and word order assumed (see notes).}
+  - {key: x.generator_power, label: AC Generator Power, table: holding, address: 92, type: u32, unit: W, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+
+  # Battery
+  - {key: x.battery_discharge_power, label: Battery Bank Total Inverting Power, table: holding, address: 1020, type: u32, unit: W, invalid: [4294967295], note: 'Unsigned, discharging. Function code and word order assumed.'}
+  - {key: x.battery_charge_power, label: Battery Bank Total Charging Power, table: holding, address: 1022, type: u32, unit: W, invalid: [4294967295], note: 'Unsigned, charging. Function code and word order assumed.'}
+  - {key: x.dc_inverting_power, label: DC Inverting Power, table: holding, address: 74, type: u32, unit: W, invalid: [4294967295], note: 'Unsigned, discharging; fallback for 0x03FC. Function code and word order assumed.'}
+  - {key: x.dc_charging_power, label: DC Charging Power, table: holding, address: 70, type: u32, unit: W, invalid: [4294967295], note: 'Unsigned, charging; fallback for 0x03FE. Function code and word order assumed.'}
+  - {key: x.dc_charging_current, label: DC Charging Current, table: holding, address: 72, type: u32, unit: A, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: x.battery_net_power, label: Battery Power Net, table: holding, address: 344, type: s32, unit: W, invalid: [-2147483648, 2147483647], note: Sign not documented. Function code and word order assumed.}
+  - {key: x.battery_bank1_power, label: Battery Bank1 Power, table: holding, address: 966, type: s32, unit: W, invalid: [-2147483648, 2147483647], note: Sign not documented; details only. Function code and word order assumed.}
+  - {key: battery_soc, label: Battery Bank1 SOC, table: holding, address: 968, type: u32, unit: '%', invalid: [4294967295], note: Battery bank 1. Function code and word order assumed.}
+  - {key: battery_soh, label: Battery Bank1 SOH, table: holding, address: 1054, type: u32, unit: '%', invalid: [4294967295], poll: slow, note: Battery bank 1. Function code and word order assumed.}
+  - {key: battery_voltage, label: Battery Voltage, table: holding, address: 156, type: u32, unit: V, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: battery_temperature, label: Battery Temperature, table: holding, address: 158, type: u32, unit: °C, scale: 0.01, offset: -273, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: x.battery_discharge_energy_today, label: DC Input Energy Today from battery, table: holding, address: 164, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: x.battery_charge_energy_today, label: DC Output Energy Today to battery, table: holding, address: 188, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+
+  # Loads
+  - {key: load_power, label: Load Power, table: holding, address: 102, type: s32, unit: W, invalid: [-2147483648, 2147483647], note: Signed in the map. Function code and word order assumed.}
+  - {key: x.load_voltage, label: Load Voltage, table: holding, address: 104, type: u32, unit: V, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: x.load_frequency, label: Load Frequency, table: holding, address: 106, type: u32, unit: Hz, scale: 0.01, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: x.load_energy_today, label: AC Load Energy Today, table: holding, address: 260, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], note: Function code and word order assumed (see notes).}
+  - {key: x.load_energy, label: AC Load Energy Lifetime, table: holding, address: 276, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow, note: Function code and word order assumed (see notes).}
+
+derived:
+  - {key: grid_power, label: Grid power (Grid Input Power − Grid Output Power), unit: W, positive: import, sum: [{key: x.grid_input_power}, {key: x.grid_output_power, factor: -1}]}
+  - {key: battery_power, label: Battery power (Total Inverting Power − Total Charging Power), unit: W, positive: discharge, sum: [{key: x.battery_discharge_power}, {key: x.battery_charge_power, factor: -1}]}
+  - {key: x.dc_battery_power, label: Battery power (DC Inverting Power − DC Charging Power), unit: W, positive: discharge, sum: [{key: x.dc_inverting_power}, {key: x.dc_charging_power, factor: -1}], note: An alternative when 0x03FC / 0x03FE don't answer.}
+
+enums:
+  generator_state: {'0': 'Off', '1': 'On'}
+
+flags:
+  power_flow: {'0': Grid to load, '1': Generator to load, '3': Battery to grid, '4': Grid to battery, '5': Generator to battery, '6': PV to battery, '7': PV to grid, '8': Battery to load}
+
+problems:
+  - {when: {key: x.active_faults, not: 0}, kind: fault, text: '{value} active fault(s) in the Conext system'}
+  - {when: {key: x.active_warnings, not: 0}, kind: warning, text: '{value} active warning(s) in the Conext system'}
+
+notes:
+- 'The gateway''s proprietary Modbus TCP server is on port 503 (port 502 is its SunSpec server, a different map). It presents
+  the gateway itself at unit id 1, with system-wide totals, and every connected Conext device at its own unit id with its
+  own map: XW 10–29, MPPT 60 30–49, AGS 50–69, SCP 70–89, SW 90–109, MPPT 80 170–189, battery monitor 190–209, MPPT Disc RS
+  210–229 (assigned first come, first served, then tied to each device''s serial number). This file covers unit id 1 only;
+  the whole system can be read from it.'
+- 'Unverified: the function code (03, holding registers, assumed; the map doesn''t name it) and the word order of 32-bit values
+  (high word first assumed; not stated). Addresses are 0-based on-the-wire addresses; the map''s "Reg. No." column is 1-based.'
+- 'Grid and battery power are differences of unsigned registers (see derived). The signed net registers (0x03F8, 0x0158, 0x03C6)
+  have no documented sign. Unverified: whether grid input/output include AC-coupled grid-tie inverters.'
+- The server answers exception 02 to a read that crosses a blank row of the map (a boundary between register groups), starts
+  or ends inside a 32-bit value, or touches an undefined register. Read only whole values within one group, or fall back to
+  one value per request when a block is rejected.
+- The map has only fault and warning counts (the codes are in each device's own map) and no grid-loss flag.
+- 'Invalid values: 0xFFFFFFFF (unsigned) and the s32 extremes are assumed to mean not available; the map doesn''t name such
+  values.'
+- 'Identification: Modbus Address (0x0028) = 1 and a readable PV or grid power register; this can''t tell the gateway from
+  a look-alike.'
+- Lines without voltage are left out (split-phase systems have two).

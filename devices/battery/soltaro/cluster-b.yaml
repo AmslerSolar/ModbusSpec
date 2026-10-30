@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Soltaro Multi-rack MOD-BUS protocol (V3.2, 2018-01-29), with the older three-rack Master RS-485
+# Communication protocol (undated) for comparison. Both carry the letterhead of a Hangzhou BMS supplier (bmser.com).
+
+modbusspec: 0
+id: soltaro-cluster-b
+manufacturer: Soltaro
+name: Battery cluster (several racks), version B
+kind: battery
+
+sources:
+- title: Multi-rack MOD-BUS protocol
+  version: V3.2 (2018-01-29)
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.battery.soltaro/doc/Multi-rack%20MOD-BUS%20protocol.docx
+  sha256: bc3a0b3ccc0caa129a70badcdc38a075d508ed438cd78cff96f8bb858336acb6
+- title: Master RS-485 Communication protocol (En)
+  version: undated (three racks)
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.battery.soltaro/doc/Master%20RS-485%20Communication%20protocol-%20En.docx
+  sha256: c6837774fbb678d27ea471e0489e56b774085cf525d897f4886c0d2f7469d43b
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.battery.soltaro
+
+connection:
+  default_port: 502
+  default_unit: 0
+  transports:
+  - rtu
+  serial:
+    baud: 57600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # System control (0x1017 ff.)
+  - {key: x.one_key_parallel, label: One key parallel switch, table: holding, address: 4119, type: u16, enum: start_stop, writable: true, poll: slow, note: 'Start: the master connects the racks that are off the bus back to it, one after the other.'}
+  - {key: x.rack_1_usage, label: Rack 1 in use, table: holding, address: 4120, type: u16, enum: rack_usage, writable: true, poll: slow, note: 'Not in use: the rack''s contactor opens and the rack is left out when racks are connected. Meant for a rack with a fault that can''t be cleared.'}
+  - {key: x.rack_2_usage, label: Rack 2 in use, table: holding, address: 4121, type: u16, enum: rack_usage, writable: true, poll: slow}
+  - {key: x.rack_3_usage, label: Rack 3 in use, table: holding, address: 4122, type: u16, enum: rack_usage, writable: true, poll: slow}
+  - {key: x.rack_4_usage, label: Rack 4 in use, table: holding, address: 4123, type: u16, enum: rack_usage, writable: true, poll: slow}
+  - {key: x.rack_5_usage, label: Rack 5 in use, table: holding, address: 4124, type: u16, enum: rack_usage, writable: true, poll: slow}
+  - {key: x.insulation_level_1, label: System insulation threshold level 1, table: holding, address: 4127, type: u16, unit: Ω/V, writable: true, poll: slow, conflicts: [{sources: [openems], unit: Ω, label: System insulation level 1}]}
+  - {key: x.insulation_level_2, label: System insulation threshold level 2, table: holding, address: 4128, type: u16, unit: Ω/V, writable: true, poll: slow, conflicts: [{sources: [openems], unit: Ω, label: System insulation level 2}]}
+  - {key: x.ems_timeout, label: EMS communication timeout, table: holding, address: 4130, type: u16, unit: s, writable: true, poll: slow, note: Default 90 s.}
+  - {key: x.ems_address, label: EMS address, table: holding, address: 4131, type: u16, writable: true, poll: slow, note: Default 0.}
+
+  # System status (0x1044 ff.)
+  - {key: x.charge_state, label: System charge / discharge status, table: holding, address: 4164, type: u16, enum: charge_state}
+  - {key: battery_current, label: System current, table: holding, address: 4165, type: s16, unit: A, scale: 0.1, positive: discharge, note: −500…500 A., conflicts: [{sources: [openems], type: u16, label: Current}]}
+  - {key: battery_soc, label: System SOC, table: holding, address: 4167, type: u16, unit: '%'}
+  - {key: state, label: System running status, table: holding, address: 4168, type: u16, enum: running_state}
+  - {key: battery_voltage, label: System total voltage, table: holding, address: 4169, type: u16, unit: V, scale: 0.1}
+  - {key: x.system_insulation, label: System insulation (lowest of all racks), table: holding, address: 4170, type: u16, verified: false, note: Unit not stated in the document (the rack insulation of the related master protocol is in kΩ)., conflicts: [{sources: [openems], unit: Ω, label: System insulation}]}
+  - {key: x.max_charge_current, label: System maximum charge current, table: holding, address: 4174, type: u16, unit: A, scale: 0.1}
+  - {key: x.max_discharge_current, label: System maximum discharge current, table: holding, address: 4175, type: u16, unit: A, scale: 0.1}
+  - {key: x.master_alarm, label: Master alarm register, table: holding, address: 4225, type: u16, flags: master_alarm}
+  - {key: x.submaster_comm_fault, label: Sub-master communication fault, table: holding, address: 4226, type: u16, flags: submaster_comm_fault}
+  - {key: x.rack_1_parallel_block, label: Reasons rack 1 can't be connected, table: holding, address: 4227, type: u16, flags: parallel_block}
+  - {key: x.rack_2_parallel_block, label: Reasons rack 2 can't be connected, table: holding, address: 4228, type: u16, flags: parallel_block}
+  - {key: x.rack_3_parallel_block, label: Reasons rack 3 can't be connected, table: holding, address: 4229, type: u16, flags: parallel_block}
+  - {key: x.rack_4_parallel_block, label: Reasons rack 4 can't be connected, table: holding, address: 4230, type: u16, flags: parallel_block}
+  - {key: x.rack_5_parallel_block, label: Reasons rack 5 can't be connected, table: holding, address: 4231, type: u16, flags: parallel_block}
+
+  # Rack 1 (base 0x2000; racks 2…5 at 0x3000, 0x4000, 0x5000, 0x6000, same offsets)
+  - {key: x.rack_1_contactor_open, label: Rack 1 positive contactor, table: holding, address: 8208, type: u16, writable: true, poll: slow, note: Write 0 to open the rack's main positive contactor; other values are ignored.}
+  - {key: x.rack_1_voltage, label: Rack 1 voltage, table: holding, address: 8448, type: u16, unit: V, scale: 0.1}
+  - {key: x.rack_1_current, label: Rack 1 current, table: holding, address: 8449, type: s16, unit: A, scale: 0.1, note: 'Positive = discharging, negative = charging.'}
+  - {key: x.rack_1_charge_state, label: Rack 1 charge / discharge status, table: holding, address: 8450, type: u16, enum: charge_state}
+  - {key: x.rack_1_soc, label: Rack 1 SOC, table: holding, address: 8451, type: u16, unit: '%'}
+  - {key: x.rack_1_soh, label: Rack 1 SOH, table: holding, address: 8452, type: u16, unit: '%'}
+  - {key: x.rack_1_max_cell_voltage_id, label: Rack 1 number of the highest cell, table: holding, address: 8453, type: u16, note: 1…512.}
+  - {key: x.rack_1_max_cell_voltage, label: Rack 1 highest cell voltage, table: holding, address: 8454, type: u16, unit: V, scale: 0.001}
+  - {key: x.rack_1_min_cell_voltage_id, label: Rack 1 number of the lowest cell, table: holding, address: 8455, type: u16}
+  - {key: x.rack_1_min_cell_voltage, label: Rack 1 lowest cell voltage, table: holding, address: 8456, type: u16, unit: V, scale: 0.001}
+  - {key: x.rack_1_max_cell_temperature_id, label: Rack 1 number of the hottest sensor, table: holding, address: 8457, type: u16}
+  - {key: x.rack_1_max_cell_temperature, label: Rack 1 highest cell temperature, table: holding, address: 8458, type: s16, unit: °C, scale: 0.1}
+  - {key: x.rack_1_min_cell_temperature_id, label: Rack 1 number of the coldest sensor, table: holding, address: 8459, type: u16}
+  - {key: x.rack_1_min_cell_temperature, label: Rack 1 lowest cell temperature, table: holding, address: 8460, type: s16, unit: °C, scale: 0.1}
+  - {key: x.rack_1_alarm_level_2, label: Rack 1 level 2 alarms, table: holding, address: 8512, type: u16, flags: alarm_level_2}
+  - {key: x.rack_1_alarm_level_1, label: Rack 1 level 1 alarms, table: holding, address: 8513, type: u16, flags: alarm_level_1}
+  - {key: x.rack_1_run_state, label: Rack 1 run state, table: holding, address: 8514, type: u16, enum: rack_run_state}
+  - {key: x.rack_1_slave_fault, label: Rack 1 slave BMS faults, table: holding, address: 8581, type: u16, flags: slave_fault}
+  - {key: x.reset, label: Reset, table: holding, address: 4100, type: u16, writable: true, verified: false, sources: [openems]}
+
+enums:
+  start_stop: {'1': Start, '2': Stop}
+  rack_usage: {'1': In use, '2': Not in use}
+  charge_state: {'0': Idle, '1': Discharging, '2': Charging}
+  running_state: {'0': Normal (may charge and discharge), '1': 'Full (may discharge, not charge)', '2': 'Empty (may charge, not discharge)', '3': Standby (may neither charge nor discharge), '4': Stopped (may neither charge nor discharge)}
+  rack_run_state: {'0': Normal, '1': Charging not allowed, '2': Discharging not allowed, '3': Charging and discharging not allowed}
+
+flags:
+  master_alarm: {'0': Communication fault with a sub-master, '1': PCS / EMS communication fault, '2': PCS / EMS control failure, '3': System insulation alarm level 1, '4': System insulation alarm level 2}
+  submaster_comm_fault: {'0': Sub-master 1 communication fault, '1': Sub-master 2 communication fault, '2': Sub-master 3 communication fault, '3': Sub-master 4 communication fault, '4': Sub-master 5 communication fault}
+  parallel_block: {'0': Voltage difference between racks too big (over 50 V), '1': Circulating current between racks too big (over 4 A), '2': Device fault, '3': Communication fault with the master, '4': PCS control failure, '5': Level 2 alarm present}
+  alarm_level_2: {'0': Cell over voltage, '1': Total over voltage, '2': Charge over current, '3': Cell under voltage, '4': Total under voltage, '5': Discharge over current, '6': Charge over temperature, '7': Charge under temperature, '10': Pole (terminal) over temperature, '14': Discharge over temperature, '15': Discharge under temperature}
+  alarm_level_1: {'0': Cell over voltage, '1': Total over voltage, '2': Charge over current, '3': Cell under voltage, '4': Total under voltage, '5': Discharge over current, '6': Charge over temperature, '7': Charge under temperature, '8': SOC low, '9': Temperature difference too big, '10': Pole (terminal) over temperature, '11': Cell voltage difference too big, '13': Total voltage difference too big, '14': Discharge over temperature, '15': Discharge under temperature}
+  slave_fault: {'0': Voltage sense wire fault, '1': Connection cable fault, '2': LTC6803 fault, '3': Voltage measurement fault, '4': Temperature measurement fault, '5': Temperature sensor fault, '6': Cell tab temperature fault, '7': Temperature board fault, '8': Balancing module fault, '9': Temperature sense wire fault, '10': Internal communication fault, '11': EEPROM fault, '12': Slave initialisation failed}
+
+problems:
+  - {when: {key: x.rack_1_alarm_level_2, not: 0}, kind: fault, text: 'Rack 1 level 2 alarm (0x{value:X})'}
+  - {when: {key: x.rack_1_alarm_level_1, not: 0}, kind: warning, text: 'Rack 1 level 1 alarm (0x{value:X})'}
+  - {when: {key: x.rack_1_slave_fault, not: 0}, kind: fault, text: 'Rack 1 slave BMS fault (0x{value:X})'}
+  - {when: {key: x.master_alarm, bit: 0}, kind: warning, text: Master BMS lost a sub-master}
+  - {when: {key: x.master_alarm, bit: 1}, kind: warning, text: PCS / EMS communication fault}
+  - {when: {key: x.master_alarm, bit: 2}, kind: warning, text: PCS / EMS control failure}
+  - {when: {key: x.master_alarm, bit: 3}, kind: warning, text: System insulation alarm level 1}
+  - {when: {key: x.master_alarm, bit: 4}, kind: fault, text: System insulation alarm level 2}
+  - {when: {key: x.submaster_comm_fault, not: 0}, kind: warning, text: 'Sub-master communication fault (0x{value:X})'}
+  - {when: {key: x.rack_1_parallel_block, not: 0}, kind: warning, text: 'Rack 1 can''t be connected (0x{value:X})'}
+  - {when: {key: x.rack_2_parallel_block, not: 0}, kind: warning, text: 'Rack 2 can''t be connected (0x{value:X})'}
+  - {when: {key: x.rack_3_parallel_block, not: 0}, kind: warning, text: 'Rack 3 can''t be connected (0x{value:X})'}
+  - {when: {key: x.rack_4_parallel_block, not: 0}, kind: warning, text: 'Rack 4 can''t be connected (0x{value:X})'}
+  - {when: {key: x.rack_5_parallel_block, not: 0}, kind: warning, text: 'Rack 5 can''t be connected (0x{value:X})'}
+  - {when: {key: state, equals: 4}, kind: warning, text: Battery system stopped (may neither charge nor discharge)}
+
+notes:
+- Modbus RTU, the EMS is master; functions 03, 06 and 16. Default BMS address 0, 57600 baud; the parity and stop bits aren't
+  stated (8N1 assumed). The document asks for no more than 300 ms between messages. Port 502 only applies behind a Modbus
+  TCP gateway.
+- Addresses are the protocol addresses as the document gives them (hex). A rack's register = rack base (rack 1 0x2000, rack
+  2 0x3000 … rack 5 0x6000) + offset; only rack 1 is listed. Cell voltages per rack start at offset 0x0800 (u16, mV, cell
+  1 … up to 512), cell temperatures at 0x0C00 (s16, 0.1 °C, up to 256 sensors).
+- 'All registers are unsigned unless marked signed. Current sign as stated: positive = discharging (system and rack current).'
+- Level 2 alarms are the BMS's own protection (the rack's contactor opens); level 1 alarms ask the EMS to stop charging or
+  discharging. The Chinese labels of the level 1 bits 9, 14 and 15 are used where the English labels say otherwise.
+- 'The older three-rack Master RS-485 protocol differs: default BMS address 1; racks 1…3 only (0x1018…0x101A); no insulation
+  thresholds, EMS timeout and address (0x101F…0x1023), no insulation and current limits (0x104A, 0x104E, 0x104F) and no 0x1083…0x1087;
+  in 0x1081 bit 0 is the PCS communication fault and bit 1 the PCS control failure; the rack contactors are at offset 0x0001
+  (write 2 to open) instead of 0x0010 (write 0).'
+- 'Rack registers are not included: OpenEMS builds them per rack at run time (rack 1 at 0x2000, then every 0x1000 up to rack
+  5 at 0x6000).'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

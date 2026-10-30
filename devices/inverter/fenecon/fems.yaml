@@ -1,0 +1,136 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the FEMS App Modbus/TCP read access description (2023.6.1).
+
+modbusspec: 0
+id: fenecon-fems
+manufacturer: FENECON
+name: FEMS / OpenEMS Edge, Modbus/TCP read access (component _sum)
+kind: inverter
+
+sources:
+- title: FEMS App Modbus/TCP Read Access
+  version: 2023.6.1
+  url: https://docs.fenecon.de/pdfs/en/fems/fems-app/App_ModbusTCP_read_access.pdf
+  sha256: 5cfae4ede92619eafdca2e709113961104a466096793214bf9ceac3c24e56f3f
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/openems-modbus.yaml
+- id: fems-diagnostics
+  title: fems-diagnostics (Home Assistant integration)
+  url: https://github.com/alpenfun/fems-diagnostics
+  license: MIT
+  commit: 1df7dd21500c852f89138958a8e888b07ce02dd1
+  path: custom_components/fems/const.py, custom_components/fems/sensor.py, custom_components/fems/strings.json
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  input_equals_holding: true
+  limits:
+    max_registers: 116
+    max_gap: 24
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 200
+    type: str
+    length: 16
+    equals: _sum
+  - table: holding
+    address: 222
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 65535
+
+points:
+  # System
+  - {key: x.component_id, label: Component-ID, table: holding, address: 200, type: str, length: 16, poll: slow, note: Reads "_sum".}
+  - {key: state, label: State, table: holding, address: 222, type: u16, enum: state, invalid: [65535], verified: false, note: 'Type enum16. 0xFFFF as "undefined" is OpenEMS behaviour, not in the document.'}
+  - {key: x.grid_mode, label: GridMode, table: holding, address: 417, type: u16, enum: grid_mode, invalid: [65535], verified: false, note: 'Type enum16. 0xFFFF as "undefined" is OpenEMS behaviour, not in the document.'}
+
+  # Battery (ESS, sum of all storage systems)
+  - {key: battery_soc, label: EssSoc, table: holding, address: 302, type: u16, unit: '%', invalid: [65535], verified: false, note: '0–100. 0xFFFF as "undefined" is OpenEMS behaviour, not in the document.'}
+  - {key: x.ess_active_power, label: EssActivePower, table: holding, address: 303, type: f32, unit: W, positive: discharge, verified: false, note: AC-side power of the storage including the hybrid inverter's surplus DC PV. The document gives no sign; positive = discharge is the OpenEMS convention (from the OpenEMS source).}
+  - {key: x.ess_reactive_power, label: EssReactivePower, table: holding, address: 309, type: f32, unit: var}
+  - {key: battery_power, label: EssDischargePower, table: holding, address: 415, type: f32, unit: W, positive: discharge, verified: false, note: 'The document gives no sign and calls it the storage''s actual AC-side active power. Positive = discharge and its meaning as the battery''s own share (without the hybrid inverter''s DC PV, unlike 303) come from the OpenEMS source only.'}
+
+  # Grid
+  - {key: grid_power, label: GridActivePower, table: holding, address: 315, type: f32, unit: W, positive: import, verified: false, note: Power at the grid connection point. The document gives no sign; positive = buy from grid is the OpenEMS convention (from the OpenEMS source).}
+  - {key: x.grid_min_active_power, label: GridMinActivePower, table: holding, address: 317, type: f32, unit: W, poll: slow}
+  - {key: x.grid_max_active_power, label: GridMaxActivePower, table: holding, address: 319, type: f32, unit: W, poll: slow}
+
+  # Production
+  - {key: pv_power, label: ProductionActivePower, table: holding, address: 327, type: f32, unit: W, note: 'All PV: the hybrid inverter''s DC PV plus external AC inverters.'}
+  - {key: x.production_max_active_power, label: ProductionMaxActivePower, table: holding, address: 329, type: f32, unit: W, poll: slow}
+  - {key: x.production_ac_active_power, label: ProductionAcActivePower, table: holding, address: 331, type: f32, unit: W, note: External AC inverters only.}
+  - {key: x.production_dc_actual_power, label: ProductionDcActualPower, table: holding, address: 339, type: f32, unit: W, note: DC PV of the hybrid inverter only (without external AC inverters; total PV is 327).}
+
+  # Consumption
+  - {key: load_power, label: ConsumptionActivePower, table: holding, address: 343, type: f32, unit: W}
+  - {key: x.consumption_max_active_power, label: ConsumptionMaxActivePower, table: holding, address: 345, type: f32, unit: W, poll: slow}
+
+  # Lifetime energies (Wh on the wire)
+  - {key: x.ess_active_charge_energy, label: EssActiveChargeEnergy, table: holding, address: 351, type: f64, unit: kWh, scale: 0.001, poll: slow, note: 'AC side, including surplus PV at the hybrid inverter.'}
+  - {key: x.ess_active_discharge_energy, label: EssActiveDischargeEnergy, table: holding, address: 355, type: f64, unit: kWh, scale: 0.001, poll: slow, note: 'Via the inverter''s AC output, including PV.'}
+  - {key: grid_import_energy, label: GridBuyActiveEnergy, table: holding, address: 359, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: grid_export_energy, label: GridSellActiveEnergy, table: holding, address: 363, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: pv_energy, label: ProductionActiveEnergy, table: holding, address: 367, type: f64, unit: kWh, scale: 0.001, poll: slow, note: PV plus external inverters.}
+  - {key: x.production_ac_active_energy, label: ProductionAcActiveEnergy, table: holding, address: 371, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.production_dc_active_energy, label: ProductionDcActiveEnergy, table: holding, address: 375, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.consumption_active_energy, label: ConsumptionActiveEnergy, table: holding, address: 379, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.ess_dc_charge_energy, label: EssDcChargeEnergy, table: holding, address: 383, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.ess_dc_discharge_energy, label: EssDcDischargeEnergy, table: holding, address: 387, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.ess_active_power_l1, label: Battery Power L1, table: holding, address: 391, type: f32, unit: W, verified: false, sources: [fems-diagnostics]}
+  - {key: x.ess_active_power_l2, label: Battery Power L2, table: holding, address: 393, type: f32, unit: W, verified: false, sources: [fems-diagnostics]}
+  - {key: x.ess_active_power_l3, label: Battery Power L3, table: holding, address: 395, type: f32, unit: W, verified: false, sources: [fems-diagnostics]}
+  - {key: x.grid_active_power_l1, label: Grid Power L1, table: holding, address: 397, type: f32, unit: W, verified: false, sources: [fems-diagnostics]}
+  - {key: x.grid_active_power_l2, label: Grid Power L2, table: holding, address: 399, type: f32, unit: W, verified: false, sources: [fems-diagnostics]}
+  - {key: x.grid_active_power_l3, label: Grid Power L3, table: holding, address: 401, type: f32, unit: W, verified: false, sources: [fems-diagnostics]}
+  - {key: x.consumption_active_power_l1, label: House Load L1, table: holding, address: 409, type: f32, unit: W, verified: false, sources: [fems-diagnostics]}
+  - {key: x.consumption_active_power_l2, label: House Load L2, table: holding, address: 411, type: f32, unit: W, verified: false, sources: [fems-diagnostics]}
+  - {key: x.consumption_active_power_l3, label: House Load L3, table: holding, address: 413, type: f32, unit: W, verified: false, sources: [fems-diagnostics]}
+  - {key: x.batterymode_710, label: Battery mode control (write), table: holding, address: 710, type: f32, writable: true, note: 'Used by evcc only with the template option battery = true. evcc writes battery mode normal: 0.', verified: false, sources: [evcc]}
+
+enums:
+  state: {'0': Ok, '1': Info, '2': Warning, '3': Fault}
+  grid_mode: {'1': On-grid, '2': Off-grid}
+
+problems:
+  - {when: {key: state, equals: 2}, kind: warning, text: Warning (state 2)}
+  - {when: {key: state, equals: 3}, kind: fault, text: Fault (state 3)}
+  - {when: {key: x.grid_mode, equals: 2}, kind: backup_mode, text: Off-grid (grid mode 2)}
+
+notes:
+- 'The values are the FEMS system totals (OpenEMS component _sum): all storage systems, meters and PV together. The interface
+  is enabled ex works on port 502, unit id 1.'
+- Addresses are 0-based; holding registers (function 03).
+- The document lists only the most important registers of a longer table (the FEMS online monitoring offers the full table
+  per system). Whether the gaps are readable isn't stated; if one request across 302–417 is rejected, read each listed value
+  on its own.
+- The document states no word order. OpenEMS sends float32 / float64 big-endian, high word first (from the OpenEMS source;
+  not checked on a device). Undefined values arrive as NaN (OpenEMS behaviour).
+- 'Signs are not in the document. From the OpenEMS source: 303 and 415 positive = discharging, 315 positive = buying from
+  the grid; production 327 and consumption 343 are ≥ 0.'
+- No serial number and no daily counters in this table.
+- 'evcc template `openems-modbus` (grid, pv, battery) lists: OpenEMS Modbus-API; FENECON Modbus-API.'
+- The template has the option `battery` (default false); points used only with another value say so in their note.
+- These are the system totals (sum of all storage, meters and PV) of the FEMS / OpenEMS Modbus TCP API. The project reads
+  the state of charge with function 04 and the power and energy values with function 03. Energies are in Wh on the wire.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

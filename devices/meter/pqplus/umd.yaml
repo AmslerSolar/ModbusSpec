@@ -1,0 +1,225 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the PQ Plus Modbus protocol description for UMD / MMB / UMC instruments (firmware 3.0.x+).
+
+modbusspec: 0
+id: pqplus-umd
+manufacturer: PQ Plus
+name: UMD power meters (UMD 96, 97, 98, 807, 913 and others; UMD instrument register map)
+kind: meter
+
+sources:
+- title: UMD 96, UMD 97, UMD 98, UMD 807, UMD 913, MMB 700, MMU 3, MMI 12, UMD 701, UMD 704–707, UMD 709, UMD 710, UMC 26
+    – Protocol description for Modbus TCP and Modbus RTU protocol (firmware 3.0.x+)
+  version: preliminary, 2019-10
+  url: https://www.pq-plus.de/site/assets/files/2795/pqplus-com-protokoll-modbus_3_0.pdf
+  sha256: 766db730562de0938b507364be73dd8e2de3284744648b30a7342349e00f5098
+  archive_url: https://web.archive.org/web/20240719094851/https://www.pq-plus.de/site/assets/files/2795/pqplus-com-protokoll-modbus_3_0.pdf
+- title: Same document for firmware 2.1.25+
+  version: preliminary, December 2017
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.meter.pqplus/doc/PQPlus-Com-Protokoll_Modbus.pdf
+  sha256: dfa5269451665dc6d44e836bda4bab0f6f2eb538388a9d1b23bb97336ab472a7
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.pqplus/src/io/openems/edge/meter/pqplus/umd96/MeterPqplusUmd96Impl.java, io.openems.edge.meter.pqplus/src/io/openems/edge/meter/pqplus/umd97/MeterPqplusUmd97Impl.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  input_equals_holding: true
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 528
+    type: u32
+
+points:
+  # Device identification (0x0200, input registers)
+  - {key: serial, label: DEVICE_NUMBER, table: input, address: 528, type: u32, poll: slow}
+  - {key: x.device_type, label: DEVICE_TYPE, table: input, address: 521, type: u16, poll: slow, note: The document gives no table of type codes.}
+  - {key: x.props_type, label: PROPS_TYPE, table: input, address: 520, type: u16, poll: slow}
+  - {key: x.hw_build, label: HW build version, table: input, address: 530, type: u16, poll: slow}
+  - {key: x.boot_build, label: BOOT build version, table: input, address: 531, type: u16, poll: slow}
+  - {key: x.sw_build, label: SW build version, table: input, address: 532, type: u16, poll: slow}
+  - {key: firmware, label: SW version, table: input, address: 538, type: u64, poll: slow, verified: false, note: 'Version a.b.c (generation, major, release) in 64 bits; the document doesn''t say how the three parts are packed.'}
+  - {key: x.clock, label: GMT Time, table: input, address: 516, type: u64, epoch: {start: '2000-01-01', unit: s}, poll: slow, note: 'KMBTime: seconds since 2000-01-01 00:00.'}
+
+  # Shared actual data (0x1000)
+  - {key: x.config_changes, label: Config Change counter, table: input, address: 4096, type: u16, poll: slow, note: Counts configuration changes; a new value means the configuration changed.}
+  - {key: error_code, label: Error Code, table: input, address: 4097, type: u32, flags: error_bits, note: Bit set = possible problem; 0 = working correctly.}
+  - {key: x.phase_order, label: Phase order, table: input, address: 4099, type: u16, enum: phase_order, verified: false, note: A flag set when the phase sequence is 1-3-2; 0 / 1 assumed (the document gives no values).}
+  - {key: frequency, label: Actual frequency, table: input, address: 4100, type: f32, unit: Hz}
+  - {key: x.frequency_10s, label: 10-second frequency, table: input, address: 4102, type: f32, unit: Hz}
+  - {key: x.sample_range_flags, label: Sample Overflow/Underflow Flags, table: input, address: 4104, type: u16, flags: sample_range}
+  - {key: x.event_flags, label: Flags, table: input, address: 4105, type: u32, flags: event_flags, note: Marks measurements influenced by voltage events.}
+
+  # Voltages (0x1100)
+  - {key: l1_voltage, label: ULN 1, table: input, address: 4352, type: f32, unit: V}
+  - {key: l2_voltage, label: ULN 2, table: input, address: 4354, type: f32, unit: V}
+  - {key: l3_voltage, label: ULN 3, table: input, address: 4356, type: f32, unit: V}
+  - {key: x.voltage_n, label: UN, table: input, address: 4358, type: f32, unit: V}
+  - {key: x.voltage_l1_l2, label: ULL1, table: input, address: 4360, type: f32, unit: V}
+  - {key: x.voltage_l2_l3, label: ULL2, table: input, address: 4362, type: f32, unit: V}
+  - {key: x.voltage_l3_l1, label: ULL3, table: input, address: 4364, type: f32, unit: V}
+  - {key: x.thd_u1, label: THD U1, table: input, address: 4366, type: f32, unit: '%'}
+  - {key: x.thd_u2, label: THD U2, table: input, address: 4368, type: f32, unit: '%'}
+  - {key: x.thd_u3, label: THD U3, table: input, address: 4370, type: f32, unit: '%'}
+  - {key: x.voltage_unbalance, label: unbU, table: input, address: 4406, type: f32, unit: '%', verified: false, note: Unit not stated in the document; assumed percent.}
+
+  # Currents (0x1200)
+  - {key: l1_current, label: I1, table: input, address: 4608, type: f32, unit: A}
+  - {key: l2_current, label: I2, table: input, address: 4610, type: f32, unit: A}
+  - {key: l3_current, label: I3, table: input, address: 4612, type: f32, unit: A}
+  - {key: x.current_i4, label: I4, table: input, address: 4614, type: f32, unit: A, note: Fourth current input (neutral on most models).}
+  - {key: x.thd_i1, label: THD I1, table: input, address: 4620, type: f32, unit: '%'}
+  - {key: x.thd_i2, label: THD I2, table: input, address: 4622, type: f32, unit: '%'}
+  - {key: x.thd_i3, label: THD I3, table: input, address: 4624, type: f32, unit: '%'}
+  - {key: x.current_unbalance, label: unbI, table: input, address: 4660, type: f32, unit: '%', verified: false, note: Unit not stated in the document; assumed percent.}
+
+  # Power (0x1300)
+  - {key: power_factor, label: 3PF, table: input, address: 4864, type: f32, unit: ''}
+  - {key: x.cos_phi, label: 3cos(phi), table: input, address: 4866, type: f32, unit: ''}
+  - {key: x.power_factor_l1, label: PF1, table: input, address: 4868, type: f32, unit: ''}
+  - {key: x.power_factor_l2, label: PF2, table: input, address: 4870, type: f32, unit: ''}
+  - {key: x.power_factor_l3, label: PF3, table: input, address: 4872, type: f32, unit: ''}
+  - {key: grid_power, label: 3P, table: input, address: 4884, type: f32, unit: W, positive: import, verified: false, note: 'Direction not stated; assumed positive = import, as the energy counters call imported energy EP+.'}
+  - {key: reactive_power, label: 3Q, table: input, address: 4886, type: f32, unit: var}
+  - {key: apparent_power, label: 3S, table: input, address: 4888, type: f32, unit: VA}
+  - {key: x.distortion_power, label: 3D, table: input, address: 4894, type: f32, unit: VA, verified: false, note: Unit not stated in the document.}
+  - {key: l1_power, label: P1, table: input, address: 4896, type: f32, unit: W, positive: import, verified: false, note: Direction assumed as for 3P.}
+  - {key: l2_power, label: P2, table: input, address: 4898, type: f32, unit: W, positive: import, verified: false, note: Direction assumed as for 3P.}
+  - {key: l3_power, label: P3, table: input, address: 4900, type: f32, unit: W, positive: import, verified: false, note: Direction assumed as for 3P.}
+  - {key: x.reactive_power_l1, label: Q1, table: input, address: 4904, type: f32, unit: var}
+  - {key: x.reactive_power_l2, label: Q2, table: input, address: 4906, type: f32, unit: var}
+  - {key: x.reactive_power_l3, label: Q3, table: input, address: 4908, type: f32, unit: var}
+  - {key: x.apparent_power_l1, label: S1, table: input, address: 4912, type: f32, unit: VA}
+  - {key: x.apparent_power_l2, label: S2, table: input, address: 4914, type: f32, unit: VA}
+  - {key: x.apparent_power_l3, label: S3, table: input, address: 4916, type: f32, unit: VA}
+
+  # Energy counters (0x2000, 64-bit doubles)
+  - {key: x.import_energy_f64, label: 3EP+ (imported), table: input, address: 8192, type: f64, poll: slow, note: Unit not stated in the document (Wh / varh like the 0x4A00 block is likely).}
+  - {key: x.export_energy_f64, label: 3EP- (exported), table: input, address: 8196, type: f64, poll: slow, note: Unit not stated in the document (Wh / varh like the 0x4A00 block is likely).}
+  - {key: x.reactive_energy_inductive, label: 3EQL (inductive), table: input, address: 8200, type: f64, poll: slow, note: Unit not stated in the document (Wh / varh like the 0x4A00 block is likely).}
+  - {key: x.reactive_energy_capacitive, label: 3EQC (capacitive), table: input, address: 8204, type: f64, poll: slow, note: Unit not stated in the document (Wh / varh like the 0x4A00 block is likely).}
+
+  # Actual data block (0x4A00 = 19000): function 04 gives 200 ms values, function 03 averages; energies are the same
+  # with both. Only the energies are taken here; the measurements repeat the blocks above.
+  - {key: x.energy_total, label: 3EP total, table: input, address: 19060, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: 'Wh in the table, but the text calls the block''s energies kWh counts; Wh assumed. Not stated whether this is the net or the sum of both directions.'}
+  - {key: grid_import_energy, label: 3EP consumed, table: input, address: 19068, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Table unit Wh; text says kWh counts — table unit assumed.}
+  - {key: grid_export_energy, label: 3EP delivered, table: input, address: 19076, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Table unit Wh; text says kWh counts — table unit assumed.}
+  - {key: x.l1_import_energy, label: EP1 consumed, table: input, address: 19062, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Table unit Wh; text says kWh counts — table unit assumed.}
+  - {key: x.l2_import_energy, label: EP2 consumed, table: input, address: 19064, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Table unit Wh; text says kWh counts — table unit assumed.}
+  - {key: x.l3_import_energy, label: EP3 consumed, table: input, address: 19066, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Table unit Wh; text says kWh counts — table unit assumed.}
+  - {key: x.l1_export_energy, label: EP1 delivered, table: input, address: 19070, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Table unit Wh; text says kWh counts — table unit assumed.}
+  - {key: x.l2_export_energy, label: EP2 delivered, table: input, address: 19072, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Table unit Wh; text says kWh counts — table unit assumed.}
+  - {key: x.l3_export_energy, label: EP3 delivered, table: input, address: 19074, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Table unit Wh; text says kWh counts — table unit assumed.}
+  - {key: x.apparent_energy, label: 3ES, table: input, address: 19084, type: f32, unit: kVAh, scale: 0.001, poll: slow, verified: false, note: Table unit VAh; text says kWh counts — table unit assumed.}
+  - {key: x.reactive_energy_inductive_total, label: 3EQL, table: input, address: 19100, type: f32, unit: kvarh, scale: 0.001, poll: slow, verified: false, note: Table unit varh; text says kWh counts — table unit assumed.}
+  - {key: x.reactive_energy_capacitive_total, label: 3EQC, table: input, address: 19108, type: f32, unit: kvarh, scale: 0.001, poll: slow, verified: false, note: Table unit varh; text says kWh counts — table unit assumed.}
+
+  # Maximum demand (0x4E00)
+  - {key: x.demand_power, label: actual average demand 3P, table: input, address: 19982, type: f32, unit: W, poll: slow, verified: false, note: Running average over the configured demand interval; direction as for 3P (assumed).}
+  - {key: x.last_demand_power, label: last average demand 3P, table: input, address: 19970, type: f32, unit: W, poll: slow}
+  - {key: x.max_demand_power, label: maximal demand 3P, table: input, address: 20018, type: f32, unit: W, poll: slow, note: Since the last manual reset.}
+
+  # Inputs (0x9000)
+  - {key: x.digital_inputs_1_16, label: Digital Inputs (1-16), table: input, address: 36864, type: u16, optional: true, note: One bit per input; only on models with inputs.}
+  - {key: temperature, label: Temperature 1 - Internal (Ti), table: input, address: 37056, type: f32, unit: °C, poll: slow, optional: true, verified: false, note: Unit not stated in the document; assumed °C.}
+  - {key: x.temperature_external, label: Temperature 2 - External (Te), table: input, address: 37058, type: f32, unit: °C, poll: slow, optional: true, verified: false, note: Unit not stated in the document; assumed °C.}
+  - {key: x.digital_outputs_1_8, label: Digital Outputs (1-8), table: input, address: 37632, type: u16, writable: true, optional: true, note: 'High byte: mask (1 = output can be controlled / will change), low byte: state of outputs 1–8. A write changes only the outputs whose mask bit is set; outputs used by the device''s own I/O configuration are locked.'}
+
+  # Settings (0x0700, holding registers; written with function 16, changes may erase stored data)
+  - {key: x.connection_type, label: Connection Type, table: holding, address: 1792, type: u16, poll: slow, writable: true, note: The document gives no value table.}
+  - {key: x.nominal_frequency, label: Nominal Frequency, table: holding, address: 1795, type: f32, unit: Hz, poll: slow, writable: true}
+  - {key: x.nominal_voltage, label: Nominal Voltage, table: holding, address: 1797, type: f32, unit: V, poll: slow, writable: true}
+  - {key: x.nominal_power, label: Nominal Power, table: holding, address: 1799, type: f32, unit: W, poll: slow, writable: true, verified: false, note: Unit not stated; assumed W.}
+  - {key: x.vt_primary, label: Primary VT, table: holding, address: 1801, type: u16, unit: V, poll: slow, writable: true, verified: false, note: Unit not stated; assumed V.}
+  - {key: x.vt_secondary, label: Secondary VT, table: holding, address: 1802, type: u16, unit: V, poll: slow, writable: true, verified: false, note: Unit not stated; assumed V.}
+  - {key: x.ct_primary, label: Primary CT, table: holding, address: 1809, type: u16, unit: A, poll: slow, writable: true, verified: false, note: Unit not stated; assumed A.}
+  - {key: x.ct_secondary, label: Secondary CT, table: holding, address: 1810, type: u16, unit: A, poll: slow, writable: true, verified: false, note: Unit not stated; assumed A.}
+  - {key: x.nominal_current, label: Nominal current Inom, table: holding, address: 1817, type: f32, unit: A, poll: slow, writable: true, note: Firmware 2.1.11 and later.}
+
+  # Communication settings (0x0800, read only)
+  - {key: x.com1_address, label: COM1 Device Address, table: input, address: 2049, type: u16, poll: slow}
+  - {key: x.com1_baud, label: COM1 Baud Rate, table: input, address: 2050, type: u32, poll: slow, verified: false, note: Listed at decimal 2050 but hex 0x803; the decimal address is taken.}
+  - {key: x.com1_parity, label: COM1 Parity, table: input, address: 2052, type: u16, enum: parity, poll: slow}
+  - {key: x.modbus_port, label: ETH1 Modbus Port, table: input, address: 2120, type: u16, poll: slow, optional: true}
+  - {key: x.voltage_l1, label: Voltage L1, table: holding, address: 19000, type: f32, unit: V, verified: false, sources: [openems]}
+  - {key: x.voltage_l2, label: Voltage L2, table: holding, address: 19002, type: f32, unit: V, verified: false, sources: [openems]}
+  - {key: x.voltage_l3, label: Voltage L3, table: holding, address: 19004, type: f32, unit: V, verified: false, sources: [openems]}
+  - {key: x.current_l1, label: Current L1, table: holding, address: 19012, type: f32, unit: A, verified: false, sources: [openems]}
+  - {key: x.current_l2, label: Current L2, table: holding, address: 19014, type: f32, unit: A, verified: false, sources: [openems]}
+  - {key: x.current_l3, label: Current L3, table: holding, address: 19016, type: f32, unit: A, verified: false, sources: [openems]}
+  - {key: x.current, label: Current, table: holding, address: 19018, type: f32, unit: A, verified: false, sources: [openems]}
+  - {key: x.active_power_l1_19020, label: Active Power L1, table: holding, address: 19020, type: f32, unit: W, verified: false, sources: [openems]}
+  - {key: x.active_power_l2_19022, label: Active Power L2, table: holding, address: 19022, type: f32, unit: W, verified: false, sources: [openems]}
+  - {key: x.active_power_l3_19024, label: Active Power L3, table: holding, address: 19024, type: f32, unit: W, verified: false, sources: [openems]}
+  - {key: x.active_power_19026, label: Active Power, table: holding, address: 19026, type: f32, unit: W, verified: false, sources: [openems]}
+  - {key: x.reactive_power_l1_19036, label: Reactive Power L1, table: holding, address: 19036, type: f32, unit: var, verified: false, sources: [openems]}
+  - {key: x.reactive_power_l2_19038, label: Reactive Power L2, table: holding, address: 19038, type: f32, unit: var, verified: false, sources: [openems]}
+  - {key: x.reactive_power_l3_19040, label: Reactive Power L3, table: holding, address: 19040, type: f32, unit: var, verified: false, sources: [openems]}
+  - {key: x.reactive_power, label: Reactive Power, table: holding, address: 19042, type: f32, unit: var, verified: false, sources: [openems]}
+  - {key: x.frequency, label: Frequency, table: holding, address: 19050, type: f32, unit: Hz, verified: false, sources: [openems]}
+
+enums:
+  phase_order: {'0': 1-2-3 (correct), '1': 1-3-2 (reversed)}
+  parity: {'0': None, '1': Even, '2': Odd}
+
+flags:
+  error_bits: {'0': RAM error, '1': Configuration error, '2': Calibration error, '3': Remote communication module error (WiFi / Zigbee), '4': Clock (RTC) error, '7': Archive error, '8': Flash memory error, '9': Display error}
+  sample_range: {'0': Voltage channel 1 out of range, '1': Voltage channel 2 out of range, '2': Voltage channel 3 out of range, '3': Voltage channel 4 out of range, '4': Current channel 1 out of range, '5': Current channel 2 out of range, '6': Current channel 3 out of range, '7': Current channel 4 out of range}
+  event_flags: {'0': 'Voltage, current and power, channel 1', '1': 'Voltage, current and power, channel 2', '2': 'Voltage, current and power, channel 3', '3': 'Voltage, current and power, channel 4', '4': 'Short-term flicker, channel 1', '5': 'Short-term flicker, channel 2', '6': 'Short-term flicker, channel 3', '7': 'Short-term flicker, channel 4', '8': 'Long-term flicker, channel 1', '9': 'Long-term flicker, channel 2', '10': 'Long-term flicker, channel 3', '11': 'Long-term flicker, channel 4', '12': Frequency, '13': Automatic current probe range switchover}
+
+problems:
+  - {when: {key: error_code, bit: 0}, kind: fault, text: Meter RAM error (bit 0)}
+  - {when: {key: error_code, bit: 1}, kind: fault, text: Meter configuration error (bit 1)}
+  - {when: {key: error_code, bit: 2}, kind: fault, text: Meter calibration error (bit 2)}
+  - {when: {key: error_code, bit: 3}, kind: warning, text: Meter communication module error (bit 3)}
+  - {when: {key: error_code, bit: 4}, kind: warning, text: Meter clock error (bit 4)}
+  - {when: {key: error_code, bit: 7}, kind: warning, text: Meter archive error (bit 7)}
+  - {when: {key: error_code, bit: 8}, kind: fault, text: Meter flash memory error (bit 8)}
+  - {when: {key: error_code, bit: 9}, kind: warning, text: Meter display error (bit 9)}
+  - {when: {key: x.phase_order, not: 0}, kind: warning, text: Phase sequence reversed (1-3-2)}
+  - {when: {key: x.sample_range_flags, not: 0}, kind: warning, text: 'Measuring input out of range (flags 0x{value:X}); readings less precise'}
+
+notes:
+- One register map for the whole PQ Plus UMD / MMB / MMU / MMI / UMC instrument line; which blocks answer depends on the model
+  and its firmware modules (PQ, RCS, Modbus master, I/O). The document mentions the proprietary KMB protocol and ENVIS software
+  next to Modbus (possibly an OEM product).
+- Addresses are the document's decimal register addresses, used directly as 0-based protocol addresses (its modpoll examples
+  read them as PDU addresses). Where the decimal and hex columns disagree the decimal one is taken.
+- 'The document assigns measurements, identification and read-only settings to input registers (function 04) and the configurable
+  settings (0x0700) to holding registers, but says both are now one address space readable with either function; hence input_equals_holding.
+  Exception: in the block at 19000, function 03 gives averages instead of actual values (see below).'
+- 32- and 64-bit values are most significant word first; floats are IEEE 754 (f32), the energy counters at 0x2000 are doubles
+  (f64). Times are seconds since 2000-01-01.
+- 'The block at 19000 (0x4A38) repeats the main measurements for a single block read: function 04 returns 200 ms values, function
+  03 averages over the aggregation interval. Only its energy counters are taken here.'
+- Port 502 is stated. Unit id 1 is only the default of the document's examples; the device address and serial settings (baud
+  rate, parity) are configured on the device. Modbus RTU frames are also accepted on the Ethernet Modbus port from firmware
+  3.0.
+- Multi-feeder / multi-channel instruments limit the base address to 1–20; channel X answers on unit id (X − 1) × 20 + base.
+- 'Power direction isn''t stated: the signs here assume positive active power = import (EP+ is imported energy). Check on
+  a real device.'
+- 'Left out: harmonics and interharmonics (0x1400–0x1E1E), tariff and six-quadrant counters (0x2400–0x2B5C), min/max/time-stamp
+  blocks (0x4200–0x48B0), residual current (0x4D00), most demand registers, power-quality, flicker, ripple-control, Modbus-master,
+  DC and PFC blocks (0x5000–0xA0AD), pulse / frequency counters, analog I/O, hour meters, VT/CT multipliers and network settings.'
+- The driver's default meter type is PRODUCTION; OpenEMS doesn't say which way the device's own power value is positive, so
+  no direction is given.
+- OpenEMS has an 'Invert' option that negates the power values and swaps the two energy counters; the points here are the
+  reading with it off.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

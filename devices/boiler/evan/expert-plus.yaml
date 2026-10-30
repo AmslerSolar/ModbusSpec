@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Evan Modbus registers of the EXPERT PLUS, PRACTIC 2022, STOUT PLUS boilers (no version).
+
+modbusspec: 0
+id: evan-expert-plus
+manufacturer: Evan
+name: EXPERT PLUS / PRACTIC 2022 / STOUT PLUS electric boilers
+kind: boiler
+
+sources:
+- title: Modbus регистры котлов EXPERT PLUS, PRACTIC 2022, STOUT PLUS
+  version: '-'
+  url: https://www.evan.ru/upload/iblock/860/lu6eliqmjsgbmp2y5vm4oir5gwjcrx01/Registry-modbus-Expert-Plus-_-Practic-2022-_-Stout-Plus.pdf
+  sha256: 9861ebac9abbc18df2396e1f7b917e3406e12006e84b317ad14733c59dad3d5a
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Measurements (input registers, function 04)
+  - {key: x.flow_temperature, label: Measured heating water temperature, table: input, address: 0, type: s16, unit: °C, verified: false, note: Given as int16 without a scale (registers 7–13 say ×10 explicitly); taken as whole degrees.}
+  - {key: x.room_temperature, label: Measured room air temperature, table: input, address: 1, type: s16, unit: °C, verified: false, note: Given as int16 without a scale; taken as whole degrees.}
+  - {key: x.outdoor_temperature, label: Measured outdoor air temperature, table: input, address: 2, type: s16, unit: °C, verified: false, note: Given as int16 without a scale; taken as whole degrees.}
+  - {key: x.power_percent, label: Share of heating power in use, table: input, address: 3, type: u16, unit: '%', note: Stored as uint8.}
+  - {key: x.dhw_temperature, label: Measured hot water temperature, table: input, address: 4, type: s16, unit: °C, verified: false, note: Given as int16 without a scale; taken as whole degrees.}
+  - {key: x.dhw_active, label: Actual hot water state, table: input, address: 5, type: u16, enum: heating_dhw}
+  - {key: x.error_flags, label: Error flags, table: input, address: 6, type: u16, flags: error_flags}
+  - {key: x.air_temperature_1, label: Air temperature sensor 1, table: input, address: 7, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.air_temperature_2, label: Air temperature sensor 2, table: input, address: 8, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.air_temperature_3, label: Air temperature sensor 3, table: input, address: 9, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.external_control_mode, label: External control mode, table: input, address: 10, type: u16, enum: external_control}
+  - {key: x.radio_temperature_1, label: Air temperature of radio sensor 1, table: input, address: 11, type: s16, unit: °C, scale: 0.1, optional: true, note: Expert only.}
+  - {key: x.radio_temperature_2, label: Air temperature of radio sensor 2, table: input, address: 12, type: s16, unit: °C, scale: 0.1, optional: true, note: Expert only.}
+  - {key: x.weather_server_temperature, label: Air temperature from the weather server, table: input, address: 13, type: s16, unit: °C, scale: 0.1}
+  - {key: x.mac_address, label: MAC address, table: input, address: 14, type: str, length: 3, poll: slow, verified: false, note: 'Six bytes over registers 14–16; best shown as hex, not text.'}
+  - {key: x.modbus_enabled, label: Modbus activation state, table: input, address: 17, type: u16, enum: off_on, poll: slow}
+
+  # Settings and identity (holding registers, read with 03, written with 06)
+  - {key: x.operating_mode, label: Operating mode, table: holding, address: 0, type: u16, enum: operating_mode, writable: true}
+  - {key: x.flow_setpoint, label: Heating water setpoint, table: holding, address: 1, type: u16, unit: °C, writable: true, min: 8, max: 85}
+  - {key: x.room_setpoint, label: Room air setpoint, table: holding, address: 2, type: u16, unit: °C, writable: true, min: 5, max: 35, note: The read table gives 0 … 35.}
+  - {key: x.night_power_steps, label: Maximum power steps at night, table: holding, address: 3, type: u16, writable: true, poll: slow}
+  - {key: x.max_flow_temperature, label: Maximum heating water temperature, table: holding, address: 4, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.dhw_setpoint, label: Hot water setpoint, table: holding, address: 5, type: u16, unit: °C, writable: true, min: 40, max: 75}
+  - {key: x.dhw_enabled, label: Hot water on/off, table: holding, address: 6, type: u16, enum: off_on, writable: true}
+  - {key: x.air_sensor_1_role, label: Role of air temperature sensor 1, table: holding, address: 7, type: u16, enum: sensor_role, poll: slow, note: 'Read only: a write to register 7 sets the maximum power steps by day instead (read back at 23).'}
+  - {key: x.air_sensor_2_role, label: Role of air temperature sensor 2, table: holding, address: 8, type: u16, enum: sensor_role, poll: slow, note: 'Read only: a write to register 8 sets the start of night time (0xMMHH).'}
+  - {key: x.air_sensor_3_role, label: Role of air temperature sensor 3, table: holding, address: 9, type: u16, enum: sensor_role, poll: slow, note: 'Read only: a write to register 9 sets the start of day time (0xMMHH).'}
+  - {key: x.radio_sensor_1_role, label: Role of radio sensor 1, table: holding, address: 10, type: u16, enum: sensor_role, poll: slow, note: 'Expert only. Read only: a write to register 10 sets the heating algorithm (bit 0 heating water, bit 1 hot water).'}
+  - {key: x.radio_sensor_2_role, label: Role of radio sensor 2, table: holding, address: 11, type: u16, enum: sensor_role, poll: slow, note: 'Expert only. Read only: a write to register 11 restarts the control panel.'}
+  - {key: x.boiler_type, label: Boiler type, table: holding, address: 12, type: u16, enum: boiler_type, poll: slow}
+  - {key: x.power_steps, label: Number of power steps, table: holding, address: 13, type: u16, poll: slow}
+  - {key: x.heating_curve, label: Heating curve for outdoor mode, table: holding, address: 14, type: u16, enum: heating_curve, writable: true, poll: slow}
+  - {key: x.pump_overrun, label: Pump overrun time, table: holding, address: 15, type: u16, bits: [0, 6], enum: pump_overrun, poll: slow, note: 'Expert and Stout only. Writing takes another encoding: 0x80 continuous, 0x81 5 min, 0x82 10 min, 0x83 15 min.'}
+  - {key: x.pump_overrun_supported, label: Pump overrun supported by the power board, table: holding, address: 15, type: u16, bits: [7, 7], enum: off_on, poll: slow}
+  - {key: firmware, label: Controller board software version, table: holding, address: 16, type: str, length: 3, poll: slow, verified: false, note: 'Five characters in registers 16–18 (two per register, the last register holds one); the character order within a register is not stated.'}
+  - {key: x.panel_firmware, label: Control panel software version, table: holding, address: 19, type: str, length: 3, poll: slow, verified: false, note: 'Five characters in registers 19–21, as the controller version.'}
+  - {key: x.weather_server_role, label: Role of the weather server, table: holding, address: 22, type: u16, enum: sensor_role, poll: slow}
+  - {key: x.day_power_steps, label: Maximum power steps by day, table: holding, address: 23, type: u16, poll: slow, note: Written at register 7.}
+
+enums:
+  operating_mode: {'0': Heating, '1': Weekly, '2': Room, '3': Outdoor, '4': Frost protection}
+  heating_dhw: {'0': Heating, '1': Hot water}
+  off_on: {'0': 'Off', '1': 'On'}
+  external_control: {'0': Disabled, '1': OpenTherm, '2': Thermostat}
+  sensor_role: {'1': Not set, '2': Outdoor, '3': Room, '4': Disconnected}
+  boiler_type: {'1': Expert, '2': Stout, '3': Practic}
+  heating_curve: {'0': Curve 22, '1': Curve 25, '2': Curve 30, '3': Curve 35, '4': Curve 40, '5': Curve 45, '6': Curve 50, '7': Curve 55, '8': Curve 60}
+  pump_overrun: {'0': Continuous, '1': 5 min, '2': 10 min, '3': 15 min}
+
+flags:
+  error_flags: {'0': Pressure sensor open circuit, '1': Pressure below the allowed range, '2': Pressure above the allowed range, '3': Heating water temperature sensor open circuit, '4': Overheat sensor tripped, '8': 'Room temperature sensor open circuit (room, weekly, floor heating modes)', '9': Outdoor temperature sensor open circuit (outdoor mode), '10': Active messages (relay problems), '15': No RS485 communication}
+
+problems:
+  - {when: {key: x.error_flags, bit: 0}, kind: fault, text: Pressure sensor open circuit (bit 0)}
+  - {when: {key: x.error_flags, bit: 1}, kind: fault, text: Pressure too low (bit 1)}
+  - {when: {key: x.error_flags, bit: 2}, kind: fault, text: Pressure too high (bit 2)}
+  - {when: {key: x.error_flags, bit: 3}, kind: fault, text: Heating water temperature sensor open circuit (bit 3)}
+  - {when: {key: x.error_flags, bit: 4}, kind: fault, text: Overheat sensor tripped (bit 4)}
+  - {when: {key: x.error_flags, bit: 8}, kind: fault, text: Room temperature sensor open circuit (bit 8)}
+  - {when: {key: x.error_flags, bit: 9}, kind: fault, text: Outdoor temperature sensor open circuit (bit 9)}
+  - {when: {key: x.error_flags, bit: 10}, kind: warning, text: 'Active messages: relay problems (bit 10)'}
+  - {when: {key: x.error_flags, bit: 15}, kind: warning, text: No RS485 communication (bit 15)}
+
+notes:
+- These boilers have no RS485 Modbus; Modbus TCP is served by their WiFi module. The newer NEXT PLUS / FORWARD (from late
+  2023) have RS485 and a different map, not described here.
+- Modbus has to be activated on the boiler (input register 17 shows the state); a key entered at holding register 17 authorises
+  access.
+- The document numbers every table from offset 0; taken as 0-based protocol addresses. Answers come within 50 ms.
+- Default port and unit id are not stated; 502 and 1 are assumed.
+- 'Holding registers 7–11 and 16–23 mean different things when read (function 03) and when written (function 06); only the
+  registers whose read and write meaning agree are marked writable. Write-only settings: maximum power steps by day (7), night
+  start (8) and day start (9) as 0xMMHH, heating algorithm bits (10), control panel restart (11), external control 0/1/2 (16)
+  and the authorisation key (17).'

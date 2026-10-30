@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Neptronic SKRO-Modbus Guide-250913 (V1.0).
+
+modbusspec: 0
+id: neptronic-skro
+manufacturer: Neptronic
+name: SKRO reverse osmosis water treatment unit
+kind: other
+
+sources:
+- title: SKRO Reverse Osmosis Water Treatment Unit, Modbus Communication Module User Guide (SKRO-Modbus Guide-250913)
+  version: V1.0, 2025-09-13
+  url: http://neptronic.com/Humidifiers/PDF/2025/SKRO-Modbus%20Guide-250913%20(V1.0).pdf
+  sha256: 93237baf7afdaaaf1faf9a711ec798122aca2b034f3124c43b39585e63d12d7f
+  archive_url: https://web.archive.org/web/20260415012827/https://www.neptronic.com/Humidifiers/PDF/2025/SKRO-Modbus%20Guide-250913%20(V1.0).pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Device (0–8)
+  - {key: x.modbus_address, label: Modbus address, table: holding, address: 0, type: u16, bits: [0, 7], writable: true, poll: slow, note: 1–247.}
+  - {key: x.product_type, label: Product type, table: holding, address: 0, type: u16, bits: [8, 15], poll: slow, note: Value for the SKRO not given.}
+  - {key: x.baud_rate, label: Device baud rate, table: holding, address: 1, type: u16, scale: 100, writable: true, poll: slow, note: 0 = automatic baud rate detection.}
+  - {key: x.comport_config, label: Modbus slave communication port configuration, table: holding, address: 2, type: u16, enum: comport_config, writable: true, poll: slow}
+  - {key: x.product_name, label: Product name, table: holding, address: 3, type: str, length: 4, poll: slow, verified: false, note: '8 ASCII characters, writable. The table puts characters 0–1 in register 6 and 6–7 in register 3; read here in register order as in other Neptronic devices, not verified.'}
+  - {key: firmware, label: Product actual firmware version, table: holding, address: 7, type: u16, scale: 0.01, poll: slow}
+  - {key: x.eeprom_version, label: Product actual EEPROM version, table: holding, address: 8, type: u16, scale: 0.01, poll: slow}
+
+  # Analog inputs (2000–2004)
+  - {key: x.inlet_signal, label: Inlet signal, table: holding, address: 2000, type: u16, unit: V, scale: 0.001}
+  - {key: x.permeate_signal, label: Permeate signal, table: holding, address: 2001, type: u16, unit: V, scale: 0.001}
+  - {key: x.concentrate_signal, label: Concentrate signal, table: holding, address: 2002, type: u16, unit: V, scale: 0.001}
+  - {key: x.permeate_pulse, label: Permeate pulse, table: holding, address: 2003, type: u16, writable: true, min: 0, max: 300, note: No unit.}
+  - {key: x.concentrate_pulse, label: Concentrate pulse, table: holding, address: 2004, type: u16, writable: true, min: 0, max: 300, note: No unit.}
+
+  # Measurements and settings (6000–6274)
+  - {key: x.inlet_pressure, label: Inlet pressure, table: holding, address: 6000, type: u16, unit: psi, verified: false, note: 'Unit as the document gives it; may follow the Modbus server units (register 15002), not verified.'}
+  - {key: x.permeate_pressure, label: Permeate pressure, table: holding, address: 6001, type: u16, unit: psi, verified: false, note: See inlet pressure.}
+  - {key: x.concentrate_pressure, label: Concentrate pressure, table: holding, address: 6002, type: u16, unit: psi, verified: false, note: See inlet pressure.}
+  - {key: x.tds, label: TDS sensor, table: holding, address: 6003, type: u16, unit: ppm, note: 'Total dissolved solids, 0–1000 ppm.'}
+  - {key: x.tcp_keepalive_timeout, label: Modbus TCP IP keep alive time out_0, table: holding, address: 6016, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.network_timeout, label: Network timeout delay_0, table: holding, address: 6030, type: u16, unit: s, writable: true, min: 30, max: 600, poll: slow, verified: false, note: 'Scale 1; the document''s text also says ''value x 60'', its example doesn''t.'}
+  - {key: x.run_time, label: Run time, table: holding, address: 6265, type: u32, word_order: little, unit: h, scale: 0.01, poll: slow, verified: false, note: 'Two registers, Run Time_0 and _1; _0 read as the low word (not stated; assumed).'}
+  - {key: x.on_time, label: On time, table: holding, address: 6267, type: u32, word_order: little, unit: h, scale: 0.01, poll: slow, verified: false, note: 'Two registers, On Time_0 and _1; _0 read as the low word (not stated; assumed).'}
+  - {key: x.regulator_pressure, label: Regulator pressure, table: holding, address: 6269, type: u16, unit: psi, writable: true, min: 100, max: 275, poll: slow, verified: false, note: Default 150. Scale 1 per the table; its example says value × 100.}
+  - {key: x.fast_flush_delay, label: Pump on fast flush delay, table: holding, address: 6270, type: u16, unit: s, writable: true, min: 15, max: 120, poll: slow, verified: false, note: Scale 1 per the table; its example says value × 10.}
+  - {key: x.idle_drain_time, label: Idle drain time, table: holding, address: 6271, type: u16, unit: h, writable: true, poll: slow}
+  - {key: x.damaged_membrane_delay, label: Damaged membrane delay, table: holding, address: 6272, type: u16, unit: s, writable: true, poll: slow}
+  - {key: x.permeate_flow, label: Permeate flow, table: holding, address: 6273, type: u16, unit: l/min, writable: true, min: 0, max: 50, verified: false, note: Marked writable in the document.}
+  - {key: x.concentrate_flow, label: Concentrate flow, table: holding, address: 6274, type: u16, unit: l/min, writable: true, min: 0, max: 50, verified: false, note: Marked writable in the document.}
+
+  # Outputs (11000–11006)
+  - {key: x.motor, label: Motor, table: holding, address: 11000, type: u16, enum: off_on}
+  - {key: x.inlet_valve, label: Inlet valve, table: holding, address: 11001, type: u16, enum: closed_open}
+  - {key: x.fast_flush_valve, label: Fast flush valve, table: holding, address: 11002, type: u16, enum: closed_open}
+  - {key: x.alarm_output, label: Alarm, table: holding, address: 11003, type: u16, enum: off_on}
+  - {key: x.work_signal, label: Work signal, table: holding, address: 11004, type: u16, enum: off_on}
+  - {key: x.alarm_led, label: Alarm LED, table: holding, address: 11005, type: u16, enum: off_on}
+  - {key: x.power_led, label: Power LED, table: holding, address: 11006, type: u16, enum: off_on}
+
+  # States and warnings (12003–12071)
+  - {key: x.high_level_float, label: High level float, table: holding, address: 12003, type: u16, enum: off_on}
+  - {key: x.low_level_float, label: Low level float, table: holding, address: 12004, type: u16, enum: off_on}
+  - {key: x.alarm_level_float, label: Alarm level float, table: holding, address: 12005, type: u16, enum: off_on}
+  - {key: x.interlock, label: Interlock, table: holding, address: 12006, type: u16, enum: open_closed, writable: true}
+  - {key: x.network_timeout_failsafe, label: Network timeout failsafe, table: holding, address: 12025, type: u16, enum: ok_timeout, writable: true}
+  - {key: x.modbus_network_timeout, label: Modbus network timeout, table: holding, address: 12026, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.memory_status, label: Memory status, table: holding, address: 12063, type: u16, enum: ok_fail}
+  - {key: x.inlet_low_pressure_warning, label: Inlet low pressure warning, table: holding, address: 12064, type: u16, enum: off_on}
+  - {key: x.fast_flush_blocked_warning, label: Fast flush blocked warning, table: holding, address: 12065, type: u16, enum: off_on}
+  - {key: x.inlet_valve_open_warning, label: Inlet valve open warning, table: holding, address: 12066, type: u16, enum: off_on}
+  - {key: x.insufficient_osmosis_warning, label: Insufficient osmosis warning, table: holding, address: 12067, type: u16, enum: off_on}
+  - {key: x.clogged_membrane_warning, label: Clogged membrane service warning, table: holding, address: 12068, type: u16, enum: off_on}
+  - {key: x.tds_sensor_warning, label: TDS sensor fail warning, table: holding, address: 12069, type: u16, enum: off_on}
+  - {key: x.over_usage_warning, label: Over usage warning, table: holding, address: 12070, type: u16, enum: off_on}
+  - {key: x.tank_profile, label: RO tank profile, table: holding, address: 12071, type: u16, enum: tank_profile, writable: true, poll: slow}
+
+  # System (15000–15062)
+  - {key: x.system_power, label: System power state, table: holding, address: 15000, type: u16, enum: off_on, writable: true}
+  - {key: x.server_units, label: Modbus server units, table: holding, address: 15002, type: u16, enum: units, writable: true, poll: slow}
+  - {key: x.update_status, label: Update process status, table: holding, address: 15059, type: u16, enum: update_status, poll: slow}
+  - {key: x.request, label: Request, table: holding, address: 15060, type: u16, enum: request, writable: true, poll: slow}
+  - {key: state, label: State, table: holding, address: 15061, type: u16, enum: state}
+  - {key: x.system_alarm, label: System alarm, table: holding, address: 15062, type: u16, enum: system_alarm}
+
+  # Identity (16000–16015)
+  - {key: x.database_version, label: Database version, table: holding, address: 16000, type: str, length: 16, poll: slow, verified: false, note: 'Sixteen ASCII registers (_0 … _15); characters per register not stated, two assumed.'}
+
+enums:
+  comport_config: {'0': 'No parity, 2 stop bits', '1': 'Even parity, 1 stop bit', '2': 'Odd parity, 1 stop bit'}
+  off_on: {'0': 'Off', '1': 'On'}
+  closed_open: {'0': Closed, '1': Open}
+  open_closed: {'0': Open, '1': Closed}
+  ok_timeout: {'0': OK, '1': Timeout}
+  ok_fail: {'0': OK, '1': Fail}
+  tank_profile: {'0': Atmospheric, '1': Pressurized}
+  units: {'0': Metric, '1': Imperial}
+  update_status: {'0': OK, '1': CRC, '2': Device, '3': Failed}
+  request: {'0': None, '1': Reset alarms, '2': Fast flush, '3': Reset service}
+  state: {'0': 'Off', '1': Idle, '2': Purifying, '3': Fast flush, '4': Alarm}
+  system_alarm: {'0': Normal, '1': Inlet high pressure, '2': Damaged membrane, '3': Blocked membrane, '4': Concentrate open, '5': Low pump pressure, '6': Inlet clogged, '7': Pressure regulator, '8': No pure water, '9': Tank closed, '10': Float off, '11': Inlet sensor, '12': Permeate sensor, '13': Concentrate sensor}
+
+problems:
+  - {when: {key: x.system_alarm, not: 0}, kind: fault, text: 'System alarm: {text}'}
+  - {when: {key: x.memory_status, equals: 1}, kind: fault, text: Memory failure}
+  - {when: {key: x.inlet_low_pressure_warning, equals: 1}, kind: warning, text: Inlet low pressure}
+  - {when: {key: x.fast_flush_blocked_warning, equals: 1}, kind: warning, text: Fast flush blocked}
+  - {when: {key: x.inlet_valve_open_warning, equals: 1}, kind: warning, text: Inlet valve open}
+  - {when: {key: x.insufficient_osmosis_warning, equals: 1}, kind: warning, text: Insufficient osmosis}
+  - {when: {key: x.clogged_membrane_warning, equals: 1}, kind: warning, text: 'Clogged membrane, service needed'}
+  - {when: {key: x.tds_sensor_warning, equals: 1}, kind: warning, text: TDS sensor failure}
+  - {when: {key: x.over_usage_warning, equals: 1}, kind: warning, text: Over usage}
+  - {when: {key: x.network_timeout_failsafe, equals: 1}, kind: warning, text: Network timeout}
+
+notes:
+- 'Addresses: the document gives the protocol (0-based) address next to the 4xxxxx convention number (400001 = 0); the protocol
+  address is used.'
+- Holding registers only (functions 03, 06, 16).
+- RS485 Modbus RTU, unit id 1–246 (the register description says 1–247) set on the device menu or in register 0. Default unit
+  id not stated; 1 assumed.
+- 'Serial: automatic baud rate detection by default (9600–57600; register 1 default 19200); default framing no parity, 2 stop
+  bits.'
+- A Modbus TCP keep-alive register exists, but the document describes RTU only; Modbus TCP is not listed here.
+- 'Units: pressures in psi and flows in l/min as the document gives them; a Modbus server units register (15002, metric by
+  default) exists and may change them. Not verified.'
+- The state registers (11000–15062) hold one value each (0/1 or an enum), not bit strings.
+- 'Kind: a water treatment unit (feeds humidifiers), listed as `other`.'
+- 'Left out: reserved ranges, the second keep-alive and network timeout registers (6017, 6031), AI8 polarity (12021), notification
+  enables (12022–12024) and the system log level (15001).'

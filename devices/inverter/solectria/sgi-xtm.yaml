@@ -1,0 +1,220 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Solectria Modbus Level 8 for models SGI 500XTM/750XTM (DOCR-070522, Revision B), with the
+# additions of the Modbus Level 9 document (DOCR-071003, Revision A).
+
+modbusspec: 0
+id: solectria-sgi-xtm
+manufacturer: Solectria
+name: SGI 500XTM / 750XTM central inverters (Modbus level 8 and 9)
+kind: inverter
+
+sources:
+- title: Solectria Modbus Level 8 for models SGI 500XTM/750XTM (DOCR-070522)
+  version: Revision B (2015)
+  url: http://www.solectria.com/site/assets/files/1677/docr-070522-b_solectria_renewables_modbus_level_8.pdf
+  sha256: a17f41456ec20c72af31babcbcf04f7a4f515690d837943104adcc6dac2121d3
+  archive_url: https://web.archive.org/web/20170727095044/http://solectria.com//site/assets/files/1677/docr-070522-b_solectria_renewables_modbus_level_8.pdf
+- title: Solectria Modbus Level 9 for models SGI 500XTM/750XTM (DOCR-071003)
+  version: Revision A (2018)
+  url: http://solectria.com/site/assets/files/2625/docr-071003-a_yaskawa_solectria_solar_modbus_level_9_-_xtm.pdf
+  sha256: db2781dda89027cbf86746f1629433b5bb544894fe670193599e00c4b621b0c1
+  archive_url: https://web.archive.org/web/20250320044209/http://solectria.com/site/assets/files/2625/docr-071003-a_yaskawa_solectria_solar_modbus_level_9_-_xtm.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 31
+    type: u32
+  checks:
+  # Modbus level (9: Level 9 map, DOCR-071003-A)
+  - table: holding
+    address: 38
+    type: u16
+    in:
+    - 8
+    - 9
+
+models:
+  - {id: sgi_500xtm, name: SGI 500XTM, match: {table: holding, address: 73, type: u16, equals: 500}}
+  - {id: sgi_750xtm, name: SGI 750XTM, match: {table: holding, address: 73, type: u16, equals: 750}}
+
+points:
+  # Metering
+  - {key: x.dc_voltage, label: DC Voltage, table: holding, address: 0, type: s16, unit: V, scale: 0.1953125, invalid: [-32768], note: '0x8000 = DC contactors open, no measurement.'}
+  - {key: apparent_power, label: Apparent AC Power Output, table: holding, address: 1, type: u16, unit: VA, scale: 19.53125, note: 'Level 9: apparent power (VA) with firmware D003, real power (W) with D002 (offset 35).'}
+  - {key: frequency, label: AC Grid Frequency, table: holding, address: 2, type: s16, unit: Hz, scale: 0.00610352}
+  - {key: x.voltage_l1_l2, label: L1-to-L2 AC Voltage, table: holding, address: 4, type: s16, unit: V, scale: 0.1953125}
+  - {key: x.voltage_l2_l3, label: L2-to-L3 AC Voltage, table: holding, address: 5, type: s16, unit: V, scale: 0.1953125}
+  - {key: x.voltage_l1_l3, label: L1-to-L3 AC Voltage, table: holding, address: 6, type: s16, unit: V, scale: 0.1953125}
+  - {key: x.phase_sequence, label: Phase Sequence, table: holding, address: 7, type: s16, enum: phase_sequence}
+  - {key: pv_power, label: Real AC Power Output, table: holding, address: 80, type: u16, unit: W, scale: 19.53125, note: AC output power (unsigned).}
+  - {key: x.output_current, label: Inverter Output Current Average, table: holding, address: 93, type: s16, unit: A, scale: 0.0976563, note: 'Average of the three phases (level 8; level 9 with firmware D002: average real current). Level 9 with firmware D003: total output current of all three phases.'}
+  - {key: reactive_power, label: Reactive Power, table: holding, address: 81, type: s16, unit: var, scale: 19.53125, optional: true, note: 'Level 9. Positive = the inverter appears as a capacitive load, negative = inductive.'}
+  - {key: x.reactive_power_available, label: Reactive Power Available, table: holding, address: 82, type: s16, unit: var, scale: 19.53125, optional: true, note: Level 9. Maximum reactive power at the present real power.}
+  - {key: power_factor, label: Indicated Power Factor, table: holding, address: 508, type: s16, scale: 0.0001, optional: true, note: 'Level 9, firmware D003 only. The document gives 0.01 % (raw 10000 = 1); positive = capacitive, negative = inductive.'}
+  # Energy and statistics
+  - {key: pv_energy, label: AC Energy (MSW / LSW), table: holding, address: 8, type: u32, unit: kWh, scale: 0.1, poll: slow, note: 'Lifetime AC energy; most significant word at 8, least at 9. Scale the combined raw value, not each word.'}
+  - {key: x.reactive_energy_generated, label: Cumulative Reactive Energy Generated (MSW / LSW), table: holding, address: 100, type: u32, unit: kvarh, scale: 0.1, optional: true, poll: slow, note: Level 9. Generated = capacitive.}
+  - {key: x.reactive_energy_received, label: Cumulative Reactive Energy Received (MSW / LSW), table: holding, address: 102, type: u32, unit: kvarh, scale: 0.1, optional: true, poll: slow, note: Level 9. Received = inductive.}
+  - {key: x.on_grid_hours, label: On-Grid Hours, table: holding, address: 11, type: u16, unit: h, poll: slow}
+  - {key: x.fan_hours, label: Fan On-Time Hours, table: holding, address: 12, type: u16, unit: h, poll: slow}
+  # Alarms
+  - {key: x.critical_alarms, label: Critical Alarms, table: holding, address: 15, type: u16, flags: critical_alarms}
+  - {key: x.informative_alarms_1, label: Informative Alarms 1, table: holding, address: 16, type: u16, flags: informative_alarms_1}
+  - {key: x.informative_alarms_2, label: Informative Alarms 2, table: holding, address: 19, type: u16, flags: informative_alarms_2}
+  - {key: x.ul_fault_cause, label: UL 1741/IEEE 1547 Fault Cause, table: holding, address: 139, type: u16, enum: ul_fault_cause, optional: true, note: 'Level 9, firmware D003 only.'}
+  - {key: x.hardware_failure_cause, label: Hardware Failure Cause, table: holding, address: 140, type: u16, enum: hardware_failure_cause, optional: true, note: 'Level 9, firmware D003 only.'}
+  - {key: x.power_off_cause, label: Power Off Cause, table: holding, address: 141, type: u16, enum: power_off_cause, optional: true, note: 'Level 9, firmware D003 only.'}
+  - {key: x.modbus_last_exception, label: Modbus Last Exception Cause, table: holding, address: 137, type: u16, optional: true, note: Level 9; codes in the document's Modbus exception table (0 = no failure).}
+  - {key: x.wait_time_remaining, label: UL Wait Time Remaining, table: holding, address: 83, type: s16, unit: s, note: 'Countdown to reconnection after a protection fault clears. The register table gives multiplier 0.01, the description none; taken as whole seconds.'}
+  # SolZone (optional)
+  - {key: x.zone_1_current, label: Zone 1 DC Current, table: holding, address: 20, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_2_current, label: Zone 2 DC Current, table: holding, address: 21, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_3_current, label: Zone 3 DC Current, table: holding, address: 22, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_4_current, label: Zone 4 DC Current, table: holding, address: 23, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_5_current, label: Zone 5 DC Current, table: holding, address: 24, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_6_current, label: Zone 6 DC Current, table: holding, address: 25, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_7_current, label: Zone 7 DC Current, table: holding, address: 26, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_8_current, label: Zone 8 DC Current, table: holding, address: 27, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_total_current, label: Total DC Current all Zones, table: holding, address: 28, type: u16, unit: A, scale: 0.1, invalid: [32768], optional: true, note: 0x8000 = no SolZone sensor connected.}
+  - {key: x.zone_9_current, label: Zone 9 DC Current, table: holding, address: 142, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_10_current, label: Zone 10 DC Current, table: holding, address: 143, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_11_current, label: Zone 11 DC Current, table: holding, address: 144, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_12_current, label: Zone 12 DC Current, table: holding, address: 145, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_13_current, label: Zone 13 DC Current, table: holding, address: 146, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_14_current, label: Zone 14 DC Current, table: holding, address: 147, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_15_current, label: Zone 15 DC Current, table: holding, address: 148, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  - {key: x.zone_16_current, label: Zone 16 DC Current, table: holding, address: 149, type: s16, unit: A, scale: 0.1, invalid: [-32768], optional: true}
+  # Temperatures
+  - {key: temperature, label: Internal Temperature 1, table: holding, address: 84, type: s16, unit: °C, scale: 0.0976563, note: 'Power stage 1. Level 9 names it IGBT 1 phase A temperature (master, top DMGI).'}
+  - {key: x.igbt_1b_temperature, label: IGBT 1 Phase B Temperature, table: holding, address: 85, type: s16, unit: °C, scale: 0.0976563, optional: true, note: Level 9.}
+  - {key: x.igbt_1c_temperature, label: IGBT 1 Phase C Temperature, table: holding, address: 86, type: s16, unit: °C, scale: 0.0976563, optional: true, note: Level 9.}
+  - {key: x.temperature_2, label: Internal Temperature 2, table: holding, address: 87, type: s16, unit: °C, scale: 0.0976563, note: 'Power stage 2. Level 9: IGBT 2 phase A temperature (slave 1, middle DMGI).'}
+  - {key: x.igbt_2b_temperature, label: IGBT 2 Phase B Temperature, table: holding, address: 88, type: s16, unit: °C, scale: 0.0976563, optional: true, note: Level 9.}
+  - {key: x.igbt_2c_temperature, label: IGBT 2 Phase C Temperature, table: holding, address: 89, type: s16, unit: °C, scale: 0.0976563, optional: true, note: Level 9.}
+  - {key: x.temperature_3, label: Internal Temperature 3, table: holding, address: 90, type: s16, unit: °C, scale: 0.0976563, models: [sgi_750xtm], note: 'Power stage 3; 750 kW model only. Level 9: IGBT 3 phase A temperature (slave 2, bottom DMGI).'}
+  - {key: x.igbt_3b_temperature, label: IGBT 3 Phase B Temperature, table: holding, address: 91, type: s16, unit: °C, scale: 0.0976563, models: [sgi_750xtm], optional: true, note: Level 9.}
+  - {key: x.igbt_3c_temperature, label: IGBT 3 Phase C Temperature, table: holding, address: 92, type: s16, unit: °C, scale: 0.0976563, models: [sgi_750xtm], optional: true, note: Level 9.}
+  - {key: x.power_stage_1_ambient, label: Power Stage 1 Ambient Temperature, table: holding, address: 154, type: s16, unit: °C, scale: 0.0976563, optional: true, note: Level 9.}
+  - {key: x.power_stage_2_ambient, label: Power Stage 2 Ambient Temperature, table: holding, address: 155, type: s16, unit: °C, scale: 0.0976563, optional: true, note: Level 9.}
+  - {key: x.power_stage_3_ambient, label: Power Stage 3 Ambient Temperature, table: holding, address: 156, type: s16, unit: °C, scale: 0.0976563, models: [sgi_750xtm], optional: true, note: Level 9.}
+  # Nameplate and communication
+  - {key: x.modbus_level, label: Modbus Level Supported, table: holding, address: 38, type: u16, poll: slow, note: '8 for inverters with this register map; 9 for the Level 9 map, which keeps these registers and adds more.'}
+  - {key: serial, label: Inverter Manufacturer Year and Month / Day and Serial Number, table: holding, address: 31, type: u32, poll: slow, note: 'The printed serial YYMMDD-## is one binary byte per pair: register 31 high byte YY, low byte MM; 32 high byte DD, low byte ##. Level 9 example: 0x0D0B = 13, 11 (November 2013); 0x1E0D = day 30, serial 13. Not the hex digits.'}
+  - {key: firmware, label: Firmware Version, table: holding, address: 35, type: u16, enum: firmware_version, optional: true, poll: slow, note: 'Level 9 (53250 = D002, 53251 = D003).'}
+  - {key: x.ac_current_rating, label: AC Current Rating, table: holding, address: 34, type: u16, unit: A, optional: true, poll: slow, note: 'Level 9, firmware D003 only.'}
+  - {key: x.reactive_power_rating, label: Reactive Power Rating, table: holding, address: 79, type: u16, unit: kvar, optional: true, poll: slow, note: 'Level 9, firmware D003 only.'}
+  - {key: x.min_power_factor, label: Minimum Power Factor, table: holding, address: 157, type: u16, scale: 0.0001, optional: true, poll: slow, note: 'Level 9, firmware D003 only.'}
+  - {key: x.nominal_frequency, label: Nominal Frequency, table: holding, address: 159, type: u16, unit: Hz, optional: true, poll: slow, note: 'Level 9, firmware D003 only.'}
+  - {key: x.max_real_power, label: Maximum Real Power, table: holding, address: 160, type: u16, unit: kW, optional: true, poll: slow, note: Level 9; same as offset 73.}
+  - {key: x.max_apparent_power, label: Maximum Apparent Power, table: holding, address: 161, type: u16, unit: kVA, optional: true, poll: slow, note: 'Level 9, firmware D003 only.'}
+  - {key: x.max_reactive_power, label: Maximum Reactive Power, table: holding, address: 162, type: u16, unit: kvar, optional: true, poll: slow, note: 'Level 9, firmware D003 only.'}
+  - {key: x.rated_power, label: Inverter Power Level, table: holding, address: 73, type: u16, unit: kW, poll: slow}
+  - {key: x.rated_ac_voltage, label: Inverter AC Voltage Level, table: holding, address: 75, type: u16, unit: V, poll: slow}
+  - {key: x.network_id, label: Network ID, table: holding, address: 14, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Takes effect at once.}
+  # Residual current monitoring (level 9)
+  - {key: x.rcm_mode, label: RCM Modes, table: holding, address: 164, type: u16, enum: rcm_mode, writable: true, optional: true, poll: slow}
+  - {key: x.rcm_daily_event_threshold, label: RCM Daily Event Threshold, table: holding, address: 165, type: u16, writable: true, optional: true, poll: slow}
+  - {key: x.rcm_duration_threshold, label: RCM Duration Threshold, table: holding, address: 166, type: u16, unit: s, scale: 0.1, writable: true, optional: true, poll: slow}
+  - {key: x.rcm_daily_restart_limit, label: RCM Daily Restart Limit, table: holding, address: 167, type: u16, optional: true, poll: slow}
+  - {key: x.rcm_daily_counter, label: RCM Daily Counter, table: holding, address: 168, type: u16, optional: true}
+  - {key: x.rcm_lifetime_counter, label: RCM Lifetime Counter, table: holding, address: 169, type: u16, optional: true, poll: slow}
+  # Protection settings (read only)
+  - {key: x.ac_over_voltage, label: AC Over Voltage Setting, table: holding, address: 40, type: s16, unit: V, scale: 0.1953125, poll: slow, note: 'Line-to-line. The register table says read-only, the description writable.'}
+  - {key: x.ac_critical_over_voltage, label: AC Critical Over Voltage Setting, table: holding, address: 41, type: s16, unit: V, scale: 0.1953125, poll: slow}
+  - {key: x.ac_reconnect_over_voltage, label: AC Reconnect Over Voltage Setting, table: holding, address: 42, type: s16, unit: V, scale: 0.1953125, poll: slow}
+  - {key: x.ac_under_voltage, label: AC Under Voltage Setting, table: holding, address: 43, type: s16, unit: V, scale: 0.1953125, poll: slow}
+  - {key: x.ac_critical_under_voltage, label: AC Critical Under Voltage Setting, table: holding, address: 44, type: s16, unit: V, scale: 0.1953125, poll: slow}
+  - {key: x.ac_over_frequency, label: AC Over Frequency Setting, table: holding, address: 45, type: s16, unit: Hz, scale: 0.00610352, poll: slow}
+  - {key: x.ac_under_frequency, label: AC Under Frequency Setting, table: holding, address: 46, type: s16, unit: Hz, scale: 0.00610352, poll: slow}
+  - {key: x.ac_critical_under_frequency, label: AC Critical Under Frequency Setting, table: holding, address: 47, type: s16, unit: Hz, scale: 0.00610352, poll: slow}
+  - {key: x.ac_over_voltage_time, label: AC Over Voltage Clearing Time, table: holding, address: 48, type: s16, unit: s, scale: 0.01, poll: slow}
+  - {key: x.ac_under_voltage_time, label: AC Under Voltage Clearing Time, table: holding, address: 49, type: s16, unit: s, scale: 0.01, poll: slow}
+  - {key: x.ac_under_frequency_time, label: AC Under Frequency Clearing Time, table: holding, address: 50, type: s16, unit: s, scale: 0.01, poll: slow}
+  - {key: x.reconnect_wait_time, label: UL Fault Reconnect Wait Time Setting, table: holding, address: 51, type: u16, unit: s, scale: 0.01, poll: slow}
+  # Power control
+  - {key: x.permanent_limit_mode, label: Permanent AC Output Limit Mode, table: holding, address: 58, type: u16, enum: limit_mode, poll: slow}
+  - {key: x.permanent_limit, label: Permanent AC Output Limit Percentage, table: holding, address: 158, type: u16, unit: '%', scale: 0.006103515625, poll: slow, note: Takes effect after an AC power cycle or the next day.}
+  - {key: x.current_limit, label: Temporary AC Output Current Limit, table: holding, address: 61, type: s16, unit: '%', scale: 0.006103515625, writable: true, min: 0, max: 100, note: Effective at once. The document gives the value range as 0/100 next to this multiplier; raw 16384 = 100 % assumed from the multiplier.}
+  - {key: x.disable_power, label: Disable Power Remotely By Message, table: holding, address: 112, type: s16, enum: disable_power, writable: true, note: Resets to 0 when the inverter starts.}
+
+enums:
+  phase_sequence: {'0': Not locked, '1': CW (ABC), '2': CCW (ACB)}
+  limit_mode: {'0': Limit current, '1': Limit power}
+  disable_power: {'0': Power output enabled, '1': Power output disabled}
+  firmware_version: {'53250': D002, '53251': D003}
+  rcm_mode: {'0': RCM not installed, '1': RCM not enabled, '2': Warning only, '3': Shut down}
+  ul_fault_cause: {'1': Low voltage event, '2': Very low voltage event, '3': High voltage event, '4': Very high voltage event, '5': Low frequency event, '6': High frequency event, '7': Very low frequency event, '8': Island detected, '9': Lost utility (or lost voltage sensing or DSP reboot), '10': Open phase detected, '14': Frequency too low to reconnect, '15': Frequency too high to reconnect, '16': Voltage too low to reconnect, '17': Voltage too high to reconnect, '18': Very high frequency event, '19': Ride-through low voltage event, '20': Ride-through high voltage event, '21': Ride-through low frequency event, '22': Ride-through high frequency event, '23': High voltage protect}
+  hardware_failure_cause: {'1': AC contactor failure, '2': Voltage sense failure, '8': Current sensor offset calibration failed, '32': Incorrect phase sequence, '64': 'Power stage failure, desaturation detected', '128': IGBT temperature, '256': Power stage error, '512': Ground fault detected, '768': Cannot lock angle to voltage waveform, '2048': Power stage wake-up failure, '2816': Parameter configuration failure, '3072': Parameter backup failure, '3328': Voltage sensing firmware mismatch, '3584': Power board mismatch, '3840': Power board fault, '8192': Filter contactor open, '8448': Shunt trip, '8704': Other error, '10752': Power stage trip, '11008': Hardware interlock fault, '33024': Follower lost communications, '33280': Follower lost CAN synchronisation, '33536': Follower lost fast loop synchronisation, '33792': Invalid master state, '34048': Invalid slave state, '34560': Token mismatch, '34816': Serial number missing}
+  power_off_cause: {'1': Early break or clicker open, '2': High DC voltage, '3': Low DC voltage, '4': Remote shutdown commanded, '5': Waiting to recover from a UL 1741 / IEEE 1547 event, '6': Rapid DC voltage increase, '7': Waiting for slave core to reset, '9': Residual current detected, '10': Soft shutdown commanded (ESC), '11': Waiting for daily reset, '12': Grid support disconnect, '13': Grid support cease to energize, '14': Clear after ride-through limits exceeded, '15': Waiting for slaves to recover from very low AC voltage, '16': Voltage sensing unlocked from the AC waveform, '17': Waiting for phase lock after very low AC voltage, '18': Very low AC voltage, '19': Power stage not ready, '20': Slave PWM cannot remain synchronised, '21': Slave core cannot synchronise to master core, '22': Voltage sensing not communicating, '24': Slave communication with master failed, '25': Inverter locked to EEPROM mode, '26': Power stage calculation failure, '27': Master/slave synchronisation message failure, '28': Inverter cannot lock to the voltage sensing angle, '29': Remote reboot, '30': Open phase check, '31': High voltage or frequency protect}
+
+flags:
+  critical_alarms: {'0': Temperature sensor failure, '2': Power stage temperature out of range, '3': Power stage desaturation, '4': Contactor failure, '5': AC current sensor circuit failure, '6': MOV failure, '7': Ground fault failure, '8': VAC sense circuit failure, '9': Open phase failure, '11': Incorrect phase, '12': RCM fault, '13': Shunt trip}
+  informative_alarms_1: {'0': Low DC voltage, '1': DC voltage high, '2': AC voltage critical low, '3': AC voltage low, '4': AC voltage high, '5': AC voltage critical high, '6': Low DC power wait, '7': 'Current limiting, out of MPPT range', '8': Power stage temperature limit exceeded, '9': Waiting for restart, '10': Low DC power shutdown, '11': Fan life reached, '12': AC frequency low, '13': AC frequency high, '14': Waiting for grid, '15': Unintentional islanding}
+  informative_alarms_2: {'3': Slave trip, '4': DC contactor failure (level 8), '5': DC contactor failure (level 9), '9': RCM error, '10': Remote shutdown, '13': Soft shutdown, '14': Master temperature sensor error, '15': Slave temperature sensor error}
+
+problems:
+  - {when: {key: x.critical_alarms, bit: 0}, kind: fault, text: Temperature sensor failure}
+  - {when: {key: x.critical_alarms, bit: 2}, kind: fault, text: Power stage temperature out of range}
+  - {when: {key: x.critical_alarms, bit: 3}, kind: fault, text: Power stage desaturation}
+  - {when: {key: x.critical_alarms, bit: 4}, kind: fault, text: Contactor failure}
+  - {when: {key: x.critical_alarms, bit: 5}, kind: fault, text: AC current sensor circuit failure}
+  - {when: {key: x.critical_alarms, bit: 6}, kind: warning, text: MOV failure}
+  - {when: {key: x.critical_alarms, bit: 7}, kind: fault, text: Ground fault failure}
+  - {when: {key: x.critical_alarms, bit: 8}, kind: fault, text: VAC sense circuit failure}
+  - {when: {key: x.critical_alarms, bit: 9}, kind: fault, text: Open phase failure}
+  - {when: {key: x.critical_alarms, bit: 11}, kind: fault, text: Incorrect phase}
+  - {when: {key: x.critical_alarms, bit: 12}, kind: fault, text: RCM fault}
+  - {when: {key: x.critical_alarms, bit: 13}, kind: fault, text: Shunt trip}
+  - {when: {key: x.informative_alarms_1, bit: 0}, kind: warning, text: Low DC voltage}
+  - {when: {key: x.informative_alarms_1, bit: 1}, kind: warning, text: DC voltage high}
+  - {when: {key: x.informative_alarms_1, bit: 2}, kind: warning, text: AC voltage critical low}
+  - {when: {key: x.informative_alarms_1, bit: 3}, kind: warning, text: AC voltage low}
+  - {when: {key: x.informative_alarms_1, bit: 4}, kind: warning, text: AC voltage high}
+  - {when: {key: x.informative_alarms_1, bit: 5}, kind: warning, text: AC voltage critical high}
+  - {when: {key: x.informative_alarms_1, bit: 8}, kind: warning, text: Power stage temperature limit exceeded}
+  - {when: {key: x.informative_alarms_1, bit: 11}, kind: warning, text: Fan life reached}
+  - {when: {key: x.informative_alarms_1, bit: 12}, kind: warning, text: AC frequency low}
+  - {when: {key: x.informative_alarms_1, bit: 13}, kind: warning, text: AC frequency high}
+  - {when: {key: x.informative_alarms_1, bit: 14}, kind: mains_lost, text: Waiting for grid}
+  - {when: {key: x.informative_alarms_1, bit: 15}, kind: warning, text: Unintentional islanding}
+  - {when: {key: x.informative_alarms_2, bit: 3}, kind: warning, text: Slave trip}
+  - {when: {key: x.informative_alarms_2, bit: 4}, kind: warning, text: DC contactor failure (bit 4)}
+  - {when: {key: x.informative_alarms_2, bit: 5}, kind: warning, text: DC contactor failure (bit 5)}
+  - {when: {key: x.informative_alarms_2, bit: 9}, kind: warning, text: RCM error}
+  - {when: {key: x.informative_alarms_2, bit: 14}, kind: warning, text: Master temperature sensor error}
+  - {when: {key: x.informative_alarms_2, bit: 15}, kind: warning, text: Slave temperature sensor error}
+
+notes:
+- Solectria Renewables is a Yaskawa company. Function 03 reads, 06 writes. All values are single 16-bit registers, high byte
+  first, with the multiplier applied to the raw value. Offsets are the 0-based protocol addresses (Modicon register = offset
+  + 40001).
+- The document doesn't name the physical link, serial settings or a default unit id; Modbus RTU on RS485, unit 1 and port
+  502 (behind a gateway) are assumed. The unit id (Network ID, offset 14) can be 1–247, but at most 16 devices including the
+  master on one bus.
+- 'Other Solectria inverters use other Modbus levels: offset 38 reads 8 on inverters with the level 8 map and 9 on the level
+  9 map, which keeps the level 8 registers and adds more (points marked level 9, optional here). Level 9 comes with firmware
+  D002 or D003 (offset 35); registers marked D003 only don''t exist on D002. Level 9 names offsets 2 and 5 of informative
+  alarms 1 ''very low'' / ''very high'', bit 9 ''recovery from grid event'', and moves DC contactor failure to informative
+  alarms 2 bit 5 (level 8: bit 4).'
+- 'Level 9 alarm additions not reported as problems: low DC power wait / shutdown and current limiting out of MPPT range (normal
+  operation at low sun).'
+- The SolZone string-current registers exist only where the option is fitted (0x8000 = sensor disconnected).
+- The protection settings are preset for UL 1741 / IEEE 1547; Revision B made them read-only (except the over-voltage setting,
+  which the description still lists as writable).
+- 'Problem kinds: alarms after which the inverter still produces AC power (per the document''s table) are warnings, the other
+  critical alarms faults. Grid voltage / frequency alarms are warnings (the grid, not the inverter); Waiting for grid is reported
+  as grid lost.'
+- Model detection from the nameplate power (offset 73 = 500 or 750 kW) is assumed; the document gives no model register.

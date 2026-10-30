@@ -1,0 +1,249 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Solis (Ginlong) RS485_MODBUS Communication Protocol for grid-tied inverters (INV-3000ID),
+# translated 2021-05-06 (revision V001B000D032).
+
+modbusspec: 0
+id: solis-string
+manufacturer: Solis
+name: Grid-tied string inverter (INV-3000ID protocol)
+kind: inverter
+
+sources:
+- title: RS485_MODBUS Communication Protocol, Solis inverters
+  version: V001B000D032, translated 2021-05-06
+  url: https://api.library.loxone.com/downloader/file/1197/RS485_MODBUS%20Communication%20Protocol_Solis%20Inverters.pdf
+  sha256: 3ea3d2528b29945da0c55412302e60a5d5f71a7fe4c87969f2c213ea55352877
+  archive_url: https://web.archive.org/web/20250710133358/https://api.library.loxone.com/downloader/file/1197/RS485_MODBUS%20Communication%20Protocol_Solis%20Inverters.pdf
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/solis.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/solis/solis
+- id: solis-modbus
+  title: solis_modbus (Home Assistant integration)
+  url: https://github.com/Pho3niX90/solis_modbus
+  license: MIT
+  commit: c3a6a77819034e89850d0c09f08295c1a990de27
+  path: custom_components/solis_modbus/sensor_data/string_sensors.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 50
+    min_interval_ms: 300
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 3229
+    type: str
+    length: 10
+  any:
+  - table: input
+    address: 35000
+    type: u16
+    in:
+    - 4112
+    - 4128
+
+points:
+  # Model and identity
+  - {key: x.inverter_type, label: SOLIS inverter type definition, table: input, address: 35000, type: u16, enum: inverter_type, poll: slow, note: 'No address offset for this register. High byte = protocol family (0x10 for this protocol), low byte = inverter type.'}
+  - {key: x.product_model, label: Product model, table: input, address: 2999, type: u16, poll: slow, note: The model table (appendix 1) is not part of the document.}
+  - {key: firmware, label: DSP software version, table: input, address: 3000, type: u16, poll: slow, note: Shown in hex.}
+  - {key: x.lcd_version, label: LCD software version, table: input, address: 3001, type: u16, poll: slow, note: Shown in hex.}
+  - {key: x.ac_output_type, label: AC output type, table: input, address: 3002, type: u16, enum: ac_output_type, poll: slow}
+  - {key: x.dc_input_count, label: DC input type, table: input, address: 3003, type: u16, offset: 1, poll: slow, note: Raw 0 = 1 input … 19 = 20 inputs., conflicts: [{sources: [solis-modbus], offset: 0, label: DC Input Type}]}
+  - {key: x.hmi_version, label: HMI version, table: input, address: 3020, type: u16, poll: slow}
+  - {key: serial, label: SN number, table: input, address: 3229, type: str, length: 10, poll: slow, verified: false, note: 'Two ASCII characters per register, the first register first. The document gives the range 3230…3249 (20 registers) without a length; 10 registers (20 characters) assumed. A device fills either these registers or the hex serial 3060…3063 (document 3061…3064), the other reads 0.'}
+  - {key: x.serial_hex_1, label: Inverter SN_1 (high 4), table: input, address: 3060, type: u16, poll: slow, note: 'Serial number digits as hex nibbles, the low nibble first: 0x4321 → ''1234''. Registers 3060…3063 together give up to 16 digits.'}
+  - {key: x.serial_hex_2, label: Inverter SN_2, table: input, address: 3061, type: u16, poll: slow}
+  - {key: x.serial_hex_3, label: Inverter SN_3, table: input, address: 3062, type: u16, poll: slow}
+  - {key: x.serial_hex_4, label: Inverter SN_4 (low 4), table: input, address: 3063, type: u16, poll: slow}
+  - {key: x.clock, label: System time, table: input, address: 3072, type: datetime, length: 6, datetime: {year: {register: 0, offset: 2000}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, poll: slow, verified: false, note: 'Year taken as years after 2000 (two digits, as in the setting registers; not stated here).'}
+
+  # Production
+  - {key: pv_power, label: Active power, table: input, address: 3004, type: u32, unit: W, note: AC output power of the inverter., conflicts: [{sources: [openwb, solis-modbus], type: s32, label: Inverter power}]}
+  - {key: x.dc_power, label: Total DC output power, table: input, address: 3006, type: u32, unit: W}
+  - {key: pv_energy, label: Total energy, table: input, address: 3008, type: u32, unit: kWh, poll: slow}
+  - {key: x.energy_this_month, label: Energy this month, table: input, address: 3010, type: u32, unit: kWh, poll: slow}
+  - {key: x.energy_last_month, label: Energy last month, table: input, address: 3012, type: u32, unit: kWh, poll: slow}
+  - {key: pv_energy_today, label: Energy today, table: input, address: 3014, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.energy_yesterday, label: Energy last day, table: input, address: 3015, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.energy_this_year, label: Energy this year, table: input, address: 3016, type: u32, unit: kWh, poll: slow, note: Not on models of 15 kW and below.}
+  - {key: x.energy_last_year, label: Energy last year, table: input, address: 3018, type: u32, unit: kWh, poll: slow, note: Not on models of 15 kW and below.}
+  - {key: x.pv1_voltage, label: DC voltage 1, table: input, address: 3021, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: DC current 1, table: input, address: 3022, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv2_voltage, label: DC voltage 2, table: input, address: 3023, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: DC current 2, table: input, address: 3024, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv3_voltage, label: DC voltage 3, table: input, address: 3025, type: u16, unit: V, scale: 0.1, note: Not on models of 15 kW and below.}
+  - {key: x.pv3_current, label: DC current 3, table: input, address: 3026, type: u16, unit: A, scale: 0.1, note: Not on models of 15 kW and below.}
+  - {key: x.pv4_voltage, label: DC voltage 4, table: input, address: 3027, type: u16, unit: V, scale: 0.1, note: Not on models of 15 kW and below.}
+  - {key: x.pv4_current, label: DC current 4, table: input, address: 3028, type: u16, unit: A, scale: 0.1, note: Not on models of 15 kW and below.}
+  - {key: x.alarm_code, label: Alarm code data, table: input, address: 3029, type: u16, note: Added 2021 for showing fault information per model; values not listed.}
+  - {key: x.ground_voltage, label: Initialize ground voltage, table: input, address: 3030, type: u16, unit: V, scale: 0.1}
+
+  # AC side
+  - {key: l1_voltage, label: AB line voltage / A phase voltage, table: input, address: 3033, type: u16, unit: V, scale: 0.1, note: 'Phase voltage when the AC output type is 1 (three-phase four-wire) or 0 (single phase), line voltage when it is 2 (three-wire).'}
+  - {key: l2_voltage, label: BC line voltage / B phase voltage, table: input, address: 3034, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: CA line voltage / C phase voltage, table: input, address: 3035, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: A phase current, table: input, address: 3036, type: u16, unit: A, scale: 0.1}
+  - {key: l2_current, label: B phase current, table: input, address: 3037, type: u16, unit: A, scale: 0.1}
+  - {key: l3_current, label: C phase current, table: input, address: 3038, type: u16, unit: A, scale: 0.1}
+  - {key: x.working_mode, label: Working mode, table: input, address: 3040, type: u16, enum: working_mode, poll: slow}
+  - {key: temperature, label: Inverter temperature, table: input, address: 3041, type: u16, unit: °C, scale: 0.1, note: The document gives U16; negative temperatures may then read as large values., conflicts: [{sources: [solis-modbus], type: s16, label: Inverter Temperature}]}
+  - {key: frequency, label: Grid frequency, table: input, address: 3042, type: u16, unit: Hz, scale: 0.01}
+  - {key: state, label: Inverter status, table: input, address: 3043, type: u16, enum: inverter_status, note: 'Operating state, or the alarm / fault code (shown in hex).'}
+  - {key: x.active_power_limit_rated, label: Limit active power adjustment rated power, table: input, address: 3044, type: s32, unit: W, poll: slow}
+  - {key: x.reactive_power_limit_rated, label: Limit reactive power adjustment rated power, table: input, address: 3046, type: s32, unit: var, poll: slow}
+  - {key: x.power_limit_actual, label: Power limit actual value, table: input, address: 3049, type: u16, unit: '%', scale: 0.01, poll: slow, note: 10000 = 100 % of rated power.}
+  - {key: x.power_factor_actual, label: Actual adjust value of power factor, table: input, address: 3050, type: s16, scale: 0.001, poll: slow, conflicts: [{sources: [solis-modbus], type: u16, unit: '%', scale: 0.01, label: Actual Adjusted Power Factor}]}
+  - {key: x.power_factor_actual_2, label: Actual adjust value of power factor (mode 03), table: input, address: 3051, type: s16, scale: 0.001, poll: slow, note: 'The table gives 0.01 as unit, but its examples are 800 = 0.80 and 1000 = 1.00; scale 0.001 follows the examples.', conflicts: [{sources: [solis-modbus], type: u16, label: Actual Power Factor Adjustment}]}
+  - {key: x.reactive_power_limit, label: Reactive power limitation, table: input, address: 3052, type: s16, unit: '%', scale: 0.01, poll: slow, note: 10000 = 100 %; range −6000…6000; only for working mode 04.}
+  - {key: x.grid_standard, label: Country standard code, table: input, address: 3053, type: u16, poll: slow, note: Code table (appendix 3) differs between product lines and is not reproduced here.}
+  - {key: reactive_power, label: Reactive power, table: input, address: 3055, type: s32, unit: var}
+  - {key: apparent_power, label: Apparent power, table: input, address: 3057, type: s32, unit: VA, note: Not on models of 15 kW and below.}
+  - {key: x.setting_flags, label: Setting flag, table: input, address: 3065, type: u16, flags: setting_flags, poll: slow}
+  - {key: x.fault_status_1, label: Fault code 01, table: input, address: 3066, type: u16, flags: fault_status_1}
+  - {key: x.fault_status_2, label: Fault code 02, table: input, address: 3067, type: u16, flags: fault_status_2}
+  - {key: x.fault_status_3, label: Fault code 03, table: input, address: 3068, type: u16, flags: fault_status_3}
+  - {key: x.fault_status_4, label: Fault code 04, table: input, address: 3069, type: u16, flags: fault_status_4}
+  - {key: x.fault_status_5, label: Fault code 05, table: input, address: 3070, type: u16, note: Bits not listed.}
+  - {key: x.working_status, label: Working status, table: input, address: 3071, type: u16, flags: working_status}
+
+  # Old single meter registers
+  - {key: x.meter_energy, label: Meter total active generation, table: input, address: 3079, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.meter_voltage, label: Meter voltage, table: input, address: 3081, type: u16, unit: V, scale: 0.1}
+  - {key: x.meter_current, label: Meter current, table: input, address: 3082, type: u16, unit: A, scale: 0.1}
+  - {key: x.meter_power, label: Meter active power, table: input, address: 3083, type: s32, unit: W, note: '+ = to the grid, − = from the grid.'}
+  - {key: x.power_limit_state, label: Power limit switch operation bit, table: input, address: 3087, type: u16, flags: power_limit_state, poll: slow}
+  - {key: x.reactive_power_state, label: Reactive power switch operation bit, table: input, address: 3088, type: u16, flags: reactive_power_state, poll: slow}
+  - {key: x.power_limit_switch_state, label: Power limit switch, table: input, address: 3089, type: u16, enum: limit_switch, poll: slow}
+  - {key: x.grounding_resistance, label: Grounding resistance, table: input, address: 3091, type: u16, unit: kOhm}
+  - {key: x.igbt_temperature, label: AC NTC (IGBT) module temperature, table: input, address: 3092, type: s16, unit: °C, scale: 0.1}
+  - {key: x.epm_switch, label: Internal EPM switch, table: input, address: 3110, type: u16, enum: epm_switch, poll: slow, note: Single-phase 4G models.}
+  - {key: x.epm_backflow_power, label: Internal EPM backflow power, table: input, address: 3111, type: s16, unit: W, scale: 100, poll: slow, note: '+ = to the grid, − = from the grid.'}
+  - {key: x.epm_failsafe, label: Internal EPM failsafe switch, table: input, address: 3112, type: u16, enum: on_off, poll: slow}
+  - {key: x.epm_backflow_power_now, label: EPM real time backflow power, table: input, address: 3113, type: u16, unit: W, scale: 10}
+
+  # Meter at the grid connection
+  - {key: x.meter_location, label: Meter location, table: input, address: 3249, type: u16, flags: meter_location, poll: slow}
+  - {key: x.meter_l1_voltage, label: Meter AC V A, table: input, address: 3250, type: u16, unit: V, scale: 0.1}
+  - {key: x.meter_l1_current, label: Meter AC I A, table: input, address: 3251, type: u16, unit: A, scale: 0.01}
+  - {key: x.meter_l2_voltage, label: Meter AC V B, table: input, address: 3252, type: u16, unit: V, scale: 0.1}
+  - {key: x.meter_l2_current, label: Meter AC I B, table: input, address: 3253, type: u16, unit: A, scale: 0.01}
+  - {key: x.meter_l3_voltage, label: Meter AC V C, table: input, address: 3254, type: u16, unit: V, scale: 0.1}
+  - {key: x.meter_l3_current, label: Meter AC I C, table: input, address: 3255, type: u16, unit: A, scale: 0.01}
+  - {key: x.meter_l1_power, label: Meter P A, table: input, address: 3256, type: s32, unit: W, note: '+ = to the grid, − = from the grid. Single-phase meters use phase A.'}
+  - {key: x.meter_l2_power, label: Meter P B, table: input, address: 3258, type: s32, unit: W, note: As phase A.}
+  - {key: x.meter_l3_power, label: Meter P C, table: input, address: 3260, type: s32, unit: W, note: As phase A.}
+  - {key: grid_power, label: Meter total P, table: input, address: 3262, type: s32, unit: W, positive: export}
+  - {key: x.meter_reactive_power, label: Meter total Q, table: input, address: 3270, type: s32, unit: var}
+  - {key: x.meter_apparent_power, label: Meter total S, table: input, address: 3278, type: s32, unit: VA}
+  - {key: x.meter_power_factor, label: Meter PF, table: input, address: 3280, type: s16, scale: 0.001, note: Some single-phase meters (ACR10RD16TE) give it only to 0.01.}
+  - {key: x.meter_frequency, label: Meter freq, table: input, address: 3281, type: u16, unit: Hz, scale: 0.01}
+  - {key: grid_import_energy, label: Meter grid import active energy, table: input, address: 3282, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_export_energy, label: Meter grid export active energy, table: input, address: 3284, type: u32, unit: kWh, scale: 0.01, poll: slow, note: The unit column says 0.01 kW; the remark gives 100 = 1 kWh.}
+  - {key: x.pv_total_voltage, label: Total PV V, table: input, address: 3298, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv_total_current, label: Total PV I, table: input, address: 3299, type: s16, unit: A, scale: 0.1}
+
+  # Control
+  - {key: x.grid_on, label: Grid ON/OFF, table: coil, address: 5000, type: bool, writable: true, note: 'Written as 0xFF00 = grid on, 0x0000 = grid off (function 05, no address offset). 30 kW series (from HMI version 21) and 4G models only.'}
+  - {key: x.clock_setting, label: System time setting, table: holding, address: 2999, type: datetime, length: 6, datetime: {year: {register: 0, offset: 2000}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, writable: true, poll: slow, note: Year 00…99.}
+  - {key: x.slave_address, label: Slave address, table: holding, address: 3005, type: u16, writable: true, poll: slow}
+  - {key: x.on_off, label: ON/OFF, table: holding, address: 3006, type: u16, enum: on_off_command, writable: true, poll: slow}
+  - {key: x.power_limit_setting, label: Power limitation, table: holding, address: 3051, type: u16, unit: '%', scale: 0.01, writable: true, min: 0, max: 100, poll: slow, note: 10000 = 100 % of rated power; takes effect with the power limitation switch (3069). Power-off saving with bit 0 of 3068.}
+  - {key: x.power_off_saving, label: Power-off saving function, table: holding, address: 3068, type: u16, flags: power_off_saving, writable: true, persistent: true, poll: slow, note: The flash memory allows fewer than 10000 writes.}
+  - {key: x.power_limit_switch, label: Power limitation switch, table: holding, address: 3069, type: u16, enum: limit_switch, writable: true, poll: slow}
+  - {key: x.reactive_power_switch, label: Reactive power switch, table: holding, address: 3070, type: u16, enum: reactive_switch, writable: true, poll: slow}
+  - {key: x.working_mode_setting, label: Working mode, table: holding, address: 3072, type: u16, enum: working_mode, writable: true, poll: slow}
+  - {key: x.power_limit_value, label: Limit power actual value, table: holding, address: 3080, type: s16, unit: W, scale: 10, writable: true, poll: slow, note: Takes effect with the power limitation switch (3069).}
+  - {key: x.shading_mppt_scan_enable, label: Shading MPPT Scan Enable, table: input, address: 3179, type: u16, unit: V, scale: 0.1, verified: false, sources: [solis-modbus]}
+  - {key: x.shading_mppt_scan_interval, label: Shading MPPT Scan Time Interval, table: input, address: 3180, type: u16, unit: min, writable: true, verified: false, sources: [solis-modbus]}
+  - {key: x.epm_model_no, label: EPM Model No, table: input, address: 36013, type: u16, note: Only with an EPM (export power manager) (an integration option)., verified: false, sources: [solis-modbus]}
+  - {key: x.epm_firmware_version, label: Inverter EPM Firmware Version, table: input, address: 36014, type: u16, note: Only with an EPM (export power manager) (an integration option)., verified: false, sources: [solis-modbus]}
+  - {key: x.clock_hours, label: Clock (Hours), table: input, address: 36022, type: u16, unit: h, note: Only with an EPM (export power manager) (an integration option)., verified: false, sources: [solis-modbus]}
+  - {key: x.clock_minutes, label: Clock (Minutes), table: input, address: 36023, type: u16, unit: min, note: Only with an EPM (export power manager) (an integration option)., verified: false, sources: [solis-modbus]}
+  - {key: x.clock_seconds, label: Clock (Seconds), table: input, address: 36024, type: u16, unit: s, note: Only with an EPM (export power manager) (an integration option)., verified: false, sources: [solis-modbus]}
+  - {key: x.total_load_power, label: Total Load power, table: input, address: 36028, type: s32, unit: W, scale: 100, note: 'Low word first (little word order), unlike the rest of the map. Only with an EPM (export power manager) (an integration option).', verified: false, sources: [solis-modbus]}
+  - {key: x.total_generation_energy, label: Total Generation Energy, table: input, address: 36050, type: u32, unit: kWh, scale: 0.01, note: 'Low word first (little word order), unlike the rest of the map. Only with an EPM (export power manager) (an integration option).', verified: false, sources: [solis-modbus]}
+  - {key: x.load_total_consumption_energy, label: Load Total Consumption Energy, table: input, address: 36052, type: u32, unit: kWh, scale: 0.01, note: 'Low word first (little word order), unlike the rest of the map. Only with an EPM (export power manager) (an integration option).', verified: false, sources: [solis-modbus]}
+  - {key: x.grid_import_total_active_energy, label: Grid Import Total Active Energy, table: input, address: 36054, type: u32, unit: kWh, scale: 0.01, note: 'Low word first (little word order), unlike the rest of the map. Only with an EPM (export power manager) (an integration option).', verified: false, sources: [solis-modbus]}
+  - {key: x.grid_export_total_active_energy, label: Grid Export Total Active Energy, table: input, address: 36056, type: u32, unit: kWh, scale: 0.01, note: 'Low word first (little word order), unlike the rest of the map. Only with an EPM (export power manager) (an integration option).', verified: false, sources: [solis-modbus]}
+
+enums:
+  inverter_type: {'0': No definition, '4112': Single-phase grid-tied inverter, '4128': Three-phase grid-tied inverter, '8240': Single-phase LV energy storage inverter, '8241': Single-phase LV AC-coupled energy storage inverter, '8256': Single-phase HV energy storage inverter, '8272': Three-phase LV energy storage inverter, '8288': Three-phase HV energy storage inverter, '4208': External EPM, '12304': OGI off-grid inverter}
+  ac_output_type: {'0': Single phase, '1': Three-phase four-wire, '2': Three-phase three-wire, '3': Three-phase four-wire or three-wire}
+  working_mode: {'0': No response mode, '1': Volt-watt default, '2': Volt-var, '3': Fixed power factor, '4': Fixed reactive power, '5': Power-PF, '6': Rule 21 volt-watt}
+  limit_switch: {'170': On (0xAA), '85': 'Off, power back to 100 % (0x55)'}
+  reactive_switch: {'85': 'Off, PF = 1, reactive = 0 (0x55)', '161': Reactive power setting effective (0xA1), '162': PF 02 setting effective (0xA2)}
+  epm_switch: {'1': CT sensor, '2': Meter in grid, '3': Meter in load, '4': 24-hour consumption mode, '5': EPM off}
+  on_off: {'0': 'Off', '1': 'On'}
+  on_off_command: {'190': On (0xBE), '222': Off (0xDE), '16': Night on enable, '17': Night on disable}
+  inverter_status: {'0': 'Waiting (1P 2G: normal)', '1': Open run, '2': 'Soft run (1P 2G: waiting)', '3': 'Generating (1P 2G: initializing)', '4100': Grid off, '61456': Surge Alarm Grid surge (warning), '61457': Fan Alarm Fan fault (warning), '61459': VgSpdFail AC SPD error (warning), '61460': DcSpdFail DC SPD error (warning), '61461': Fan_H Alarm External fan fault (warning), '4112': OV-G-V Grid overvoltage, '4113': UN-G-V Grid undervoltage, '4114': OV-G-F Grid overfrequency, '4115': UN-G-F Grid underfrequency, '4116': Backfeed_Iac Grid reverse current, '4117': NO-Grid No grid, '4118': G-PHASE Grid unbalance, '4119': G-F-FLU Grid frequency fluctuation, '4120': OV-G-I Grid overcurrent, '4121': IGFOL-F Grid current tracking fault, '4128': OV-DC DC overvoltage, '4129': OV-BUS DC bus overvoltage, '4130': UNB-BUS DC bus unbalance, '4131': UN-BUS DC bus undervoltage, '4132': UNB2-BUS DC bus unbalance 2, '4133': OV-DCA-I DC channel A overcurrent, '4134': OV-DCB-I DC channel B overcurrent, '4135': DC-INTF. DC interference, '4136': Reve-DC DC reverse, '4137': PvMidIso PV mid-point grounding, '4144': GRID-INTF. Grid interference protection, '4145': INI-FAULT DSP initial protection, '4146': OV-TEM Temperature protection, '4147': PV ISO-PRO PV insulation fault, '4148': ILeak-PRO Leakage current protection, '4149': RelayChk-FAIL Relay protection, '4150': DSP-B-FAULT DSP_B protection, '4151': DCInj-FAULT DC injection protection, '4152': 12Power-FAULT 12 V undervoltage, '4153': ILeak-Check Leakage current check protection, '4154': UN-TEM Under temperature protection, '4160': AFCI-Check AFCI check fault, '4161': ARC-FAULT AFCI fault, '4166': GRID-INTF02 Grid interference 02, '4167': IG-AD Grid current sampling error, '4168': IGBT-OV-I IGBT overcurrent, '8209': Fail Safe}
+
+flags:
+  setting_flags: {'0': FLASH timeout, '1': Clear generation done, '8': Datalogger restart, '9': Datalogger initialize}
+  fault_status_1: {'0': Grid overvoltage, '1': Grid undervoltage, '2': Grid overfrequency, '3': Grid underfrequency, '4': Grid reverse current, '5': No grid, '6': Grid unbalance, '7': Grid frequency fluctuation, '8': Grid overcurrent, '9': Grid current tracking fault, '10': Grid abnormal phase angle}
+  fault_status_2: {'0': DC overvoltage, '1': DC bus overvoltage, '2': DC bus unbalance, '3': DC bus undervoltage, '4': DC bus unbalance 2, '5': DC channel A overcurrent, '6': DC channel B overcurrent, '7': DC interference, '8': DC wrong polarity, '9': PV mid-point grounding, '10': Bus voltages not the same}
+  fault_status_3: {'0': Grid interference protection, '1': DSP initial protection, '2': Temperature protection, '3': Ground fault, '4': Leakage current protection, '5': Relay protection, '6': DSP_B protection, '7': DC injection protection, '8': 12 V undervoltage, '9': Leakage current check protection, '10': Under temperature protection}
+  fault_status_4: {'0': AFCI check fault, '1': AFCI fault, '5': DSP self-check alarm, '6': Grid interference 02, '7': Grid current sampling error, '8': IGBT overcurrent}
+  working_status: {'0': Normal, '1': Initializing, '2': Grid off, '3': Fault to stop, '4': Standby, '5': Derating, '6': Limiting, '7': Backup overload, '8': Grid surge (warning), '9': Fan fault (warning), '11': AC SPD error, '12': DC SPD error}
+  power_limit_state: {'0': Power limit off (100 % generation), '1': Limitation effective}
+  reactive_power_state: {'0': 'Reactive power off (PF = 1, reactive = 0)', '1': Reactive power setting effective, '2': PF 02 setting effective}
+  meter_location: {'0': Meter in load, '1': Meter in grid, '2': 24-hour consumption}
+  power_off_saving: {'0': 'Save power limit (3052, 3149, 3150)', '1': Save PF setting (3053), '2': 'Save reactive power and working mode settings (3051, 3130…3146, 3073)', '3': 'Save PF 02 and working mode settings (3054, 3130…3146, 3073)'}
+
+problems:
+  - {when: {key: state, range: [4112, 4116]}, kind: fault, text: '{text} (code 0x{value:X})'}
+  - {when: {key: state, equals: 4117}, kind: mains_lost, text: No grid (code 0x1015)}
+  - {when: {key: state, range: [4118, 4168]}, kind: fault, text: '{text} (code 0x{value:X})'}
+  - {when: {key: state, equals: 8209}, kind: fault, text: Fail safe (code 0x2011)}
+  - {when: {key: state, range: [61456, 61461]}, kind: warning, text: '{text} (code 0x{value:X})'}
+  - {when: {key: x.working_status, bit: 3}, kind: fault, text: Fault to stop}
+  - {when: {key: x.working_status, bit: 11}, kind: warning, text: AC surge protection error}
+  - {when: {key: x.working_status, bit: 12}, kind: warning, text: DC surge protection error}
+
+notes:
+- 'Address conversion: the document numbers the 3000-range input and holding registers one higher than the protocol address
+  (its example reads register 3000 by sending 2999 = 0x0BB7); the addresses here are protocol addresses, i.e. the document''s
+  numbers minus one. Input 35000, the coil 5000 and the discrete inputs are used without offset, as the document says.'
+- The power-off saving bits (3068) name the document's register numbers (one higher than the addresses here).
+- The protocol asks for more than 300 ms between frames and recommends at most 50 registers per request. Default unit id not
+  stated; 1 assumed. Writes to unit 0xFF are carried out without a reply; unit 0xFE always answers.
+- 'Inverter status (3043): where the document lists different meanings for the single-phase 2nd-generation models and for
+  the 30 kW / 15 kW three-phase / 4th-generation models, the second is given first.'
+- Input register 35000 was added in 2020; older firmware may not answer it, and this file's identification then does not recognise
+  the device.
+- 'Left out: the discrete inputs 2501…2588 (function 02, 30 kW series and 4G only; the same faults as the fault words), the
+  HMI–DSP fault words (document 3095…3100), DC bus voltages (document 3032/3033, no unit given), the string currents and voltages
+  of large inverters (document 3289…3335), IV-curve data (3341…3462), MPPT values (3500…3544), the anti-PID module (5000…5004),
+  the external EPM device registers (36000…, 36500…), grid protection and Italian self-test settings, calibration, DRM, datalogger
+  and compensation settings.'
+- 'evcc template `solis` (grid, pv) lists: Ginlong Solis Inverter.'
+- 'solis_modbus: the user picks the inverter model; grid-tie models (S6-GR1P, S5-GR1P/GR3P, S5-GC, 1P/3P 4G) use this map.'
+- 'Addresses are protocol addresses: the Solis document numbers these registers one higher (its 3001 is address 3000 here);
+  the project says so and checked it on an S5-GR3P.'
+- The protocol asks for more than 300 ms between frames.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

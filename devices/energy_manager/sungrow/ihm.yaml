@@ -1,0 +1,152 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Sungrow iHM Communication Protocol (V1.0.2, 2026-01-21); the channel 2 voltages are from V1.0.1.
+
+modbusspec: 0
+id: sungrow-ihm
+manufacturer: Sungrow
+name: iHomeManager (iHM)
+kind: energy_manager
+
+sources:
+- title: Communication Protocol of iHomeManager (iHM Communication Protocol)
+  version: V1.0.2 (2026-01-21)
+  url: https://github.com/TCzerny/ha-modbus-manager/blob/c722b72d95cdda8745d7655a5ee6a12dd662cc3c/docs/Communication%20Protocol%20of%20iHomeManager_V1.0.2.pdf
+  sha256: 654d8dc30246e609f7045f0d9e0ad0b88d7e7136d4e450c6acf9f818b44bf5a9
+- title: Communication Protocol of iHomeManager (iHM Communication Protocol)
+  version: V1.0.1
+  url: https://github.com/TCzerny/ha-modbus-manager/blob/c722b72d95cdda8745d7655a5ee6a12dd662cc3c/docs/Communication%20Protocol%20of%20iHomeManager_V1.0.1_EN.pdf
+  sha256: 6b48f87bd692d014d91cf689c6a5d63c9a779448f30dbf7ff7969c707e738817
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/sungrow-ihm.yaml
+- id: openhab
+  title: openHAB add-ons (Modbus bindings)
+  url: https://github.com/openhab/openhab-addons
+  license: EPL-2.0
+  commit: 391d63d8597d9b5b535ee83c85f557cad4fba2c7
+  path: bundles/org.openhab.binding.modbus.sungrow/src/main/java/org/openhab/binding/modbus/sungrow/internal/SungrowIHomeManagerRegisters.java,
+    bundles/org.openhab.binding.modbus.sungrow/src/main/java/org/openhab/binding/modbus/sungrow/internal/SungrowIHomeManagerHandler.java
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/sungrow/sungrow_ihm
+
+connection:
+  default_port: 502
+  default_unit: 247
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  checks:
+  - table: input
+    address: 7999
+    type: u16
+    equals: 1834
+
+points:
+  # Identity and system
+  - {key: x.device_type_code, label: Device type code, table: input, address: 7999, type: u16, invalid: [65535], poll: slow, note: 0x072A for the iHM.}
+  - {key: x.protocol_number, label: Protocol No., table: input, address: 8000, type: str, length: 2, poll: slow, note: '"AW0". V1.0.1 lists it as U32.', conflicts: [{sources: [openhab], type: u32, word_order: little, label: Protocol number}]}
+  - {key: x.protocol_version, label: Protocol version, table: input, address: 8002, type: u32, invalid: [4294967295], poll: slow, note: 'One byte per part, most significant first: 0x01000200 = V1.0.2.'}
+  - {key: firmware, label: Application software version, table: input, address: 8317, type: str, length: 15, poll: slow, note: Added in V1.0.1.}
+  - {key: x.connected_devices, label: Total number of connected devices, table: input, address: 8004, type: u16, invalid: [65535], poll: slow, note: Devices on RS485 / Wi-Fi / Ethernet; devices switched through a digital output don't count.}
+  - {key: x.devices_in_fault, label: Total number of connected devices in fault, table: input, address: 8005, type: u16, invalid: [65535]}
+  - {key: x.rated_active_power, label: Total rated active power, table: input, address: 8144, type: u32, unit: W, scale: 100, invalid: [4294967295], poll: slow}
+  - {key: x.rated_battery_capacity, label: Total rated battery capacity, table: input, address: 8146, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295], poll: slow}
+  # Battery limits
+  - {key: x.battery_power_limit, label: Battery charging/discharging upper limit range, table: input, address: 8148, type: u32, unit: W, scale: 100, invalid: [4294967295], poll: slow, note: Upper bound for the charge / discharge power setting (8025).}
+  - {key: x.max_charge_power, label: Maximum allowable battery charging power, table: input, address: 8150, type: u16, unit: W, scale: 100, invalid: [65535]}
+  - {key: x.min_charge_power, label: Minimum allowable battery charge power, table: input, address: 8151, type: u16, unit: W, scale: 100, invalid: [65535]}
+  - {key: x.max_discharge_power, label: Maximum allowable battery discharge power, table: input, address: 8152, type: u16, unit: W, scale: 100, invalid: [65535]}
+  - {key: x.min_discharge_power, label: Minimum allowable battery discharge power, table: input, address: 8153, type: u16, unit: W, scale: 100, invalid: [65535]}
+  # Power flow
+  - {key: x.inverter_power, label: Total active power of inverter, table: input, address: 8154, type: s32, unit: W, scale: 10, invalid: [2147483647], note: Sum of the connected inverters' AC active power (includes battery discharge through hybrid inverters).}
+  - {key: grid_power, label: Total active power of grid connection point, table: input, address: 8156, type: s32, unit: W, scale: 10, positive: import, invalid: [2147483647], verified: false, note: From the iHM's GRID.CT input. Not stated in the document; assumed + = import.}
+  - {key: load_power, label: Total load active power, table: input, address: 8158, type: s32, unit: W, scale: 10, invalid: [2147483647]}
+  - {key: battery_power, label: Battery power, table: input, address: 8160, type: s32, unit: W, scale: 10, positive: discharge, invalid: [2147483647], verified: false, note: Not stated in the document; assumed + = discharge.}
+  - {key: battery_soc, label: Battery level (SOC), table: input, address: 8162, type: u16, unit: '%', scale: 0.1, invalid: [65535]}
+  - {key: grid_import_energy, label: Import energy at the grid connection point, table: input, address: 8175, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295], poll: slow, note: From GRID.CT.}
+  - {key: grid_export_energy, label: Export energy at the grid connection point, table: input, address: 8177, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295], poll: slow, note: From GRID.CT.}
+  # Charger
+  - {key: x.charger_status, label: Charging status of charger, table: input, address: 8551, type: u16, enum: charger_status, invalid: [65535]}
+  # Grid meter, channel 1 (GRID.CT)
+  - {key: x.output_type, label: Output type, table: input, address: 8553, type: u16, enum: output_type, invalid: [65535], poll: slow}
+  - {key: x.phase_a_voltage, label: A-B line voltage / A-phase voltage, table: input, address: 8554, type: u16, unit: V, scale: 0.1, invalid: [65535], note: 'Phase voltage with output type 0 or 1, line voltage (A-B) with output type 2.'}
+  - {key: x.phase_b_voltage, label: B-C line voltage / B-phase voltage, table: input, address: 8555, type: u16, unit: V, scale: 0.1, invalid: [65535], note: As 8554.}
+  - {key: x.phase_c_voltage, label: C-A line voltage / C-phase voltage, table: input, address: 8556, type: u16, unit: V, scale: 0.1, invalid: [65535], note: As 8554.}
+  - {key: frequency, label: Grid frequency, table: input, address: 8557, type: u16, unit: Hz, scale: 0.1, invalid: [65535]}
+  - {key: x.grid_l1_power, label: Phase A active power, table: input, address: 8558, type: s32, unit: W, invalid: [2147483647], verified: false, note: 'GRID.CT. S32 in V1.0.2, U32 in V1.0.1; sign not stated.'}
+  - {key: x.grid_l2_power, label: Phase B active power, table: input, address: 8560, type: s32, unit: W, invalid: [2147483647], verified: false, note: As 8558.}
+  - {key: x.grid_l3_power, label: Phase C active power, table: input, address: 8562, type: s32, unit: W, invalid: [2147483647], verified: false, note: As 8558.}
+  # Meter channel 2 (PROD.CT), added in V1.0.1
+  - {key: x.phase_a_voltage_ch2, label: Channel 2 A-B line voltage / A-phase voltage, table: input, address: 8564, type: u16, unit: V, scale: 0.1, invalid: [65535], verified: false, note: Listed in V1.0.1 only; V1.0.2's table leaves 8565–8567 out though its change log still names 8565–8574 as channel 2.}
+  - {key: x.phase_b_voltage_ch2, label: Channel 2 B-C line voltage / B-phase voltage, table: input, address: 8565, type: u16, unit: V, scale: 0.1, invalid: [65535], verified: false, note: As 8564.}
+  - {key: x.phase_c_voltage_ch2, label: Channel 2 C-A line voltage / C-phase voltage, table: input, address: 8566, type: u16, unit: V, scale: 0.1, invalid: [65535], verified: false, note: As 8564.}
+  - {key: x.frequency_ch2, label: Channel 2 grid frequency, table: input, address: 8567, type: u16, unit: Hz, scale: 0.1, invalid: [65535]}
+  - {key: x.l1_power_ch2, label: Channel 2 phase A active power, table: input, address: 8568, type: s32, unit: W, invalid: [2147483647], verified: false, note: 'PROD.CT (e.g. production). S32 in V1.0.2, U32 in V1.0.1; sign not stated.'}
+  - {key: x.l2_power_ch2, label: Channel 2 phase B active power, table: input, address: 8570, type: s32, unit: W, invalid: [2147483647], verified: false, note: As 8568.}
+  - {key: x.l3_power_ch2, label: Channel 2 phase C active power, table: input, address: 8572, type: s32, unit: W, invalid: [2147483647], verified: false, note: As 8568.}
+  # Settings
+  - {key: x.energy_management_mode, label: Energy management mode, table: holding, address: 8023, type: u16, enum: ems_mode, writable: true, poll: slow}
+  - {key: x.charge_discharge_command, label: Charging/discharging command, table: holding, address: 8024, type: u16, enum: charge_command, writable: true, poll: slow, note: Acts only in VPP or compulsory mode. Stop is the default.}
+  - {key: x.charge_discharge_power, label: Charging/discharging power, table: holding, address: 8025, type: u32, unit: W, scale: 100, writable: true, poll: slow, note: '0 up to the battery limit (8148). U32 low word first, as in V1.0.1''s write example (V1.0.2''s example writes one register only).', conflicts: [{sources: [openwb], scale: 1, label: Battery register 8025}]}
+  - {key: x.feed_in_limitation, label: Feed-in limitation, table: holding, address: 8027, type: u16, enum: off_on, writable: true, poll: slow, note: 'Added in V1.0.2: 1 on, 0 off.'}
+  - {key: x.feed_in_limitation_ratio, label: Feed-in limitation ratio, table: holding, address: 8030, type: s16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100, poll: slow, note: Limit at the grid connection point. S16 since V1.0.2 (S32 before)., conflicts: [{sources: [evcc], label: PV feed-in / production limit (input ratio)}]}
+  - {key: x.vpp_heartbeat, label: External VPP heartbeat, table: holding, address: 8032, type: u16, unit: s, writable: true, min: 0, max: 1000, poll: slow, note: '600 s by default (V1.0.1). In VPP mode the value must be written again within this time, else the iHM goes back to self-consumption.'}
+  - {key: x.start_stop, label: Start/Stop, table: holding, address: 8046, type: u16, enum: start_stop, writable: true, poll: slow}
+  - {key: x.charger_mode, label: Charger charging mode, table: holding, address: 8047, type: u16, enum: charger_mode, writable: true, poll: slow}
+  - {key: x.charger_enable, label: Charger enable/disable, table: holding, address: 8048, type: u16, enum: enable_disable, writable: true, poll: slow}
+  - {key: x.grid_draw_permission, label: Grid power draw permission, table: holding, address: 8049, type: u16, enum: enable_disable, writable: true, poll: slow, note: Settable in eco charging mode.}
+  - {key: x.active_power_limitation, label: Active power limitation, table: holding, address: 8050, type: u16, enum: enable_disable, writable: true, poll: slow, note: Added in V1.0.1; limits the inverters' AC output.}
+  - {key: x.active_power_limit_ratio, label: Active power limit ratio, table: holding, address: 8051, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100, poll: slow, note: Percent of the rated power (8144).}
+  - {key: l1_voltage, label: Grid L1 voltage, table: input, address: 4357, type: u16, unit: V, scale: 0.1, verified: false, sources: [evcc]}
+  - {key: l2_voltage, label: Grid L2 voltage, table: input, address: 4359, type: u16, unit: V, scale: 0.1, verified: false, sources: [evcc]}
+  - {key: l3_voltage, label: Grid L3 voltage, table: input, address: 4361, type: u16, unit: V, scale: 0.1, verified: false, sources: [evcc]}
+
+enums:
+  charger_status: {'1': Idle (unplugged), '2': Standby (plugged), '3': Charging, '6': Charging completed}
+  output_type: {'0': Single-phase, '1': Three-phase four-wire, '2': Three-phase three-wire}
+  ems_mode: {'1': Self-consumption, '4': VPP, '5': Compulsory mode}
+  charge_command: {'170': Charge, '187': Discharge, '204': Stop}
+  off_on: {'0': 'Off', '1': 'On'}
+  start_stop: {'206': Shutdown, '207': Boot}
+  charger_mode: {'160': Fast charging, '161': Eco charging}
+  enable_disable: {'85': Disable, '170': Enable}
+
+problems:
+  - {when: {key: x.devices_in_fault, range: [1, 65534]}, kind: warning, text: '{value} connected device(s) in fault'}
+
+notes:
+- The document numbers registers from 1 and asks to request number − 1; the addresses here are those request addresses (document
+  register 8000 = address 7999).
+- Running data are input registers (function 04), settings holding registers (function 03/06/16).
+- 32-bit values are sent low word first; bytes within a register and text are high byte first.
+- Unit id 247, fixed. Ethernet ports 502, 503 and 504, one TCP connection each; default IP 12.12.12.12. RS485 9600 8N1.
+- 'Registers that aren''t available answer with the type''s maximum: 0xFFFF (U16), 0xFFFFFFFF (U32), 0x7FFF (S16), 0x7FFFFFFF
+  (S32), 0x00 bytes for text.'
+- 'The RS485 time-out is 1000 ms: wait that long for an answer before the next request.'
+- The iHM only serves its own energy-management data; it doesn't pass on registers of the connected inverters or WiNet modules.
+- Signs of grid, battery and per-phase power aren't stated in the document; the directions here are assumed.
+- Battery charge / discharge commands act only in VPP or compulsory mode; in self-consumption mode the iHM controls the battery
+  itself. With both feed-in limitation and active power limitation on, the stricter limit applies.
+- 'evcc template `sungrow-ihm` (grid, pv, battery) lists: Sungrow iHomeManager (iHM).'
+- The binding gives 1-based register numbers and reads input registers one lower.
+- Taken from the openHAB binding (see sources); not checked against manufacturer documents.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

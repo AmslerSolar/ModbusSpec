@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the H2scan GRIDSCAN 6000 Multi-Sense Monitor Modbus Map (90000225 R2).
+
+modbusspec: 0
+id: h2scan-gridscan
+manufacturer: H2scan
+name: GRIDSCAN 6000 Multi-Sense Monitor (transformer oil hydrogen monitor)
+kind: other
+
+sources:
+- title: GRIDSCAN 6000 Multi-Sense Monitor Modbus Register Map
+  version: 90000225 R2
+  url: https://h2scan.com/wp-content/uploads/2025/09/90000225-R2-MODBUS-REGISTER-MAP-GRIDSCAN%C2%AE-6000.pdf
+  sha256: f4796b9bbd4c4ae792df22481f5aa2b104ece0c5122e02f66a8998cff29855fb
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 41
+    type: str
+    length: 10
+
+points:
+  # Measurements
+  - {key: x.hydrogen, label: Hydrogen, table: holding, address: 0, type: u32, unit: ppm, note: 0 until the unit is ready (status bit 15).}
+  - {key: x.liquid_temperature, label: Liquid temperature, table: holding, address: 8, type: u16, unit: °C, scale: 0.01, offset: -100, note: Calibrated up to 105 °C; 0 raw at power-on.}
+  - {key: x.hydrogen_rate_day, label: Rate of change per day, table: holding, address: 13, type: u32, unit: ppm/d, offset: -20000000, note: Average of the last 24 hourly measurements.}
+  - {key: x.hydrogen_rate_week, label: Rate of change per week, table: holding, address: 15, type: u32, unit: ppm/d, offset: -20000000, note: Average of the last seven daily measurements; the document gives the unit as ppm per week in the table and per day in the text.}
+  - {key: x.hydrogen_rate_month, label: Rate of change per month, table: holding, address: 17, type: u32, unit: ppm/d, offset: -20000000, note: Average of the last 28 daily measurements; unit as for the weekly rate.}
+  - {key: x.moisture, label: Moisture (relative saturation), table: holding, address: 22, type: u16, unit: '%', scale: 0.1}
+  - {key: x.pressure_atm, label: Pressure, table: holding, address: 23, type: u16, unit: atm, scale: 0.001}
+  - {key: x.water_content, label: Water content, table: holding, address: 24, type: u16, unit: ppm}
+  - {key: x.pressure, label: Pressure (user-defined units), table: holding, address: 25, type: s32, unit: psi, scale: 0.01, note: In the unit chosen in register 153 (psi by default); only the default is expressed here. Absolute pressure minus the pressure offset (164).}
+  # Status
+  - {key: x.unit_status, label: Unit status, table: holding, address: 111, type: u16, flags: unit_status}
+  - {key: x.monitor_a_state, label: Monitor A state, table: holding, address: 111, type: u16, bits: [3, 5], enum: monitor_state, verified: false, note: 'Bits 5–3 in the status table, bits 4–3 in the discrete-input table.'}
+  - {key: x.monitor_b_state, label: Monitor B state, table: holding, address: 111, type: u16, bits: [0, 2], enum: monitor_state}
+  - {key: x.error_status, label: Error status, table: holding, address: 112, type: u32, flags: error_status, note: Valid when status bit 12 is set.}
+  # Identity
+  - {key: x.model, label: Model number, table: holding, address: 31, type: str, length: 10, poll: slow}
+  - {key: serial, label: Product serial number, table: holding, address: 41, type: str, length: 10, poll: slow}
+  - {key: x.sensor_serial, label: Sensor serial number, table: holding, address: 51, type: str, length: 10, poll: slow}
+  - {key: x.manufacturing_date, label: Manufacturing date, table: holding, address: 81, type: datetime, length: 2, datetime: {month: {register: 0, bits: [8, 15]}, day: {register: 0, bits: [0, 7]}, year: {register: 1}}, poll: slow, verified: false, note: The year is taken to be the full year (not stated).}
+  - {key: x.dga_calibration_date, label: Dissolved gas calibration date, table: holding, address: 87, type: datetime, length: 2, datetime: {month: {register: 0, bits: [8, 15]}, day: {register: 0, bits: [0, 7]}, year: {register: 1}}, poll: slow, verified: false}
+  - {key: firmware, label: Firmware revision, table: holding, address: 89, type: str, length: 10, poll: slow, note: 'Format major:minor:product designator.'}
+  # Settings
+  - {key: x.unit_id, label: Set unit ID, table: holding, address: 150, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Takes effect without a power cycle.}
+  - {key: x.operating_mode, label: Operating mode, table: holding, address: 151, type: u16, enum: operating_mode, writable: true, poll: slow, note: 'Auto-calibration every 12 h in field mode, every 4 h in lab mode.'}
+  - {key: x.liquid_type, label: Liquid type selection, table: holding, address: 152, type: u16, enum: liquid_type, writable: true, poll: slow}
+  - {key: x.pressure_unit, label: Pressure unit selection, table: holding, address: 153, type: u16, enum: pressure_unit, writable: true, poll: slow}
+  - {key: x.pressure_offset, label: Pressure offset, table: holding, address: 164, type: u16, scale: 0.01, offset: -100, writable: true, poll: slow, note: In the selected pressure unit.}
+  - {key: x.termination, label: RS-485 termination, table: holding, address: 158, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.parity_stop, label: 'Parity, stop bits selection', table: holding, address: 159, type: u16, enum: parity_stop, writable: true, poll: slow}
+  - {key: x.baud_rate, label: Baud rate selection, table: holding, address: 160, type: u16, enum: baud_rate, writable: true, poll: slow, note: Writing it applies the new serial settings (159 and 160) at once.}
+  - {key: x.clock, label: Date and time, table: holding, address: 175, type: datetime, length: 4, datetime: {month: {register: 0, bits: [8, 15]}, year: {register: 0, bits: [0, 7], offset: 2000}, hour: {register: 1, bits: [8, 15]}, day: {register: 1, bits: [0, 7]}, second: {register: 2, bits: [8, 15]}, minute: {register: 2, bits: [0, 7]}}, writable: true, poll: slow}
+  - {key: x.owner_id, label: Owner ID, table: holding, address: 201, type: str, length: 10, writable: true, poll: slow}
+  - {key: x.substation_id, label: Substation ID, table: holding, address: 211, type: str, length: 10, writable: true, poll: slow}
+  - {key: x.transformer_id, label: Transformer ID, table: holding, address: 221, type: str, length: 10, writable: true, poll: slow}
+
+enums:
+  monitor_state: {'1': Hydrogen measurement cycle, '2': Liquid temperature measurement cycle, '3': Auto-calibration cycle, '4': Liquid temperature too high}
+  operating_mode: {'0': Field, '1': Lab}
+  liquid_type: {'0': Mineral oil, '1': Silicone oil, '2': Natural ester oil, '3': Synthetic ester oil (user-definable)}
+  pressure_unit: {'0': atm, '1': psi, '2': bar, '3': kPa, '4': inH2O}
+  off_on: {'0': Disabled, '1': Enabled}
+  parity_stop: {'1': 8N1, '2': 8N2, '3': 8E1, '4': 8E2, '5': 8O1, '6': 8O2}
+  baud_rate: {'1': '9600', '2': '14400', '3': '19200', '4': '38400', '5': '57600', '6': '115200'}
+
+flags:
+  unit_status: {'15': 'Unit ready, hydrogen readings valid', '14': New measurement data available, '12': Unrecoverable error (see error status)}
+  error_status: {'31': Heater fault, '30': Temperature sensor fault, '29': Hydrogen sensor fault, '13': Over pressure, '11': Outside of pressure sensor survival range, '10': Moisture sensor communication error, '9': Pressure sensor communication error, '8': RTC date and time not valid, '4': Over temperature, '3': 'Memory, configuration or sample error'}
+
+problems:
+  - {when: {key: x.unit_status, bit: 12}, kind: fault, text: Unrecoverable error (status bit 12)}
+  - {when: {key: x.error_status, bit: 31}, kind: fault, text: Heater fault (bit 31)}
+  - {when: {key: x.error_status, bit: 30}, kind: fault, text: Temperature sensor fault (bit 30)}
+  - {when: {key: x.error_status, bit: 29}, kind: fault, text: Hydrogen sensor fault (bit 29)}
+  - {when: {key: x.error_status, bit: 13}, kind: warning, text: 'Over pressure, readings may be invalid (bit 13)'}
+  - {when: {key: x.error_status, bit: 11}, kind: warning, text: Outside of pressure sensor survival range (bit 11)}
+  - {when: {key: x.error_status, bit: 10}, kind: warning, text: Moisture sensor communication error (bit 10)}
+  - {when: {key: x.error_status, bit: 9}, kind: warning, text: Pressure sensor communication error (bit 9)}
+  - {when: {key: x.error_status, bit: 8}, kind: warning, text: RTC date and time not valid (bit 8)}
+  - {when: {key: x.error_status, bit: 4}, kind: fault, text: Over temperature (bit 4)}
+  - {when: {key: x.error_status, bit: 3}, kind: fault, text: 'Memory, configuration or sample error (bit 3)'}
+  - {when: {key: x.monitor_b_state, equals: 4}, kind: warning, text: Liquid temperature too high}
+
+notes:
+- Holding register numbers in the document are the 0-based protocol addresses (register 0 = address 0). Discrete inputs (10001
+  ff.) and input registers (30001 ff., floats) mirror the status and measurements; only the holding registers are described
+  here.
+- '32-bit values: high word first. Reading the high word latches the low word, so read both in one request starting at the
+  high word.'
+- 'The monitor can take up to 10 s to answer: use a timeout of at least 10 s. At most 230 holding registers per read.'
+- Bits of the status and error words not listed are unused and may be 0 or 1.
+- 'Left out: DGA calibration commands and values (121–129), user-defined liquid type and water content parameters (136–148,
+  154–155, 161–163), the factory calibration date (83–84), the millisecond register (178) and the soft reset (197).'
+- 'Defaults: unit id 1, 19200 baud, 8N1; RS-485 (RTU) only.'

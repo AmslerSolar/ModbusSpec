@@ -1,0 +1,395 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Deye Modbus RTU Protocol, single phase (1P) (V119); V118 also listed. The registers of the storage
+# ("Hybird") columns and the storage areas.
+
+modbusspec: 0
+id: deye-hybrid
+manufacturer: Deye
+name: Single-phase storage (hybrid) inverter
+kind: inverter
+
+sources:
+- title: Deye Modbus RTU Protocol, single phase (1P)
+  version: V119 (2024-02-19)
+  url: https://github.com/Lewa-Reka/esphome-deye-inverter/blob/56599c6deacd7fcceec8dc185eea29679f168b5c/docs/modbus_communication_protocols/Modbus%20RTU%20single%20phase%20%281P%29%20V119.pdf
+  sha256: d00ffd6768635dc91dc6a864206ca0b8995c2a73c83991f195aad8da25dd27f5
+- title: Deye Modbus RTU Protocol
+  version: V118
+  url: https://github.com/user-attachments/files/16597960/Deye.Modbus.protocol.V118.pdf
+  sha256: 7444d2ef7dee282d5dbc734e73d6792788bc8a323ca532c8202d8d5f976b3717
+- title: Deye Modbus RTU Protocol, single phase (sunsynk modbus deye single phase)
+  version: V115 (2019-11-12)
+  url: https://github.com/githubDante/deye-controller/blob/20259772468d29b69d7576341d294cdbe421185d/docs/sunsynk_modbus_deye_single_phase.docx
+  sha256: 9df83c15abb2e2446d493be1b964a7ef042d27ed9a60153515849f844518fee2
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/deye-storage.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/deye/deye
+- id: solarman
+  title: ha-solarman (Home Assistant integration)
+  url: https://github.com/davidrapan/ha-solarman
+  license: MIT
+  commit: ac1d88b83268beeb0511b8a1b7fc8e17deddc044
+  path: custom_components/solarman/inverter_definitions/deye_hybrid.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 3
+    type: str
+    length: 5
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    equals: 768
+
+points:
+  # Fixed attributes (0…19) and clock
+  - {key: x.device_type, label: Device type, table: holding, address: 0, type: u16, enum: device_type, poll: slow, conflicts: [{sources: [openwb], type: s16, label: Inverter device type}]}
+  - {key: x.protocol_version, label: Communication protocol version, table: holding, address: 2, type: u16, poll: slow, note: 0x0102 = version 1.2.}
+  - {key: serial, label: SN byte 01…10, table: holding, address: 3, type: str, length: 5, poll: slow}
+  - {key: x.rated_power_class, label: Rated Power, table: holding, address: 8, type: u16, enum: rated_power_class, poll: slow}
+  - {key: firmware, label: Firmware version of control board, table: holding, address: 13, type: u16, poll: slow}
+  - {key: x.comm_firmware, label: Firmware version of communication board, table: holding, address: 14, type: u16, poll: slow}
+  - {key: x.rated_power, label: Rated power, table: holding, address: 16, type: u32, unit: W, scale: 0.1, poll: slow, conflicts: [{sources: [solarman], type: s32, label: Device Rated Power}]}
+  - {key: x.mppt_count, label: MPPT number, table: holding, address: 18, type: u16, bits: [8, 15], poll: slow, verified: false, note: '0x0503 = five MPPTs, three-phase: high byte MPPTs, low byte phases.'}
+  - {key: x.phase_count, label: Phases, table: holding, address: 18, type: u16, bits: [0, 7], poll: slow, verified: false, note: See MPPT number.}
+  - {key: x.clock, label: System time, table: holding, address: 22, type: datetime, length: 3, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}, writable: true, verified: false, note: 'Six bytes year (from 2000), month, day, hour, minute, second; byte 1 of each register taken as the high byte (not stated; assumed).'}
+
+  # Settings
+  - {key: x.on_off, label: Switch on and off enable, table: holding, address: 43, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.ac_power_ratio, label: AC power ratio, table: holding, address: 54, type: u16, poll: slow, note: '10: registers 167…172, 176…179, 185 and 190 count in 10 W; 1: in 1 W. The range column says [0,2].'}
+
+  # Real-time data (storage columns)
+  - {key: state, label: run state, table: holding, address: 59, type: u16, enum: run_state}
+  - {key: x.energy_today, label: DayActive PowerWh, table: holding, address: 60, type: s16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.generator_energy_today, label: Today_Gen_PowerWh, table: holding, address: 62, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.energy_total, label: Total_Active_PowerWh, table: holding, address: 63, type: u32, unit: kWh, scale: 0.1, poll: slow, conflicts: [{sources: [solarman], type: s32, label: Total Energy}]}
+  - {key: x.battery1_current, label: Battery 1 current, table: holding, address: 65, type: u16, unit: A, scale: 0.01, verified: false, note: Marked as an addition in the storage column; type and sign not stated.}
+  - {key: x.battery2_current, label: Battery 2 current, table: holding, address: 66, type: u16, unit: A, scale: 0.01, verified: false, note: As battery 1 current.}
+  - {key: x.battery_charge_today, label: Day_Batt_Charge_PowerWh, table: holding, address: 70, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_discharge_today, label: Day_Batt_Discharge_PowerWh, table: holding, address: 71, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_charge_total, label: total_Batt_charge_PowerWh, table: holding, address: 72, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_discharge_total, label: total_Batt_Discharge_PowerWh, table: holding, address: 74, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.grid_import_today, label: Day_GridBuy_PowerWh, table: holding, address: 76, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.grid_export_today, label: Day_GridSell_PowerWh, table: holding, address: 77, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.grid_import_total_low, label: Total_GridBuy_PowerWh low word, table: holding, address: 78, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: frequency, label: Grid frequency, table: holding, address: 79, type: u16, unit: Hz, scale: 0.01, conflicts: [{sources: [openwb], type: s16, label: Counter frequency}]}
+  - {key: x.grid_import_total_high, label: Total_GridBuy_PowerWh high word, table: holding, address: 80, type: u16, unit: kWh, scale: 6553.6, poll: slow, note: High word of the total bought energy (× 65536 × 0.1 kWh); the low word is register 78., conflicts: [{sources: [evcc], scale: 1, label: Grid energy (part 2)}]}
+  - {key: grid_export_energy, label: Total_GridSell_PowerWh, table: holding, address: 81, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.generator_hours_today, label: Generator daily operating time, table: holding, address: 83, type: u16, unit: h, scale: 0.1, poll: slow}
+  - {key: x.load_energy_today, label: Day_Load_PowerWh, table: holding, address: 84, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.load_energy_total, label: Total_Load_PowerWh, table: holding, address: 85, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.dc_transformer_temperature, label: Radiator temperature (DC transformer temperature), table: holding, address: 90, type: u16, unit: °C, scale: 0.1, offset: -100, verified: false, note: The offset of 1000 (0 °C = 1000) is given for register 91; assumed here too., conflicts: [{sources: [solarman], type: s16, label: DC Temperature}]}
+  - {key: temperature, label: IGBT temperature (radiator temperature), table: holding, address: 91, type: u16, unit: °C, scale: 0.1, offset: -100, conflicts: [{sources: [solarman], type: s16, label: Temperature}]}
+  - {key: x.generator_energy_total_low, label: Total_Gen_powerWhL, table: holding, address: 92, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.generator_energy_total_high, label: Total_Gen_powerWhH, table: holding, address: 95, type: u16, unit: kWh, scale: 6553.6, poll: slow, note: High word (× 65536 × 0.1 kWh); low word in register 92., conflicts: [{sources: [solarman], scale: 0.1, label: Generator Energy (high word)}]}
+  - {key: pv_energy, label: historyPV PowerWh, table: holding, address: 96, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.alarm_word_1, label: Warning message word 1, table: holding, address: 101, type: u16, flags: alarm_word_1, verified: false, note: The code tables don't give bit positions; code Wn / Fn is taken as bit n−1 counted across the words (the three-phase document's warning word 1 bit list agrees for W02 and W03). Not stated for the fault words; assumed., conflicts: [{sources: [solarman], type: u32, word_order: little, label: Device Alarm}]}
+  - {key: x.alarm_word_2, label: Warning message word 2, table: holding, address: 102, type: u16}
+  - {key: x.fault_word_1, label: Fault information word 1, table: holding, address: 103, type: u16, flags: fault_word_1, verified: false, note: 'Fault codes F01–F16 as bits 0–15 (assumed, see warning word 1).', conflicts: [{sources: [solarman], type: u64, word_order: little, label: Device Fault}]}
+  - {key: x.fault_word_2, label: Fault information word 2, table: holding, address: 104, type: u16, flags: fault_word_2, verified: false, note: 'Fault codes F17–F32 as bits 0–15 (assumed, see warning word 1).'}
+  - {key: x.fault_word_3, label: Fault information word 3, table: holding, address: 105, type: u16, flags: fault_word_3, verified: false, note: 'Fault codes F33–F48 as bits 0–15 (assumed, see warning word 1).'}
+  - {key: x.fault_word_4, label: Fault information word 4, table: holding, address: 106, type: u16, flags: fault_word_4, verified: false, note: 'Fault codes F49–F64 as bits 0–15 (assumed, see warning word 1).'}
+  - {key: pv_energy_today, label: Day PV PowerWh, table: holding, address: 108, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv1_voltage, label: Dc voltage 1, table: holding, address: 109, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: Dc current 1, table: holding, address: 110, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv2_voltage, label: Dc voltage 2, table: holding, address: 111, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: Dc current 2, table: holding, address: 112, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv3_voltage, label: Dc voltage 3, table: holding, address: 113, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv3_current, label: Dc current 3, table: holding, address: 114, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv4_voltage, label: Dc voltage 4, table: holding, address: 115, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv4_current, label: Dc current 4, table: holding, address: 116, type: u16, unit: A, scale: 0.1}
+  - {key: x.ups_power, label: UPS Power, table: holding, address: 119, type: u16, unit: W}
+
+  # Storage real-time area (150…197)
+  - {key: l1_voltage, label: Grid side voltage L1-N, table: holding, address: 150, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Grid side voltage L2-N, table: holding, address: 151, type: u16, unit: V, scale: 0.1}
+  - {key: x.grid_voltage_l1_l2, label: Grid side voltage L1-L2, table: holding, address: 152, type: u16, unit: V, scale: 0.1}
+  - {key: x.relay_middle_voltage, label: Voltage at middle side of relay L1-L2, table: holding, address: 153, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_l1_voltage, label: Inverter output voltage L1-N, table: holding, address: 154, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_l2_voltage, label: Inverter output voltage L2-N, table: holding, address: 155, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_voltage_l1_l2, label: Inverter output voltage L1-L2, table: holding, address: 156, type: u16, unit: V, scale: 0.1}
+  - {key: x.load_l1_voltage, label: Load voltage L1, table: holding, address: 157, type: u16, unit: V, scale: 0.1}
+  - {key: x.load_l2_voltage, label: Load voltage L2, table: holding, address: 158, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Grid side current L1, table: holding, address: 160, type: s16, unit: A, scale: 0.01}
+  - {key: l2_current, label: Grid side current L2, table: holding, address: 161, type: s16, unit: A, scale: 0.01}
+  - {key: x.external_ct_l1_current, label: Grid external limiter current L1, table: holding, address: 162, type: s16, unit: A, scale: 0.01}
+  - {key: x.external_ct_l2_current, label: Grid external limiter current L2, table: holding, address: 163, type: s16, unit: A, scale: 0.01}
+  - {key: x.inverter_l1_current, label: Inverter output current L1, table: holding, address: 164, type: s16, unit: A, scale: 0.01}
+  - {key: x.inverter_l2_current, label: Inverter output current L2, table: holding, address: 165, type: s16, unit: A, scale: 0.01}
+  - {key: x.gen_port_power, label: Gen port power (micro inverter input), table: holding, address: 166, type: s16, unit: W, note: Positive when the port feeds a load; negative when a micro inverter on it feeds the storage inverter., conflicts: [{sources: [solarman], type: u16, label: Generator Power}]}
+  - {key: x.grid_l1_power, label: Grid side L1 power, table: holding, address: 167, type: s16, unit: W, verified: false, note: 'Sign not stated; probably as grid power (positive = buying). In W, or in 10 W when register 54 is 10 (see notes).'}
+  - {key: x.grid_l2_power, label: Grid side L2 power, table: holding, address: 168, type: s16, unit: W, verified: false, note: As grid side L1 power.}
+  - {key: grid_power, label: Grid power, table: holding, address: 169, type: s16, unit: W, positive: import, note: 'In W, or in 10 W when register 54 is 10 (see notes).'}
+  - {key: x.external_ct_l1_power, label: Grid external limiter 1 power, table: holding, address: 170, type: s16, unit: W}
+  - {key: x.external_ct_l2_power, label: Grid external limiter 2 power, table: holding, address: 171, type: s16, unit: W}
+  - {key: x.external_ct_power, label: Grid external total power, table: holding, address: 172, type: s16, unit: W}
+  - {key: x.inverter_l1_power, label: Inverter outputs L1 power, table: holding, address: 173, type: s16, unit: W}
+  - {key: x.inverter_l2_power, label: Inverter outputs L2 power, table: holding, address: 174, type: s16, unit: W}
+  - {key: x.inverter_power, label: Inverter output total power, table: holding, address: 175, type: s16, unit: W}
+  - {key: x.load_l1_power, label: Load side L1 power, table: holding, address: 176, type: s16, unit: W}
+  - {key: x.load_l2_power, label: Load side L2 power, table: holding, address: 177, type: s16, unit: W}
+  - {key: load_power, label: Load side total power, table: holding, address: 178, type: s16, unit: W}
+  - {key: x.load_l1_current, label: Load current L1, table: holding, address: 179, type: s16, unit: A, scale: 0.01}
+  - {key: x.load_l2_current, label: Load current L2, table: holding, address: 180, type: s16, unit: A, scale: 0.01}
+  - {key: x.gen_port_voltage, label: Gen port voltage, table: holding, address: 181, type: u16, unit: V, scale: 0.1, verified: false, note: No unit given; 0.1 V assumed like the other voltages.}
+  - {key: battery_temperature, label: battery temperature, table: holding, address: 182, type: u16, unit: °C, scale: 0.1, offset: -100}
+  - {key: battery_voltage, label: battery voltage, table: holding, address: 183, type: u16, unit: V, scale: 0.01}
+  - {key: battery_soc, label: battery capacity, table: holding, address: 184, type: u16, unit: '%'}
+  - {key: x.battery_status, label: battery Status, table: holding, address: 185, type: u16, note: Values not listed.}
+  - {key: x.pv1_power, label: PV1 input power, table: holding, address: 186, type: u16, unit: W}
+  - {key: x.pv2_power, label: PV2 input power, table: holding, address: 187, type: u16, unit: W}
+  - {key: x.pv3_power, label: PV3 input power, table: holding, address: 188, type: u16, unit: W}
+  - {key: x.pv4_power, label: PV4 input power, table: holding, address: 189, type: u16, unit: W}
+  - {key: battery_power, label: Battery output power, table: holding, address: 190, type: s16, unit: W, positive: discharge, verified: false, note: 'Signed; the direction isn''t stated. ''Output'' power taken as positive when discharging (assumed). In W, or 10 W when register 54 is 10.'}
+  - {key: battery_current, label: Battery output current, table: holding, address: 191, type: s16, unit: A, scale: 0.01, positive: discharge, verified: false, note: As battery output power (assumed).}
+  - {key: x.load_frequency, label: load frequency, table: holding, address: 192, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.inverter_frequency, label: Inverter output frequency, table: holding, address: 193, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.grid_relay, label: Grid side relay status, table: holding, address: 194, type: u16, enum: relay}
+  - {key: x.generator_relay, label: Generator side relay status, table: holding, address: 195, type: u16, bits: [0, 3], enum: generator_relay}
+  - {key: x.switch_state, label: Generator side relay status (switch signal), table: holding, address: 195, type: u16, bits: [4, 7], enum: on_off}
+  - {key: x.gen_port_frequency, label: Gen port frequency, table: holding, address: 196, type: u16, unit: Hz, scale: 0.01}
+
+  # Storage settings (200…)
+  - {key: x.battery_type, label: Control Mode (battery charge type), table: holding, address: 200, type: u16, enum: battery_type, writable: true, poll: slow}
+  - {key: x.battery_capacity, label: Batt Capacity, table: holding, address: 204, type: u16, unit: Ah, writable: true, min: 0, max: 2000, poll: slow}
+  - {key: x.battery_max_charge_current, label: Max A Charge, table: holding, address: 210, type: u16, unit: A, writable: true, min: 0, poll: slow, note: V119 gives 0–185 A; the maximum depends on the model.}
+  - {key: x.battery_max_discharge_current, label: Max A discharge, table: holding, address: 211, type: u16, unit: A, writable: true, min: 0, poll: slow, note: V119 gives 0–185 A; the maximum depends on the model.}
+  - {key: x.battery_mode, label: battery operates according to voltage or capacity, table: holding, address: 213, type: u16, enum: battery_mode, writable: true, poll: slow}
+  - {key: x.battery_shutdown_soc, label: battery capacity ShutDown, table: holding, address: 217, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.battery_restart_soc, label: battery capacity Restart, table: holding, address: 218, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.battery_low_soc, label: battery capacity LowBatt, table: holding, address: 219, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.battery_shutdown_voltage, label: battery voltage ShutDown, table: holding, address: 220, type: u16, unit: V, scale: 0.01, writable: true, min: 38, max: 61, poll: slow}
+  - {key: x.battery_restart_voltage, label: battery voltage Restart, table: holding, address: 221, type: u16, unit: V, scale: 0.01, writable: true, min: 38, max: 61, poll: slow}
+  - {key: x.battery_low_voltage, label: battery voltage LowBatt, table: holding, address: 222, type: u16, unit: V, scale: 0.01, writable: true, min: 38, max: 61, poll: slow}
+  - {key: x.grid_charge_current, label: Grid charge the battery current, table: holding, address: 230, type: u16, unit: A, writable: true, min: 0, poll: slow, note: V119 gives 0–185 A; the maximum depends on the model.}
+  - {key: x.generator_charge_enable, label: Generator is charged to enable, table: holding, address: 231, type: u16, writable: true, poll: slow}
+  - {key: x.grid_charge_enable, label: Grid is charged to enable, table: holding, address: 232, type: u16, writable: true, poll: slow}
+  - {key: x.energy_management_mode, label: Energy management model, table: holding, address: 243, type: u16, enum: energy_management_mode, writable: true, poll: slow}
+  - {key: x.limit_control, label: limit control function, table: holding, address: 244, type: u16, enum: limit_control, writable: true, poll: slow}
+  - {key: x.export_limit, label: Export power limiter (maximum grid output power), table: holding, address: 245, type: u16, unit: W, writable: true, min: 0, poll: slow, note: V119 gives 0–8000 W; the maximum depends on the model.}
+  - {key: x.solar_sell, label: Solar sell, table: holding, address: 247, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.time_of_use, label: Time of Use Selling enabled, table: holding, address: 248, type: u16, writable: true, poll: slow, note: 'Bit 0 enable, bits 1–7 Monday…Sunday, bit 8 working mode 3.'}
+  - {key: x.grid_frequency_setting, label: Grid Frequency, table: holding, address: 285, type: u16, enum: grid_frequency, writable: true, poll: slow}
+  - {key: x.grid_type, label: Grid Type, table: holding, address: 286, type: u16, enum: grid_type, writable: true, poll: slow}
+  - {key: x.device_modbus_address, label: Device Modbus Address, table: holding, address: 1, type: u16, verified: false, sources: [solarman]}
+  - {key: x.device_chip_type, label: Device Chip Type, table: holding, address: 9, type: u16, enum: device_chip_type, verified: false, sources: [solarman]}
+  - {key: x.device_communication_board_firmware_version_2, label: Device Communication Board Firmware Version (2), table: holding, address: 10, type: u16, note: 'The project shows this as a version: each 4-bit nibble is one digit.', verified: false, sources: [solarman]}
+  - {key: x.device_control_board_firmware_version_3, label: Device Control Board Firmware Version (3), table: holding, address: 11, type: u16, note: 'The project shows this as a version: each 4-bit nibble is one digit.', verified: false, sources: [solarman]}
+  - {key: x.device_control_board_firmware_version_2, label: Device Control Board Firmware Version (2), table: holding, address: 12, type: u16, note: 'The project shows this as a version: each 4-bit nibble is one digit.', verified: false, sources: [solarman]}
+  - {key: x.self_check_time, label: Self-check time, table: holding, address: 21, type: u16, unit: s, writable: true, verified: false, sources: [solarman]}
+  - {key: x.pv_power_53, label: PV Power, table: holding, address: 53, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–13000., verified: false, sources: [solarman]}
+  - {key: x.generator, label: Generator, table: holding, address: 195, type: u16, bits: [8, 8], verified: false, sources: [solarman]}
+  - {key: x.battery_equalization, label: Battery Equalization, table: holding, address: 201, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 3800–6100., verified: false, sources: [solarman]}
+  - {key: x.battery_absorption, label: Battery Absorption, table: holding, address: 202, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 3800–6100., verified: false, sources: [solarman]}
+  - {key: x.battery_float, label: Battery Float, table: holding, address: 203, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 3800–6100., verified: false, sources: [solarman]}
+  - {key: x.battery_empty, label: Battery Empty, table: holding, address: 205, type: u16, unit: V, scale: 0.01, writable: true, verified: false, sources: [solarman]}
+  - {key: x.zero_export_power, label: Zero Export power, table: holding, address: 206, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–65535., verified: false, sources: [solarman]}
+  - {key: x.battery_equalization_cycle, label: Battery Equalization Cycle, table: holding, address: 207, type: u16, unit: d, writable: true, note: The project ignores raw values outside 0–90., verified: false, sources: [solarman]}
+  - {key: x.battery_equalization_time, label: Battery Equalization Time, table: holding, address: 208, type: u16, unit: h, scale: 0.5, writable: true, note: The project ignores raw values outside 0–20., verified: false, sources: [solarman]}
+  - {key: x.battery_temperature_compensation, label: Battery Temperature Compensation, table: holding, address: 209, type: s16, unit: mV/*C, writable: true, note: The project ignores raw values outside 0–50., verified: false, sources: [solarman]}
+  - {key: x.battery_wake_up, label: Battery Wake Up, table: holding, address: 214, type: u16, enum: on_off_2, writable: true, verified: false, sources: [solarman]}
+  - {key: x.battery_resistance, label: Battery Resistance, table: holding, address: 215, type: u16, unit: mΩ, writable: true, note: The project ignores raw values outside 0–6000., verified: false, sources: [solarman]}
+  - {key: x.battery_charging_efficiency, label: Battery Charging efficiency, table: holding, address: 216, type: u16, unit: '%', scale: 0.1, writable: true, note: The project ignores raw values outside 0–1000., verified: false, sources: [solarman]}
+  - {key: x.generator_operating_time, label: Generator Operating Time, table: holding, address: 223, type: u16, unit: h, scale: 0.1, writable: true, note: The project ignores raw values outside 0–240., verified: false, sources: [solarman]}
+  - {key: x.generator_cooling_time, label: Generator Cooling Time, table: holding, address: 224, type: u16, unit: h, scale: 0.1, writable: true, note: The project ignores raw values outside 0–240., verified: false, sources: [solarman]}
+  - {key: x.battery_generator_charging_start_voltage, label: Battery Generator Charging Start Voltage, table: holding, address: 225, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 0–6300., verified: false, sources: [solarman]}
+  - {key: x.battery_generator_charging_start, label: Battery Generator Charging Start, table: holding, address: 226, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.battery_generator_charging_current, label: Battery Generator Charging Current, table: holding, address: 227, type: u16, unit: A, writable: true, note: The project ignores raw values outside 0–240., verified: false, sources: [solarman]}
+  - {key: x.battery_grid_charging_start_voltage, label: Battery Grid Charging Start Voltage, table: holding, address: 228, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 0–6300., verified: false, sources: [solarman]}
+  - {key: x.battery_grid_charging_start, label: Battery Grid Charging Start, table: holding, address: 229, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.io_mode, label: IO Mode, table: holding, address: 235, type: u16, enum: io_mode, writable: true, verified: false, sources: [solarman]}
+  - {key: x.smartload_off_voltage, label: SmartLoad Off Voltage, table: holding, address: 236, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 3800–6300., verified: false, sources: [solarman]}
+  - {key: x.smartload_off, label: SmartLoad Off, table: holding, address: 237, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.smartload_on_voltage, label: SmartLoad On Voltage, table: holding, address: 238, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 3800–6300., verified: false, sources: [solarman]}
+  - {key: x.smartload_on, label: SmartLoad On, table: holding, address: 239, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.generator_min_pv_power, label: Generator Min PV Power, table: holding, address: 241, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–8000., verified: false, sources: [solarman]}
+  - {key: x.charging_signal, label: Charging Signal, table: holding, address: 242, type: u16, enum: charging_signal, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_1_time, label: Program 1 Time, table: holding, address: 250, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_2_time, label: Program 2 Time, table: holding, address: 251, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_3_time, label: Program 3 Time, table: holding, address: 252, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_4_time, label: Program 4 Time, table: holding, address: 253, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_5_time, label: Program 5 Time, table: holding, address: 254, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_6_time, label: Program 6 Time, table: holding, address: 255, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_1_power, label: Program 1 Power, table: holding, address: 256, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–12000., verified: false, sources: [solarman]}
+  - {key: x.program_2_power, label: Program 2 Power, table: holding, address: 257, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–12000., verified: false, sources: [solarman]}
+  - {key: x.program_3_power, label: Program 3 Power, table: holding, address: 258, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–12000., verified: false, sources: [solarman]}
+  - {key: x.program_4_power, label: Program 4 Power, table: holding, address: 259, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–12000., verified: false, sources: [solarman]}
+  - {key: x.program_5_power, label: Program 5 Power, table: holding, address: 260, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–12000., verified: false, sources: [solarman]}
+  - {key: x.program_6_power, label: Program 6 Power, table: holding, address: 261, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–12000., verified: false, sources: [solarman]}
+  - {key: x.program_1_voltage, label: Program 1 Voltage, table: holding, address: 262, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 0–6100., verified: false, sources: [solarman]}
+  - {key: x.program_2_voltage, label: Program 2 Voltage, table: holding, address: 263, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 0–6100., verified: false, sources: [solarman]}
+  - {key: x.program_3_voltage, label: Program 3 Voltage, table: holding, address: 264, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 0–6100., verified: false, sources: [solarman]}
+  - {key: x.program_4_voltage, label: Program 4 Voltage, table: holding, address: 265, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 0–6100., verified: false, sources: [solarman]}
+  - {key: x.program_5_voltage, label: Program 5 Voltage, table: holding, address: 266, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 0–6100., verified: false, sources: [solarman]}
+  - {key: x.program_6_voltage, label: Program 6 Voltage, table: holding, address: 267, type: u16, unit: V, scale: 0.01, writable: true, note: The project ignores raw values outside 0–6100., verified: false, sources: [solarman]}
+  - {key: x.program_1_soc, label: Program 1 SOC, table: holding, address: 268, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.program_2_soc, label: Program 2 SOC, table: holding, address: 269, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.program_3_soc, label: Program 3 SOC, table: holding, address: 270, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.program_4_soc, label: Program 4 SOC, table: holding, address: 271, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.program_5_soc, label: Program 5 SOC, table: holding, address: 272, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.program_6_soc, label: Program 6 SOC, table: holding, address: 273, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 0–100., verified: false, sources: [solarman]}
+  - {key: x.program_1_charging, label: Program 1 Charging, table: holding, address: 274, type: u16, enum: program_1_charging, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_2_charging, label: Program 2 Charging, table: holding, address: 275, type: u16, enum: program_1_charging, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_3_charging, label: Program 3 Charging, table: holding, address: 276, type: u16, enum: program_1_charging, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_4_charging, label: Program 4 Charging, table: holding, address: 277, type: u16, enum: program_1_charging, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_5_charging, label: Program 5 Charging, table: holding, address: 278, type: u16, enum: program_1_charging, writable: true, verified: false, sources: [solarman]}
+  - {key: x.program_6_charging, label: Program 6 Charging, table: holding, address: 279, type: u16, enum: program_1_charging, writable: true, verified: false, sources: [solarman]}
+  - {key: x.microinverter_export_cut_off, label: Microinverter Export cut-off, table: holding, address: 280, type: u16, bits: [0, 0], enum: on_off_2, writable: true, verified: false, sources: [solarman]}
+  - {key: x.generator_peak_shaving, label: Generator Peak shaving, table: holding, address: 280, type: u16, bits: [4, 4], enum: on_off_2, writable: true, verified: false, sources: [solarman]}
+  - {key: x.grid_peak_shaving, label: Grid Peak shaving, table: holding, address: 280, type: u16, bits: [8, 8], enum: on_off_2, writable: true, verified: false, sources: [solarman]}
+  - {key: x.generator_on_grid, label: Generator On-Grid, table: holding, address: 280, type: u16, bits: [12, 12], enum: on_off_2, writable: true, verified: false, sources: [solarman]}
+  - {key: x.off_grid, label: Off Grid, table: holding, address: 281, type: u16, enum: on_off_2, writable: true, note: The project ignores raw values outside 0–1., verified: false, sources: [solarman]}
+  - {key: x.grid_reconnection_time, label: Grid reconnection time, table: holding, address: 282, type: u16, unit: s, writable: true, note: The project ignores raw values outside 1–300., verified: false, sources: [solarman]}
+  - {key: x.grid_voltage_protection_high, label: Grid voltage protection - high, table: holding, address: 287, type: u16, unit: V, scale: 0.1, writable: true, note: The project ignores raw values outside 1000–2900., verified: false, sources: [solarman]}
+  - {key: x.grid_voltage_protection_low, label: Grid voltage protection - low, table: holding, address: 288, type: u16, unit: V, scale: 0.1, writable: true, note: The project ignores raw values outside 1000–2900., verified: false, sources: [solarman]}
+  - {key: x.grid_frequency_protection_high, label: Grid frequency protection - high, table: holding, address: 289, type: u16, unit: Hz, scale: 0.01, writable: true, note: The project ignores raw values outside 4500–6500., verified: false, sources: [solarman]}
+  - {key: x.grid_frequency_protection_low, label: Grid frequency protection - low, table: holding, address: 290, type: u16, unit: Hz, scale: 0.01, writable: true, note: The project ignores raw values outside 4500–6500., verified: false, sources: [solarman]}
+  - {key: x.generator_grid_side, label: Generator Grid side, table: holding, address: 291, type: u16, enum: on_off_2, writable: true, verified: false, sources: [solarman]}
+  - {key: x.generator_peak_shaving_2, label: Generator Peak shaving, table: holding, address: 292, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–22000., verified: false, sources: [solarman]}
+  - {key: x.grid_peak_shaving_2, label: Grid Peak shaving, table: holding, address: 293, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–22000., verified: false, sources: [solarman]}
+  - {key: x.battery_bms_charging_voltage, label: Battery BMS Charging Voltage, table: holding, address: 312, type: u16, unit: V, scale: 0.01, verified: false, sources: [solarman]}
+  - {key: x.battery_bms_discharging_voltage, label: Battery BMS Discharging Voltage, table: holding, address: 313, type: u16, unit: V, scale: 0.01, verified: false, sources: [solarman]}
+  - {key: x.battery_bms_charging_current, label: Battery BMS Charging Current, table: holding, address: 314, type: u16, unit: A, verified: false, sources: [solarman]}
+  - {key: x.battery_bms_discharging_current, label: Battery BMS Discharging Current, table: holding, address: 315, type: u16, unit: A, verified: false, sources: [solarman]}
+  - {key: x.battery_bms_soc, label: Battery BMS SOC, table: holding, address: 316, type: u16, unit: '%', verified: false, sources: [solarman]}
+  - {key: x.battery_bms_voltage, label: Battery BMS Voltage, table: holding, address: 317, type: u16, unit: V, scale: 0.01, verified: false, sources: [solarman]}
+  - {key: x.battery_bms_current, label: Battery BMS Current, table: holding, address: 318, type: s16, unit: A, verified: false, sources: [solarman]}
+  - {key: x.battery_bms_max_charging_current, label: Battery BMS Max Charging Current, table: holding, address: 320, type: u16, unit: A, verified: false, sources: [solarman]}
+  - {key: x.battery_bms_max_discharging_current, label: Battery BMS Max Discharging Current, table: holding, address: 321, type: u16, unit: A, verified: false, sources: [solarman]}
+  - {key: x.battery_alarm, label: Battery Alarm, table: holding, address: 322, type: u16, verified: false, sources: [solarman]}
+  - {key: x.battery_fault, label: Battery Fault, table: holding, address: 323, type: u16, note: The project ignores raw values outside 0–65535., verified: false, sources: [solarman]}
+  - {key: x.battery_bms_other_symbol, label: Battery BMS Other Symbol, table: holding, address: 324, type: u16, enum: battery_bms_other_symbol, note: The project ignores raw values outside 0–65535., verified: false, sources: [solarman]}
+  - {key: x.battery_bms_type, label: Battery BMS Type, table: holding, address: 325, type: u16, enum: battery_bms_type, writable: true, verified: false, sources: [solarman]}
+  - {key: x.meter, label: Meter, table: holding, address: 326, type: u16, enum: on_off_2, writable: true, verified: false, sources: [solarman], conflicts: [{sources: [solarman], label: AC Coupling}]}
+  - {key: x.generator_2, label: Generator, table: holding, address: 326, type: u16, bits: [13, 13], enum: on_off_2, writable: true, verified: false, sources: [solarman]}
+
+derived:
+  - {key: grid_import_energy, label: Total_GridBuy_PowerWh, unit: kWh, sum: [{key: x.grid_import_total_low}, {key: x.grid_import_total_high}], note: 'Low word in register 78, high word in 80 (frequency sits in between).'}
+  - {key: x.generator_energy_total, label: Total_Gen_powerWh, unit: kWh, sum: [{key: x.generator_energy_total_low}, {key: x.generator_energy_total_high}]}
+  - {key: pv_power, label: PV input power (PV1…PV4), unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}, {key: x.pv3_power}, {key: x.pv4_power}]}
+
+enums:
+  device_type: {'512': String inverter, '768': Single-phase low-voltage storage inverter, '1024': Microinverter, '1280': Three-phase low-voltage storage inverter, '1536': Three-phase high-voltage storage inverter}
+  rated_power_class: {'2': Single-phase inverter, '3': Three-phase inverter, '8': Single-phase storage inverter}
+  run_state: {'0': Standby, '1': Self-check, '2': Normal, '3': Alarm, '4': Fault}
+  on_off: {'0': 'Off', '1': 'On', '2': 'Off'}
+  off_on: {'0': 'Off', '1': 'On'}
+  relay: {'0': Open, '1': Closed}
+  generator_relay: {'0': Open, '1': Closed, '2': Not fitted, '3': 'Closed, generator running'}
+  battery_type: {'0': Lead-acid (four-stage charging), '1': Lithium}
+  battery_mode: {'0': By voltage, '1': By capacity (SOC), '2': No battery}
+  energy_management_mode: {'0': Battery first, '1': Load first}
+  limit_control: {'0': Selling enabled, '1': Built-in limiter, '2': External limiter}
+  grid_frequency: {'0': 50 Hz, '1': 60 Hz}
+  grid_type: {'0': Single-phase, '1': Split-phase 120/240 V, '2': Three-phase 120/208 V, '3': Single-phase 120 V}
+  device_chip_type: {'0': AT32F403A, '1': SXX32F103, '2': GD32F103, '3': GD32F303}
+  on_off_2: {'0': 'Off', '1': 'On'}
+  io_mode: {'0': Generator, '1': SmartLoad, '2': Microinverter}
+  charging_signal: {'0': Normal, '1': Grid, '2': Generator, '3': Both}
+  program_1_charging: {'0': Disabled, '1': Grid, '2': Generator, '3': Both}
+  battery_bms_type: {'0': PYLON, '1': Tianbangda, '2': KOK, '3': Keith, '4': Toppai, '5': Peneng 485, '6': Jeris 485, '7': Sunwoda 485, '8': Xinrui 485, '9': Tianbangda 485, '10': Shenggao Electric CAN}
+  battery_bms_other_symbol: {'0': OK, '1': Vacancy, '2': OCP}
+
+flags:
+  alarm_word_1: {'1': W02 Fan warning, '2': W03 Grid phase wrong, '3': W04 Meter communication failure}
+  fault_word_1: {'6': F07 DC/DC soft start fault, '9': F10 Auxiliary power supply failure, '12': F13 Working mode changed}
+  fault_word_2: {'0': F17 Active battery hold, '1': F18 AC overcurrent (hardware), '3': F20 DC overcurrent (hardware), '5': F22 Emergency stop (inverter locked), '6': F23 AC leakage current transient overcurrent, '7': F24 DC insulation impedance failure, '8': F25 AC active battery fault, '9': F26 DC bus unbalanced, '12': F29 Parallel CAN bus fault, '14': F31 Soft start failed}
+  fault_word_3: {'2': F35 No AC grid, '4': F37 DC LLC soft overcurrent, '6': F39 DC LLC overcurrent, '7': F40 Battery overcurrent, '8': F41 Parallel system stop, '9': F42 AC line voltage low, '13': F46 Backup battery fault, '14': F47 AC over frequency, '15': F48 AC under frequency}
+  fault_word_4: {'0': F49 Backup battery fault, '7': F56 DC bus voltage low, '9': F58 BMS communication fault, '11': F60 Generator voltage or frequency fault, '12': F61 Switched off by button, '14': F63 Arc fault, '15': F64 Heat sink temperature too high}
+
+problems:
+  - {when: {key: state, equals: 4}, kind: fault, text: Fault (run state 4)}
+  - {when: {key: x.alarm_word_1, bit: 1}, kind: warning, text: W02 Fan warning}
+  - {when: {key: x.alarm_word_1, bit: 2}, kind: warning, text: W03 Grid phase wrong}
+  - {when: {key: x.alarm_word_1, bit: 3}, kind: warning, text: W04 Meter communication failure}
+  - {when: {key: x.fault_word_1, bit: 6}, kind: fault, text: F07 DC/DC soft start fault}
+  - {when: {key: x.fault_word_1, bit: 9}, kind: fault, text: F10 Auxiliary power supply failure}
+  - {when: {key: x.fault_word_1, bit: 12}, kind: fault, text: F13 Working mode changed}
+  - {when: {key: x.fault_word_2, bit: 0}, kind: fault, text: F17 Active battery hold}
+  - {when: {key: x.fault_word_2, bit: 1}, kind: fault, text: F18 AC overcurrent (hardware)}
+  - {when: {key: x.fault_word_2, bit: 3}, kind: fault, text: F20 DC overcurrent (hardware)}
+  - {when: {key: x.fault_word_2, bit: 5}, kind: fault, text: F22 Emergency stop (inverter locked)}
+  - {when: {key: x.fault_word_2, bit: 6}, kind: fault, text: F23 AC leakage current transient overcurrent}
+  - {when: {key: x.fault_word_2, bit: 7}, kind: fault, text: F24 DC insulation impedance failure}
+  - {when: {key: x.fault_word_2, bit: 8}, kind: fault, text: F25 AC active battery fault}
+  - {when: {key: x.fault_word_2, bit: 9}, kind: fault, text: F26 DC bus unbalanced}
+  - {when: {key: x.fault_word_2, bit: 12}, kind: fault, text: F29 Parallel CAN bus fault}
+  - {when: {key: x.fault_word_2, bit: 14}, kind: fault, text: F31 Soft start failed}
+  - {when: {key: x.fault_word_3, bit: 2}, kind: mains_lost, text: F35 No AC grid}
+  - {when: {key: x.fault_word_3, bit: 4}, kind: fault, text: F37 DC LLC soft overcurrent}
+  - {when: {key: x.fault_word_3, bit: 6}, kind: fault, text: F39 DC LLC overcurrent}
+  - {when: {key: x.fault_word_3, bit: 7}, kind: fault, text: F40 Battery overcurrent}
+  - {when: {key: x.fault_word_3, bit: 8}, kind: fault, text: F41 Parallel system stop}
+  - {when: {key: x.fault_word_3, bit: 9}, kind: fault, text: F42 AC line voltage low}
+  - {when: {key: x.fault_word_3, bit: 13}, kind: fault, text: F46 Backup battery fault}
+  - {when: {key: x.fault_word_3, bit: 14}, kind: fault, text: F47 AC over frequency}
+  - {when: {key: x.fault_word_3, bit: 15}, kind: fault, text: F48 AC under frequency}
+  - {when: {key: x.fault_word_4, bit: 0}, kind: fault, text: F49 Backup battery fault}
+  - {when: {key: x.fault_word_4, bit: 7}, kind: fault, text: F56 DC bus voltage low}
+  - {when: {key: x.fault_word_4, bit: 9}, kind: fault, text: F58 BMS communication fault}
+  - {when: {key: x.fault_word_4, bit: 11}, kind: fault, text: F60 Generator voltage or frequency fault}
+  - {when: {key: x.fault_word_4, bit: 12}, kind: fault, text: F61 Switched off by button}
+  - {when: {key: x.fault_word_4, bit: 14}, kind: fault, text: F63 Arc fault}
+  - {when: {key: x.fault_word_4, bit: 15}, kind: fault, text: F64 Heat sink temperature too high}
+
+notes:
+- RS485 / RS232, 9600 Bd 8N1; functions 03 (read, at most 125 registers) and 10 (write, at most 123). The document is for
+  RTU only; the unit id is settable 1–247 (register 1), 1 is assumed as default. Data loggers that wrap Modbus RTU in their
+  own TCP protocol are not described here.
+- Addresses are the document's register numbers, used as 0-based protocol addresses (its example reads register 107 with start
+  address 0x006B). All registers are holding registers (function 03).
+- 32-bit values are listed low word first (word_order little); the document marks no 32-bit value as signed except where noted.
+- Reserved and unsupported registers read 0.
+- 'The document is one map for string, micro and single-phase storage inverters: registers 59…124 have a different meaning
+  per kind (columns ''String'', ''Hybird'', ''MI''), and 150…218 differ between string and storage inverters. Register 0 tells
+  the kind.'
+- Registers 167…172, 176…178 and 190 (grid, limiter, load and battery powers) are in W, or in 10 W when register 54 (AC power
+  ratio) is 10; the 1 W default is used here. The register 54 row also lists 179 and 185, whose own rows give other units.
+- Battery and grid energy counters and powers come from the storage ('Hybird') column of 60…99; the string and micro meanings
+  of those registers are in the deye-string and deye-micro files.
+- 'Older editions (V115, 2019) differ in the storage column: 62 is today''s grid-connection time (s) instead of today''s generator
+  energy; 65 and 66 are this month''s PV and load energy (1 kWh) instead of battery currents; 92 is inductor temperature and
+  95 ambient temperature instead of the generator energy total; 94 is the SD card state (1000 fault, 2000 normal); 119 is
+  a PV input damage word instead of UPS power; 181 and 185 are reserved and 196 is a debug value. Its battery area is per
+  pack (serial numbers from 500, pack data from 600).'
+- 'Left out: grid protection limits and California ride-through settings (25…58, 287…415), the six time-of-use slots (250…279),
+  generator and smart-load settings, BMS values written by the display (312…325), the per-pack battery area (500…809) and
+  the Deye battery area from 10000.'
+- 'Left out: Device Phases (holding 18, u16) from solarman overlaps x.phase_count from the documents.'
+- 'Left out: Device MPPTs (holding 18, u16) from solarman overlaps x.mppt_count from the documents.'
+- 'evcc template `deye-storage` (grid, pv, battery) lists: Deye Storage (hybrid) inverter; Sunsynk Storage (hybrid) inverter.'
+- The project reaches the device through a Solarman Wi-Fi / LAN data logger (its own V5 protocol on TCP 8899) or over plain
+  Modbus TCP / RTU; the register map is the same.
+- The project picks this map when Deye's device type (holding register 0) is one of 0x0003, 0x0300, 0x0103, 0x0104.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

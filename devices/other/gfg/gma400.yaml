@@ -1,0 +1,363 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the GfG GMA400 MT6/16 Modbus implementation appendix (236-000.36, version 2, 2025-01-21).
+
+modbusspec: 0
+id: gfg-gma400
+manufacturer: GfG
+name: GMA400 gas warning controller (MT6, MT16, MW16)
+kind: other
+
+sources:
+- title: Appendix to the operation manual – GMA400 MT6/16 Modbus implementation (236-000.36)
+  version: 2 (2025-01-21)
+  url: https://www.gfgsafety.com/fileadmin/templates/img/GfG-Branches/GfG-USA/Manuals/Fixed/236-000.36_2025-01-21_AOM_GMA400-Modbus_EN_v02.pdf
+  sha256: b0bcb8401ebd80c41feca57646a68ac56856b08b01dd522a6da0e09319af7e8c
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 33
+    type: str
+    length: 20
+  any:
+  - table: input
+    address: 1
+    type: u16
+    equals: 30
+  - table: input
+    address: 1
+    type: u16
+    equals: 31
+  - table: input
+    address: 1
+    type: u16
+    equals: 32
+
+models:
+  - {id: mt16, name: GMA400-MT16, match: {table: input, address: 1, type: u16, equals: 30}}
+  - {id: mt6, name: GMA400-MT6, match: {table: input, address: 1, type: u16, equals: 31}}
+  - {id: mw16, name: GMA400-MW16, match: {table: input, address: 1, type: u16, equals: 32}}
+
+points:
+  # Administrative data
+  - {key: x.gma_type, label: GMA type, table: input, address: 1, type: u16, bits: [0, 7], enum: gma_type, poll: slow}
+  - {key: x.structure_version, label: GMA type (structure version), table: input, address: 1, type: u16, bits: [8, 15], poll: slow, note: Currently 0.}
+  - {key: x.connection_id, label: Connection ID, table: input, address: 2, type: u16, bits: [0, 7], enum: connection_id, poll: slow}
+  - {key: x.gma_status, label: GMA status, table: input, address: 3, type: u16, bits: [0, 7], flags: gma_status, poll: fast}
+  - {key: x.config_change_counter, label: GMA status (configuration change counter), table: input, address: 3, type: u16, bits: [8, 15], poll: fast, note: Counts up with each configuration change; reread the slowly polled values when it changes.}
+  - {key: x.digital_inputs, label: Digital entrances, table: input, address: 4, type: u16, flags: digital_inputs, poll: fast}
+  - {key: x.fw_main1_major, label: FW Version Main 1 (main version), table: input, address: 5, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.fw_main1_patch, label: FW Version Main 1 (patch version), table: input, address: 6, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.fw_main1_minor, label: FW Version Main 1 (sub version), table: input, address: 6, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.fw_display_major, label: FW Version Display (main version), table: input, address: 9, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.fw_display_patch, label: FW Version Display (patch version), table: input, address: 10, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.fw_display_minor, label: FW Version Display (sub version), table: input, address: 10, type: u16, bits: [8, 15], poll: slow}
+  - {key: serial, label: Serial number, table: input, address: 33, type: str, length: 20, poll: slow, note: '10 characters UTF-8, zero-terminated when shorter (up to 40 bytes).'}
+  - {key: x.designation, label: GMA designation, table: input, address: 81, type: str, length: 40, poll: slow, note: 20 characters UTF-8 (up to 80 bytes).}
+
+  # Alarm acknowledgment (write only)
+  - {key: x.acknowledge_all, label: Global alarm acknowledgment, table: holding, address: 2561, type: u16, writable: true, write_only: true, write_multiple: true, note: Function 16 or 23. Bit 0 = 1 acknowledges the alarms of all measuring points. The document only lists function 04 for reading; the table for writes is taken as holding.}
+
+  # Status of the GMA400 (0xA000 block)
+  - {key: x.di_logic_state, label: digital inputs GMA400, table: input, address: 40961, type: u16, bits: [0, 7], flags: di_logic, poll: fast, note: Logical state; the physical state depends on the quiescent/working current configuration.}
+  - {key: x.gma_outputs, label: Internal relays + status GMA400, table: input, address: 40962, type: u16, flags: gma_outputs, poll: fast}
+  # Group 1
+  - {key: x.group1_scaling, label: Group 1 scaling factor, table: input, address: 4099, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group1_gas, label: Group 1 gas, table: input, address: 4100, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group1_unit, label: Group 1 unit, table: input, address: 4100, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 2
+  - {key: x.group2_scaling, label: Group 2 scaling factor, table: input, address: 4112, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group2_gas, label: Group 2 gas, table: input, address: 4113, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group2_unit, label: Group 2 unit, table: input, address: 4113, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 3
+  - {key: x.group3_scaling, label: Group 3 scaling factor, table: input, address: 4125, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group3_gas, label: Group 3 gas, table: input, address: 4126, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group3_unit, label: Group 3 unit, table: input, address: 4126, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 4
+  - {key: x.group4_scaling, label: Group 4 scaling factor, table: input, address: 4138, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group4_gas, label: Group 4 gas, table: input, address: 4139, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group4_unit, label: Group 4 unit, table: input, address: 4139, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 5
+  - {key: x.group5_scaling, label: Group 5 scaling factor, table: input, address: 4151, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group5_gas, label: Group 5 gas, table: input, address: 4152, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group5_unit, label: Group 5 unit, table: input, address: 4152, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 6
+  - {key: x.group6_scaling, label: Group 6 scaling factor, table: input, address: 4164, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group6_gas, label: Group 6 gas, table: input, address: 4165, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group6_unit, label: Group 6 unit, table: input, address: 4165, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 7
+  - {key: x.group7_scaling, label: Group 7 scaling factor, table: input, address: 4177, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group7_gas, label: Group 7 gas, table: input, address: 4178, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group7_unit, label: Group 7 unit, table: input, address: 4178, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 8
+  - {key: x.group8_scaling, label: Group 8 scaling factor, table: input, address: 4190, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group8_gas, label: Group 8 gas, table: input, address: 4191, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group8_unit, label: Group 8 unit, table: input, address: 4191, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 9
+  - {key: x.group9_scaling, label: Group 9 scaling factor, table: input, address: 4227, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group9_gas, label: Group 9 gas, table: input, address: 4228, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group9_unit, label: Group 9 unit, table: input, address: 4228, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 10
+  - {key: x.group10_scaling, label: Group 10 scaling factor, table: input, address: 4240, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group10_gas, label: Group 10 gas, table: input, address: 4241, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group10_unit, label: Group 10 unit, table: input, address: 4241, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 11
+  - {key: x.group11_scaling, label: Group 11 scaling factor, table: input, address: 4253, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group11_gas, label: Group 11 gas, table: input, address: 4254, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group11_unit, label: Group 11 unit, table: input, address: 4254, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 12
+  - {key: x.group12_scaling, label: Group 12 scaling factor, table: input, address: 4266, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group12_gas, label: Group 12 gas, table: input, address: 4267, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group12_unit, label: Group 12 unit, table: input, address: 4267, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 13
+  - {key: x.group13_scaling, label: Group 13 scaling factor, table: input, address: 4279, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group13_gas, label: Group 13 gas, table: input, address: 4280, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group13_unit, label: Group 13 unit, table: input, address: 4280, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 14
+  - {key: x.group14_scaling, label: Group 14 scaling factor, table: input, address: 4292, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group14_gas, label: Group 14 gas, table: input, address: 4293, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group14_unit, label: Group 14 unit, table: input, address: 4293, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 15
+  - {key: x.group15_scaling, label: Group 15 scaling factor, table: input, address: 4305, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group15_gas, label: Group 15 gas, table: input, address: 4306, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group15_unit, label: Group 15 unit, table: input, address: 4306, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Group 16
+  - {key: x.group16_scaling, label: Group 16 scaling factor, table: input, address: 4318, type: s16, poll: slow, note: 'Decimal exponent of the group''s measured values: −3 = 0.001, −2 = 0.01, −1 = 0.1, 0 = 1.'}
+  - {key: x.group16_gas, label: Group 16 gas, table: input, address: 4319, type: u16, bits: [0, 7], poll: slow, note: Gas code from the document's table 5.2.}
+  - {key: x.group16_unit, label: Group 16 unit, table: input, address: 4319, type: u16, bits: [8, 15], enum: unit, poll: slow}
+  # Measuring point 1
+  - {key: x.mp1_status1, label: Status MP 1 (#1), table: input, address: 12289, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp1_range, label: Status MP 1 (#2) over-/underrange, table: input, address: 12290, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp1_status2, label: Status MP 1 (#2), table: input, address: 12290, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp1_state, label: Status MP 1 (#2) status bits, table: input, address: 12290, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp1_value, label: Measured value MP 1, table: input, address: 12291, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 2
+  - {key: x.mp2_status1, label: Status MP 2 (#1), table: input, address: 12292, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp2_range, label: Status MP 2 (#2) over-/underrange, table: input, address: 12293, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp2_status2, label: Status MP 2 (#2), table: input, address: 12293, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp2_state, label: Status MP 2 (#2) status bits, table: input, address: 12293, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp2_value, label: Measured value MP 2, table: input, address: 12294, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 3
+  - {key: x.mp3_status1, label: Status MP 3 (#1), table: input, address: 12295, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp3_range, label: Status MP 3 (#2) over-/underrange, table: input, address: 12296, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp3_status2, label: Status MP 3 (#2), table: input, address: 12296, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp3_state, label: Status MP 3 (#2) status bits, table: input, address: 12296, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp3_value, label: Measured value MP 3, table: input, address: 12297, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 4
+  - {key: x.mp4_status1, label: Status MP 4 (#1), table: input, address: 12298, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp4_range, label: Status MP 4 (#2) over-/underrange, table: input, address: 12299, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp4_status2, label: Status MP 4 (#2), table: input, address: 12299, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp4_state, label: Status MP 4 (#2) status bits, table: input, address: 12299, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp4_value, label: Measured value MP 4, table: input, address: 12300, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 5
+  - {key: x.mp5_status1, label: Status MP 5 (#1), table: input, address: 12301, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp5_range, label: Status MP 5 (#2) over-/underrange, table: input, address: 12302, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp5_status2, label: Status MP 5 (#2), table: input, address: 12302, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp5_state, label: Status MP 5 (#2) status bits, table: input, address: 12302, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp5_value, label: Measured value MP 5, table: input, address: 12303, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 6
+  - {key: x.mp6_status1, label: Status MP 6 (#1), table: input, address: 12304, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp6_range, label: Status MP 6 (#2) over-/underrange, table: input, address: 12305, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp6_status2, label: Status MP 6 (#2), table: input, address: 12305, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp6_state, label: Status MP 6 (#2) status bits, table: input, address: 12305, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp6_value, label: Measured value MP 6, table: input, address: 12306, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 7
+  - {key: x.mp7_status1, label: Status MP 7 (#1), table: input, address: 12307, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp7_range, label: Status MP 7 (#2) over-/underrange, table: input, address: 12308, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp7_status2, label: Status MP 7 (#2), table: input, address: 12308, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp7_state, label: Status MP 7 (#2) status bits, table: input, address: 12308, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp7_value, label: Measured value MP 7, table: input, address: 12309, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 8
+  - {key: x.mp8_status1, label: Status MP 8 (#1), table: input, address: 12310, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp8_range, label: Status MP 8 (#2) over-/underrange, table: input, address: 12311, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp8_status2, label: Status MP 8 (#2), table: input, address: 12311, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp8_state, label: Status MP 8 (#2) status bits, table: input, address: 12311, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp8_value, label: Measured value MP 8, table: input, address: 12312, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 9
+  - {key: x.mp9_status1, label: Status MP 9 (#1), table: input, address: 12313, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp9_range, label: Status MP 9 (#2) over-/underrange, table: input, address: 12314, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp9_status2, label: Status MP 9 (#2), table: input, address: 12314, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp9_state, label: Status MP 9 (#2) status bits, table: input, address: 12314, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp9_value, label: Measured value MP 9, table: input, address: 12315, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 10
+  - {key: x.mp10_status1, label: Status MP 10 (#1), table: input, address: 12316, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp10_range, label: Status MP 10 (#2) over-/underrange, table: input, address: 12317, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp10_status2, label: Status MP 10 (#2), table: input, address: 12317, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp10_state, label: Status MP 10 (#2) status bits, table: input, address: 12317, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp10_value, label: Measured value MP 10, table: input, address: 12318, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 11
+  - {key: x.mp11_status1, label: Status MP 11 (#1), table: input, address: 12319, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp11_range, label: Status MP 11 (#2) over-/underrange, table: input, address: 12320, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp11_status2, label: Status MP 11 (#2), table: input, address: 12320, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp11_state, label: Status MP 11 (#2) status bits, table: input, address: 12320, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp11_value, label: Measured value MP 11, table: input, address: 12321, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 12
+  - {key: x.mp12_status1, label: Status MP 12 (#1), table: input, address: 12322, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp12_range, label: Status MP 12 (#2) over-/underrange, table: input, address: 12323, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp12_status2, label: Status MP 12 (#2), table: input, address: 12323, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp12_state, label: Status MP 12 (#2) status bits, table: input, address: 12323, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp12_value, label: Measured value MP 12, table: input, address: 12324, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 13
+  - {key: x.mp13_status1, label: Status MP 13 (#1), table: input, address: 12325, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp13_range, label: Status MP 13 (#2) over-/underrange, table: input, address: 12326, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp13_status2, label: Status MP 13 (#2), table: input, address: 12326, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp13_state, label: Status MP 13 (#2) status bits, table: input, address: 12326, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp13_value, label: Measured value MP 13, table: input, address: 12327, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 14
+  - {key: x.mp14_status1, label: Status MP 14 (#1), table: input, address: 12328, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp14_range, label: Status MP 14 (#2) over-/underrange, table: input, address: 12329, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp14_status2, label: Status MP 14 (#2), table: input, address: 12329, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp14_state, label: Status MP 14 (#2) status bits, table: input, address: 12329, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp14_value, label: Measured value MP 14, table: input, address: 12330, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 15
+  - {key: x.mp15_status1, label: Status MP 15 (#1), table: input, address: 12331, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp15_range, label: Status MP 15 (#2) over-/underrange, table: input, address: 12332, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp15_status2, label: Status MP 15 (#2), table: input, address: 12332, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp15_state, label: Status MP 15 (#2) status bits, table: input, address: 12332, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp15_value, label: Measured value MP 15, table: input, address: 12333, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+  # Measuring point 16
+  - {key: x.mp16_status1, label: Status MP 16 (#1), table: input, address: 12334, type: u16, flags: mp_status1, poll: fast}
+  - {key: x.mp16_range, label: Status MP 16 (#2) over-/underrange, table: input, address: 12335, type: u16, bits: [0, 2], enum: range_state, poll: fast}
+  - {key: x.mp16_status2, label: Status MP 16 (#2), table: input, address: 12335, type: u16, bits: [3, 11], flags: mp_status2, poll: fast, note: Bit numbers in the flags table are counted from bit 3.}
+  - {key: x.mp16_state, label: Status MP 16 (#2) status bits, table: input, address: 12335, type: u16, bits: [12, 15], enum: mp_state, poll: fast}
+  - {key: x.mp16_value, label: Measured value MP 16, table: input, address: 12336, type: s16, poll: fast, verified: false, note: 0…10000 raw; to scale with the scaling factor of the measuring point's group (see notes).}
+
+enums:
+  gma_type: {'30': GMA400-MT16, '31': GMA400-MT6, '32': GMA400-MW16}
+  connection_id: {'1': Ethernet (Modbus TCP), '2': COM-Bus (Modbus RTU), '3': GMA-Bus (Modbus RTU)}
+  range_state: {'0': Normal operation, '1': Underrange, '2': Underrange AD, '3': Underrange fault, '4': Overrange fault, '5': Overrange AD, '6': Overrange, '7': Undefined measurement}
+  mp_state: {'0': Normal operation, '1': Startup, '2': 'Fault: FLT-TRM', '3': Communication error, '4': Inconsistent configuration, '5': 'Fault: gateway', '6': 'Service: SRV menu', '7': 'Service: SRV zero', '8': 'Service: SRV span', '9': 'Service: SRV config', '10': 'Service: general'}
+  unit: {'1': ppm, '2': Vol%, '3': '%LEL', '4': ppb, '5': µg, '6': mg, '7': '%', '8': ‰, '9': m/s, '10': °C, '11': mV, '12': V, '13': mA, '14': A, '15': Ohm, '16': Digit, '23': Grad, '24': °F, '25': g, '26': kg, '27': Pa, '28': kPa, '29': bar, '30': psi, '31': s, '32': min, '33': kB, '34': MB, '35': GB, '36': mg/l, '37': Slpm, '38': µA, '39': W}
+
+flags:
+  gma_status: {'0': Startup, '1': Failure, '2': Service, '3': Service request, '4': Configuration mode}
+  digital_inputs: {'0': Digital input 1 level, '1': Digital input 2 level, '2': Digital input 3 level, '3': Digital input 4 level, '4': Digital input 5 level, '5': Digital input 6 level, '6': Digital input 7 level, '7': Digital input 8 level, '8': Digital input 1 error, '9': Digital input 2 error, '10': Digital input 3 error, '11': Digital input 4 error, '12': Digital input 5 error, '13': Digital input 6 error, '14': Digital input 7 error, '15': Digital input 8 error}
+  di_logic: {'0': Digital input 1 active, '1': Digital input 2 active, '2': Digital input 3 active, '3': Digital input 4 active, '4': Digital input 5 active, '5': Digital input 6 active, '6': Digital input 7 active, '7': Digital input 8 active}
+  gma_outputs: {'1': Horn, '5': Service request, '6': Service, '7': Fault, '8': Relay 1 active, '9': Relay 2 active, '10': Relay 3 active, '11': Relay 4 active, '12': Relay 5 active, '13': Relay 6 active, '14': Relay 7 active, '15': Relay 8 active}
+  mp_status1: {'0': Activated, '1': Latched, '2': Simulation, '3': Valid measured value, '4': Fault, '5': Service, '6': Service request, '8': Alarm 1 (GMA), '9': Alarm 2 (GMA), '10': Alarm 3 (GMA), '11': Alarm 4 (GMA), '14': ACDC fallback, '15': Ambiguity}
+  mp_status2: {'0': Line short, '1': 'FLT: gas pumping', '2': VL0 (ventilation block), '3': VL1 (ventilation level 1), '4': VL2 (ventilation level 2), '5': Alarm 1 (TRM), '6': Alarm 2 (TRM), '7': Alarm 3 (TRM)}
+
+problems:
+  - {when: {key: x.gma_status, bit: 1}, kind: fault, text: GMA400 failure}
+  - {when: {key: x.gma_status, bit: 2}, kind: warning, text: GMA400 in service}
+  - {when: {key: x.gma_status, bit: 3}, kind: warning, text: GMA400 service request}
+  - {when: {key: x.mp1_status1, bit: 4}, kind: fault, text: Measuring point 1 fault}
+  - {when: {key: x.mp1_status1, bit: 8}, kind: warning, text: Measuring point 1 gas alarm 1}
+  - {when: {key: x.mp1_status1, bit: 9}, kind: warning, text: Measuring point 1 gas alarm 2}
+  - {when: {key: x.mp1_status1, bit: 10}, kind: warning, text: Measuring point 1 gas alarm 3}
+  - {when: {key: x.mp1_status1, bit: 11}, kind: warning, text: Measuring point 1 gas alarm 4}
+  - {when: {key: x.mp2_status1, bit: 4}, kind: fault, text: Measuring point 2 fault}
+  - {when: {key: x.mp2_status1, bit: 8}, kind: warning, text: Measuring point 2 gas alarm 1}
+  - {when: {key: x.mp2_status1, bit: 9}, kind: warning, text: Measuring point 2 gas alarm 2}
+  - {when: {key: x.mp2_status1, bit: 10}, kind: warning, text: Measuring point 2 gas alarm 3}
+  - {when: {key: x.mp2_status1, bit: 11}, kind: warning, text: Measuring point 2 gas alarm 4}
+  - {when: {key: x.mp3_status1, bit: 4}, kind: fault, text: Measuring point 3 fault}
+  - {when: {key: x.mp3_status1, bit: 8}, kind: warning, text: Measuring point 3 gas alarm 1}
+  - {when: {key: x.mp3_status1, bit: 9}, kind: warning, text: Measuring point 3 gas alarm 2}
+  - {when: {key: x.mp3_status1, bit: 10}, kind: warning, text: Measuring point 3 gas alarm 3}
+  - {when: {key: x.mp3_status1, bit: 11}, kind: warning, text: Measuring point 3 gas alarm 4}
+  - {when: {key: x.mp4_status1, bit: 4}, kind: fault, text: Measuring point 4 fault}
+  - {when: {key: x.mp4_status1, bit: 8}, kind: warning, text: Measuring point 4 gas alarm 1}
+  - {when: {key: x.mp4_status1, bit: 9}, kind: warning, text: Measuring point 4 gas alarm 2}
+  - {when: {key: x.mp4_status1, bit: 10}, kind: warning, text: Measuring point 4 gas alarm 3}
+  - {when: {key: x.mp4_status1, bit: 11}, kind: warning, text: Measuring point 4 gas alarm 4}
+  - {when: {key: x.mp5_status1, bit: 4}, kind: fault, text: Measuring point 5 fault}
+  - {when: {key: x.mp5_status1, bit: 8}, kind: warning, text: Measuring point 5 gas alarm 1}
+  - {when: {key: x.mp5_status1, bit: 9}, kind: warning, text: Measuring point 5 gas alarm 2}
+  - {when: {key: x.mp5_status1, bit: 10}, kind: warning, text: Measuring point 5 gas alarm 3}
+  - {when: {key: x.mp5_status1, bit: 11}, kind: warning, text: Measuring point 5 gas alarm 4}
+  - {when: {key: x.mp6_status1, bit: 4}, kind: fault, text: Measuring point 6 fault}
+  - {when: {key: x.mp6_status1, bit: 8}, kind: warning, text: Measuring point 6 gas alarm 1}
+  - {when: {key: x.mp6_status1, bit: 9}, kind: warning, text: Measuring point 6 gas alarm 2}
+  - {when: {key: x.mp6_status1, bit: 10}, kind: warning, text: Measuring point 6 gas alarm 3}
+  - {when: {key: x.mp6_status1, bit: 11}, kind: warning, text: Measuring point 6 gas alarm 4}
+  - {when: {key: x.mp7_status1, bit: 4}, kind: fault, text: Measuring point 7 fault}
+  - {when: {key: x.mp7_status1, bit: 8}, kind: warning, text: Measuring point 7 gas alarm 1}
+  - {when: {key: x.mp7_status1, bit: 9}, kind: warning, text: Measuring point 7 gas alarm 2}
+  - {when: {key: x.mp7_status1, bit: 10}, kind: warning, text: Measuring point 7 gas alarm 3}
+  - {when: {key: x.mp7_status1, bit: 11}, kind: warning, text: Measuring point 7 gas alarm 4}
+  - {when: {key: x.mp8_status1, bit: 4}, kind: fault, text: Measuring point 8 fault}
+  - {when: {key: x.mp8_status1, bit: 8}, kind: warning, text: Measuring point 8 gas alarm 1}
+  - {when: {key: x.mp8_status1, bit: 9}, kind: warning, text: Measuring point 8 gas alarm 2}
+  - {when: {key: x.mp8_status1, bit: 10}, kind: warning, text: Measuring point 8 gas alarm 3}
+  - {when: {key: x.mp8_status1, bit: 11}, kind: warning, text: Measuring point 8 gas alarm 4}
+  - {when: {key: x.mp9_status1, bit: 4}, kind: fault, text: Measuring point 9 fault}
+  - {when: {key: x.mp9_status1, bit: 8}, kind: warning, text: Measuring point 9 gas alarm 1}
+  - {when: {key: x.mp9_status1, bit: 9}, kind: warning, text: Measuring point 9 gas alarm 2}
+  - {when: {key: x.mp9_status1, bit: 10}, kind: warning, text: Measuring point 9 gas alarm 3}
+  - {when: {key: x.mp9_status1, bit: 11}, kind: warning, text: Measuring point 9 gas alarm 4}
+  - {when: {key: x.mp10_status1, bit: 4}, kind: fault, text: Measuring point 10 fault}
+  - {when: {key: x.mp10_status1, bit: 8}, kind: warning, text: Measuring point 10 gas alarm 1}
+  - {when: {key: x.mp10_status1, bit: 9}, kind: warning, text: Measuring point 10 gas alarm 2}
+  - {when: {key: x.mp10_status1, bit: 10}, kind: warning, text: Measuring point 10 gas alarm 3}
+  - {when: {key: x.mp10_status1, bit: 11}, kind: warning, text: Measuring point 10 gas alarm 4}
+  - {when: {key: x.mp11_status1, bit: 4}, kind: fault, text: Measuring point 11 fault}
+  - {when: {key: x.mp11_status1, bit: 8}, kind: warning, text: Measuring point 11 gas alarm 1}
+  - {when: {key: x.mp11_status1, bit: 9}, kind: warning, text: Measuring point 11 gas alarm 2}
+  - {when: {key: x.mp11_status1, bit: 10}, kind: warning, text: Measuring point 11 gas alarm 3}
+  - {when: {key: x.mp11_status1, bit: 11}, kind: warning, text: Measuring point 11 gas alarm 4}
+  - {when: {key: x.mp12_status1, bit: 4}, kind: fault, text: Measuring point 12 fault}
+  - {when: {key: x.mp12_status1, bit: 8}, kind: warning, text: Measuring point 12 gas alarm 1}
+  - {when: {key: x.mp12_status1, bit: 9}, kind: warning, text: Measuring point 12 gas alarm 2}
+  - {when: {key: x.mp12_status1, bit: 10}, kind: warning, text: Measuring point 12 gas alarm 3}
+  - {when: {key: x.mp12_status1, bit: 11}, kind: warning, text: Measuring point 12 gas alarm 4}
+  - {when: {key: x.mp13_status1, bit: 4}, kind: fault, text: Measuring point 13 fault}
+  - {when: {key: x.mp13_status1, bit: 8}, kind: warning, text: Measuring point 13 gas alarm 1}
+  - {when: {key: x.mp13_status1, bit: 9}, kind: warning, text: Measuring point 13 gas alarm 2}
+  - {when: {key: x.mp13_status1, bit: 10}, kind: warning, text: Measuring point 13 gas alarm 3}
+  - {when: {key: x.mp13_status1, bit: 11}, kind: warning, text: Measuring point 13 gas alarm 4}
+  - {when: {key: x.mp14_status1, bit: 4}, kind: fault, text: Measuring point 14 fault}
+  - {when: {key: x.mp14_status1, bit: 8}, kind: warning, text: Measuring point 14 gas alarm 1}
+  - {when: {key: x.mp14_status1, bit: 9}, kind: warning, text: Measuring point 14 gas alarm 2}
+  - {when: {key: x.mp14_status1, bit: 10}, kind: warning, text: Measuring point 14 gas alarm 3}
+  - {when: {key: x.mp14_status1, bit: 11}, kind: warning, text: Measuring point 14 gas alarm 4}
+  - {when: {key: x.mp15_status1, bit: 4}, kind: fault, text: Measuring point 15 fault}
+  - {when: {key: x.mp15_status1, bit: 8}, kind: warning, text: Measuring point 15 gas alarm 1}
+  - {when: {key: x.mp15_status1, bit: 9}, kind: warning, text: Measuring point 15 gas alarm 2}
+  - {when: {key: x.mp15_status1, bit: 10}, kind: warning, text: Measuring point 15 gas alarm 3}
+  - {when: {key: x.mp15_status1, bit: 11}, kind: warning, text: Measuring point 15 gas alarm 4}
+  - {when: {key: x.mp16_status1, bit: 4}, kind: fault, text: Measuring point 16 fault}
+  - {when: {key: x.mp16_status1, bit: 8}, kind: warning, text: Measuring point 16 gas alarm 1}
+  - {when: {key: x.mp16_status1, bit: 9}, kind: warning, text: Measuring point 16 gas alarm 2}
+  - {when: {key: x.mp16_status1, bit: 10}, kind: warning, text: Measuring point 16 gas alarm 3}
+  - {when: {key: x.mp16_status1, bit: 11}, kind: warning, text: Measuring point 16 gas alarm 4}
+
+notes:
+- Registers are read with function 04 (input registers); writes use function 16 or 23. Addresses are 0-based as given. Each
+  block starts with a signature register (0x0000, 0x0020, 0x0050, 0x0100 …) that counts down after each read; it can be written
+  with function 23 to match requests and responses, and is left out here.
+- 'Modbus TCP: port 502 by default (the document prints 02), unit id fixed to 1. Modbus RTU (COM-Bus and GMA-Bus): address
+  1…247, 9600…230400 Bd, 8E1, 8O1 or 8N2 set in the configuration program; no default is stated, 9600 8E1 here is an assumption.
+  The GMA-Bus doesn''t carry the relay, horn and digital input designations.'
+- The GMA type register (0x0001) carries the structure version in its high byte (currently 0); the model matches assume it
+  is 0.
+- 'Measured values: the document only gives the raw range 0…10000. Each group (0x1000 block) has a scaling factor (decimal
+  exponent) and a unit/gas code; the measuring point''s group is set in its assignment register (0x0101 + n − 1, bits 0…4;
+  zone bits 8…11; bit 15 active). The value presumably is raw × 10^(group scaling factor) in the group''s unit; not stated
+  in the document, not verified.'
+- 'Only measuring points 1…16 (block 0x3000) are listed. Further blocks of 16 points start at 0x3500, 0x3A00, 0x3F00, 0x4400,
+  0x4900, 0x4E00, 0x5300, 0x5800 and 0x5D00 (up to 160 points), same layout: status #1, status #2 and value per point from
+  offset 1, mean value 1 at offset 0x31…0x40, mean value 2 at 0x41…0x50.'
+- 'Left out: group alarm thresholds AL1…AL4, measuring ranges and averaging intervals (0x1000 block, per group offsets 1…13),
+  designation texts of groups, zones, measuring points, inputs, relays and modules (UTF-8, from 0x1100), the per-point acknowledgment
+  registers 0x0A11…0x0A1A (one bit per point), the relay modules (0xA003…0xA012), display modules (0xA021…0xA030) and alarm
+  panels (from 0xA041), and the gas code table (186 entries).'
+- 'Group register offsets: groups 1…8 at 0x1001 + 13 × (n − 1), groups 9…16 at 0x1081 + 13 × (n − 9); within a group: MRB,
+  MRE, scaling factor, unit/gas, alarm directions, AL1…AL4, unassigned, interval 1, interval 2, unassigned.'
+- 'Identification: one of the model matches must hold.'

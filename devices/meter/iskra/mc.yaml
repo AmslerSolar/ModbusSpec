@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: iskra-mc
+manufacturer: Iskra
+name: MC / MT measuring centres (MC, iMC, MT, iMT)
+kind: meter
+
+sources:
+- id: pyiskra
+  title: pyiskra (Python library, used by Home Assistant's iskra)
+  url: https://github.com/Iskramis/pyiskra
+  license: MIT
+  commit: cd23e27a44a8265b406c426dad21efead22e39f9
+  path: pyiskra/devices/MeasuringCenter.py, pyiskra/adapters/Modbus.py, pyiskra/helper.py
+
+connection:
+  default_port: 10001
+  default_unit: 33
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 115200
+    format: 8N2
+  limits:
+    max_registers: 120
+
+encoding:
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 9
+    type: str
+    length: 4
+  any:
+  - table: input
+    address: 1
+    type: str
+    length: 8
+    prefix: MT
+  - table: input
+    address: 1
+    type: str
+    length: 8
+    prefix: iMT
+  - table: input
+    address: 1
+    type: str
+    length: 8
+    prefix: MC
+  - table: input
+    address: 1
+    type: str
+    length: 8
+    prefix: iMC
+
+defaults:
+  verified: false
+  sources:
+  - pyiskra
+
+models:
+  - {id: mt, name: MT, match: {table: input, address: 1, type: str, length: 8, prefix: MT}}
+  - {id: imt, name: iMT, match: {table: input, address: 1, type: str, length: 8, prefix: iMT}}
+  - {id: mc, name: MC, match: {table: input, address: 1, type: str, length: 8, prefix: MC}}
+  - {id: imc, name: iMC, match: {table: input, address: 1, type: str, length: 8, prefix: iMC}}
+
+points:
+  - {key: x.description, label: Description, table: holding, address: 101, type: str, length: 20}
+  - {key: x.location, label: Location, table: holding, address: 121, type: str, length: 20}
+  - {key: x.reverse_connection, label: Reverse connection, table: holding, address: 151, type: u16, bits: [1, 1], note: 'When set, pyiskra swaps the import and export direction of the counters.'}
+  - {key: x.resettable_counter_1_unit, label: Resettable counter 1 unit, table: holding, address: 421, type: u16, bits: [0, 1], enum: counter_unit}
+  - {key: x.resettable_counter_1_direction, label: Resettable counter 1 quadrants, table: holding, address: 422, type: u16, bits: [0, 3], enum: counter_direction}
+  - {key: x.resettable_counter_2_unit, label: Resettable counter 2 unit, table: holding, address: 431, type: u16, bits: [0, 1], enum: counter_unit}
+  - {key: x.resettable_counter_2_direction, label: Resettable counter 2 quadrants, table: holding, address: 432, type: u16, bits: [0, 3], enum: counter_direction}
+  - {key: x.resettable_counter_3_unit, label: Resettable counter 3 unit, table: holding, address: 441, type: u16, bits: [0, 1], enum: counter_unit}
+  - {key: x.resettable_counter_3_direction, label: Resettable counter 3 quadrants, table: holding, address: 442, type: u16, bits: [0, 3], enum: counter_direction}
+  - {key: x.resettable_counter_4_unit, label: Resettable counter 4 unit, table: holding, address: 451, type: u16, bits: [0, 1], enum: counter_unit}
+  - {key: x.resettable_counter_4_direction, label: Resettable counter 4 quadrants, table: holding, address: 452, type: u16, bits: [0, 3], enum: counter_direction}
+  - {key: x.model, label: Model, table: input, address: 1, type: str, length: 8}
+  - {key: serial, label: Serial, table: input, address: 9, type: str, length: 4}
+  - {key: firmware, label: Sw ver, table: input, address: 13, type: u16, scale: 0.01}
+  - {key: x.resettable_counter_1, label: Resettable counter 1, table: input, address: 406, type: s32, scale_exponent_from: {table: input, address: 401, type: s16}, note: 'What it counts (active / reactive / apparent energy, import / export) is configured in the meter; see the counter''s unit and direction settings.'}
+  - {key: x.resettable_counter_2, label: Resettable counter 2, table: input, address: 408, type: s32, scale_exponent_from: {table: input, address: 402, type: s16}, note: 'What it counts (active / reactive / apparent energy, import / export) is configured in the meter; see the counter''s unit and direction settings.'}
+  - {key: x.resettable_counter_3, label: Resettable counter 3, table: input, address: 410, type: s32, scale_exponent_from: {table: input, address: 403, type: s16}, note: 'What it counts (active / reactive / apparent energy, import / export) is configured in the meter; see the counter''s unit and direction settings.'}
+  - {key: x.resettable_counter_4, label: Resettable counter 4, table: input, address: 412, type: s32, scale_exponent_from: {table: input, address: 404, type: s16}, note: 'What it counts (active / reactive / apparent energy, import / export) is configured in the meter; see the counter''s unit and direction settings.'}
+  - {key: l1_voltage, label: Voltage L1, table: input, address: 2500, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage L2, table: input, address: 2502, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage L3, table: input, address: 2504, type: f32, unit: V}
+  - {key: l1_current, label: Current L1, table: input, address: 2516, type: f32, unit: A}
+  - {key: l2_current, label: Current L2, table: input, address: 2518, type: f32, unit: A}
+  - {key: l3_current, label: Current L3, table: input, address: 2520, type: f32, unit: A}
+  - {key: x.active_power_l1, label: Active power L1, table: input, address: 2530, type: f32, unit: W}
+  - {key: x.active_power_l2, label: Active power L2, table: input, address: 2532, type: f32, unit: W}
+  - {key: x.active_power_l3, label: Active power L3, table: input, address: 2534, type: f32, unit: W}
+  - {key: x.active_power_total, label: Active power total, table: input, address: 2536, type: f32, unit: W}
+  - {key: x.reactive_power_l1, label: Reactive power L1, table: input, address: 2538, type: f32, unit: var}
+  - {key: x.reactive_power_l2, label: Reactive power L2, table: input, address: 2540, type: f32, unit: var}
+  - {key: x.reactive_power_l3, label: Reactive power L3, table: input, address: 2542, type: f32, unit: var}
+  - {key: reactive_power, label: Reactive power total, table: input, address: 2544, type: f32, unit: var}
+  - {key: x.apparent_power_l1, label: Apparent power L1, table: input, address: 2546, type: f32, unit: VA}
+  - {key: x.apparent_power_l2, label: Apparent power L2, table: input, address: 2548, type: f32, unit: VA}
+  - {key: x.apparent_power_l3, label: Apparent power L3, table: input, address: 2550, type: f32, unit: VA}
+  - {key: apparent_power, label: Apparent power total, table: input, address: 2552, type: f32, unit: VA}
+  - {key: x.power_factor_l1, label: Power factor L1, table: input, address: 2554, type: f32}
+  - {key: x.power_factor_l2, label: Power factor L2, table: input, address: 2556, type: f32}
+  - {key: x.power_factor_l3, label: Power factor L3, table: input, address: 2558, type: f32}
+  - {key: power_factor, label: Power factor total, table: input, address: 2560, type: f32}
+  - {key: x.power_angle_l1, label: Power angle L1, table: input, address: 2570, type: f32, unit: °}
+  - {key: x.power_angle_l2, label: Power angle L2, table: input, address: 2572, type: f32, unit: °}
+  - {key: x.power_angle_l3, label: Power angle L3, table: input, address: 2574, type: f32, unit: °}
+  - {key: x.power_angle_total, label: Power angle total, table: input, address: 2576, type: f32, unit: °}
+  - {key: frequency, label: Frequency, table: input, address: 2584, type: f32, unit: Hz}
+  - {key: x.thd_current_l1, label: Thd current L1, table: input, address: 2588, type: f32, unit: '%'}
+  - {key: x.thd_current_l2, label: Thd current L2, table: input, address: 2590, type: f32, unit: '%'}
+  - {key: x.thd_current_l3, label: Thd current L3, table: input, address: 2592, type: f32, unit: '%'}
+  - {key: x.thd_voltage_l1, label: Thd voltage L1, table: input, address: 2594, type: f32, unit: '%'}
+  - {key: x.thd_voltage_l2, label: Thd voltage L2, table: input, address: 2596, type: f32, unit: '%'}
+  - {key: x.thd_voltage_l3, label: Thd voltage L3, table: input, address: 2598, type: f32, unit: '%'}
+  - {key: temperature, label: Temperature, table: input, address: 2658, type: f32, unit: °C}
+
+enums:
+  counter_unit: {'0': none, '1': Wh, '2': varh, '3': VAh}
+  counter_direction: {'3': export, '6': import, '9': export, '12': import, '15': bidirectional}
+
+notes:
+- 'pyiskra''s defaults: unit 33, TCP port 10001, serial 115200 baud 8N2; at most 120 registers per request.'
+- Identification as pyiskra recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

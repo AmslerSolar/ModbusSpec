@@ -1,0 +1,144 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the VTS WING Modbus RTU manual [PL] ("Instrukcja integracji urządzenia na magistrali Modbus RTU",
+# 1.3 on the cover, 1.4 in the page headers).
+
+modbusspec: 0
+id: vts-wing
+manufacturer: VTS
+name: WING air curtain controller (fan speed, electric heater, door contact)
+kind: ventilation
+
+sources:
+- title: WING Modbus RTU – manual [PL] (Instrukcja integracji urządzenia na magistrali Modbus RTU)
+  version: 1.3 / 1.4
+  url: https://vtsgroup.com/files/document-files/2507/WING%20Modbus%20RTU%20-%20manual%20%5BPL%5D.pdf
+  sha256: 1b72ea1d30f25c9420b66f51e793644884c83b8c71d38829509d1cdb5d3d0f46
+  archive_url: https://web.archive.org/web/20240704145501/https://vtsgroup.com/files/document-files/2507/WING%20Modbus%20RTU%20-%20manual%20%5BPL%5D.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # baud rate / 10
+  - table: holding
+    address: 0
+    type: u16
+    in:
+    - 480
+    - 960
+    - 1920
+    - 3840
+  # parity as ASCII 'e' / 'n' / 'o'
+  - table: holding
+    address: 1
+    type: u16
+    in:
+    - 101
+    - 110
+    - 111
+  # available modes
+  - table: holding
+    address: 18
+    type: u16
+    in:
+    - 1
+    - 2
+    - 3
+
+points:
+  # Live values
+  - {key: x.room_temperature, label: MB_ADDR_ZONE_TEMPERATURE_ACTUAL, table: input, address: 0, type: s16, unit: °C, scale: 0.01, invalid: [-32768], note: Room temperature at the unit's built-in NTC sensor. −32768 = sensor broken.}
+  - {key: x.schedule_state, label: MB_ADDR_ZONE_ACTUAL_PROGRAM_STATE, table: input, address: 1, type: u16, enum: schedule_state}
+  - {key: x.door_open, label: MB_ADDR_INPUT_1 (door contact), table: discrete, address: 0, type: bool, enum: door}
+  - {key: x.sensor_active, label: MB_ADDR_NTC_1_ACTIVE, table: discrete, address: 1, type: bool, enum: no_yes, note: 0 when the built-in temperature sensor is faulty.}
+  - {key: x.heater_stage_1, label: MB_ADDR_STATE_OUTPUT_1 (relay J1-H1), table: coil, address: 0, type: bool, enum: off_on, note: Read only.}
+  - {key: x.heater_stage_2, label: MB_ADDR_STATE_OUTPUT_2 (relay J1-H2), table: coil, address: 1, type: bool, enum: off_on, note: Read only.}
+  - {key: x.fan_voltage, label: MB_ADDR_FAN_ACTUAL_POWER_VOLT, table: holding, address: 12, type: u16, unit: V, scale: 0.01, note: Present 0–10 V fan control output. Read only.}
+  # Operation
+  - {key: x.power_on, label: MB_ADDR_POWER_ON_OFF, table: coil, address: 2, type: bool, enum: off_on, writable: true, persistent: true, note: Same as pressing the power button.}
+  - {key: x.available_modes, label: MB_ADDR_ZONE_AVAILABLE_MODE, table: holding, address: 18, type: u16, enum: available_modes, writable: true, poll: slow}
+  - {key: x.program, label: MB_ADDR_ZONE_PROGRAM, table: holding, address: 19, type: u16, enum: program, writable: true, poll: slow}
+  - {key: x.mode_condition, label: MB_ADDR_ZONE_MODE_CONDITION, table: holding, address: 20, type: u16, enum: mode_condition, writable: true, poll: slow, note: 'What drives heater and fan: door (heat when open and below target, both off when closed), room (heat below target), or both.'}
+  - {key: state, label: MB_ADDR_ZONE_MODE, table: holding, address: 21, type: u16, enum: zone_mode, writable: true}
+  - {key: x.fan_speed, label: MB_ADDR_ZONE_FAN_SPEED, table: holding, address: 22, type: u16, writable: true, min: 0, max: 3, note: In ventilation mode the present fan speed; in heating modes the speed used when the heater runs. 0 only in ventilation mode.}
+  - {key: x.target_temperature, label: MB_ADDR_ZONE_TEMPERATURE_TARGET, table: holding, address: 23, type: u16, unit: °C, scale: 0.01, writable: true, note: 'Between the min (25) and max (26) settings, rounded to 0.5. In °F when the unit is set to °F (coil 5).'}
+  - {key: x.temperature_hysteresis, label: MB_ADDR_ZONE_TEMPERATURE_DELTA, table: holding, address: 24, type: u16, unit: °C, scale: 0.01, writable: true, min: 0.5, max: 2, poll: slow}
+  - {key: x.target_temperature_min, label: MB_ADDR_ZONE_TEMPERATURE_MIN, table: holding, address: 25, type: u16, unit: °C, scale: 0.01, writable: true, poll: slow, note: From 5 °C (41 °F) to max − 5 °C (− 9 °F).}
+  - {key: x.target_temperature_max, label: MB_ADDR_ZONE_TEMPERATURE_MAX, table: holding, address: 26, type: u16, unit: °C, scale: 0.01, writable: true, poll: slow, note: From min + 5 °C (+ 9 °F) to 40 °C (104 °F).}
+  - {key: x.door_boost, label: MB_ADDR_DOOR_OPTIMUM, table: holding, address: 40, type: u16, writable: true, min: 0, max: 3, poll: slow, note: Fan speeds added while the door is open.}
+  # Fan output settings
+  - {key: x.fan_speed1_voltage, label: MB_ADDR_FAN_POWER_1_VOLT, table: holding, address: 13, type: u16, unit: V, scale: 0.01, poll: slow, note: Output voltage for speed 1 (default 6.50 V). Read only.}
+  - {key: x.fan_speed2_voltage, label: MB_ADDR_FAN_POWER_2_VOLT, table: holding, address: 14, type: u16, unit: V, scale: 0.01, poll: slow, note: Default 8.00 V. Read only.}
+  - {key: x.fan_speed3_voltage, label: MB_ADDR_FAN_POWER_3_VOLT, table: holding, address: 15, type: u16, unit: V, scale: 0.01, poll: slow, note: Default 9.00 V. Read only.}
+  - {key: x.fan_offset_voltage, label: MB_ADDR_FAN_ADDITIONAL_VOLT, table: holding, address: 16, type: u16, unit: V, scale: 0.01, writable: true, min: 0, max: 4, poll: slow, note: Added to the speed voltage.}
+  - {key: x.fan_off_delay, label: MB_ADDR_FAN_DELAY_OFF_TIME, table: holding, address: 17, type: u16, unit: s, writable: true, min: 30, max: 200, poll: slow, note: Fan run-on after the heater switches off.}
+  - {key: x.fan_cooling_voltage, label: MB_ADDR_FAN_COOLING_VOLT, table: holding, address: 41, type: u16, unit: V, scale: 0.01, writable: true, min: 5, max: 10, poll: slow, note: Minimum fan voltage while the heater cools down.}
+  # Schedule: minutes since midnight, 15-minute steps
+  - {key: x.schedule_weekday_1_start, label: MB_ADDR_ZONE_SCHEDULE_MON_FRI_WORK_1_START, table: holding, address: 27, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_weekday_1_stop, label: MB_ADDR_ZONE_SCHEDULE_MON_FRI_WORK_1_STOP, table: holding, address: 28, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_weekday_2_start, label: MB_ADDR_ZONE_SCHEDULE_MON_FRI_WORK_2_START, table: holding, address: 29, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_weekday_2_stop, label: MB_ADDR_ZONE_SCHEDULE_MON_FRI_WORK_2_STOP, table: holding, address: 30, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_saturday_1_start, label: MB_ADDR_ZONE_SCHEDULE_SAT_WORK_1_START, table: holding, address: 31, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_saturday_1_stop, label: MB_ADDR_ZONE_SCHEDULE_SAT_WORK_1_STOP, table: holding, address: 32, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_saturday_2_start, label: MB_ADDR_ZONE_SCHEDULE_SAT_WORK_2_START, table: holding, address: 33, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_saturday_2_stop, label: MB_ADDR_ZONE_SCHEDULE_SAT_WORK_2_STOP, table: holding, address: 34, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_sunday_1_start, label: MB_ADDR_ZONE_SCHEDULE_SUN_WORK_1_START, table: holding, address: 35, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_sunday_1_stop, label: MB_ADDR_ZONE_SCHEDULE_SUN_WORK_1_STOP, table: holding, address: 36, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_sunday_2_start, label: MB_ADDR_ZONE_SCHEDULE_SUN_WORK_2_START, table: holding, address: 37, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  - {key: x.schedule_sunday_2_stop, label: MB_ADDR_ZONE_SCHEDULE_SUN_WORK_2_STOP, table: holding, address: 38, type: datetime, length: 1, datetime: {hour: {register: 0, div: 60}, minute: {register: 0, mod: 60}}, writable: true, poll: slow}
+  # Clock and display
+  - {key: x.clock, label: MB_ADDR_RTC_YEAR … MB_ADDR_RTC_SECOND, table: holding, address: 6, type: datetime, length: 6, datetime: {year: {register: 0, offset: 2000}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, writable: true, poll: slow, note: Year 0–99; the 2000 offset is assumed.}
+  - {key: x.weekday, label: MB_ADDR_RTC_WEEK_DAY, table: holding, address: 5, type: u16, enum: weekday, writable: true, poll: slow}
+  - {key: x.keypad_locked, label: MB_ADDR_LOCK_KEYPAD, table: coil, address: 4, type: bool, enum: no_yes, writable: true, poll: slow}
+  - {key: x.celsius, label: MB_ADDR_TEMP_UNIT, table: coil, address: 5, type: bool, enum: temp_unit, writable: true, poll: slow}
+  - {key: x.clock_24h, label: MB_ADDR_CLOCK_FORMAT, table: coil, address: 6, type: bool, enum: clock_format, writable: true, poll: slow}
+  # Communication and sensor settings
+  - {key: x.baud_rate, label: MB_ADDR_BAUDRATE, table: holding, address: 0, type: u16, unit: bit/s, scale: 10, writable: true, poll: slow, note: 480 / 960 / 1920 / 3840 = 4800 / 9600 / 19200 / 38400 bit/s. Write alone (one register per request).}
+  - {key: x.parity, label: MB_ADDR_PARITY_MODE, table: holding, address: 1, type: u16, enum: parity, writable: true, poll: slow, note: Write alone (one register per request).}
+  - {key: x.unit_address, label: MB_ADDR_SLAVE_ADDR, table: holding, address: 2, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Write alone (one register per request).}
+  - {key: x.sensor_correction, label: MB_ADDR_NTC_1_CORRECT, table: holding, address: 3, type: s16, unit: °C, scale: 0.01, writable: true, min: -8, max: 8, poll: slow, note: Write alone (one register per request).}
+  - {key: x.sensor_period, label: MB_ADDR_NTC_PERIOD, table: holding, address: 4, type: u16, unit: s, scale: 0.1, writable: true, poll: slow, note: Interval between temperature measurements.}
+
+enums:
+  schedule_state: {'0': Continuous (no schedule), '1': In heating period 1, '2': Between period 1 and period 2, '3': In heating period 2, '4': 'After period 2, before period 1'}
+  door: {'0': Closed, '1': Open}
+  no_yes: {'0': 'No', '1': 'Yes'}
+  off_on: {'0': 'Off', '1': 'On'}
+  available_modes: {'1': Ventilation only, '2': Heating only, '3': Ventilation and heating}
+  program: {'0': Continuous, '1': Schedule}
+  mode_condition: {'0': Door, '1': Room, '2': Door and room}
+  zone_mode: {'0': Ventilation (heater off), '1': Heating stage I (output H1), '2': Heating stage II (outputs H1 + H2)}
+  weekday: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  temp_unit: {'0': °F, '1': °C}
+  clock_format: {'0': 12 h (AM/PM), '1': 24 h}
+  parity: {'101': 'Even, 1 stop bit (''e'')', '110': 'None, 2 stop bits (''n'')', '111': 'Odd, 1 stop bit (''o'')'}
+
+problems:
+  - {when: {key: x.sensor_active, equals: 0}, kind: fault, text: Room temperature sensor inactive or broken}
+
+notes:
+- 'Modbus RTU on RS485 (terminal J3: B, A, ground). Defaults: unit 1, 9600 bit/s, even parity, 1 stop bit. Functions 01, 02,
+  03, 04, 05, 06, 15 and 16. Reading or writing an address that doesn''t exist returns an exception. Port 502 is only for
+  a Modbus TCP gateway on the RS485 line; the document names none.'
+- Addresses are the PDU (protocol) addresses the document lists, 0-based. Holding register 39 is not listed.
+- Registers 0–3 (baud rate, parity, unit address, sensor correction) must each be written in a request of their own; writing
+  several at once is refused.
+- Temperatures are in °C or °F, following coil 5 (the document gives 1 = °C, 0 = °F, default 0); the measured room temperature
+  is always given in °C. Settings rounded to 0.5 degrees; schedule times to 15 minutes.
+- Fan output voltage = speed voltage (13–15 for speeds 1–3) + offset (16), ÷ 100 V.
+- Coil 3 (restore defaults) resets the communication, fan, mode, temperature and schedule settings and coils 2, 4, 5 and 6;
+  left out here.
+- 'The schedule periods are heating periods: start before stop, 00:00–23:45.'

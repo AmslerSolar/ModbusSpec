@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Yosemitech Y560-NH4 Modbus (v2020-05-11).
+
+modbusspec: 0
+id: yosemitech-y560
+manufacturer: Yosemitech
+name: Y560 self-cleaning ammonium (NH4-N) sensor
+kind: io
+
+sources:
+- title: Yosemitech NH4_N Sensor Modbus RTU Programmer Manual (Y560-NH4 Modbus)
+  version: '2020-05-11'
+  url: https://github.com/EnviroDIY/YosemitechModbus/blob/0d300ac8fad83a24e979ee278fd00111ca6c8943/doc/Y560-NH4_Modbus_v2020-05-11.pdf
+  sha256: a2e01691c716d2df8e38c4f743c5c4f332c23b1fb2a9d2b3c0055e7dabf97ea9
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+  write_multiple: true
+
+encoding:
+  byte_order: little
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 2304
+    type: str
+    length: 7
+    byte_order: big
+
+points:
+  # Measurements
+  - {key: x.ammonia_nitrogen, label: NH3_N, table: holding, address: 10240, type: f32, unit: mg/L, note: 'Ammonia nitrogen, temperature compensated.'}
+  - {key: x.potassium, label: K+, table: holding, address: 10242, type: f32, unit: mg/L, note: The document says the K+ value is ignored for now.}
+  - {key: x.ammonium, label: NH4+, table: holding, address: 10244, type: f32, unit: mg/L, note: Temperature compensated.}
+  - {key: x.water_temperature, label: Temperature, table: holding, address: 9216, type: f32, unit: °C}
+  - {key: x.orp, label: Potential value, table: holding, address: 9728, type: f32, unit: mV, note: Potential of the reference pH electrode; can be negative.}
+  - {key: x.ph, label: pH value, table: holding, address: 9730, type: f32, unit: pH}
+  - {key: x.ammonium_mv, label: NH4+ (mV), table: holding, address: 14080, type: f32, unit: mV, note: Raw electrode potential.}
+  - {key: x.potassium_mv, label: K+ (mV), table: holding, address: 14082, type: f32, unit: mV, note: Raw electrode potential; the document says the K+ value is ignored for now.}
+  # Calibration and settings
+  - {key: x.ph_calibration_k, label: pH user calibration coefficient K, table: holding, address: 4352, type: f32, writable: true, poll: slow, note: Final value = K × value + B; default K = 1.}
+  - {key: x.ph_calibration_b, label: pH user calibration coefficient B, table: holding, address: 4354, type: f32, writable: true, poll: slow, note: Default B = 0.}
+  - {key: x.nh3n_calibration_k, label: NH3_N user calibration coefficient K, table: holding, address: 13312, type: f32, writable: true, poll: slow, note: Default K = 1.}
+  - {key: x.nh3n_calibration_b, label: NH3_N user calibration coefficient B, table: holding, address: 13314, type: f32, writable: true, poll: slow, note: Default B = 0.}
+  - {key: x.nh4_calibration_k, label: NH4+ user calibration coefficient K, table: holding, address: 13824, type: f32, writable: true, poll: slow, note: Default K = 1.}
+  - {key: x.nh4_calibration_b, label: NH4+ user calibration coefficient B, table: holding, address: 13826, type: f32, writable: true, poll: slow, note: Default B = 0.}
+  - {key: x.brush_interval, label: Brush interval of time, table: holding, address: 12800, type: u16, unit: min, writable: true, poll: slow, note: Time between wiper rotations; default 30 min.}
+  - {key: x.modbus_address, label: Slave address, table: holding, address: 12288, type: u16, bits: [0, 7], writable: true, min: 1, max: 247, poll: slow, note: 'First byte of the register, the second is reserved. The document reads it with unit id 0xFF.'}
+  # Identity
+  - {key: serial, label: SN, table: holding, address: 2304, type: str, length: 7, byte_order: big, poll: slow, note: '14 bytes: one reserved byte, 12 ASCII characters (e.g. YL1014010022), one reserved byte.'}
+  - {key: x.hardware_version, label: HW Rev, table: holding, address: 1792, type: u16, byte_order: big, poll: slow, note: 'High byte major, low byte minor: 0x0100 = 1.0.'}
+  - {key: firmware, label: SW Rev, table: holding, address: 1793, type: u16, byte_order: big, poll: slow, note: 'High byte major, low byte minor: 0x0100 = 1.0.'}
+
+notes:
+- For self-cleaning NH4_N probes with hardware Rev 1.0 and software Rev 1.6 or later.
+- Addresses are the start addresses in the document's request frames (0-based protocol addresses, as written). The document's
+  remark that addresses start at 1 is general Modbus text and doesn't apply to them.
+- Only function 03 is supported for reading.
+- 'Floats are IEEE 754 single precision stored fully little-endian (7.6 comes as bytes 33 33 F3 40): low word first, low byte
+  first. The slave address and the brush interval are in the first byte / little-endian; serial and revision bytes are in
+  transmission order.'
+- The document labels the first value at 0x2800 both NH3_N and NH4_N; it is the ammonia nitrogen reading the procedure asks
+  for.
+- 'Commands left out (no value to read): stop measurement (read one register at 0x2E00), wipe now (write zero registers at
+  0x3100; the document advises wiping once after power-on, then waiting at least 20 s before reading). Left out: the pH electrode
+  coefficients K1–K6 (6 floats from 0x2900).'
+- The document recommends averaging 10 readings, read 2 s apart.
+- 'No problems listed: the document gives no fault or alarm register.'
+- 'Not stated in the document: a default unit id; 1 (the address used in the examples) is assumed.'

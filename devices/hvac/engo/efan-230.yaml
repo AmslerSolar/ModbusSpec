@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Engo Controls "Protokół Modbus RTU dla regulatora EFAN-230" / "EFAN-230 parametry Modbus" (v1.4).
+
+modbusspec: 0
+id: engo-efan-230
+manufacturer: Engo Controls
+name: EFAN-230 fan coil controller
+kind: hvac
+
+sources:
+- title: Protokół Modbus RTU dla regulatora EFAN-230 — EFAN-230 parametry Modbus (Polish quick guide)
+  version: '1.4'
+  url: https://engocontrols.com/wp-content/uploads/2024/12/PL_EFAN-230_QG-A4-PL-Parametry-MODBUS-v1.4.pdf
+  sha256: 0e79a6506b037f160584ce138c38b7f66529a9dcc386eda21cd5f5d6cd132cd5
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Input registers (read only)
+  - {key: x.firmware_version, label: Wersja oprogramowania (software version), table: input, address: 1, type: bcd16, poll: slow, verified: false, note: 'BCD digits: 0x1110 = 1.1.10.'}
+  - {key: state, label: Status pracy (operating status), table: input, address: 2, type: u16, enum: status, verified: false}
+  - {key: x.room_temperature, label: Temperatura czujnika wewnętrznego (internal sensor), table: input, address: 3, type: u16, unit: °C, scale: 0.1, verified: false, note: 50–500 (5.0–50.0 °C).}
+  - {key: x.s1_value, label: Czujnik zewnętrzny S1 (external sensor S1), table: input, address: 5, type: u16, verified: false, optional: true, note: 'With a temperature sensor: 50–500 = 5.0–50.0 °C (scale 0.1). With a contact input: 0 = open, 1 = closed. Raw value given; depends on the S1 configuration (holding 235).'}
+  - {key: x.s2_value, label: Czujnik zewnętrzny S2 (external sensor S2), table: input, address: 6, type: u16, verified: false, optional: true, note: As S1; depends on the S2 configuration (holding 236).}
+  - {key: x.fan_status, label: Status wentylatora (fan status), table: input, address: 7, type: u16, enum: fan, verified: false}
+  - {key: x.valve1, label: Status zaworu V1 (valve V1), table: input, address: 8, type: u16, unit: '%', scale: 0.1, verified: false, note: '0 = closed, 1000 = fully open.'}
+  - {key: x.valve2, label: Status zaworu V2 (valve V2), table: input, address: 9, type: u16, unit: '%', scale: 0.1, verified: false, note: '0 = closed, 1000 = fully open.'}
+  - {key: x.humidity, label: Pomiar wilgotności (humidity), table: input, address: 10, type: u16, unit: '%', verified: false, note: '0–100 %, shown in 5 % steps.'}
+  # Holding registers (read / write with function 06)
+  - {key: x.fan_coil_type, label: Typ klimakonwektora (fan coil type), table: holding, address: 234, type: u16, enum: fan_coil_type, writable: true, poll: slow}
+  - {key: x.s1_config, label: Konfiguracja wejścia S1 (P01), table: holding, address: 235, type: u16, enum: s1_config, writable: true, poll: slow}
+  - {key: x.s2_config, label: Konfiguracja wejścia S2 (P02), table: holding, address: 236, type: u16, enum: s2_config, writable: true, poll: slow}
+  - {key: x.eco_enabled, label: Możliwość wyboru trybu ECO (P07), table: holding, address: 237, type: u16, enum: no_yes, writable: true, poll: slow}
+  - {key: x.eco_setpoint_heating, label: Temperatura ECO grzanie (P08), table: holding, address: 238, type: u16, unit: °C, scale: 0.1, writable: true, min: 5, max: 45, poll: slow}
+  - {key: x.eco_setpoint_cooling, label: Temperatura ECO chłodzenie (P09), table: holding, address: 239, type: u16, unit: °C, scale: 0.1, writable: true, min: 5, max: 45, poll: slow}
+  - {key: x.floor_max, label: Maksymalna temperatura podłogi (P20), table: holding, address: 250, type: u16, unit: °C, scale: 0.1, writable: true, min: 5, max: 45, poll: slow}
+  - {key: x.floor_min, label: Minimalna temperatura podłogi (P21), table: holding, address: 251, type: u16, unit: °C, scale: 0.1, writable: true, min: 5, max: 45, poll: slow}
+  - {key: x.fan_enabled, label: Praca wentylatora (FAN), table: holding, address: 256, type: u16, enum: no_yes, writable: true, poll: slow}
+  - {key: x.power, label: Power on/off, table: holding, address: 257, type: u16, enum: off_on, writable: true}
+  - {key: x.operating_mode, label: Tryb pracy (operating mode), table: holding, address: 258, type: u16, enum: operating_mode, writable: true}
+  - {key: x.fan_speed, label: Ustawienie prędkości wentylatora (fan speed setting), table: holding, address: 260, type: u16, enum: fan, writable: true}
+  - {key: x.key_lock, label: Blokada klawiszy (key lock), table: holding, address: 262, type: u16, enum: key_lock, writable: true, poll: slow}
+  - {key: x.clock, label: 'Zegar (clock, minutes and hours)', table: holding, address: 268, type: datetime, length: 2, datetime: {minute: {register: 0}, hour: {register: 1}}, writable: true, poll: slow}
+  - {key: x.weekday, label: Zegar - dzień tygodnia (weekday), table: holding, address: 270, type: u16, enum: weekday, writable: true, poll: slow}
+  - {key: x.setpoint_schedule, label: Temperatura zadana - harmonogram (schedule setpoint), table: holding, address: 273, type: u16, unit: °C, scale: 0.1, writable: true, min: 5, max: 45}
+  - {key: x.setpoint_manual, label: Temperatura zadana - tryb ręczny (manual setpoint), table: holding, address: 274, type: u16, unit: °C, scale: 0.1, writable: true, min: 5, max: 45}
+  - {key: x.setpoint_frost, label: Temperatura zadana - FROST (frost setpoint), table: holding, address: 275, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.setpoint_max, label: Maksymalna temperatura zadana (maximum setpoint), table: holding, address: 279, type: u16, unit: °C, scale: 0.1, writable: true, min: 5, max: 45, poll: slow}
+  - {key: x.setpoint_min, label: Minimalna temperatura zadana (minimum setpoint), table: holding, address: 280, type: u16, unit: °C, scale: 0.1, writable: true, min: 5, max: 45, poll: slow}
+  - {key: x.temperature_correction, label: Korekta wyświetlanej temperatury (temperature correction), table: holding, address: 285, type: s16, unit: °C, scale: 0.1, writable: true, min: -3, max: 3, poll: slow, verified: false, note: Signed type assumed from the range.}
+  - {key: x.heat_cool, label: Wybór grzanie / chłodzenie (heating / cooling), table: holding, address: 288, type: u16, enum: heat_cool, writable: true}
+
+enums:
+  status: {'0': 'idle, mode OFF', '2': 'idle, relays off', '8': 'idle, internal sensor error', '129': heating, '136': cooling}
+  fan: {'0': 'off', '1': speed I (low), '2': speed II (medium), '4': speed III (high), '8': 'auto, off', '9': 'auto, speed I', '10': 'auto, speed II', '12': 'auto, speed III'}
+  fan_coil_type: {'1': 2-pipe heating only, '2': 2-pipe cooling only, '3': 2-pipe heating and cooling, '4': 2-pipe floor heating, '5': 4-pipe heating and cooling, '6': 4-pipe floor heating and fan coil cooling}
+  s1_config: {'0': inactive (heating / cooling by buttons), '1': 'heating / cooling change-over contact (open = heating, closed = cooling)', '2': automatic change-over by pipe temperature (2-pipe), '3': 'fan release by pipe temperature, manual change-over', '4': floor sensor}
+  s2_config: {'0': inactive, '1': occupancy sensor (open = ECO), '2': external temperature sensor}
+  no_yes: {'0': 'no', '1': 'yes'}
+  off_on: {'0': 'off', '1': 'on'}
+  operating_mode: {'0': schedule, '1': manual, '3': frost protection}
+  key_lock: {'0': unlocked, '1': locked}
+  heat_cool: {'0': heating, '1': cooling}
+  weekday: {'1': Monday, '2': Tuesday, '3': Wednesday, '4': Thursday, '5': Friday, '6': Saturday, '7': Sunday}
+
+problems:
+  - {when: {key: state, equals: 8}, kind: fault, text: Internal temperature sensor error}
+
+notes:
+- The document is in Polish. Addresses are given as decimal and hex protocol addresses and used as they are.
+- The read-only table is headed as input registers and the document lists function 04 for input registers, but the table's
+  own function column says 03, and the holding table's column says 04 for reading address 0. Input (04) for the read-only
+  values and holding (03 / 06) for the settings is assumed; not verified.
+- 'Holding address 0 repeats the Modbus address (1–247) and input address 0 likewise; left out. Left out as well: fan delta
+  / hysteresis / dead-band parameters (P10–P19), the installer PIN (P23, P24) and display settings.'
+- 'Defaults per the document: address 1, 9600 bps, no parity, 1 stop bit (4800–38400 bps, even / odd parity and 2 stop bits
+  are selectable).'
+- The introduction and wiring picture mention EFAN-24 units; the register tables are titled EFAN-230.
+- The status values are given as bit patterns; only the listed combinations are named.

@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Uumotor MSSD-60EHB_2D Brushless Motor Driver RS485 Communication Protocol & Register Manual
+# (Version 1.3).
+
+modbusspec: 0
+id: uumotor-mssd-60ehb
+manufacturer: Uumotor
+name: MSSD-60EHB_2D dual brushless motor driver
+kind: other
+
+sources:
+- title: MSSD-60EHB_2D Brushless Motor Driver RS485 Communication Protocol & Register Manual
+  version: '1.3'
+  url: https://www.uumotor.com/wp-content/uploads/2026/09/MSSD-60EHB_2D_RS485_Communication_Protocol_Manual_V1.3.pdf
+  sha256: 5b465b36333ea808f5077cd610fed5e17a01677ab8c85bfa8cf1bc22ca78683e
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 100
+    max_gap: 0
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Identity
+  - {key: x.device_id, label: Device ID, table: holding, address: 0, type: u16, poll: slow, note: Identifies the model; the document gives no values.}
+  - {key: x.firmware_major, label: Firmware version (major), table: holding, address: 1, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.firmware_minor, label: Firmware version (minor), table: holding, address: 1, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.rated_max_current, label: Max current, table: holding, address: 2, type: u16, unit: A, scale: 0.01, poll: slow}
+
+  # Live values (the document lists only a selection of the status registers)
+  - {key: x.right_bus_current, label: Right motor bus current, table: holding, address: 7, type: u16, unit: A, scale: 0.01, poll: fast, verified: false, note: Signedness not stated; unsigned assumed.}
+  - {key: x.right_phase_current, label: Right motor phase current, table: holding, address: 8, type: u16, unit: A, scale: 0.01, poll: fast, verified: false, note: Signedness not stated; unsigned assumed.}
+  - {key: x.right_speed, label: Right motor speed, table: holding, address: 9, type: s32, unit: rpm, poll: fast, verified: false, note: '32-bit, high word first. Signedness (reverse direction) not stated; signed assumed.'}
+  - {key: x.right_error_state, label: Right motor error state, table: holding, address: 11, type: u16, enum: motor_error, poll: fast, note: The document lists only some codes ("etc.").}
+  - {key: x.left_bus_current, label: Left motor bus current, table: holding, address: 18, type: u16, unit: A, scale: 0.01, poll: fast, verified: false, note: 'Scale 0.01 A stated; signedness not stated, unsigned assumed.'}
+  - {key: x.left_speed, label: Left motor speed, table: holding, address: 20, type: s32, unit: rpm, poll: fast, verified: false, note: '32-bit, high word first. Signedness not stated; signed assumed.'}
+  - {key: x.bus_voltage, label: Bus voltage, table: holding, address: 29, type: u16, unit: V, poll: fast, verified: false, note: 'Unit V stated; no scaling given, 1 V per count assumed.'}
+  - {key: x.system_mode, label: System mode, table: holding, address: 30, type: u16, enum: system_mode, poll: slow}
+
+  # Motor parameters
+  - {key: x.max_output_current, label: Max output current, table: holding, address: 80, type: u16, unit: A, scale: 0.01, writable: true, min: 0.5, max: 60, poll: slow}
+  - {key: x.forward_max_speed, label: Forward max speed, table: holding, address: 81, type: u32, unit: rpm, writable: true, min: 0, max: 110000, poll: slow}
+  - {key: x.closed_loop_accel, label: Closed-loop acceleration, table: holding, address: 87, type: u16, unit: rpm/s, writable: true, min: 100, max: 65535, poll: slow}
+  - {key: x.right_pole_pairs, label: Right motor pole pairs, table: holding, address: 94, type: u16, writable: true, poll: slow}
+
+  # Communication parameters
+  - {key: x.modbus_address, label: 485 device address, table: holding, address: 192, type: u16, writable: true, min: 1, max: 255, poll: slow, note: Used only when switch SW1 is on.}
+  - {key: x.baud_rate, label: 485 baud rate, table: holding, address: 193, type: u16, enum: baud_rate, writable: true, poll: slow, note: 0…4; only the end points are named in the document. Used only when switch SW1 is on.}
+  - {key: x.timeout_brake, label: 485 timeout brake, table: holding, address: 195, type: u16, unit: s, writable: true, poll: slow, note: 0 = disabled.}
+
+enums:
+  motor_error: {'0': No error, '1': Stall, '4': Overcurrent}
+  system_mode: {'0': Independent open loop, '1': Independent closed loop, '4': Differential closed loop}
+  baud_rate: {'0': '9600', '4': '115200'}
+
+problems:
+  - {when: {key: x.right_error_state, not: 0}, kind: fault, text: 'Right motor error ({text}, code {value})'}
+
+notes:
+- Modbus RTU over RS485, functions 03, 06 and 10. 9600 baud 8N1, unit id 1 by default; with switch SW1 on, address (1…255),
+  baud rate (9600…115200) and parity (even/odd with 1 stop bit, none with 2) come from the communication registers. The document
+  gives 0-based hex addresses, used as they are. Writes with function 10 are stored in flash, writes with function 06 are
+  volatile.
+- 'The register tables are a selection: system, application and PID parameter sections are named but not listed, and no error
+  register for the left motor is given. Not included as points (write-only): 0x0038 stop (0 normal, 1 emergency, 2 free-wheel),
+  0x0039–0x003A control target (speed in rpm or PWM in 0.1 %, 32-bit), 0x003B right brake (0 open, 1 closed), 0x0040 factory
+  reset (write 1), 0x0041 phase learning (1 left, 2 right).'
+- 'No identification: the Device ID register''s values are not given in the document.'

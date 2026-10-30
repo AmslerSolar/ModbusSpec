@@ -1,0 +1,249 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Daly "Modbus protocol" register table (BMS / protection board, spreadsheet, undated), checked
+# against the other translation of the same table, "dalyModbusProtocol" (undated).
+
+modbusspec: 0
+id: daly-bms
+manufacturer: Daly
+name: Smart BMS (protection board, RS485 Modbus)
+kind: battery
+
+sources:
+- title: Modbus protocol (Daly BMS protection board protocol description, spreadsheet)
+  version: undated (archived at commit b7233c92f2d4988e25ff21a970492bf74d6c0be4)
+  url: https://github.com/syssi/esphome-daly-bms/blob/b7233c92f2d4988e25ff21a970492bf74d6c0be4/docs/Modbus%20protocol.xlsx
+  sha256: 658427ff811c132cf97a24031cfdac1fe8e96cd09f194f5c5dc61ca62bd8736a
+- title: dalyModbusProtocol (Daly BMS protocol description, spreadsheet, other translation)
+  version: undated (archived at commit b7233c92f2d4988e25ff21a970492bf74d6c0be4)
+  url: https://github.com/syssi/esphome-daly-bms/blob/b7233c92f2d4988e25ff21a970492bf74d6c0be4/docs/dalyModbusProtocol.xlsx
+  sha256: 4e21d8813f7bbc08ca6e90211380a0cea862ab253aa990355c4fde700bab5dc0
+
+connection:
+  default_port: 502
+  default_unit: 210
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # charge / discharge state
+  - table: holding
+    address: 47
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+  # balancing
+  - table: holding
+    address: 52
+    type: u16
+    in:
+    - 0
+    - 1
+  # charge MOS
+  - table: holding
+    address: 53
+    type: u16
+    in:
+    - 0
+    - 1
+  # discharge MOS
+  - table: holding
+    address: 54
+    type: u16
+    in:
+    - 0
+    - 1
+  # number of cells
+  - table: holding
+    address: 49
+    type: u16
+    range:
+    - 1
+    - 48
+  # battery type
+  - table: holding
+    address: 137
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+
+points:
+  # Live data (0x28 ff.)
+  - {key: battery_voltage, label: Total battery voltage, table: holding, address: 40, type: u16, unit: V, scale: 0.1}
+  - {key: battery_current, label: Current, table: holding, address: 41, type: u16, unit: A, scale: 0.1, offset: -3000, positive: discharge, note: 'Raw value 30000 = 0 A; above = discharging, below = charging.'}
+  - {key: battery_soc, label: SOC, table: holding, address: 42, type: u16, unit: '%', scale: 0.1, note: Raw 800 = 80 %.}
+  - {key: x.max_cell_voltage, label: Maximum cell voltage, table: holding, address: 43, type: u16, unit: V, scale: 0.001}
+  - {key: x.min_cell_voltage, label: Lowest cell voltage, table: holding, address: 44, type: u16, unit: V, scale: 0.001}
+  - {key: x.max_temperature, label: Maximum cell temperature, table: holding, address: 45, type: u16, unit: °C, offset: -40}
+  - {key: x.min_temperature, label: Minimum cell temperature, table: holding, address: 46, type: u16, unit: °C, offset: -40}
+  - {key: state, label: Charge and discharge state, table: holding, address: 47, type: u16, enum: charge_state}
+  - {key: x.remaining_capacity, label: Battery remaining capacity, table: holding, address: 48, type: u16, unit: Ah, scale: 0.1}
+  - {key: x.cell_count, label: Number of cells, table: holding, address: 49, type: u16, poll: slow}
+  - {key: x.temperature_sensor_count, label: Number of temperature sensors, table: holding, address: 50, type: u16, poll: slow}
+  - {key: x.cycles, label: Number of battery cycles, table: holding, address: 51, type: u16, poll: slow}
+  - {key: x.balancing, label: Balancing, table: holding, address: 52, type: u16, enum: off_on}
+  - {key: x.charge_mos, label: Charging MOS state, table: holding, address: 53, type: u16, enum: off_on}
+  - {key: x.discharge_mos, label: Discharge MOS state, table: holding, address: 54, type: u16, enum: off_on}
+  - {key: x.average_cell_voltage, label: Average cell voltage, table: holding, address: 55, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_voltage_difference, label: Cell voltage difference, table: holding, address: 56, type: u16, unit: V, scale: 0.001}
+  - {key: x.power, label: Power, table: holding, address: 57, type: u16, unit: W, verified: false, note: Unsigned; the direction is not stated (see register 0x2F).}
+  - {key: x.fault_status_1, label: Fault status 1, table: holding, address: 58, type: u16, flags: fault_status_1, verified: false, note: 'Bits 0-7 = "byte 0", bits 8-15 = "byte 1" of the document (assumed; not stated).'}
+  - {key: x.fault_status_2, label: Fault status 2, table: holding, address: 59, type: u16, flags: fault_status_2, verified: false}
+  - {key: x.fault_status_3, label: Fault status 3, table: holding, address: 60, type: u16, flags: fault_status_3, verified: false}
+  - {key: x.fault_status_4, label: Fault status 4, table: holding, address: 61, type: u16, flags: fault_status_4, verified: false}
+  # Cells and temperature sensors
+  - {key: x.cell_1_voltage, label: Cell voltage 1, table: holding, address: 0, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_2_voltage, label: Cell voltage 2, table: holding, address: 1, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_3_voltage, label: Cell voltage 3, table: holding, address: 2, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_4_voltage, label: Cell voltage 4, table: holding, address: 3, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_5_voltage, label: Cell voltage 5, table: holding, address: 4, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_6_voltage, label: Cell voltage 6, table: holding, address: 5, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_7_voltage, label: Cell voltage 7, table: holding, address: 6, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_8_voltage, label: Cell voltage 8, table: holding, address: 7, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_9_voltage, label: Cell voltage 9, table: holding, address: 8, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_10_voltage, label: Cell voltage 10, table: holding, address: 9, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_11_voltage, label: Cell voltage 11, table: holding, address: 10, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_12_voltage, label: Cell voltage 12, table: holding, address: 11, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_13_voltage, label: Cell voltage 13, table: holding, address: 12, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_14_voltage, label: Cell voltage 14, table: holding, address: 13, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_15_voltage, label: Cell voltage 15, table: holding, address: 14, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_16_voltage, label: Cell voltage 16, table: holding, address: 15, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_17_voltage, label: Cell voltage 17, table: holding, address: 16, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_18_voltage, label: Cell voltage 18, table: holding, address: 17, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_19_voltage, label: Cell voltage 19, table: holding, address: 18, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_20_voltage, label: Cell voltage 20, table: holding, address: 19, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_21_voltage, label: Cell voltage 21, table: holding, address: 20, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_22_voltage, label: Cell voltage 22, table: holding, address: 21, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_23_voltage, label: Cell voltage 23, table: holding, address: 22, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_24_voltage, label: Cell voltage 24, table: holding, address: 23, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_25_voltage, label: Cell voltage 25, table: holding, address: 24, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_26_voltage, label: Cell voltage 26, table: holding, address: 25, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_27_voltage, label: Cell voltage 27, table: holding, address: 26, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_28_voltage, label: Cell voltage 28, table: holding, address: 27, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_29_voltage, label: Cell voltage 29, table: holding, address: 28, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_30_voltage, label: Cell voltage 30, table: holding, address: 29, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_31_voltage, label: Cell voltage 31, table: holding, address: 30, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_32_voltage, label: Cell voltage 32, table: holding, address: 31, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_33_voltage, label: Cell voltage 33, table: holding, address: 71, type: u16, unit: V, scale: 0.001, verified: false, note: 'Cells 33-48 at 0x47-0x56: the document lists a second range of cell voltages without saying which cells they are (assumed 33-48).'}
+  - {key: x.cell_34_voltage, label: Cell voltage 34, table: holding, address: 72, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_35_voltage, label: Cell voltage 35, table: holding, address: 73, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_36_voltage, label: Cell voltage 36, table: holding, address: 74, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_37_voltage, label: Cell voltage 37, table: holding, address: 75, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_38_voltage, label: Cell voltage 38, table: holding, address: 76, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_39_voltage, label: Cell voltage 39, table: holding, address: 77, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_40_voltage, label: Cell voltage 40, table: holding, address: 78, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_41_voltage, label: Cell voltage 41, table: holding, address: 79, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_42_voltage, label: Cell voltage 42, table: holding, address: 80, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_43_voltage, label: Cell voltage 43, table: holding, address: 81, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_44_voltage, label: Cell voltage 44, table: holding, address: 82, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_45_voltage, label: Cell voltage 45, table: holding, address: 83, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_46_voltage, label: Cell voltage 46, table: holding, address: 84, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_47_voltage, label: Cell voltage 47, table: holding, address: 85, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.cell_48_voltage, label: Cell voltage 48, table: holding, address: 86, type: u16, unit: V, scale: 0.001, verified: false}
+  - {key: x.temperature_1, label: Battery temperature 1, table: holding, address: 32, type: u16, unit: °C, offset: -40}
+  - {key: x.temperature_2, label: Battery temperature 2, table: holding, address: 33, type: u16, unit: °C, offset: -40}
+  - {key: x.temperature_3, label: Battery temperature 3, table: holding, address: 34, type: u16, unit: °C, offset: -40}
+  - {key: x.temperature_4, label: Battery temperature 4, table: holding, address: 35, type: u16, unit: °C, offset: -40}
+  - {key: x.temperature_5, label: Battery temperature 5, table: holding, address: 36, type: u16, unit: °C, offset: -40}
+  - {key: x.temperature_6, label: Battery temperature 6, table: holding, address: 37, type: u16, unit: °C, offset: -40}
+  - {key: x.temperature_7, label: Battery temperature 7, table: holding, address: 38, type: u16, unit: °C, offset: -40}
+  - {key: x.temperature_8, label: Battery temperature 8, table: holding, address: 39, type: u16, unit: °C, offset: -40}
+  # Settings (read / write)
+  - {key: x.rated_capacity, label: Rated capacity, table: holding, address: 128, type: u16, unit: Ah, scale: 0.1, poll: slow, writable: true}
+  - {key: x.cell_reference_voltage, label: Cell reference voltage, table: holding, address: 129, type: u16, unit: V, scale: 0.001, poll: slow, writable: true}
+  - {key: x.battery_type, label: Type of battery, table: holding, address: 137, type: u16, enum: battery_type, poll: slow, writable: true}
+  - {key: x.sleep_wait_time, label: Sleep waiting time, table: holding, address: 138, type: u16, unit: s, poll: slow, writable: true}
+  - {key: x.charge_mos_switch, label: Charge MOS switch control, table: holding, address: 165, type: u16, enum: off_on, poll: slow, writable: true}
+  - {key: x.discharge_mos_switch, label: Discharge MOS switch control, table: holding, address: 166, type: u16, enum: off_on, poll: slow, writable: true}
+  - {key: x.soc_setting, label: SOC setting, table: holding, address: 167, type: u16, unit: '%', scale: 0.1, poll: slow, writable: true, write_only: true, verified: false, note: 'Scaled like the SOC register (assumed: raw 800 = 80 %).'}
+  # Identity
+  - {key: firmware, label: Software version number, table: holding, address: 169, type: str, length: 8, poll: slow, verified: false, note: Text assumed; the encoding is not stated.}
+  - {key: x.hardware_version, label: Hardware version number, table: holding, address: 177, type: str, length: 8, poll: slow, verified: false, note: Text assumed; the encoding is not stated.}
+  - {key: x.machine_code, label: Machine code, table: holding, address: 185, type: str, length: 16, poll: slow, verified: false, note: Text assumed; the encoding is not stated.}
+  - {key: x.production_date, label: Production date, table: holding, address: 204, type: datetime, length: 2, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}}, poll: slow, note: 'Bytes year (two digits), month, day, 0: 0x14080F00 = 2020-08-15.'}
+
+enums:
+  charge_state: {'0': Idle, '1': Charging, '2': Discharging}
+  off_on: {'0': 'Off', '1': 'On'}
+  battery_type: {'0': LiFePO4, '1': Li-ion (ternary), '2': LTO (lithium titanate)}
+
+flags:
+  fault_status_1: {'0': 'Cell voltage too high, level 1', '1': 'Cell voltage too high, level 2', '2': 'Cell voltage too low, level 1', '3': 'Cell voltage too low, level 2', '4': 'Total voltage too high, level 1', '5': 'Total voltage too high, level 2', '6': 'Total voltage too low, level 1', '7': 'Total voltage too low, level 2', '8': 'Charging temperature too high, level 1', '9': 'Charging temperature too high, level 2', '10': 'Charging temperature too low, level 1', '11': 'Charging temperature too low, level 2', '12': 'Discharge temperature too high, level 1', '13': 'Discharge temperature too high, level 2', '14': 'Discharge temperature too low, level 1', '15': 'Discharge temperature too low, level 2'}
+  fault_status_2: {'0': 'Charge overcurrent, level 1', '1': 'Charge overcurrent, level 2', '2': 'Discharge overcurrent, level 1', '3': 'Discharge overcurrent, level 2', '4': 'SOC too high, level 1', '5': 'SOC too high, level 2', '6': 'SOC too low, level 1', '7': 'SOC too low, level 2', '8': 'Cell voltage difference too high, level 1', '9': 'Cell voltage difference too high, level 2', '10': 'Temperature difference too high, level 1', '11': 'Temperature difference too high, level 2'}
+  fault_status_3: {'0': Charge MOS over temperature, '1': Discharge MOS over temperature, '2': Charge MOS temperature sensor failure, '3': Discharge MOS temperature sensor failure, '4': Charge MOS stuck closed (adhesion), '5': Discharge MOS stuck closed (adhesion), '6': Charge MOS open circuit, '7': Discharge MOS open circuit, '8': AFE acquisition chip failure, '9': Cell voltage acquisition offline, '10': Temperature sensor failure, '11': EEPROM storage failure, '12': RTC clock failure, '13': Precharge failed, '14': Vehicle communication failure, '15': Internal network communication module failure}
+  fault_status_4: {'0': Current module failure, '1': Total voltage detection module failure, '2': Short circuit protection failure, '3': 'Low voltage: charging prohibited', '4': MOS switched off by GPS or soft switch, '5': Charging cabinet offline}
+
+problems:
+  - {when: {key: x.fault_status_1, bit: 0}, kind: warning, text: 'Cell voltage too high, level 1'}
+  - {when: {key: x.fault_status_1, bit: 1}, kind: fault, text: 'Cell voltage too high, level 2'}
+  - {when: {key: x.fault_status_1, bit: 2}, kind: warning, text: 'Cell voltage too low, level 1'}
+  - {when: {key: x.fault_status_1, bit: 3}, kind: fault, text: 'Cell voltage too low, level 2'}
+  - {when: {key: x.fault_status_1, bit: 4}, kind: warning, text: 'Total voltage too high, level 1'}
+  - {when: {key: x.fault_status_1, bit: 5}, kind: fault, text: 'Total voltage too high, level 2'}
+  - {when: {key: x.fault_status_1, bit: 6}, kind: warning, text: 'Total voltage too low, level 1'}
+  - {when: {key: x.fault_status_1, bit: 7}, kind: fault, text: 'Total voltage too low, level 2'}
+  - {when: {key: x.fault_status_1, bit: 8}, kind: warning, text: 'Charging temperature too high, level 1'}
+  - {when: {key: x.fault_status_1, bit: 9}, kind: fault, text: 'Charging temperature too high, level 2'}
+  - {when: {key: x.fault_status_1, bit: 10}, kind: warning, text: 'Charging temperature too low, level 1'}
+  - {when: {key: x.fault_status_1, bit: 11}, kind: fault, text: 'Charging temperature too low, level 2'}
+  - {when: {key: x.fault_status_1, bit: 12}, kind: warning, text: 'Discharge temperature too high, level 1'}
+  - {when: {key: x.fault_status_1, bit: 13}, kind: fault, text: 'Discharge temperature too high, level 2'}
+  - {when: {key: x.fault_status_1, bit: 14}, kind: warning, text: 'Discharge temperature too low, level 1'}
+  - {when: {key: x.fault_status_1, bit: 15}, kind: fault, text: 'Discharge temperature too low, level 2'}
+  - {when: {key: x.fault_status_2, bit: 0}, kind: warning, text: 'Charge overcurrent, level 1'}
+  - {when: {key: x.fault_status_2, bit: 1}, kind: fault, text: 'Charge overcurrent, level 2'}
+  - {when: {key: x.fault_status_2, bit: 2}, kind: warning, text: 'Discharge overcurrent, level 1'}
+  - {when: {key: x.fault_status_2, bit: 3}, kind: fault, text: 'Discharge overcurrent, level 2'}
+  - {when: {key: x.fault_status_2, bit: 4}, kind: warning, text: 'SOC too high, level 1'}
+  - {when: {key: x.fault_status_2, bit: 5}, kind: fault, text: 'SOC too high, level 2'}
+  - {when: {key: x.fault_status_2, bit: 6}, kind: warning, text: 'SOC too low, level 1'}
+  - {when: {key: x.fault_status_2, bit: 7}, kind: fault, text: 'SOC too low, level 2'}
+  - {when: {key: x.fault_status_2, bit: 8}, kind: warning, text: 'Cell voltage difference too high, level 1'}
+  - {when: {key: x.fault_status_2, bit: 9}, kind: fault, text: 'Cell voltage difference too high, level 2'}
+  - {when: {key: x.fault_status_2, bit: 10}, kind: warning, text: 'Temperature difference too high, level 1'}
+  - {when: {key: x.fault_status_2, bit: 11}, kind: fault, text: 'Temperature difference too high, level 2'}
+  - {when: {key: x.fault_status_3, bit: 0}, kind: warning, text: Charge MOS over temperature}
+  - {when: {key: x.fault_status_3, bit: 1}, kind: warning, text: Discharge MOS over temperature}
+  - {when: {key: x.fault_status_3, bit: 2}, kind: fault, text: Charge MOS temperature sensor failure}
+  - {when: {key: x.fault_status_3, bit: 3}, kind: fault, text: Discharge MOS temperature sensor failure}
+  - {when: {key: x.fault_status_3, bit: 4}, kind: fault, text: Charge MOS stuck closed (adhesion)}
+  - {when: {key: x.fault_status_3, bit: 5}, kind: fault, text: Discharge MOS stuck closed (adhesion)}
+  - {when: {key: x.fault_status_3, bit: 6}, kind: fault, text: Charge MOS open circuit}
+  - {when: {key: x.fault_status_3, bit: 7}, kind: fault, text: Discharge MOS open circuit}
+  - {when: {key: x.fault_status_3, bit: 8}, kind: fault, text: AFE acquisition chip failure}
+  - {when: {key: x.fault_status_3, bit: 9}, kind: fault, text: Cell voltage acquisition offline}
+  - {when: {key: x.fault_status_3, bit: 10}, kind: fault, text: Temperature sensor failure}
+  - {when: {key: x.fault_status_3, bit: 11}, kind: fault, text: EEPROM storage failure}
+  - {when: {key: x.fault_status_3, bit: 12}, kind: fault, text: RTC clock failure}
+  - {when: {key: x.fault_status_3, bit: 13}, kind: fault, text: Precharge failed}
+  - {when: {key: x.fault_status_3, bit: 14}, kind: fault, text: Vehicle communication failure}
+  - {when: {key: x.fault_status_3, bit: 15}, kind: fault, text: Internal network communication module failure}
+  - {when: {key: x.fault_status_4, bit: 0}, kind: fault, text: Current module failure}
+  - {when: {key: x.fault_status_4, bit: 1}, kind: fault, text: Total voltage detection module failure}
+  - {when: {key: x.fault_status_4, bit: 2}, kind: fault, text: Short circuit protection failure}
+  - {when: {key: x.fault_status_4, bit: 3}, kind: fault, text: 'Low voltage: charging prohibited'}
+  - {when: {key: x.fault_status_4, bit: 4}, kind: warning, text: MOS switched off by GPS or soft switch}
+  - {when: {key: x.fault_status_4, bit: 5}, kind: warning, text: Charging cabinet offline}
+
+notes:
+- Function 03 reads, 06 and 16 write. The document's examples use unit id 0xD2 (210); the factory default address is not stated.
+- Addresses are the document's hexadecimal register addresses (0-based).
+- Temperatures are sent with an offset of 40 (raw 40 = 0 °C).
+- Level 1 alarms are taken as warnings and level 2 alarms as faults (the document doesn't say what each level does).
+- 'The two translations of the document differ in the GPS block (0x57 ff.: longitude, latitude, speed, altitude, satellites,
+  IMEI) by up to two registers; it is left out, as are the remaining mileage (0x3E), the alarm threshold settings (0x8B-0xA4,
+  0xA8), the board configuration (0x82-0x88), the password (0xC9), the IP address (0xCE ff.) and the restart / shutdown /
+  reset commands (0xF0-0xF3).'

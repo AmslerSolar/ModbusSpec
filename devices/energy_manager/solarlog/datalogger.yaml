@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: solarlog-datalogger
+manufacturer: Solar-Log
+name: Solar-Log data logger
+kind: energy_manager
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/solarlog.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.pvinverter.solarlog
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+defaults:
+  verified: false
+  sources:
+  - openems
+
+points:
+  - {key: x.p_limit_type, label: P limit type, table: holding, address: 10400, type: u16, enum: plimit_type, writable: true}
+  - {key: x.p_limit_perc, label: P limit perc, table: holding, address: 10401, type: u16, unit: '%', writable: true}
+  - {key: x.watch_dog_tag, label: Watch dog tag, table: holding, address: 10404, type: u32, word_order: little, writable: true}
+  - {key: x.last_update_time, label: Last update time, table: input, address: 3500, type: s32, unit: s, word_order: little}
+  - {key: pv_power, label: Grid power (part 1), table: input, address: 3502, type: u32, unit: W, word_order: little, note: 'evcc reads it for the usages grid, pv. evcc negates it for the grid power.', sources: [evcc], conflicts: [{sources: [openems], type: s32, label: Active power}]}
+  - {key: x.pdc, label: Pdc, table: input, address: 3504, type: s32, unit: W, word_order: little}
+  - {key: x.voltage, label: Voltage, table: input, address: 3506, type: s16, unit: V}
+  - {key: x.udc, label: Udc, table: input, address: 3507, type: s16, unit: V, scale: 100}
+  - {key: x.yesterday_yield, label: Yesterday yield, table: input, address: 3510, type: s32, unit: kWh, scale: 0.001, word_order: little}
+  - {key: x.monthly_yield, label: Monthly yield, table: input, address: 3512, type: s32, unit: kWh, scale: 0.001, word_order: little}
+  - {key: x.yearly_yield, label: Yearly yield, table: input, address: 3514, type: s32, unit: kWh, scale: 0.001, word_order: little}
+  - {key: pv_energy, label: PV energy, table: input, address: 3516, type: u32, unit: kWh, scale: 0.001, word_order: little, sources: [evcc], conflicts: [{sources: [openems], type: s32, label: Total yield}]}
+  - {key: x.grid_power_2, label: Grid power (part 2), table: input, address: 3518, type: u32, unit: W, word_order: little, sources: [evcc], conflicts: [{sources: [openems], type: s32, label: Pac consumption}]}
+  - {key: x.active_consumption_energy, label: Active consumption energy, table: input, address: 3520, type: s32, unit: kWh, scale: 0.001, word_order: little}
+  - {key: x.yesterday_yield_cons, label: Yesterday yield cons, table: input, address: 3522, type: s32, unit: kWh, scale: 0.001, word_order: little}
+  - {key: x.monthly_yield_cons, label: Monthly yield cons, table: input, address: 3524, type: s32, unit: kWh, scale: 0.001, word_order: little}
+  - {key: x.yearly_yield_cons, label: Yearly yield cons, table: input, address: 3526, type: s32, unit: kWh, scale: 0.001, word_order: little}
+  - {key: x.total_yield_cons, label: Total yield cons, table: input, address: 3528, type: s32, unit: kWh, scale: 0.001, word_order: little}
+  - {key: x.total_power, label: Total power, table: input, address: 3530, type: s32, word_order: little, note: OpenEMS unit WATT_HOURS_BY_WATT_PEAK.}
+  - {key: x.status, label: Status, table: input, address: 10900, type: s16, enum: status}
+  - {key: x.p_limit_perc_10901, label: P limit perc, table: input, address: 10901, type: s16, unit: '%', writable: true}
+  - {key: x.p_limit, label: P limit, table: input, address: 10902, type: s16, unit: W, scale: 1000}
+
+derived:
+  - {key: grid_power, label: Grid power, unit: W, positive: import, sum: [{key: pv_power, factor: -1}, {key: x.grid_power_2}], sources: [evcc]}
+
+enums:
+  plimit_type: {'0': Interface not active, '1': No limitation active (100 %), '2': Fixed limitation active in %, '3': 'Limitation in %, considering self-sufficiency'}
+  status: {'0': Ok, '1': License not sufficient for size of installation}
+
+notes:
+- 'evcc template `solarlog` (grid, pv) lists: Solarlog.'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

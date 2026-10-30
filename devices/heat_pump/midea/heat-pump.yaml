@@ -1,0 +1,245 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Nordis OPTIMUS PRO wired controller manual (16110600A04631 V1.0, Lithuanian), chapter 8 "Modbus
+# atitikmenų lentelė" (Modbus mapping table).
+
+modbusspec: 0
+id: midea-heat-pump
+manufacturer: Midea
+name: Air-to-water heat pump (hydraulic module with wired controller; also sold as Nordis OPTIMUS PRO)
+kind: heat_pump
+
+sources:
+- title: OPTIMUS PRO laidinis valdiklis, naudojimo ir montavimo vadovas su Modbus lentele (wired controller manual, LT)
+  version: 16110600A04631 V1.0
+  url: https://nordis-ac.com/file/2025/11/16110600A04631-OPTIMUS-PRO-laidinis-valdiklis-120mm-su-Modbus-lentele-LT.pdf
+  sha256: 659e6f4c3e2dc6eec37fc3dfaa1472c46cfcb56ffff3698112f095042d12e4c9
+- id: modbus-local-gateway
+  title: modbus_local_gateway (Home Assistant integration)
+  url: https://github.com/timlaing/modbus_local_gateway
+  license: MIT
+  commit: e770d6c91220d98b8f0be22b103fdb607c3c67f4
+  path: custom_components/modbus_local_gateway/device_configs/midea_heat_pump.yaml
+
+connection:
+  default_port: 502
+  default_unit: 16
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # equipment type 0x07 (central heating) in the high byte
+  - table: holding
+    address: 200
+    type: u16
+    range:
+    - 1792
+    - 2047
+
+points:
+  # Wired controller registers (0 ff.; read 03, write 06 / 16)
+  - {key: x.control_flags, label: On / off, table: holding, address: 0, type: u16, writable: true}
+  - {key: x.floor_heating, label: Floor heating on / off (bit 0), table: holding, address: 0, type: u16, bits: [0, 0], writable: true}
+  - {key: x.heating, label: Heat pump on / off zone 1 (bit 1), table: holding, address: 0, type: u16, bits: [1, 1], writable: true}
+  - {key: x.dhw, label: DHW heating (T5S) on / off (bit 2), table: holding, address: 0, type: u16, bits: [2, 2], writable: true}
+  - {key: x.heating_zone2, label: Heat pump on / off zone 2 (bit 3), table: holding, address: 0, type: u16, bits: [3, 3], writable: true}
+  - {key: x.mode_set, label: Mode setting, table: holding, address: 1, type: u16, enum: mode_set, writable: true}
+  - {key: x.heating_water_setpoint_raw, label: Water temperature setting T1S, table: holding, address: 2, type: u16, writable: true, note: '°C. The document doesn''t say whether the high byte holds a second value (e.g. zone 2). Ranges: cooling 5–25 °C (low) / 18–25 °C (high), heating 22–55 °C (low) / 35–60 °C (high) setting.'}
+  - {key: x.room_air_setpoint_raw, label: Air temperature setting Ts, table: holding, address: 3, type: u16, writable: true, note: 'Room temperature 17–30 °C, used when room temperature control (Ta) is set; the document gives no resolution.'}
+  - {key: x.dhw_setpoint, label: DHW tank temperature setting T5S, table: holding, address: 4, type: u16, unit: °C, writable: true, min: 40, max: 60}
+  - {key: x.function_setting, label: Function setting, table: holding, address: 5, type: u16, writable: true}
+  - {key: x.disinfect, label: Disinfection (bit 4), table: holding, address: 5, type: u16, bits: [4, 4], writable: true}
+  - {key: x.holiday_away, label: Holiday away (bit 5; read only), table: holding, address: 5, type: u16, bits: [5, 5]}
+  - {key: x.silent_mode, label: Silent mode (bit 6), table: holding, address: 5, type: u16, bits: [6, 6], writable: true}
+  - {key: x.silent_level, label: Silent mode level (bit 7), table: holding, address: 5, type: u16, bits: [7, 7], enum: silent_level, writable: true}
+  - {key: x.holiday_home, label: Holiday at home (bit 8; read only), table: holding, address: 5, type: u16, bits: [8, 8]}
+  - {key: x.eco_mode, label: ECO mode (bit 10), table: holding, address: 5, type: u16, bits: [10, 10], writable: true}
+  - {key: x.dhw_pump_recirculation, label: DHW pump in constant-temperature recirculation (bit 11), table: holding, address: 5, type: u16, bits: [11, 11], writable: true}
+  - {key: x.climate_curve, label: Temperature curve setting on (bit 12), table: holding, address: 5, type: u16, bits: [12, 12], writable: true}
+  - {key: x.curve_selection, label: Curve selection, table: holding, address: 6, type: u16, writable: true, min: 1, max: 8}
+  - {key: x.fast_dhw, label: Forced DHW heating, table: holding, address: 7, type: u16, writable: true}
+  - {key: x.forced_tbh, label: Forced tank heater (TBH) on, table: holding, address: 8, type: u16, writable: true}
+  - {key: x.forced_ibh1, label: Forced indoor unit heater (IBH1) on, table: holding, address: 9, type: u16, writable: true}
+  - {key: x.sg_max, label: t_SG_MAX, table: holding, address: 10, type: u16, unit: h, writable: true, min: 0, max: 24}
+
+  # Operating parameters (100 ff.)
+  - {key: x.operating_frequency, label: Operating frequency (compressor), table: holding, address: 100, type: u16, unit: Hz}
+  - {key: x.operating_mode, label: Operating mode (actual), table: holding, address: 101, type: u16, enum: operating_mode}
+  - {key: x.fan_speed, label: Fan speed, table: holding, address: 102, type: u16, unit: rpm}
+  - {key: x.pmv_openness, label: PMV opening (outdoor unit electronic expansion valve), table: holding, address: 103, type: u16, note: Shown in multiples of 8 only., conflicts: [{sources: [modbus-local-gateway], unit: steps, label: PMV Openness}]}
+  - {key: x.water_inlet_temperature, label: Return water temperature TW_in, table: holding, address: 104, type: s16, unit: °C}
+  - {key: x.water_outlet_temperature, label: Supply water temperature TW_out, table: holding, address: 105, type: s16, unit: °C}
+  - {key: x.condenser_temperature, label: T3 temperature (condenser), table: holding, address: 106, type: s16, unit: °C}
+  - {key: x.outdoor_temperature, label: T4 temperature (outdoor ambient), table: holding, address: 107, type: s16, unit: °C}
+  - {key: x.discharge_temperature, label: Discharge gas temperature Tp, table: holding, address: 108, type: s16, unit: °C}
+  - {key: x.return_air_temperature, label: Suction gas temperature Th, table: holding, address: 109, type: s16, unit: °C}
+  - {key: x.total_water_outlet_temperature, label: T1 (supply water temperature), table: holding, address: 110, type: s16, unit: °C}
+  - {key: x.water_outlet_after_backup_heater_temperature, label: T1B (system supply water temperature after the backup heater), table: holding, address: 111, type: s16, unit: °C}
+  - {key: x.refrigerant_liquid_temperature, label: T2 (refrigerant liquid side), table: holding, address: 112, type: s16, unit: °C}
+  - {key: x.refrigerant_gas_temperature, label: T2B (refrigerant gas side), table: holding, address: 113, type: s16, unit: °C}
+  - {key: x.room_temperature, label: Ta (room temperature), table: holding, address: 114, type: s16, unit: °C}
+  - {key: x.water_tank_temperature, label: T5 (DHW tank temperature), table: holding, address: 115, type: s16, unit: °C}
+  - {key: x.high_pressure, label: Pressure 1 (outdoor unit high pressure), table: holding, address: 116, type: u16, unit: kPa}
+  - {key: x.low_pressure, label: Pressure 2 (outdoor unit low pressure), table: holding, address: 117, type: u16, unit: kPa}
+  - {key: x.outdoor_current, label: Outdoor unit current, table: holding, address: 118, type: u16, unit: A}
+  - {key: x.outdoor_voltage, label: Outdoor unit voltage, table: holding, address: 119, type: u16, unit: V}
+  - {key: x.compressor_runtime, label: Compressor operating time, table: holding, address: 122, type: u16, unit: h, poll: slow}
+  - {key: x.status_1, label: Status bits 1, table: holding, address: 128, type: u16}
+  - {key: x.defrosting, label: Defrost running (bit 1), table: holding, address: 128, type: u16, bits: [1, 1]}
+  - {key: x.anti_freezing, label: Anti-freeze running (bit 2), table: holding, address: 128, type: u16, bits: [2, 2]}
+  - {key: x.oil_return, label: Oil return (bit 3), table: holding, address: 128, type: u16, bits: [3, 3]}
+  - {key: x.remote_on_off_active, label: Remote on / off (bit 4; 1 = d8), table: holding, address: 128, type: u16, bits: [4, 4]}
+  - {key: x.outdoor_test_mode, label: Outdoor unit test mode flag (bit 5), table: holding, address: 128, type: u16, bits: [5, 5]}
+  - {key: x.thermostat_heat_call, label: Room thermostat heating (bit 6), table: holding, address: 128, type: u16, bits: [6, 6]}
+  - {key: x.thermostat_cool_call, label: Room thermostat cooling (bit 7), table: holding, address: 128, type: u16, bits: [7, 7]}
+  - {key: x.solar_signal, label: Solar energy signal input (bit 8), table: holding, address: 128, type: u16, bits: [8, 8]}
+  - {key: x.sg_signal, label: SG signal (bit 10), table: holding, address: 128, type: u16, bits: [10, 10], enum: sg_price, note: Only meaningful while EUV (bit 11) is 0.}
+  - {key: x.euv_signal, label: EUV signal (bit 11), table: holding, address: 128, type: u16, bits: [11, 11], enum: euv}
+  - {key: x.outputs, label: Status bits 2 (outputs), table: holding, address: 129, type: u16}
+  - {key: x.ibh1, label: Indoor unit heater IBH1 (bit 0), table: holding, address: 129, type: u16, bits: [0, 0]}
+  - {key: x.tbh, label: DHW tank heater TBH (bit 2), table: holding, address: 129, type: u16, bits: [2, 2]}
+  - {key: x.internal_water_pump, label: Water circulation pump PUMP_I (bit 3), table: holding, address: 129, type: u16, bits: [3, 3]}
+  - {key: x.dhw_diverter_valve, label: Three-way valve SV1 (bit 4), table: holding, address: 129, type: u16, bits: [4, 4]}
+  - {key: x.external_water_pump, label: Secondary circuit pump P_o (bit 6), table: holding, address: 129, type: u16, bits: [6, 6]}
+  - {key: x.dhw_recirculation_pump, label: DHW recirculation pump P_d (bit 7), table: holding, address: 129, type: u16, bits: [7, 7]}
+  - {key: x.mixing_pump, label: Mixing circuit pump P_c (bit 8), table: holding, address: 129, type: u16, bits: [8, 8]}
+  - {key: x.valve_sv2, label: Three-way valve SV2 (bit 9), table: holding, address: 129, type: u16, bits: [9, 9]}
+  - {key: x.heat4_output, label: HEAT4 (bit 10), table: holding, address: 129, type: u16, bits: [10, 10]}
+  - {key: x.solar_pump, label: Solar collector circulation pump (bit 11), table: holding, address: 129, type: u16, bits: [11, 11]}
+  - {key: x.alarm, label: ALARM (bit 12), table: holding, address: 129, type: u16, bits: [12, 12]}
+  - {key: x.unit_running, label: RUN (system running) (bit 13), table: holding, address: 129, type: u16, bits: [13, 13]}
+  - {key: x.aux_heat_source, label: External heater (bit 14), table: holding, address: 129, type: u16, bits: [14, 14]}
+  - {key: x.defrost_output, label: Defrost (bit 15), table: holding, address: 129, type: u16, bits: [15, 15]}
+  - {key: x.unit_version, label: Unit (indoor unit) version number, table: holding, address: 130, type: u16, poll: slow, note: 1–99.}
+  - {key: x.wired_controller_version, label: Wired controller version number, table: holding, address: 131, type: u16, poll: slow, note: 1–99.}
+  - {key: x.target_frequency, label: Unit target frequency, table: holding, address: 132, type: u16, unit: Hz}
+  - {key: x.dc_bus_current, label: DC bus current, table: holding, address: 133, type: u16, unit: A}
+  - {key: x.dc_bus_voltage, label: DC bus voltage, table: holding, address: 134, type: u16, unit: V, scale: 10, note: The register holds the voltage / 10.}
+  - {key: x.inverter_module_temperature, label: TF module temperature (feedback from the outdoor unit), table: holding, address: 135, type: s16, unit: °C}
+  - {key: x.curve_calculated_water_setpoint, label: Temperature curve T1S calculated value zone 1, table: holding, address: 136, type: s16, unit: °C}
+  - {key: x.curve_calculated_water_setpoint_zone2, label: Temperature curve T1S calculated value zone 2, table: holding, address: 137, type: s16, unit: °C}
+  - {key: x.water_flow, label: Water flow, table: holding, address: 138, type: u16, unit: m³/h, scale: 0.01}
+  - {key: x.current_limit, label: Outdoor unit current limiting, table: holding, address: 139, type: u16}
+  - {key: x.hydraulic_power, label: Hydraulic module capacity, table: holding, address: 140, type: u16, unit: W, scale: 10, note: kW × 100 in the register.}
+
+  # Parameter settings (200 ff.)
+  - {key: x.equipment_type, label: Equipment type, table: holding, address: 200, type: u16, bits: [8, 15], enum: equipment_type, poll: slow}
+  - {key: x.cooling_upper_limit, label: T1S cooling upper limit, table: holding, address: 201, type: u16, unit: °C, poll: slow}
+  - {key: x.cooling_lower_limit, label: T1S cooling lower limit, table: holding, address: 202, type: u16, unit: °C, poll: slow}
+  - {key: x.heating_upper_limit, label: T1S heating upper limit, table: holding, address: 203, type: u16, unit: °C, poll: slow}
+  - {key: x.heating_lower_limit, label: T1S heating lower limit, table: holding, address: 204, type: u16, unit: °C, poll: slow}
+  - {key: x.room_setpoint_limit_upper, label: TS setting upper limit, table: holding, address: 205, type: u16, poll: slow, note: The document gives no unit or resolution., conflicts: [{sources: [modbus-local-gateway], unit: °C, scale: 0.5, label: Room Setpoint Limit Upper}]}
+  - {key: x.room_setpoint_limit_lower, label: TS setting lower limit, table: holding, address: 206, type: u16, poll: slow, note: The document gives no unit or resolution., conflicts: [{sources: [modbus-local-gateway], unit: °C, scale: 0.5, label: Room Setpoint Limit Lower}]}
+  - {key: x.dhw_upper_limit, label: DHW upper limit, table: holding, address: 207, type: u16, unit: °C, poll: slow}
+  - {key: x.dhw_lower_limit, label: DHW lower limit, table: holding, address: 208, type: u16, unit: °C, poll: slow}
+  - {key: x.recirculation_pump_time, label: Recirculation pump running time, table: holding, address: 209, type: u16, unit: min, writable: true, min: 5, max: 120, poll: slow, note: Default 5 min.}
+  - {key: x.parameter_setting_1, label: Parameter setting 1, table: holding, address: 210, type: u16, flags: parameter_setting_1, poll: slow}
+  - {key: x.parameter_setting_2, label: Parameter setting 2, table: holding, address: 211, type: u16, flags: parameter_setting_2, poll: slow}
+  - {key: x.dt5_on, label: dT5_On, table: holding, address: 212, type: u16, unit: K, writable: true, poll: slow}
+  - {key: x.dt1s5, label: dT1S5, table: holding, address: 213, type: u16, unit: K, writable: true, poll: slow}
+  - {key: x.t_interval_dhw, label: T_Interval_DHW, table: holding, address: 214, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.t4_dhw_max, label: T4DHWmax, table: holding, address: 215, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.t4_dhw_min, label: T4DHWmin, table: holding, address: 216, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.tbh_delay, label: t_TBH_delay, table: holding, address: 217, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.tbh_off_delta, label: dT5_TBH_off, table: holding, address: 218, type: u16, unit: K, writable: true, poll: slow, conflicts: [{sources: [modbus-local-gateway], unit: °C, label: TBH Off Delta}]}
+  - {key: x.tbh_on_outdoor_temp, label: T4_TBH_on, table: holding, address: 219, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.disinfect_temperature, label: T5s_DI (disinfection temperature), table: holding, address: 220, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.disinfect_max_duration, label: t_DI_max, table: holding, address: 221, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.disinfect_hold_time, label: t_DI_hightemp, table: holding, address: 222, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.t_interval_c, label: 't_interval_C (compressor restart interval, cooling)', table: holding, address: 223, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.dt1sc, label: dT1SC, table: holding, address: 224, type: u16, unit: K, writable: true, poll: slow}
+  - {key: x.dtsc, label: dTSC, table: holding, address: 225, type: u16, unit: K, writable: true, poll: slow}
+  - {key: x.t4_cmax, label: T4Cmax, table: holding, address: 226, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.t4_cmin, label: T4Cmin, table: holding, address: 227, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.t_interval_h, label: 't_interval_H (compressor restart interval, heating)', table: holding, address: 228, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.dt1sh, label: dT1SH, table: holding, address: 229, type: u16, unit: K, writable: true, poll: slow}
+  - {key: x.dtsh, label: dTSH, table: holding, address: 230, type: u16, unit: K, writable: true, poll: slow}
+  - {key: x.heating_outdoor_temp_max, label: T4Hmax, table: holding, address: 231, type: s16, unit: °C, writable: true, poll: slow, conflicts: [{sources: [modbus-local-gateway], type: u16, label: Heating Outdoor Temp Max}]}
+  - {key: x.t4_hmin, label: T4Hmin, table: holding, address: 232, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.t4_ibh_on, label: T4_IBH_on, table: holding, address: 233, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.dt1_ibh_on, label: dT1_IBH_on, table: holding, address: 234, type: u16, unit: K, writable: true, poll: slow}
+  - {key: x.ibh_delay, label: t_IBH_delay, table: holding, address: 235, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.t4_ahs_on, label: T4_AHS_on, table: holding, address: 237, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.dt1_ahs_on, label: dT1_AHS_on, table: holding, address: 238, type: u16, unit: K, writable: true, poll: slow}
+  - {key: x.ahs_delay, label: t_AHS_delay, table: holding, address: 240, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.dhw_hp_max, label: t_DHWHP_max, table: holding, address: 241, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.dhw_hp_restrict, label: t_DHWHP_restrict, table: holding, address: 242, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.t4_auto_cmin, label: T4autocmin, table: holding, address: 243, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.t4_auto_hmax, label: T4autohmax, table: holding, address: 244, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.holiday_away_heating, label: T1S_H.A_H (holiday away heating setting), table: holding, address: 245, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.holiday_away_dhw, label: T5S_H.A_DHW (holiday away DHW setting), table: holding, address: 246, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.curve_cool_water_temp_1, label: 'T1SetC1 (curve 9, cooling)', table: holding, address: 261, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.curve_cool_water_temp_2, label: 'T1SetC2 (curve 9, cooling)', table: holding, address: 262, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.curve_cool_outdoor_temp_1, label: 'T4C1 (curve 9, cooling)', table: holding, address: 263, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.curve_cool_outdoor_temp_2, label: 'T4C2 (curve 9, cooling)', table: holding, address: 264, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.curve_water_temp_upper, label: 'T1SetH1 (curve 9, heating)', table: holding, address: 265, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.curve_water_temp_lower, label: 'T1SetH2 (curve 9, heating)', table: holding, address: 266, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.curve_outdoor_temp_upper, label: 'T4H1 (curve 9, heating)', table: holding, address: 267, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.curve_outdoor_temp_lower, label: 'T4H2 (curve 9, heating)', table: holding, address: 268, type: s16, unit: °C, writable: true, poll: slow}
+  - {key: x.heating_water_setpoint, label: Heating Water Setpoint, table: holding, address: 2, type: u16, unit: °C, bits: [0, 7], writable: true, verified: false, sources: [modbus-local-gateway]}
+  - {key: x.curve_selection_6, label: Curve Selection, table: holding, address: 6, type: u16, bits: [0, 7], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.current_fault, label: Current Fault Code, table: holding, address: 124, type: u16, enum: fault_history_1, verified: false, sources: [modbus-local-gateway]}
+  - {key: x.fault_history_1, label: Fault History 1, table: holding, address: 125, type: u16, enum: fault_history_1, verified: false, sources: [modbus-local-gateway]}
+  - {key: x.fault_history_2, label: Fault History 2, table: holding, address: 126, type: u16, enum: fault_history_1, verified: false, sources: [modbus-local-gateway]}
+  - {key: x.fault_history_3, label: Fault History 3, table: holding, address: 127, type: u16, enum: fault_history_1, verified: false, sources: [modbus-local-gateway]}
+  - {key: x.tank_anti_freezing, label: Tank Anti-freezing, table: holding, address: 128, type: u16, bits: [9, 9], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.solar_temperature, label: Solar Temperature, table: holding, address: 141, type: s16, unit: °C, verified: false, sources: [modbus-local-gateway]}
+  - {key: x.parallel_units_raw, label: Parallel Units Raw, table: holding, address: 142, type: u16, verified: false, sources: [modbus-local-gateway]}
+  - {key: x.electricity_consumption, label: Electricity Consumption, table: holding, address: 143, type: u32, unit: kWh, verified: false, sources: [modbus-local-gateway]}
+  - {key: x.energy_output, label: Energy Output, table: holding, address: 145, type: u32, unit: kWh, verified: false, sources: [modbus-local-gateway]}
+  - {key: x.heating_upper_limit_203, label: Heating Upper Limit, table: holding, address: 203, type: u16, unit: °C, bits: [0, 7], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.heating_lower_limit_204, label: Heating Lower Limit, table: holding, address: 204, type: u16, unit: °C, bits: [0, 7], verified: false, sources: [modbus-local-gateway]}
+
+enums:
+  mode_set: {'1': Auto, '2': Cool, '3': Heat}
+  operating_mode: {'0': 'Off', '2': Cool, '3': Heat}
+  silent_level: {'0': Level 1, '1': Level 2}
+  sg_price: {'0': High-price electricity, '1': Normal-price electricity}
+  euv: {'0': Follow the SG signal, '1': Free electricity}
+  equipment_type: {'7': Central heating}
+  fault_history_1: {'0': OK, '1': E0 — Water flow fault (E8 displayed 3 times), '2': E1 — Phase loss / neutral-live reversed (three-phase only), '3': 'E2 — Comm fault: controller ↔ hydraulic module', '4': E3 — Final outlet water temp sensor (T1) fault, '5': E4 — Water tank temp sensor (T5) fault, '6': E5 — Condenser outlet refrigerant temp sensor (T3) fault, '7': E6 — Ambient temp sensor (T4) fault, '8': E7 — Buffer tank upper temp sensor (Tbt1) fault, '9': E8 — Water flow failure, '10': E9 — Suction temp sensor (Th) fault, '11': EA — Discharge temp sensor (Tp) fault, '12': Eb — Solar temp sensor (Tsolar) fault, '13': Ec — Buffer tank lower temp sensor (Tbt2) fault, '14': Ed — Inlet water temp sensor (Tw_in) malfunction, '15': EE — Hydraulic module EEPROM failure, '20': P0 — Low pressure switch protection, '21': P1 — High pressure switch protection, '23': P3 — Compressor overcurrent protection, '24': P4 — High discharge temperature protection, '25': P5 — |Tw_out − Tw_in| too big protection, '26': P6 — Inverter module protection, '31': Pb — Anti-freeze mode, '33': Pd — Condenser refrigerant outlet high-temp protection, '38': PP — Tw_out − Tw_in unusual protection, '39': 'H0 — Comm fault: main board PCB B ↔ hydraulic module control board', '40': 'H1 — Comm fault: inverter PCB A ↔ main control PCB B', '41': H2 — Refrigerant liquid temp sensor (T2) fault, '42': H3 — Refrigerant gas temp sensor (T2B) fault, '43': H4 — Three times P6 (L0/L1) protection, '44': H5 — Room temp sensor (Ta) fault, '45': H6 — DC fan motor fault, '46': H7 — Voltage protection, '47': H8 — Pressure sensor fault, '48': H9 — Zone 2 outlet water temp sensor (Tw2) fault, '49': HA — Outlet water temp sensor (Tw_out) fault, '50': Hb — 3× PP protection and Tw_out < 7, '52': Hd — Comm fault between parallel hydraulic modules, '53': 'HE — Comm error: main board ↔ thermostat transfer board', '54': HF — Inverter module board EEPROM fault, '55': HH — H6 displayed 10 times in 2 hours, '57': HP — Low pressure protection (Pe<0.6) 3× in 1 hour, '65': C7 — Transducer module temperature too high protection, '112': bH — PED PCB fault, '116': F1 — Low DC bus voltage protection, '134': L0 — Module protection, '135': L1 — DC bus low voltage protection, '136': L2 — DC bus high voltage protection, '138': L4 — MCE fault, '139': L5 — Zero speed protection, '141': L7 — Phase sequence fault, '142': L8 — Speed difference > 15 Hz (front vs back clock), '143': L9 — Speed difference > 15 Hz (real vs setting speed)}
+
+flags:
+  parameter_setting_1: {'0': DHW priority (0 = cooling / heating priority), '1': Two room thermostats supported, '2': Room thermostat, '3': Room thermostat supported, '4': Room temperature sensor Ta supported, '5': T1 sensor supported, '6': T1S heating high / low temperature setting (read only), '7': Heating enabled, '8': T1S cooling high / low temperature setting (read only), '9': Cooling enabled, '10': DHW pump supports pipe disinfection, '12': DHW circulation pump supported, '13': Disinfection supported, '14': DHW tank heater TBH supported (read only), '15': DHW heating enabled}
+  parameter_setting_2: {'3': Double zone setting valid, '4': Heating high / low temperature T1S setting, '5': Cooling high / low temperature T1S setting, '6': TW2 enabled, '7': Smart grid (SG), '8': 'Port setting (0 = remote on / off, 1 = DHW tank heater)'}
+
+problems:
+  - {when: {key: x.alarm, equals: 1}, kind: fault, text: Heat pump alarm (ALARM output)}
+
+reserved:
+  - {table: holding, address: 120, count: 2}
+  - {table: holding, address: 123}
+  - {table: holding, address: 247, count: 8}
+  - {table: holding, address: 129, bits: [1, 1]}
+  - {table: holding, address: 129, bits: [5, 5]}
+
+notes:
+- 'RS-485 on the wired controller''s H1 / H2 terminals (A+ / B−); Modbus RTU only (no ASCII), 9600 baud, 8 data bits, no parity,
+  1 stop bit. The address follows the hydraulic module''s rotary switch S3 (0–F): position 0, the factory setting, is address
+  16; other positions are their own number. Port 502 is for a gateway.'
+- All registers are holding registers (function 03; write with 06 / 16). The document gives 0-based addresses together with
+  their PLC numbers (0 = 40001).
+- 'The document gives no data types: temperatures are taken as signed whole °C, everything else as unsigned.'
+- Current fault (124) and faults 1–3 (125–127) refer to a fault code table the document doesn't contain; they are left to
+  the other sources.
+- 'The `reserved` registers are, in the document: 120 and 121 indoor unit current 1 / 2, 123, and 247–254 ECO and comfort
+  parameters (these answer with an illegal-address error); bits 1 and 5 of 129 (no IBH2 output, no valve SV3 here).'
+- 'Left out: the floor drying settings (255–260), power input limitation type (269), the T4 fresh times stored × 2 (270, 271)
+  and the emission types (272, four 4-bit fields).'
+- 'Left out: Buffer Tank Upper Temperature (holding 120) from modbus-local-gateway: the documents mark it reserved.'
+- 'Left out: Buffer Tank Lower Temperature (holding 121) from modbus-local-gateway: the documents mark it reserved.'
+- 'Left out: Unit Capacity (holding 123) from modbus-local-gateway: the documents mark it reserved.'
+- 'Left out: Backup Heater IBH2 (holding 129 bit 1) from modbus-local-gateway: the documents mark it reserved.'
+- 'Left out: Valve SV2 (holding 129 bit 5) from modbus-local-gateway: the documents mark it reserved.'
+- 'Left out: TBH Power (holding 252) from modbus-local-gateway: the documents mark it reserved.'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: bluetti-smeter
+manufacturer: BLUETTI
+name: S Meter
+kind: meter
+
+sources:
+- id: bluetti-modbus
+  title: bluetti-modbus (Python library, used by Home Assistant's bluetti_modbus)
+  url: https://github.com/bluetti-community/bluetti-modbus
+  license: MIT
+  commit: f5f8401606ed4489467fe33527f72d7bdc382b3c
+  path: src/bluetti_modbus_lib/devices/smeter.py, src/bluetti_modbus_lib/fields/custom_fields.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  limits:
+    max_registers: 50
+    max_gap: 5
+
+encoding:
+  word_order: little
+
+defaults:
+  verified: false
+  sources:
+  - bluetti-modbus
+
+points:
+  - {key: x.d_status, label: Device status, table: holding, address: 55111, type: u16, bits: [2, 2], note: Only this bit is documented; the others are reserved.}
+  - {key: x.d_timestamp, label: Device timestamp, table: holding, address: 55112, type: u32}
+  - {key: l1_voltage, label: AC a voltage, table: holding, address: 55114, type: f32, unit: V}
+  - {key: l2_voltage, label: AC battery voltage, table: holding, address: 55116, type: f32, unit: V}
+  - {key: l3_voltage, label: AC current voltage, table: holding, address: 55118, type: f32, unit: V}
+  - {key: l1_current, label: AC a current, table: holding, address: 55120, type: f32, unit: A}
+  - {key: l2_current, label: AC battery current, table: holding, address: 55122, type: f32, unit: A}
+  - {key: l3_current, label: AC current current, table: holding, address: 55124, type: f32, unit: A}
+  - {key: x.ac_a_p, label: AC a power, table: holding, address: 55126, type: f32, unit: W}
+  - {key: x.ac_b_p, label: AC battery power, table: holding, address: 55128, type: f32, unit: W}
+  - {key: x.ac_c_p, label: AC current power, table: holding, address: 55130, type: f32, unit: W}
+  - {key: x.ac_a_p_reactive, label: AC a power reactive, table: holding, address: 55132, type: f32, unit: var}
+  - {key: x.ac_b_p_reactive, label: AC battery power reactive, table: holding, address: 55134, type: f32, unit: var}
+  - {key: x.ac_c_p_reactive, label: AC current power reactive, table: holding, address: 55136, type: f32, unit: var}
+  - {key: x.ac_a_p_apparent, label: AC a power apparent, table: holding, address: 55138, type: f32, unit: VA}
+  - {key: x.ac_b_p_apparent, label: AC battery power apparent, table: holding, address: 55140, type: f32, unit: VA}
+  - {key: x.ac_c_p_apparent, label: AC current power apparent, table: holding, address: 55142, type: f32, unit: VA}
+  - {key: x.ac_a_pf, label: AC a power factor, table: holding, address: 55144, type: f32}
+  - {key: x.ac_b_pf, label: AC battery power factor, table: holding, address: 55146, type: f32}
+  - {key: x.ac_c_pf, label: AC current power factor, table: holding, address: 55148, type: f32}
+  - {key: x.ac_v_avg, label: AC voltage average, table: holding, address: 55150, type: f32, unit: V}
+  - {key: x.ac_c_avg, label: AC current average, table: holding, address: 55152, type: f32, unit: A}
+  - {key: x.ac_c_unbalance, label: AC current unbalance, table: holding, address: 55154, type: f32, unit: '%'}
+  - {key: x.ac_c_total, label: AC current total, table: holding, address: 55156, type: f32, unit: A}
+  - {key: x.ac_p_total, label: AC power total, table: holding, address: 55158, type: f32, unit: W}
+  - {key: reactive_power, label: AC power reactive total, table: holding, address: 55160, type: f32, unit: var}
+  - {key: apparent_power, label: AC power apparent total, table: holding, address: 55162, type: f32, unit: VA}
+  - {key: power_factor, label: AC power factor total, table: holding, address: 55164, type: f32}
+  - {key: frequency, label: Grid input frequency, table: holding, address: 55166, type: f32, unit: Hz}
+  - {key: grid_import_energy, label: Grid input energy total, table: holding, address: 55168, type: f32, unit: kWh}
+  - {key: grid_export_energy, label: Grid output energy total, table: holding, address: 55170, type: f32, unit: kWh}
+
+notes:
+- Modbus TCP is off by default; it is switched on in the device's own web interface.
+- There is no register that names the product family reliably for every model; the library is told which model it talks to.
+  Register 50200 (6 registers) holds the type string the device reports.
+- The device's Modbus TCP stack is reported to become unresponsive when polled too fast; the Home Assistant integration polls
+  every 30 s. Reads now and then answer busy / acknowledge (exception 5 or 6) or a truncated reply and succeed when retried.
+- Writes to holding registers are confirmed with a different (internal) register address in the reply; the library treats
+  such a reply as success.
+- The library reports that the S Meter answers its measurements only on the first read of a TCP connection and zeros afterwards;
+  it reconnects for every poll.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

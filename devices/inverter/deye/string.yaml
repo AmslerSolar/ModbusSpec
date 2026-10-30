@@ -1,0 +1,250 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Deye Modbus RTU Protocol, single phase (1P) (V119); V118 also listed. The registers of the string
+# inverter columns and the string inverter areas.
+
+modbusspec: 0
+id: deye-string
+manufacturer: Deye
+name: String inverter
+kind: inverter
+
+sources:
+- title: Deye Modbus RTU Protocol, single phase (1P)
+  version: V119 (2024-02-19)
+  url: https://github.com/Lewa-Reka/esphome-deye-inverter/blob/56599c6deacd7fcceec8dc185eea29679f168b5c/docs/modbus_communication_protocols/Modbus%20RTU%20single%20phase%20%281P%29%20V119.pdf
+  sha256: d00ffd6768635dc91dc6a864206ca0b8995c2a73c83991f195aad8da25dd27f5
+- title: Deye Modbus RTU Protocol
+  version: V118
+  url: https://github.com/user-attachments/files/16597960/Deye.Modbus.protocol.V118.pdf
+  sha256: 7444d2ef7dee282d5dbc734e73d6792788bc8a323ca532c8202d8d5f976b3717
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/deye-string.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/deye/deye
+- id: solarman
+  title: ha-solarman (Home Assistant integration)
+  url: https://github.com/davidrapan/ha-solarman
+  license: MIT
+  commit: ac1d88b83268beeb0511b8a1b7fc8e17deddc044
+  path: custom_components/solarman/inverter_definitions/deye_string.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 3
+    type: str
+    length: 5
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    equals: 512
+
+points:
+  # Fixed attributes (0…19) and clock
+  - {key: x.device_type, label: Device type, table: holding, address: 0, type: u16, enum: device_type, poll: slow, conflicts: [{sources: [openwb], type: s16, label: Inverter device type}]}
+  - {key: x.protocol_version, label: Communication protocol version, table: holding, address: 2, type: u16, poll: slow, note: 0x0102 = version 1.2.}
+  - {key: serial, label: SN byte 01…10, table: holding, address: 3, type: str, length: 5, poll: slow}
+  - {key: x.rated_power_class, label: Rated Power, table: holding, address: 8, type: u16, enum: rated_power_class, poll: slow}
+  - {key: firmware, label: Firmware version of control board, table: holding, address: 13, type: u16, poll: slow}
+  - {key: x.comm_firmware, label: Firmware version of communication board, table: holding, address: 14, type: u16, poll: slow}
+  - {key: x.rated_power, label: Rated power, table: holding, address: 16, type: u32, unit: W, scale: 0.1, poll: slow, conflicts: [{sources: [solarman], type: s32, label: Device Rated Power}]}
+  - {key: x.mppt_count, label: MPPT number, table: holding, address: 18, type: u16, bits: [8, 15], poll: slow, verified: false, note: '0x0503 = five MPPTs, three-phase: high byte MPPTs, low byte phases.'}
+  - {key: x.phase_count, label: Phases, table: holding, address: 18, type: u16, bits: [0, 7], poll: slow, verified: false, note: See MPPT number.}
+  - {key: x.clock, label: System time, table: holding, address: 22, type: datetime, length: 3, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}, writable: true, verified: false, note: 'Six bytes year (from 2000), month, day, hour, minute, second; byte 1 of each register taken as the high byte (not stated; assumed).'}
+
+  # Settings
+  - {key: x.active_power_regulation, label: Active power regulation, table: holding, address: 40, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 120, poll: slow}
+  - {key: x.on_off, label: Switch on and off enable, table: holding, address: 43, type: u16, enum: on_off, writable: true, poll: slow}
+
+  # Real-time data (string columns)
+  - {key: state, label: run state, table: holding, address: 59, type: u16, enum: run_state}
+  - {key: pv_energy_today, label: DayActive PowerWh, table: holding, address: 60, type: s16, unit: kWh, scale: 0.1, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Today Production}]}
+  - {key: x.reactive_energy_today, label: DayReactive PowerWh, table: holding, address: 61, type: s16, unit: kvarh, scale: 0.1, poll: slow}
+  - {key: pv_energy, label: Total_Active_PowerWh, table: holding, address: 63, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.reactive_energy_total, label: Total_Reactive_PowerWh, table: holding, address: 65, type: u32, unit: kvarh, scale: 0.1, poll: slow}
+  - {key: x.work_time_total, label: Total Work time, table: holding, address: 67, type: u32, unit: h, scale: 0.1, poll: slow}
+  - {key: x.efficiency, label: inverter efficiency, table: holding, address: 69, type: u16, unit: '%', scale: 0.1}
+  - {key: x.grid_voltage_ab, label: Grid voltage AB, table: holding, address: 70, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [openwb], type: s16, label: Counter voltage L1}]}
+  - {key: x.grid_voltage_bc, label: Grid voltage BC, table: holding, address: 71, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [openwb], type: s16, label: Counter voltage L2}]}
+  - {key: x.grid_voltage_ca, label: Grid voltage AC, table: holding, address: 72, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [openwb], type: s16, label: Counter voltage L3}]}
+  - {key: l1_voltage, label: Grid voltage A, table: holding, address: 73, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Grid voltage B, table: holding, address: 74, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Grid voltage C, table: holding, address: 75, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Grid current A, table: holding, address: 76, type: u16, unit: A, scale: 0.1, conflicts: [{sources: [openwb], type: s16, scale: 0.01, label: Counter current L1}]}
+  - {key: l2_current, label: Grid current B, table: holding, address: 77, type: u16, unit: A, scale: 0.1, conflicts: [{sources: [openwb], type: s16, scale: 0.01, label: Counter current L2}]}
+  - {key: l3_current, label: Grid current C, table: holding, address: 78, type: u16, unit: A, scale: 0.1, conflicts: [{sources: [openwb], type: s16, scale: 0.01, label: Counter current L3}]}
+  - {key: frequency, label: Grid frequency, table: holding, address: 79, type: u16, unit: Hz, scale: 0.01, conflicts: [{sources: [openwb], type: s16, label: Counter frequency}]}
+  - {key: x.display_power, label: Displays power, table: holding, address: 80, type: u32, unit: W, scale: 0.1}
+  - {key: x.input_power, label: Input active power, table: holding, address: 82, type: u32, unit: W, scale: 0.1}
+  - {key: apparent_power, label: output apparent power, table: holding, address: 84, type: u32, unit: VA, scale: 0.1}
+  - {key: pv_power, label: Output active power, table: holding, address: 86, type: u32, unit: W, scale: 0.1}
+  - {key: reactive_power, label: Output reactive power, table: holding, address: 88, type: s32, unit: var, scale: 0.1, verified: false, note: Signedness not stated; signed assumed., conflicts: [{sources: [solarman], type: u32, label: Output Reactive Power}]}
+  - {key: x.dc_transformer_temperature, label: Radiator temperature (DC transformer temperature), table: holding, address: 90, type: u16, unit: °C, scale: 0.1, offset: -100, verified: false, note: The offset of 1000 (0 °C = 1000) is given for register 91; assumed here too., conflicts: [{sources: [solarman], type: s16, label: DC Temperature}]}
+  - {key: temperature, label: IGBT temperature (radiator temperature), table: holding, address: 91, type: u16, unit: °C, scale: 0.1, offset: -100, conflicts: [{sources: [solarman], type: s16, label: Temperature}]}
+  - {key: x.rcd_leakage_current, label: RCD leak current, table: holding, address: 98, type: u16, unit: A, scale: 0.01}
+  - {key: x.limiter_power, label: Limter power, table: holding, address: 99, type: u16, unit: W, verified: false, note: Signedness not stated.}
+  - {key: x.alarm_word_1, label: Warning message word 1, table: holding, address: 101, type: u16, flags: alarm_word_1, verified: false, note: The code tables don't give bit positions; code Wn / Fn is taken as bit n−1 counted across the words (the three-phase document's warning word 1 bit list agrees for W02 and W03). Not stated for the fault words; assumed., conflicts: [{sources: [solarman], type: u32, word_order: little, label: Device Alarm}]}
+  - {key: x.alarm_word_2, label: Warning message word 2, table: holding, address: 102, type: u16}
+  - {key: x.fault_word_1, label: Fault information word 1, table: holding, address: 103, type: u16, flags: fault_word_1, verified: false, note: 'Fault codes F01–F16 as bits 0–15 (assumed, see warning word 1).', conflicts: [{sources: [solarman], type: u64, word_order: little, label: Device Fault}]}
+  - {key: x.fault_word_2, label: Fault information word 2, table: holding, address: 104, type: u16, flags: fault_word_2, verified: false, note: 'Fault codes F17–F32 as bits 0–15 (assumed, see warning word 1).'}
+  - {key: x.fault_word_3, label: Fault information word 3, table: holding, address: 105, type: u16, flags: fault_word_3, verified: false, note: 'Fault codes F33–F48 as bits 0–15 (assumed, see warning word 1).'}
+  - {key: x.fault_word_4, label: Fault information word 4, table: holding, address: 106, type: u16, flags: fault_word_4, verified: false, note: 'Fault codes F49–F64 as bits 0–15 (assumed, see warning word 1).'}
+  - {key: x.pv1_voltage, label: Dc voltage 1, table: holding, address: 109, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: Dc current 1, table: holding, address: 110, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv2_voltage, label: Dc voltage 2, table: holding, address: 111, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: Dc current 2, table: holding, address: 112, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv3_voltage, label: Dc voltage 3, table: holding, address: 113, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv3_current, label: Dc current 3, table: holding, address: 114, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.pv4_voltage, label: Dc voltage 4, table: holding, address: 115, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv4_current, label: Dc current 4, table: holding, address: 116, type: u16, unit: A, scale: 0.1, optional: true}
+
+  # String inverter area (150…218)
+  - {key: x.string1_current, label: String 1 current, table: holding, address: 150, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string2_current, label: String 2 current, table: holding, address: 151, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string3_current, label: String 3 current, table: holding, address: 152, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string4_current, label: String 4 current, table: holding, address: 153, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string5_current, label: String 5 current, table: holding, address: 154, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string6_current, label: String 6 current, table: holding, address: 155, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string7_current, label: String 7 current, table: holding, address: 156, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string8_current, label: String 8 current, table: holding, address: 157, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string9_current, label: String 9 current, table: holding, address: 158, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string10_current, label: String 10 current, table: holding, address: 159, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string11_current, label: String 11 current, table: holding, address: 160, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string12_current, label: String 12 current, table: holding, address: 161, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string13_current, label: String 13 current, table: holding, address: 162, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string14_current, label: String 14 current, table: holding, address: 163, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string15_current, label: String 15 current, table: holding, address: 164, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.string16_current, label: String 16 current, table: holding, address: 165, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.load_power, label: Load active power, table: holding, address: 198, type: s32, unit: W, verified: false, note: With a meter fitted. Signedness not stated; signed assumed.}
+  - {key: x.load_energy_today, label: Day_Load_PowerWh, table: holding, address: 200, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.load_energy_total, label: history_Load_PowerWh, table: holding, address: 201, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_power, label: Meter active power, table: holding, address: 203, type: s32, unit: W, positive: export, note: 'Negative = buying, positive = selling.'}
+  - {key: x.grid_export_today, label: Day_GridSell_PowerWh, table: holding, address: 205, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_export_energy, label: history_GridSell_PowerWh, table: holding, address: 206, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.grid_import_today, label: Day_GridBuy_PowerWh, table: holding, address: 208, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_import_energy, label: history_GridBuy_PowerWh, table: holding, address: 209, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv5_voltage, label: Dc voltage 5, table: holding, address: 211, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv5_current, label: Dc current 5, table: holding, address: 212, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.pv6_voltage, label: Dc voltage 6, table: holding, address: 213, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv6_current, label: Dc current 6, table: holding, address: 214, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.pv7_voltage, label: Dc voltage 7, table: holding, address: 215, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv7_current, label: Dc current 7, table: holding, address: 216, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.pv8_voltage, label: Dc voltage 8, table: holding, address: 217, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv8_current, label: Dc current 8, table: holding, address: 218, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.device_modbus_address, label: Device Modbus Address, table: holding, address: 1, type: u16, verified: false, sources: [solarman]}
+  - {key: x.device_chip_type, label: Device Chip Type, table: holding, address: 9, type: u16, enum: device_chip_type, verified: false, sources: [solarman]}
+  - {key: x.device_communication_board_firmware_version_2, label: Device Communication Board Firmware Version (2), table: holding, address: 10, type: u16, note: 'The project shows this as a version: each 4-bit nibble is one digit.', verified: false, sources: [solarman]}
+  - {key: x.device_control_board_firmware_version_3, label: Device Control Board Firmware Version (3), table: holding, address: 11, type: u16, note: 'The project shows this as a version: each 4-bit nibble is one digit.', verified: false, sources: [solarman]}
+  - {key: x.device_control_board_firmware_version_2, label: Device Control Board Firmware Version (2), table: holding, address: 12, type: u16, note: 'The project shows this as a version: each 4-bit nibble is one digit.', verified: false, sources: [solarman]}
+  - {key: x.self_check_time, label: Self-check time, table: holding, address: 21, type: u16, unit: s, writable: true, note: The project ignores raw values outside 0–1000., verified: false, sources: [solarman]}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 184, type: s16, unit: '%', verified: false, sources: [openwb]}
+  - {key: x.inverter_power_186, label: Inverter power (part), table: holding, address: 186, type: s16, unit: W, note: Raw > 0 = generation (openWB's sign handling)., verified: false, sources: [openwb]}
+  - {key: x.inverter_power_187, label: Inverter power (part), table: holding, address: 187, type: s16, unit: W, note: Raw > 0 = generation (openWB's sign handling)., verified: false, sources: [openwb]}
+  - {key: x.inverter_power_188, label: Inverter power (part), table: holding, address: 188, type: s16, unit: W, note: Raw > 0 = generation (openWB's sign handling)., verified: false, sources: [openwb]}
+  - {key: x.inverter_power_189, label: Inverter power (part), table: holding, address: 189, type: s16, unit: W, note: Raw > 0 = generation (openWB's sign handling)., verified: false, sources: [openwb]}
+  - {key: battery_power, label: Battery power, table: holding, address: 190, type: s16, unit: W, positive: discharge, verified: false, sources: [openwb]}
+
+derived:
+  - {key: x.inverter_power, label: Inverter power, unit: W, sum: [{key: x.inverter_power_186}, {key: x.inverter_power_187}, {key: x.inverter_power_188}, {key: x.inverter_power_189}], verified: false, sources: [openwb]}
+
+enums:
+  device_type: {'512': String inverter, '768': Single-phase low-voltage storage inverter, '1024': Microinverter, '1280': Three-phase low-voltage storage inverter, '1536': Three-phase high-voltage storage inverter}
+  rated_power_class: {'2': Single-phase inverter, '3': Three-phase inverter, '8': Single-phase storage inverter}
+  run_state: {'0': Standby, '1': Self-check, '2': Normal, '3': Alarm, '4': Fault}
+  on_off: {'0': 'Off', '1': 'On', '2': 'Off'}
+  device_chip_type: {'0': AT32F403A, '1': SXX32F103, '2': GD32F103, '3': GD32F303}
+
+flags:
+  alarm_word_1: {'1': W02 Fan warning, '2': W03 Grid phase wrong, '3': W04 Meter communication failure}
+  fault_word_1: {'6': F07 DC/DC soft start fault, '9': F10 Auxiliary power supply failure, '12': F13 Working mode changed}
+  fault_word_2: {'0': F17 Active battery hold, '1': F18 AC overcurrent (hardware), '3': F20 DC overcurrent (hardware), '5': F22 Emergency stop (inverter locked), '6': F23 AC leakage current transient overcurrent, '7': F24 DC insulation impedance failure, '8': F25 AC active battery fault, '9': F26 DC bus unbalanced, '12': F29 Parallel CAN bus fault, '14': F31 Soft start failed}
+  fault_word_3: {'2': F35 No AC grid, '4': F37 DC LLC soft overcurrent, '6': F39 DC LLC overcurrent, '7': F40 Battery overcurrent, '8': F41 Parallel system stop, '9': F42 AC line voltage low, '13': F46 Backup battery fault, '14': F47 AC over frequency, '15': F48 AC under frequency}
+  fault_word_4: {'0': F49 Backup battery fault, '7': F56 DC bus voltage low, '9': F58 BMS communication fault, '11': F60 Generator voltage or frequency fault, '12': F61 Switched off by button, '14': F63 Arc fault, '15': F64 Heat sink temperature too high}
+
+problems:
+  - {when: {key: state, equals: 4}, kind: fault, text: Fault (run state 4)}
+  - {when: {key: x.alarm_word_1, bit: 1}, kind: warning, text: W02 Fan warning}
+  - {when: {key: x.alarm_word_1, bit: 2}, kind: warning, text: W03 Grid phase wrong}
+  - {when: {key: x.alarm_word_1, bit: 3}, kind: warning, text: W04 Meter communication failure}
+  - {when: {key: x.fault_word_1, bit: 6}, kind: fault, text: F07 DC/DC soft start fault}
+  - {when: {key: x.fault_word_1, bit: 9}, kind: fault, text: F10 Auxiliary power supply failure}
+  - {when: {key: x.fault_word_1, bit: 12}, kind: fault, text: F13 Working mode changed}
+  - {when: {key: x.fault_word_2, bit: 0}, kind: fault, text: F17 Active battery hold}
+  - {when: {key: x.fault_word_2, bit: 1}, kind: fault, text: F18 AC overcurrent (hardware)}
+  - {when: {key: x.fault_word_2, bit: 3}, kind: fault, text: F20 DC overcurrent (hardware)}
+  - {when: {key: x.fault_word_2, bit: 5}, kind: fault, text: F22 Emergency stop (inverter locked)}
+  - {when: {key: x.fault_word_2, bit: 6}, kind: fault, text: F23 AC leakage current transient overcurrent}
+  - {when: {key: x.fault_word_2, bit: 7}, kind: fault, text: F24 DC insulation impedance failure}
+  - {when: {key: x.fault_word_2, bit: 8}, kind: fault, text: F25 AC active battery fault}
+  - {when: {key: x.fault_word_2, bit: 9}, kind: fault, text: F26 DC bus unbalanced}
+  - {when: {key: x.fault_word_2, bit: 12}, kind: fault, text: F29 Parallel CAN bus fault}
+  - {when: {key: x.fault_word_2, bit: 14}, kind: fault, text: F31 Soft start failed}
+  - {when: {key: x.fault_word_3, bit: 2}, kind: mains_lost, text: F35 No AC grid}
+  - {when: {key: x.fault_word_3, bit: 4}, kind: fault, text: F37 DC LLC soft overcurrent}
+  - {when: {key: x.fault_word_3, bit: 6}, kind: fault, text: F39 DC LLC overcurrent}
+  - {when: {key: x.fault_word_3, bit: 7}, kind: fault, text: F40 Battery overcurrent}
+  - {when: {key: x.fault_word_3, bit: 8}, kind: fault, text: F41 Parallel system stop}
+  - {when: {key: x.fault_word_3, bit: 9}, kind: fault, text: F42 AC line voltage low}
+  - {when: {key: x.fault_word_3, bit: 13}, kind: fault, text: F46 Backup battery fault}
+  - {when: {key: x.fault_word_3, bit: 14}, kind: fault, text: F47 AC over frequency}
+  - {when: {key: x.fault_word_3, bit: 15}, kind: fault, text: F48 AC under frequency}
+  - {when: {key: x.fault_word_4, bit: 0}, kind: fault, text: F49 Backup battery fault}
+  - {when: {key: x.fault_word_4, bit: 7}, kind: fault, text: F56 DC bus voltage low}
+  - {when: {key: x.fault_word_4, bit: 9}, kind: fault, text: F58 BMS communication fault}
+  - {when: {key: x.fault_word_4, bit: 11}, kind: fault, text: F60 Generator voltage or frequency fault}
+  - {when: {key: x.fault_word_4, bit: 12}, kind: fault, text: F61 Switched off by button}
+  - {when: {key: x.fault_word_4, bit: 14}, kind: fault, text: F63 Arc fault}
+  - {when: {key: x.fault_word_4, bit: 15}, kind: fault, text: F64 Heat sink temperature too high}
+
+notes:
+- RS485 / RS232, 9600 Bd 8N1; functions 03 (read, at most 125 registers) and 10 (write, at most 123). The document is for
+  RTU only; the unit id is settable 1–247 (register 1), 1 is assumed as default. Data loggers that wrap Modbus RTU in their
+  own TCP protocol are not described here.
+- Addresses are the document's register numbers, used as 0-based protocol addresses (its example reads register 107 with start
+  address 0x006B). All registers are holding registers (function 03).
+- 32-bit values are listed low word first (word_order little); the document marks no 32-bit value as signed except where noted.
+- Reserved and unsupported registers read 0.
+- 'The document is one map for string, micro and single-phase storage inverters: registers 59…124 have a different meaning
+  per kind (columns ''String'', ''Hybird'', ''MI''), and 150…218 differ between string and storage inverters. Register 0 tells
+  the kind.'
+- Phases B and C, strings and DC inputs a smaller inverter doesn't have read 0 or don't answer.
+- The fault code table at the end of the document is shared by all inverter kinds; several codes only occur on storage inverters.
+- The document doesn't say whether the per-string energies (166…197) use 10 W / 10 Wh steps when register 54 is 10; left out
+  here, as are the per-string energy counters, the grid protection settings (300…324) and the debug registers.
+- Registers 198…210 hold meter values only with an energy meter connected.
+- 'Left out: Device Phases (holding 18, u16) from solarman overlaps x.phase_count from the documents.'
+- 'Left out: Device MPPTs (holding 18, u16) from solarman overlaps x.mppt_count from the documents.'
+- 'evcc template `deye-string` (pv) lists: Deye String inverter; Sunsynk String inverter.'
+- The project reaches the device through a Solarman Wi-Fi / LAN data logger (its own V5 protocol on TCP 8899) or over plain
+  Modbus TCP / RTU; the register map is the same.
+- The project picks this map when Deye's device type (holding register 0) is one of 0x0002, 0x0200.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

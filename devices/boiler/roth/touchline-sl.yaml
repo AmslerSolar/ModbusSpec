@@ -1,0 +1,509 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Roth Touchline SL ModBus RTU document (Norwegian edition, 2024-07-12).
+
+modbusspec: 0
+id: roth-touchline-sl
+manufacturer: Roth
+name: Touchline SL floor heating controller (generation 2, Modbus RTU)
+kind: boiler
+
+sources:
+- title: Roth Touchline SL ModBus RTU (Modbus RTU integration NO)
+  version: '2024-07-12'
+  url: https://www.roth-norge.no/fileadmin/user_upload/Roth_North_Europe/Images_for_Roth_North_Europe/Norway/PDF_files_for_Norway/PDF_files_for_Support_Norway/Firmware/Modbus_RTU_integration_NO_20240712.pdf
+  sha256: c9a2b08223fb4679f3e73b18bc706f08cceca5e6636a86f071fbcded290a7cb1
+  archive_url: https://web.archive.org/web/20240804192735/https://www.roth-norge.no/fileadmin/user_upload/Roth_North_Europe/Images_for_Roth_North_Europe/Norway/PDF_files_for_Norway/PDF_files_for_Support_Norway/Firmware/Modbus_RTU_integration_NO_20240712.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 6
+    type: u32
+
+defaults:
+  verified: false
+
+points:
+  # Identity and firmware
+  - {key: x.fw_date, label: FW Date, table: holding, address: 0, type: u16, poll: slow, note: (month × 40 + day) × 100 + year.}
+  - {key: x.fw_time, label: FW Time, table: holding, address: 1, type: u16, poll: slow, note: Hour × 100 + minute.}
+  - {key: x.fw_major, label: FW Version Major, table: holding, address: 2, type: u16, poll: slow}
+  - {key: x.fw_minor, label: FW Version Minor, table: holding, address: 3, type: u16, poll: slow}
+  - {key: x.fw_revision, label: FW Version Revision, table: holding, address: 4, type: u16, poll: slow}
+  - {key: x.pcb_version, label: PCB Version, table: holding, address: 5, type: u16, poll: slow}
+  - {key: serial, label: Tech serial number (High / Low), table: holding, address: 6, type: u32, poll: slow, note: 'Two registers, high word first.'}
+  - {key: x.bootloader_major, label: Bootloader FW Version Major, table: holding, address: 8, type: u16, poll: slow}
+  - {key: x.bootloader_minor, label: Bootloader FW Version Minor, table: holding, address: 9, type: u16, poll: slow}
+  - {key: x.bootloader_revision, label: Bootloader FW Version Revision, table: holding, address: 10, type: u16, poll: slow}
+
+  # Clock
+  - {key: x.clock_day, label: Day, table: holding, address: 11, type: u16, writable: true, poll: slow}
+  - {key: x.clock_month, label: Month, table: holding, address: 12, type: u16, writable: true, poll: slow}
+  - {key: x.clock_year, label: Year, table: holding, address: 13, type: u16, writable: true, poll: slow}
+  - {key: x.clock_hour, label: Hour, table: holding, address: 14, type: u16, writable: true, poll: slow}
+  - {key: x.clock_minute, label: Minute, table: holding, address: 15, type: u16, writable: true, poll: slow}
+  - {key: x.clock_second, label: Second, table: holding, address: 16, type: u16, writable: true, poll: slow}
+
+  # System settings
+  - {key: x.quick_action, label: Setting QuickActions, table: holding, address: 17, type: u16, enum: quick_action, writable: true, poll: slow}
+  - {key: x.heat_cool_mode_master, label: Setting HeatCoolMode - Master L-12, table: holding, address: 18, type: u16, enum: heat_cool_mode, writable: true, poll: slow}
+  - {key: x.heat_cool_mode_ext1, label: Setting HeatCoolMode - Extension 8CH 1, table: holding, address: 19, type: u16, enum: heat_cool_mode, writable: true, poll: slow}
+  - {key: x.heat_cool_mode_ext2, label: Setting HeatCoolMode - Extension 8CH 2, table: holding, address: 20, type: u16, enum: heat_cool_mode, writable: true, poll: slow}
+  - {key: x.heat_cool_mode_ext3, label: Setting HeatCoolMode - Extension 8CH 3, table: holding, address: 21, type: u16, enum: heat_cool_mode, writable: true, poll: slow}
+
+  # Zone heating demand and window state (bit n-1 = zone n of the block)
+  - {key: x.zones_1_16_heating, label: Zone_isHeating 1…16, table: holding, address: 70, type: u16, flags: zones_1_16, poll: fast}
+  - {key: x.zones_17_32_heating, label: Zone_isHeating 17…32, table: holding, address: 71, type: u16, flags: zones_17_32, poll: fast}
+  - {key: x.zones_33_48_heating, label: Zone_isHeating 33…48, table: holding, address: 72, type: u16, flags: zones_33_48, poll: fast}
+  - {key: x.zones_1_16_window_open, label: Window_Opening_Zone 1…16, table: holding, address: 217, type: u16, flags: zones_1_16, poll: fast}
+  - {key: x.zones_17_32_window_open, label: Window_Opening_Zone 17…32, table: holding, address: 218, type: u16, flags: zones_17_32, poll: fast}
+  - {key: x.zones_33_48_window_open, label: Window_Opening_Zone 33…48, table: holding, address: 219, type: u16, flags: zones_33_48, poll: fast}
+
+  # Outdoor sensor
+  - {key: x.outdoor_temperature, label: Current_External_Temperature, table: holding, address: 268, type: s16, unit: °C, scale: 0.1, poll: fast, note: The document lists uint16; read as signed so that temperatures below 0 °C come out right (assumed).}
+  - {key: x.outdoor_sensor_signal, label: External sensor signal level, table: holding, address: 1800, type: u16, unit: '%', poll: slow}
+  - {key: x.outdoor_sensor_battery, label: External sensor battery level, table: holding, address: 1801, type: u16, unit: '%', poll: slow}
+
+  # Controller and extension module states (0/1)
+  - {key: x.heat_cool_status_master, label: Heating/Cooling status - Master L-12, table: holding, address: 365, type: u16, enum: heat_cool_status, poll: fast}
+  - {key: x.heat_cool_status_ext1, label: Heating/Cooling status - Extension 8CH 1, table: holding, address: 366, type: u16, enum: heat_cool_status, poll: fast}
+  - {key: x.heat_cool_status_ext2, label: Heating/Cooling status - Extension 8CH 2, table: holding, address: 367, type: u16, enum: heat_cool_status, poll: fast}
+  - {key: x.heat_cool_status_ext3, label: Heating/Cooling status - Extension 8CH 3, table: holding, address: 368, type: u16, enum: heat_cool_status, poll: fast}
+  - {key: x.eco_input_master, label: Eco input status - Master L-12, table: holding, address: 369, type: u16, enum: active, poll: fast}
+  - {key: x.eco_input_ext1, label: Eco input status - Extension 8CH 1, table: holding, address: 370, type: u16, enum: active, poll: fast}
+  - {key: x.eco_input_ext2, label: Eco input status - Extension 8CH 2, table: holding, address: 371, type: u16, enum: active, poll: fast}
+  - {key: x.eco_input_ext3, label: Eco input status - Extension 8CH 3, table: holding, address: 372, type: u16, enum: active, poll: fast}
+  - {key: x.pump_master, label: Pump status - Master L-12, table: holding, address: 373, type: u16, enum: active, poll: fast}
+  - {key: x.pump_ext1, label: Pump status - Extension 8CH 1, table: holding, address: 374, type: u16, enum: active, poll: fast}
+  - {key: x.pump_ext2, label: Pump status - Extension 8CH 2, table: holding, address: 375, type: u16, enum: active, poll: fast}
+  - {key: x.pump_ext3, label: Pump status - Extension 8CH 3, table: holding, address: 376, type: u16, enum: active, poll: fast}
+  - {key: x.potential_free_contact_master, label: Potential free contact status - Master L-12, table: holding, address: 377, type: u16, enum: active, poll: fast}
+  - {key: x.potential_free_contact_ext1, label: Potential free contact status - Extension 8CH 1, table: holding, address: 378, type: u16, enum: active, poll: fast}
+  - {key: x.potential_free_contact_ext2, label: Potential free contact status - Extension 8CH 2, table: holding, address: 379, type: u16, enum: active, poll: fast}
+  - {key: x.potential_free_contact_ext3, label: Potential free contact status - Extension 8CH 3, table: holding, address: 380, type: u16, enum: active, poll: fast}
+
+  # Zone 1
+  - {key: x.zone1_temperature, label: Current_Temperature_Zone 1, table: holding, address: 22, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone1_setpoint, label: Set_Temperature_Zone 1, table: holding, address: 220, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone1_floor_temperature, label: Floor_Temperature_Zone 1, table: holding, address: 73, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone1_humidity, label: Humidity_Zone 1, table: holding, address: 121, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone1_actuator_opening, label: Actuators_Opening_Level_Zone 1, table: holding, address: 169, type: u16, unit: '%', poll: fast}
+  - {key: x.zone1_battery, label: Zone 1 battery level, table: holding, address: 269, type: u16, unit: '%', poll: slow}
+
+  # Zone 2
+  - {key: x.zone2_temperature, label: Current_Temperature_Zone 2, table: holding, address: 23, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone2_setpoint, label: Set_Temperature_Zone 2, table: holding, address: 221, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone2_floor_temperature, label: Floor_Temperature_Zone 2, table: holding, address: 74, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone2_humidity, label: Humidity_Zone 2, table: holding, address: 122, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone2_actuator_opening, label: Actuators_Opening_Level_Zone 2, table: holding, address: 170, type: u16, unit: '%', poll: fast}
+  - {key: x.zone2_battery, label: Zone 2 battery level, table: holding, address: 270, type: u16, unit: '%', poll: slow}
+
+  # Zone 3
+  - {key: x.zone3_temperature, label: Current_Temperature_Zone 3, table: holding, address: 24, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone3_setpoint, label: Set_Temperature_Zone 3, table: holding, address: 222, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone3_floor_temperature, label: Floor_Temperature_Zone 3, table: holding, address: 75, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone3_humidity, label: Humidity_Zone 3, table: holding, address: 123, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone3_actuator_opening, label: Actuators_Opening_Level_Zone 3, table: holding, address: 171, type: u16, unit: '%', poll: fast}
+  - {key: x.zone3_battery, label: Zone 3 battery level, table: holding, address: 271, type: u16, unit: '%', poll: slow}
+
+  # Zone 4
+  - {key: x.zone4_temperature, label: Current_Temperature_Zone 4, table: holding, address: 25, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone4_setpoint, label: Set_Temperature_Zone 4, table: holding, address: 223, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone4_floor_temperature, label: Floor_Temperature_Zone 4, table: holding, address: 76, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone4_humidity, label: Humidity_Zone 4, table: holding, address: 124, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone4_actuator_opening, label: Actuators_Opening_Level_Zone 4, table: holding, address: 172, type: u16, unit: '%', poll: fast}
+  - {key: x.zone4_battery, label: Zone 4 battery level, table: holding, address: 272, type: u16, unit: '%', poll: slow}
+
+  # Zone 5
+  - {key: x.zone5_temperature, label: Current_Temperature_Zone 5, table: holding, address: 26, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone5_setpoint, label: Set_Temperature_Zone 5, table: holding, address: 224, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone5_floor_temperature, label: Floor_Temperature_Zone 5, table: holding, address: 77, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone5_humidity, label: Humidity_Zone 5, table: holding, address: 125, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone5_actuator_opening, label: Actuators_Opening_Level_Zone 5, table: holding, address: 173, type: u16, unit: '%', poll: fast}
+  - {key: x.zone5_battery, label: Zone 5 battery level, table: holding, address: 273, type: u16, unit: '%', poll: slow}
+
+  # Zone 6
+  - {key: x.zone6_temperature, label: Current_Temperature_Zone 6, table: holding, address: 27, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone6_setpoint, label: Set_Temperature_Zone 6, table: holding, address: 225, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone6_floor_temperature, label: Floor_Temperature_Zone 6, table: holding, address: 78, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone6_humidity, label: Humidity_Zone 6, table: holding, address: 126, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone6_actuator_opening, label: Actuators_Opening_Level_Zone 6, table: holding, address: 174, type: u16, unit: '%', poll: fast}
+  - {key: x.zone6_battery, label: Zone 6 battery level, table: holding, address: 274, type: u16, unit: '%', poll: slow}
+
+  # Zone 7
+  - {key: x.zone7_temperature, label: Current_Temperature_Zone 7, table: holding, address: 28, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone7_setpoint, label: Set_Temperature_Zone 7, table: holding, address: 226, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone7_floor_temperature, label: Floor_Temperature_Zone 7, table: holding, address: 79, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone7_humidity, label: Humidity_Zone 7, table: holding, address: 127, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone7_actuator_opening, label: Actuators_Opening_Level_Zone 7, table: holding, address: 175, type: u16, unit: '%', poll: fast}
+  - {key: x.zone7_battery, label: Zone 7 battery level, table: holding, address: 275, type: u16, unit: '%', poll: slow}
+
+  # Zone 8
+  - {key: x.zone8_temperature, label: Current_Temperature_Zone 8, table: holding, address: 29, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone8_setpoint, label: Set_Temperature_Zone 8, table: holding, address: 227, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone8_floor_temperature, label: Floor_Temperature_Zone 8, table: holding, address: 80, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone8_humidity, label: Humidity_Zone 8, table: holding, address: 128, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone8_actuator_opening, label: Actuators_Opening_Level_Zone 8, table: holding, address: 176, type: u16, unit: '%', poll: fast}
+  - {key: x.zone8_battery, label: Zone 8 battery level, table: holding, address: 276, type: u16, unit: '%', poll: slow}
+
+  # Zone 9
+  - {key: x.zone9_temperature, label: Current_Temperature_Zone 9, table: holding, address: 30, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone9_setpoint, label: Set_Temperature_Zone 9, table: holding, address: 228, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone9_floor_temperature, label: Floor_Temperature_Zone 9, table: holding, address: 81, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone9_humidity, label: Humidity_Zone 9, table: holding, address: 129, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone9_actuator_opening, label: Actuators_Opening_Level_Zone 9, table: holding, address: 177, type: u16, unit: '%', poll: fast}
+  - {key: x.zone9_battery, label: Zone 9 battery level, table: holding, address: 277, type: u16, unit: '%', poll: slow}
+
+  # Zone 10
+  - {key: x.zone10_temperature, label: Current_Temperature_Zone 10, table: holding, address: 31, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone10_setpoint, label: Set_Temperature_Zone 10, table: holding, address: 229, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone10_floor_temperature, label: Floor_Temperature_Zone 10, table: holding, address: 82, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone10_humidity, label: Humidity_Zone 10, table: holding, address: 130, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone10_actuator_opening, label: Actuators_Opening_Level_Zone 10, table: holding, address: 178, type: u16, unit: '%', poll: fast}
+  - {key: x.zone10_battery, label: Zone 10 battery level, table: holding, address: 278, type: u16, unit: '%', poll: slow}
+
+  # Zone 11
+  - {key: x.zone11_temperature, label: Current_Temperature_Zone 11, table: holding, address: 32, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone11_setpoint, label: Set_Temperature_Zone 11, table: holding, address: 230, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone11_floor_temperature, label: Floor_Temperature_Zone 11, table: holding, address: 83, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone11_humidity, label: Humidity_Zone 11, table: holding, address: 131, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone11_actuator_opening, label: Actuators_Opening_Level_Zone 11, table: holding, address: 179, type: u16, unit: '%', poll: fast}
+  - {key: x.zone11_battery, label: Zone 11 battery level, table: holding, address: 279, type: u16, unit: '%', poll: slow}
+
+  # Zone 12
+  - {key: x.zone12_temperature, label: Current_Temperature_Zone 12, table: holding, address: 33, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone12_setpoint, label: Set_Temperature_Zone 12, table: holding, address: 231, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone12_floor_temperature, label: Floor_Temperature_Zone 12, table: holding, address: 84, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone12_humidity, label: Humidity_Zone 12, table: holding, address: 132, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone12_actuator_opening, label: Actuators_Opening_Level_Zone 12, table: holding, address: 180, type: u16, unit: '%', poll: fast}
+  - {key: x.zone12_battery, label: Zone 12 battery level, table: holding, address: 280, type: u16, unit: '%', poll: slow}
+
+  # Zone 13
+  - {key: x.zone13_temperature, label: Current_Temperature_Zone 13, table: holding, address: 34, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone13_setpoint, label: Set_Temperature_Zone 13, table: holding, address: 232, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone13_floor_temperature, label: Floor_Temperature_Zone 13, table: holding, address: 85, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone13_humidity, label: Humidity_Zone 13, table: holding, address: 133, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone13_actuator_opening, label: Actuators_Opening_Level_Zone 13, table: holding, address: 181, type: u16, unit: '%', poll: fast}
+  - {key: x.zone13_battery, label: Zone 13 battery level, table: holding, address: 281, type: u16, unit: '%', poll: slow}
+
+  # Zone 14
+  - {key: x.zone14_temperature, label: Current_Temperature_Zone 14, table: holding, address: 35, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone14_setpoint, label: Set_Temperature_Zone 14, table: holding, address: 233, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone14_floor_temperature, label: Floor_Temperature_Zone 14, table: holding, address: 86, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone14_humidity, label: Humidity_Zone 14, table: holding, address: 134, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone14_actuator_opening, label: Actuators_Opening_Level_Zone 14, table: holding, address: 182, type: u16, unit: '%', poll: fast}
+  - {key: x.zone14_battery, label: Zone 14 battery level, table: holding, address: 282, type: u16, unit: '%', poll: slow}
+
+  # Zone 15
+  - {key: x.zone15_temperature, label: Current_Temperature_Zone 15, table: holding, address: 36, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone15_setpoint, label: Set_Temperature_Zone 15, table: holding, address: 234, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone15_floor_temperature, label: Floor_Temperature_Zone 15, table: holding, address: 87, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone15_humidity, label: Humidity_Zone 15, table: holding, address: 135, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone15_actuator_opening, label: Actuators_Opening_Level_Zone 15, table: holding, address: 183, type: u16, unit: '%', poll: fast}
+  - {key: x.zone15_battery, label: Zone 15 battery level, table: holding, address: 283, type: u16, unit: '%', poll: slow}
+
+  # Zone 16
+  - {key: x.zone16_temperature, label: Current_Temperature_Zone 16, table: holding, address: 37, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone16_setpoint, label: Set_Temperature_Zone 16, table: holding, address: 235, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone16_floor_temperature, label: Floor_Temperature_Zone 16, table: holding, address: 88, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone16_humidity, label: Humidity_Zone 16, table: holding, address: 136, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone16_actuator_opening, label: Actuators_Opening_Level_Zone 16, table: holding, address: 184, type: u16, unit: '%', poll: fast}
+  - {key: x.zone16_battery, label: Zone 16 battery level, table: holding, address: 284, type: u16, unit: '%', poll: slow}
+
+  # Zone 17
+  - {key: x.zone17_temperature, label: Current_Temperature_Zone 17, table: holding, address: 38, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone17_setpoint, label: Set_Temperature_Zone 17, table: holding, address: 236, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone17_floor_temperature, label: Floor_Temperature_Zone 17, table: holding, address: 89, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone17_humidity, label: Humidity_Zone 17, table: holding, address: 137, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone17_actuator_opening, label: Actuators_Opening_Level_Zone 17, table: holding, address: 185, type: u16, unit: '%', poll: fast}
+  - {key: x.zone17_battery, label: Zone 17 battery level, table: holding, address: 285, type: u16, unit: '%', poll: slow}
+
+  # Zone 18
+  - {key: x.zone18_temperature, label: Current_Temperature_Zone 18, table: holding, address: 39, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone18_setpoint, label: Set_Temperature_Zone 18, table: holding, address: 237, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone18_floor_temperature, label: Floor_Temperature_Zone 18, table: holding, address: 90, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone18_humidity, label: Humidity_Zone 18, table: holding, address: 138, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone18_actuator_opening, label: Actuators_Opening_Level_Zone 18, table: holding, address: 186, type: u16, unit: '%', poll: fast}
+  - {key: x.zone18_battery, label: Zone 18 battery level, table: holding, address: 286, type: u16, unit: '%', poll: slow}
+
+  # Zone 19
+  - {key: x.zone19_temperature, label: Current_Temperature_Zone 19, table: holding, address: 40, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone19_setpoint, label: Set_Temperature_Zone 19, table: holding, address: 238, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone19_floor_temperature, label: Floor_Temperature_Zone 19, table: holding, address: 91, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone19_humidity, label: Humidity_Zone 19, table: holding, address: 139, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone19_actuator_opening, label: Actuators_Opening_Level_Zone 19, table: holding, address: 187, type: u16, unit: '%', poll: fast}
+  - {key: x.zone19_battery, label: Zone 19 battery level, table: holding, address: 287, type: u16, unit: '%', poll: slow}
+
+  # Zone 20
+  - {key: x.zone20_temperature, label: Current_Temperature_Zone 20, table: holding, address: 41, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone20_setpoint, label: Set_Temperature_Zone 20, table: holding, address: 239, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone20_floor_temperature, label: Floor_Temperature_Zone 20, table: holding, address: 92, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone20_humidity, label: Humidity_Zone 20, table: holding, address: 140, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone20_actuator_opening, label: Actuators_Opening_Level_Zone 20, table: holding, address: 188, type: u16, unit: '%', poll: fast}
+  - {key: x.zone20_battery, label: Zone 20 battery level, table: holding, address: 288, type: u16, unit: '%', poll: slow}
+
+  # Zone 21
+  - {key: x.zone21_temperature, label: Current_Temperature_Zone 21, table: holding, address: 42, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone21_setpoint, label: Set_Temperature_Zone 21, table: holding, address: 240, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone21_floor_temperature, label: Floor_Temperature_Zone 21, table: holding, address: 93, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone21_humidity, label: Humidity_Zone 21, table: holding, address: 141, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone21_actuator_opening, label: Actuators_Opening_Level_Zone 21, table: holding, address: 189, type: u16, unit: '%', poll: fast}
+  - {key: x.zone21_battery, label: Zone 21 battery level, table: holding, address: 289, type: u16, unit: '%', poll: slow}
+
+  # Zone 22
+  - {key: x.zone22_temperature, label: Current_Temperature_Zone 22, table: holding, address: 43, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone22_setpoint, label: Set_Temperature_Zone 22, table: holding, address: 241, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone22_floor_temperature, label: Floor_Temperature_Zone 22, table: holding, address: 94, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone22_humidity, label: Humidity_Zone 22, table: holding, address: 142, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone22_actuator_opening, label: Actuators_Opening_Level_Zone 22, table: holding, address: 190, type: u16, unit: '%', poll: fast}
+  - {key: x.zone22_battery, label: Zone 22 battery level, table: holding, address: 290, type: u16, unit: '%', poll: slow}
+
+  # Zone 23
+  - {key: x.zone23_temperature, label: Current_Temperature_Zone 23, table: holding, address: 44, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone23_setpoint, label: Set_Temperature_Zone 23, table: holding, address: 242, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone23_floor_temperature, label: Floor_Temperature_Zone 23, table: holding, address: 95, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone23_humidity, label: Humidity_Zone 23, table: holding, address: 143, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone23_actuator_opening, label: Actuators_Opening_Level_Zone 23, table: holding, address: 191, type: u16, unit: '%', poll: fast}
+  - {key: x.zone23_battery, label: Zone 23 battery level, table: holding, address: 291, type: u16, unit: '%', poll: slow}
+
+  # Zone 24
+  - {key: x.zone24_temperature, label: Current_Temperature_Zone 24, table: holding, address: 45, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone24_setpoint, label: Set_Temperature_Zone 24, table: holding, address: 243, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone24_floor_temperature, label: Floor_Temperature_Zone 24, table: holding, address: 96, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone24_humidity, label: Humidity_Zone 24, table: holding, address: 144, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone24_actuator_opening, label: Actuators_Opening_Level_Zone 24, table: holding, address: 192, type: u16, unit: '%', poll: fast}
+  - {key: x.zone24_battery, label: Zone 24 battery level, table: holding, address: 292, type: u16, unit: '%', poll: slow}
+
+  # Zone 25
+  - {key: x.zone25_temperature, label: Current_Temperature_Zone 25, table: holding, address: 46, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone25_setpoint, label: Set_Temperature_Zone 25, table: holding, address: 244, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone25_floor_temperature, label: Floor_Temperature_Zone 25, table: holding, address: 97, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone25_humidity, label: Humidity_Zone 25, table: holding, address: 145, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone25_actuator_opening, label: Actuators_Opening_Level_Zone 25, table: holding, address: 193, type: u16, unit: '%', poll: fast}
+  - {key: x.zone25_battery, label: Zone 25 battery level, table: holding, address: 293, type: u16, unit: '%', poll: slow}
+
+  # Zone 26
+  - {key: x.zone26_temperature, label: Current_Temperature_Zone 26, table: holding, address: 47, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone26_setpoint, label: Set_Temperature_Zone 26, table: holding, address: 245, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone26_floor_temperature, label: Floor_Temperature_Zone 26, table: holding, address: 98, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone26_humidity, label: Humidity_Zone 26, table: holding, address: 146, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone26_actuator_opening, label: Actuators_Opening_Level_Zone 26, table: holding, address: 194, type: u16, unit: '%', poll: fast}
+  - {key: x.zone26_battery, label: Zone 26 battery level, table: holding, address: 294, type: u16, unit: '%', poll: slow}
+
+  # Zone 27
+  - {key: x.zone27_temperature, label: Current_Temperature_Zone 27, table: holding, address: 48, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone27_setpoint, label: Set_Temperature_Zone 27, table: holding, address: 246, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone27_floor_temperature, label: Floor_Temperature_Zone 27, table: holding, address: 99, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone27_humidity, label: Humidity_Zone 27, table: holding, address: 147, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone27_actuator_opening, label: Actuators_Opening_Level_Zone 27, table: holding, address: 195, type: u16, unit: '%', poll: fast}
+  - {key: x.zone27_battery, label: Zone 27 battery level, table: holding, address: 295, type: u16, unit: '%', poll: slow}
+
+  # Zone 28
+  - {key: x.zone28_temperature, label: Current_Temperature_Zone 28, table: holding, address: 49, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone28_setpoint, label: Set_Temperature_Zone 28, table: holding, address: 247, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone28_floor_temperature, label: Floor_Temperature_Zone 28, table: holding, address: 100, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone28_humidity, label: Humidity_Zone 28, table: holding, address: 148, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone28_actuator_opening, label: Actuators_Opening_Level_Zone 28, table: holding, address: 196, type: u16, unit: '%', poll: fast}
+  - {key: x.zone28_battery, label: Zone 28 battery level, table: holding, address: 296, type: u16, unit: '%', poll: slow}
+
+  # Zone 29
+  - {key: x.zone29_temperature, label: Current_Temperature_Zone 29, table: holding, address: 50, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone29_setpoint, label: Set_Temperature_Zone 29, table: holding, address: 248, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone29_floor_temperature, label: Floor_Temperature_Zone 29, table: holding, address: 101, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone29_humidity, label: Humidity_Zone 29, table: holding, address: 149, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone29_actuator_opening, label: Actuators_Opening_Level_Zone 29, table: holding, address: 197, type: u16, unit: '%', poll: fast}
+  - {key: x.zone29_battery, label: Zone 29 battery level, table: holding, address: 297, type: u16, unit: '%', poll: slow}
+
+  # Zone 30
+  - {key: x.zone30_temperature, label: Current_Temperature_Zone 30, table: holding, address: 51, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone30_setpoint, label: Set_Temperature_Zone 30, table: holding, address: 249, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone30_floor_temperature, label: Floor_Temperature_Zone 30, table: holding, address: 102, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone30_humidity, label: Humidity_Zone 30, table: holding, address: 150, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone30_actuator_opening, label: Actuators_Opening_Level_Zone 30, table: holding, address: 198, type: u16, unit: '%', poll: fast}
+  - {key: x.zone30_battery, label: Zone 30 battery level, table: holding, address: 298, type: u16, unit: '%', poll: slow}
+
+  # Zone 31
+  - {key: x.zone31_temperature, label: Current_Temperature_Zone 31, table: holding, address: 52, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone31_setpoint, label: Set_Temperature_Zone 31, table: holding, address: 250, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone31_floor_temperature, label: Floor_Temperature_Zone 31, table: holding, address: 103, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone31_humidity, label: Humidity_Zone 31, table: holding, address: 151, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone31_actuator_opening, label: Actuators_Opening_Level_Zone 31, table: holding, address: 199, type: u16, unit: '%', poll: fast}
+  - {key: x.zone31_battery, label: Zone 31 battery level, table: holding, address: 299, type: u16, unit: '%', poll: slow}
+
+  # Zone 32
+  - {key: x.zone32_temperature, label: Current_Temperature_Zone 32, table: holding, address: 53, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone32_setpoint, label: Set_Temperature_Zone 32, table: holding, address: 251, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone32_floor_temperature, label: Floor_Temperature_Zone 32, table: holding, address: 104, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone32_humidity, label: Humidity_Zone 32, table: holding, address: 152, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone32_actuator_opening, label: Actuators_Opening_Level_Zone 32, table: holding, address: 200, type: u16, unit: '%', poll: fast}
+  - {key: x.zone32_battery, label: Zone 32 battery level, table: holding, address: 300, type: u16, unit: '%', poll: slow}
+
+  # Zone 33
+  - {key: x.zone33_temperature, label: Current_Temperature_Zone 33, table: holding, address: 54, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone33_setpoint, label: Set_Temperature_Zone 33, table: holding, address: 252, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone33_floor_temperature, label: Floor_Temperature_Zone 33, table: holding, address: 105, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone33_humidity, label: Humidity_Zone 33, table: holding, address: 153, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone33_actuator_opening, label: Actuators_Opening_Level_Zone 33, table: holding, address: 201, type: u16, unit: '%', poll: fast}
+  - {key: x.zone33_battery, label: Zone 33 battery level, table: holding, address: 301, type: u16, unit: '%', poll: slow}
+
+  # Zone 34
+  - {key: x.zone34_temperature, label: Current_Temperature_Zone 34, table: holding, address: 55, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone34_setpoint, label: Set_Temperature_Zone 34, table: holding, address: 253, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone34_floor_temperature, label: Floor_Temperature_Zone 34, table: holding, address: 106, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone34_humidity, label: Humidity_Zone 34, table: holding, address: 154, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone34_actuator_opening, label: Actuators_Opening_Level_Zone 34, table: holding, address: 202, type: u16, unit: '%', poll: fast}
+  - {key: x.zone34_battery, label: Zone 34 battery level, table: holding, address: 302, type: u16, unit: '%', poll: slow}
+
+  # Zone 35
+  - {key: x.zone35_temperature, label: Current_Temperature_Zone 35, table: holding, address: 56, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone35_setpoint, label: Set_Temperature_Zone 35, table: holding, address: 254, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone35_floor_temperature, label: Floor_Temperature_Zone 35, table: holding, address: 107, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone35_humidity, label: Humidity_Zone 35, table: holding, address: 155, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone35_actuator_opening, label: Actuators_Opening_Level_Zone 35, table: holding, address: 203, type: u16, unit: '%', poll: fast}
+  - {key: x.zone35_battery, label: Zone 35 battery level, table: holding, address: 303, type: u16, unit: '%', poll: slow}
+
+  # Zone 36
+  - {key: x.zone36_temperature, label: Current_Temperature_Zone 36, table: holding, address: 57, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone36_setpoint, label: Set_Temperature_Zone 36, table: holding, address: 255, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone36_floor_temperature, label: Floor_Temperature_Zone 36, table: holding, address: 108, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone36_humidity, label: Humidity_Zone 36, table: holding, address: 156, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone36_actuator_opening, label: Actuators_Opening_Level_Zone 36, table: holding, address: 204, type: u16, unit: '%', poll: fast}
+  - {key: x.zone36_battery, label: Zone 36 battery level, table: holding, address: 304, type: u16, unit: '%', poll: slow}
+
+  # Zone 37
+  - {key: x.zone37_temperature, label: Current_Temperature_Zone 37, table: holding, address: 58, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone37_setpoint, label: Set_Temperature_Zone 37, table: holding, address: 256, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone37_floor_temperature, label: Floor_Temperature_Zone 37, table: holding, address: 109, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone37_humidity, label: Humidity_Zone 37, table: holding, address: 157, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone37_actuator_opening, label: Actuators_Opening_Level_Zone 37, table: holding, address: 205, type: u16, unit: '%', poll: fast}
+  - {key: x.zone37_battery, label: Zone 37 battery level, table: holding, address: 305, type: u16, unit: '%', poll: slow}
+
+  # Zone 38
+  - {key: x.zone38_temperature, label: Current_Temperature_Zone 38, table: holding, address: 59, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone38_setpoint, label: Set_Temperature_Zone 38, table: holding, address: 257, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone38_floor_temperature, label: Floor_Temperature_Zone 38, table: holding, address: 110, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone38_humidity, label: Humidity_Zone 38, table: holding, address: 158, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone38_actuator_opening, label: Actuators_Opening_Level_Zone 38, table: holding, address: 206, type: u16, unit: '%', poll: fast}
+  - {key: x.zone38_battery, label: Zone 38 battery level, table: holding, address: 306, type: u16, unit: '%', poll: slow}
+
+  # Zone 39
+  - {key: x.zone39_temperature, label: Current_Temperature_Zone 39, table: holding, address: 60, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone39_setpoint, label: Set_Temperature_Zone 39, table: holding, address: 258, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone39_floor_temperature, label: Floor_Temperature_Zone 39, table: holding, address: 111, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone39_humidity, label: Humidity_Zone 39, table: holding, address: 159, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone39_actuator_opening, label: Actuators_Opening_Level_Zone 39, table: holding, address: 207, type: u16, unit: '%', poll: fast}
+  - {key: x.zone39_battery, label: Zone 39 battery level, table: holding, address: 307, type: u16, unit: '%', poll: slow}
+
+  # Zone 40
+  - {key: x.zone40_temperature, label: Current_Temperature_Zone 40, table: holding, address: 61, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone40_setpoint, label: Set_Temperature_Zone 40, table: holding, address: 259, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone40_floor_temperature, label: Floor_Temperature_Zone 40, table: holding, address: 112, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone40_humidity, label: Humidity_Zone 40, table: holding, address: 160, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone40_actuator_opening, label: Actuators_Opening_Level_Zone 40, table: holding, address: 208, type: u16, unit: '%', poll: fast}
+  - {key: x.zone40_battery, label: Zone 40 battery level, table: holding, address: 308, type: u16, unit: '%', poll: slow}
+
+  # Zone 41
+  - {key: x.zone41_temperature, label: Current_Temperature_Zone 41, table: holding, address: 62, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone41_setpoint, label: Set_Temperature_Zone 41, table: holding, address: 260, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone41_floor_temperature, label: Floor_Temperature_Zone 41, table: holding, address: 113, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone41_humidity, label: Humidity_Zone 41, table: holding, address: 161, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone41_actuator_opening, label: Actuators_Opening_Level_Zone 41, table: holding, address: 209, type: u16, unit: '%', poll: fast}
+  - {key: x.zone41_battery, label: Zone 41 battery level, table: holding, address: 309, type: u16, unit: '%', poll: slow}
+
+  # Zone 42
+  - {key: x.zone42_temperature, label: Current_Temperature_Zone 42, table: holding, address: 63, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone42_setpoint, label: Set_Temperature_Zone 42, table: holding, address: 261, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone42_floor_temperature, label: Floor_Temperature_Zone 42, table: holding, address: 114, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone42_humidity, label: Humidity_Zone 42, table: holding, address: 162, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone42_actuator_opening, label: Actuators_Opening_Level_Zone 42, table: holding, address: 210, type: u16, unit: '%', poll: fast}
+  - {key: x.zone42_battery, label: Zone 42 battery level, table: holding, address: 310, type: u16, unit: '%', poll: slow}
+
+  # Zone 43
+  - {key: x.zone43_temperature, label: Current_Temperature_Zone 43, table: holding, address: 64, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone43_setpoint, label: Set_Temperature_Zone 43, table: holding, address: 262, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone43_floor_temperature, label: Floor_Temperature_Zone 43, table: holding, address: 115, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone43_humidity, label: Humidity_Zone 43, table: holding, address: 163, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone43_actuator_opening, label: Actuators_Opening_Level_Zone 43, table: holding, address: 211, type: u16, unit: '%', poll: fast}
+  - {key: x.zone43_battery, label: Zone 43 battery level, table: holding, address: 311, type: u16, unit: '%', poll: slow}
+
+  # Zone 44
+  - {key: x.zone44_temperature, label: Current_Temperature_Zone 44, table: holding, address: 65, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone44_setpoint, label: Set_Temperature_Zone 44, table: holding, address: 263, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone44_floor_temperature, label: Floor_Temperature_Zone 44, table: holding, address: 116, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone44_humidity, label: Humidity_Zone 44, table: holding, address: 164, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone44_actuator_opening, label: Actuators_Opening_Level_Zone 44, table: holding, address: 212, type: u16, unit: '%', poll: fast}
+  - {key: x.zone44_battery, label: Zone 44 battery level, table: holding, address: 312, type: u16, unit: '%', poll: slow}
+
+  # Zone 45
+  - {key: x.zone45_temperature, label: Current_Temperature_Zone 45, table: holding, address: 66, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone45_setpoint, label: Set_Temperature_Zone 45, table: holding, address: 264, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone45_floor_temperature, label: Floor_Temperature_Zone 45, table: holding, address: 117, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone45_humidity, label: Humidity_Zone 45, table: holding, address: 165, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone45_actuator_opening, label: Actuators_Opening_Level_Zone 45, table: holding, address: 213, type: u16, unit: '%', poll: fast}
+  - {key: x.zone45_battery, label: Zone 45 battery level, table: holding, address: 313, type: u16, unit: '%', poll: slow}
+
+  # Zone 46
+  - {key: x.zone46_temperature, label: Current_Temperature_Zone 46, table: holding, address: 67, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone46_setpoint, label: Set_Temperature_Zone 46, table: holding, address: 265, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone46_floor_temperature, label: Floor_Temperature_Zone 46, table: holding, address: 118, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone46_humidity, label: Humidity_Zone 46, table: holding, address: 166, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone46_actuator_opening, label: Actuators_Opening_Level_Zone 46, table: holding, address: 214, type: u16, unit: '%', poll: fast}
+  - {key: x.zone46_battery, label: Zone 46 battery level, table: holding, address: 314, type: u16, unit: '%', poll: slow}
+
+  # Zone 47
+  - {key: x.zone47_temperature, label: Current_Temperature_Zone 47, table: holding, address: 68, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone47_setpoint, label: Set_Temperature_Zone 47, table: holding, address: 266, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone47_floor_temperature, label: Floor_Temperature_Zone 47, table: holding, address: 119, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone47_humidity, label: Humidity_Zone 47, table: holding, address: 167, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone47_actuator_opening, label: Actuators_Opening_Level_Zone 47, table: holding, address: 215, type: u16, unit: '%', poll: fast}
+  - {key: x.zone47_battery, label: Zone 47 battery level, table: holding, address: 315, type: u16, unit: '%', poll: slow}
+
+  # Zone 48
+  - {key: x.zone48_temperature, label: Current_Temperature_Zone 48, table: holding, address: 69, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone48_setpoint, label: Set_Temperature_Zone 48, table: holding, address: 267, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow}
+  - {key: x.zone48_floor_temperature, label: Floor_Temperature_Zone 48, table: holding, address: 120, type: u16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.zone48_humidity, label: Humidity_Zone 48, table: holding, address: 168, type: u16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.zone48_actuator_opening, label: Actuators_Opening_Level_Zone 48, table: holding, address: 216, type: u16, unit: '%', poll: fast}
+  - {key: x.zone48_battery, label: Zone 48 battery level, table: holding, address: 316, type: u16, unit: '%', poll: slow}
+
+enums:
+  quick_action: {'0': Normal, '1': Holiday, '2': Eco, '3': Comfort}
+  heat_cool_mode: {'0': Heating, '1': Cooling, '2': Auto}
+  heat_cool_status: {'0': Heating, '1': Cooling}
+  active: {'0': Inactive, '1': Active}
+
+flags:
+  zones_1_16: {'0': Zone 1, '1': Zone 2, '2': Zone 3, '3': Zone 4, '4': Zone 5, '5': Zone 6, '6': Zone 7, '7': Zone 8, '8': Zone 9, '9': Zone 10, '10': Zone 11, '11': Zone 12, '12': Zone 13, '13': Zone 14, '14': Zone 15, '15': Zone 16}
+  zones_17_32: {'0': Zone 17, '1': Zone 18, '2': Zone 19, '3': Zone 20, '4': Zone 21, '5': Zone 22, '6': Zone 23, '7': Zone 24, '8': Zone 25, '9': Zone 26, '10': Zone 27, '11': Zone 28, '12': Zone 29, '13': Zone 30, '14': Zone 31, '15': Zone 32}
+  zones_33_48: {'0': Zone 33, '1': Zone 34, '2': Zone 35, '3': Zone 36, '4': Zone 37, '5': Zone 38, '6': Zone 39, '7': Zone 40, '8': Zone 41, '9': Zone 42, '10': Zone 43, '11': Zone 44, '12': Zone 45, '13': Zone 46, '14': Zone 47, '15': Zone 48}
+
+notes:
+- The document numbers registers from 1 (Reg. 1 = FW Date) and doesn't state whether these are protocol addresses or 1-based
+  numbers, nor the function code. The addresses here assume 1-based numbering (address = Reg. − 1) and holding registers (function
+  03, writes 06/16); neither is verified. The bit tables are numbered 1…16 the same way; bit 1 (zone 1, 17, 33) is taken as
+  the least significant bit, as the document's example shows.
+- Needs controller firmware 1.0.11 and extension module firmware 1.0.12G or newer (generation 2 controllers with a BMS/Modbus
+  connector).
+- 'Modbus settings are in the service menu: slave address 1 (1…247), even parity, one stop bit by default; the baud rate is
+  fixed at 19200 (8E1).'
+- Zone values are in blocks of 48 consecutive registers, zone 1 first; the document's range for the zone 2…48 set temperatures
+  is printed as '2…28' but spans 47 registers. Values for zones without a sensor are not described.
+- 'Left out: per-zone signal levels (Reg. 318–365), actuator 1…6 signal and battery levels (382–957), window sensor 1…6 signal
+  and battery levels (958–1533), floor sensor signal and battery levels (1534–1629), the MW-1 and extension module signal
+  levels (1630–1656) and the floor sensor mode and upper / lower floor temperature limits (1657–1800).'
+- All values are listed as uint16 (the 0/1 states as bool). Temperatures are °C × 10, humidity % × 10.

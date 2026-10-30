@@ -1,0 +1,277 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SolarEdge Technical Note "SolarEdge Inverters - SunSpec Logging" (3.2, June 2025); the older
+# versions below agree on the inverter registers.
+
+modbusspec: 0
+id: solaredge-inverter
+manufacturer: SolarEdge
+name: SolarEdge inverters (SunSpec logging)
+kind: inverter
+
+sources:
+- title: Technical Note – SolarEdge Inverters - SunSpec Logging
+  version: 3.2 (June 2025)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi/blob/2bffb6ad39897991cec037ed2240032e41fab6a3/doc/sunspec-implementation-technical-note.pdf
+  sha256: ee578cc770f381b58dc0de75a6b8696477c7827f7c5109e2ee71b98a1f57dc2d
+- title: Technical Note – SunSpec Logging in SolarEdge Inverters
+  version: 2.5 (November 2022)
+  url: https://www.solaredge.com/sites/default/files/sunspec-implementation-technical-note.pdf
+  sha256: a93afea72570ec36bf2f23474b17fecce2b5abb6520a8a7542e7420f470ddbe8
+  archive_url: https://web.archive.org/web/20221207064846/https://www.solaredge.com/sites/default/files/sunspec-implementation-technical-note.pdf
+- title: Technical Note – SunSpec Logging in SolarEdge Inverters
+  version: 2.4 (December 2021)
+  url: https://github.com/nmakel/solaredge_modbus/blob/fd3ce7ae32a259ee371c672dac3bcd75bfe51258/documents/sunspec-implementation-technical-note-v2.4.pdf
+  sha256: b37440a14b4d5465e4b3d8d97715bb67a23a2488e26e004df904ac818ff06b61
+- title: Technical Note – SunSpec Logging in SolarEdge Inverters
+  version: 2.0 (January 2019)
+  url: https://github.com/nmakel/solaredge_modbus/blob/fd3ce7ae32a259ee371c672dac3bcd75bfe51258/documents/sunspec-implementation-technical-note-v2.0.pdf
+  sha256: e05a14e4cb99b18503a7737bc801694f939a6fafb1316d873b7e1025e6483501
+- title: SunSpec Implementation Technical Note
+  version: January 2016
+  url: http://www.solaredge.com/files/pdfs/sunspec-implementation-technical-note.pdf
+  sha256: 24d1ed73d102cf28256cf59fbef2a4fa9641dccbb16c09077d847049ef63cd1b
+  archive_url: https://web.archive.org/web/20160310181811/http://www.solaredge.com/files/pdfs/sunspec-implementation-technical-note.pdf
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/solaredge/solaredge
+- id: solaredge-modbus-multi
+  title: solaredge-modbus-multi (Home Assistant integration)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi
+  license: Apache-2.0
+  commit: 2bffb6ad39897991cec037ed2240032e41fab6a3
+  path: custom_components/solaredge_modbus_multi/components.py, custom_components/solaredge_modbus_multi/const.py, custom_components/solaredge_modbus_multi/scanner.py,
+    custom_components/solaredge_modbus_multi/hub.py
+- id: solaredged
+  title: solaredged (Python library used by the Home Assistant core solaredge_modbus integration)
+  url: https://github.com/frenck/python-solaredged
+  license: MIT
+  commit: c80f8a8fa3e592e6bfa689063a4a372a5dd5cbea
+  path: src/solaredged/components.py, src/solaredged/const.py
+- id: sunspec2
+  title: ha-sunspec2 (Home Assistant integration)
+  url: https://github.com/hilman2/ha-sunspec2
+  license: MIT
+  commit: 2efb4dd6e51e55a5f07d960f56a6281831eb58de
+  path: custom_components/sunspec2/vendors/__init__.py, custom_components/sunspec2/vendors/profile.py, custom_components/sunspec2/vendors/solaredge.py
+
+connection:
+  default_port: 1502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 115200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40052
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+  - table: holding
+    address: 40002
+    type: u16
+    equals: 1
+  - table: holding
+    address: 40003
+    type: u16
+    equals: 65
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: SolarEdge
+  - table: holding
+    address: 40069
+    type: u16
+    in:
+    - 101
+    - 102
+    - 103
+
+sunspec: true
+
+models:
+  - {id: single_phase, name: Single phase inverter (SunSpec model 101), match: {table: holding, address: 40069, type: u16, equals: 101}}
+  - {id: split_phase, name: Split phase inverter (SunSpec model 102), match: {table: holding, address: 40069, type: u16, equals: 102}}
+  - {id: three_phase, name: Three phase inverter (SunSpec model 103), match: {table: holding, address: 40069, type: u16, equals: 103}}
+  - {id: solaredge_modbus_multi_single_phase, name: Single phase inverter, match: {table: holding, address: 40069, type: u16, equals: 101}}
+  - {id: solaredge_modbus_multi_split_phase, name: Split phase inverter, match: {table: holding, address: 40069, type: u16, equals: 102}}
+  - {id: solaredge_modbus_multi_three_phase, name: Three phase inverter, match: {table: holding, address: 40069, type: u16, equals: 103}}
+  - {id: solaredged_single_phase, name: Single phase inverter, match: {table: holding, address: 40069, type: u16, equals: 101}}
+  - {id: solaredged_split_phase, name: Split phase inverter, match: {table: holding, address: 40069, type: u16, equals: 102}}
+  - {id: solaredged_three_phase, name: Three phase inverter, match: {table: holding, address: 40069, type: u16, equals: 103}}
+
+points:
+  # Common block (SunSpec model 1)
+  - {key: x.sunspec_id, label: C_SunSpec_ID, table: holding, address: 40000, type: u32, poll: slow, note: '"SunS" (0x53756E53).'}
+  - {key: x.common_did, label: C_SunSpec_DID, table: holding, address: 40002, type: u16, poll: slow, note: 1 = common block.}
+  - {key: x.common_length, label: C_SunSpec_Length, table: holding, address: 40003, type: u16, poll: slow, note: 65 registers.}
+  - {key: x.manufacturer, label: C_Manufacturer, table: holding, address: 40004, type: str, length: 16, poll: slow, note: Reads "SolarEdge".}
+  - {key: x.model, label: C_Model, table: holding, address: 40020, type: str, length: 16, poll: slow, note: 'Inverter model, e.g. SE5000.'}
+  - {key: x.options, label: C_Option, table: holding, address: 40036, type: str, length: 8, poll: slow, note: Not implemented on SolarEdge inverters.}
+  - {key: firmware, label: C_Version, table: holding, address: 40044, type: str, length: 8, poll: slow, note: 'CPU firmware version with leading zeros, e.g. 0002.0611.'}
+  - {key: serial, label: C_SerialNumber, table: holding, address: 40052, type: str, length: 16, poll: slow}
+  - {key: x.device_address, label: C_DeviceAddress, table: holding, address: 40068, type: u16, poll: slow, note: The inverter's Modbus id.}
+
+  # Inverter model 101 / 102 / 103
+  - {key: x.inverter_did, label: C_SunSpec_DID, table: holding, address: 40069, type: u16, enum: inverter_did, poll: slow}
+  - {key: x.inverter_length, label: C_SunSpec_Length, table: holding, address: 40070, type: u16, poll: slow, note: 50 registers.}
+  - {key: x.ac_current, label: I_AC_Current, table: holding, address: 40071, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, invalid: [65535]}
+  - {key: l1_current, label: I_AC_CurrentA, table: holding, address: 40072, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, invalid: [65535]}
+  - {key: l2_current, label: I_AC_CurrentB, table: holding, address: 40073, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, invalid: [65535]}
+  - {key: l3_current, label: I_AC_CurrentC, table: holding, address: 40074, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, invalid: [65535]}
+  - {key: x.ac_current_sf, label: I_AC_Current_SF, table: holding, address: 40075, type: s16}
+  - {key: x.ac_voltage_ab, label: I_AC_VoltageAB, table: holding, address: 40076, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, invalid: [65535]}
+  - {key: x.ac_voltage_bc, label: I_AC_VoltageBC, table: holding, address: 40077, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, invalid: [65535]}
+  - {key: x.ac_voltage_ca, label: I_AC_VoltageCA, table: holding, address: 40078, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, invalid: [65535]}
+  - {key: l1_voltage, label: I_AC_VoltageAN, table: holding, address: 40079, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, invalid: [65535], note: 'The document marks the phase-to-neutral voltages as supported only in split-phase configurations (Japan, 240 V North America).'}
+  - {key: l2_voltage, label: I_AC_VoltageBN, table: holding, address: 40080, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, invalid: [65535], note: See I_AC_VoltageAN.}
+  - {key: l3_voltage, label: I_AC_VoltageCN, table: holding, address: 40081, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, invalid: [65535], note: See I_AC_VoltageAN.}
+  - {key: x.ac_voltage_sf, label: I_AC_Voltage_SF, table: holding, address: 40082, type: s16}
+  - {key: pv_power, label: I_AC_Power, table: holding, address: 40083, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40084, type: s16}, invalid: [-32768], verified: false, note: 'AC power of the inverter. The document gives no sign; + = AC output is assumed. On inverters with a battery (StorEdge) it includes battery power, so it is solar production only on PV-only inverters.'}
+  - {key: x.ac_power_sf, label: I_AC_Power_SF, table: holding, address: 40084, type: s16}
+  - {key: frequency, label: I_AC_Frequency, table: holding, address: 40085, type: u16, unit: Hz, scale_exponent_from: {table: holding, address: 40086, type: s16}, invalid: [65535]}
+  - {key: x.ac_frequency_sf, label: I_AC_Frequency_SF, table: holding, address: 40086, type: s16}
+  - {key: apparent_power, label: I_AC_VA, table: holding, address: 40087, type: s16, unit: VA, scale_exponent_from: {table: holding, address: 40088, type: s16}, invalid: [-32768]}
+  - {key: x.ac_va_sf, label: I_AC_VA_SF, table: holding, address: 40088, type: s16}
+  - {key: reactive_power, label: I_AC_VAR, table: holding, address: 40089, type: s16, unit: var, scale_exponent_from: {table: holding, address: 40090, type: s16}, invalid: [-32768]}
+  - {key: x.ac_var_sf, label: I_AC_VAR_SF, table: holding, address: 40090, type: s16}
+  - {key: x.power_factor_pct, label: I_AC_PF, table: holding, address: 40091, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40092, type: s16}, invalid: [-32768]}
+  - {key: x.ac_pf_sf, label: I_AC_PF_SF, table: holding, address: 40092, type: s16}
+  - {key: pv_energy, label: I_AC_Energy_WH, table: holding, address: 40093, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40095, type: s16}, poll: slow, note: 'AC lifetime energy production (acc32, Wh: only increases). As with I_AC_Power, on inverters with a battery it is not solar yield alone.'}
+  - {key: x.ac_energy_sf, label: I_AC_Energy_WH_SF, table: holding, address: 40095, type: s16, note: The register table lists it as uint16; it is a SunSpec scale factor and is read as signed here.}
+  - {key: x.dc_current, label: I_DC_Current, table: holding, address: 40096, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40097, type: s16}, invalid: [65535]}
+  - {key: x.dc_current_sf, label: I_DC_Current_SF, table: holding, address: 40097, type: s16}
+  - {key: x.dc_voltage, label: I_DC_Voltage, table: holding, address: 40098, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40099, type: s16}, invalid: [65535]}
+  - {key: x.dc_voltage_sf, label: I_DC_Voltage_SF, table: holding, address: 40099, type: s16}
+  - {key: x.dc_power, label: I_DC_Power, table: holding, address: 40100, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40101, type: s16}, invalid: [-32768]}
+  - {key: x.dc_power_sf, label: I_DC_Power_SF, table: holding, address: 40101, type: s16}
+  - {key: temperature, label: I_Temp_Sink, table: holding, address: 40103, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40106, type: s16}, invalid: [-32768], note: Heat sink temperature.}
+  - {key: x.temp_sf, label: I_Temp_SF, table: holding, address: 40106, type: s16}
+  - {key: state, label: I_Status, table: holding, address: 40107, type: u16, enum: status}
+  - {key: error_code, label: I_Status_Vendor, table: holding, address: 40108, type: u16, note: Vendor operating state and error code; meanings are in the inverter's installation guide. The document says to use it for firmware up to 3.19.x (newer firmware - I_Status_Vendor4).}
+  - {key: x.status_vendor4, label: I_Status_Vendor4, table: holding, address: 40119, type: u32, note: 'Vendor state and error code (document 3.2 and later): the high 16 bits name the controller type (e.g. 3x, 8x, 18x), the low 16 bits the error code; meanings are in the installation guide.'}
+  - {key: x.status_vendor4_controller, label: I_Status_Vendor4 (controller type), table: holding, address: 40119, type: u32, bits: [16, 31]}
+  - {key: x.status_vendor4_code, label: I_Status_Vendor4 (error code), table: holding, address: 40119, type: u32, bits: [0, 15]}
+
+  # Multiple MPPT inverter extension model 160 (Synergy three-phase inverters, firmware 4.13.x and later)
+  - {key: x.mppt_model_id, label: ID (model 160), table: holding, address: 40121, type: u16, poll: slow, optional: true, note: 160 when the model is there; otherwise meter 1 starts here (see solaredge-meter).}
+  - {key: x.mppt_model_length, label: L (model 160), table: holding, address: 40122, type: u16, poll: slow, optional: true}
+  - {key: x.mppt_dca_sf, label: DCA_SF, table: holding, address: 40123, type: s16, optional: true}
+  - {key: x.mppt_dcv_sf, label: DCV_SF, table: holding, address: 40124, type: s16, optional: true}
+  - {key: x.mppt_dcw_sf, label: DCW_SF, table: holding, address: 40125, type: s16, optional: true}
+  - {key: x.synergy_units, label: N (number of Synergy units), table: holding, address: 40129, type: u16, poll: slow, optional: true, note: 2 or 3.}
+  - {key: x.unit0_name, label: IDStr (Synergy unit 0), table: holding, address: 40132, type: str, length: 8, poll: slow, optional: true}
+  - {key: x.unit0_dc_current, label: DCA (Synergy unit 0), table: holding, address: 40140, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40123, type: s16}, optional: true}
+  - {key: x.unit0_dc_voltage, label: DCV (Synergy unit 0), table: holding, address: 40141, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40124, type: s16}, optional: true}
+  - {key: x.unit0_dc_power, label: DCW (Synergy unit 0), table: holding, address: 40142, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40125, type: s16}, optional: true}
+  - {key: x.unit0_temperature, label: Tmp (Synergy unit 0), table: holding, address: 40147, type: s16, unit: °C, optional: true}
+  - {key: x.unit1_name, label: IDStr (Synergy unit 1), table: holding, address: 40152, type: str, length: 8, poll: slow, optional: true}
+  - {key: x.unit1_dc_current, label: DCA (Synergy unit 1), table: holding, address: 40160, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40123, type: s16}, optional: true}
+  - {key: x.unit1_dc_voltage, label: DCV (Synergy unit 1), table: holding, address: 40161, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40124, type: s16}, optional: true}
+  - {key: x.unit1_dc_power, label: DCW (Synergy unit 1), table: holding, address: 40162, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40125, type: s16}, optional: true}
+  - {key: x.unit1_temperature, label: Tmp (Synergy unit 1), table: holding, address: 40167, type: s16, unit: °C, optional: true}
+  - {key: x.unit2_name, label: IDStr (Synergy unit 2), table: holding, address: 40172, type: str, length: 8, poll: slow, optional: true, note: Only with 3 units.}
+  - {key: x.unit2_dc_current, label: DCA (Synergy unit 2), table: holding, address: 40180, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40123, type: s16}, optional: true, note: Only with 3 units.}
+  - {key: x.unit2_dc_voltage, label: DCV (Synergy unit 2), table: holding, address: 40181, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40124, type: s16}, optional: true, note: Only with 3 units.}
+  - {key: x.unit2_dc_power, label: DCW (Synergy unit 2), table: holding, address: 40182, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40125, type: s16}, optional: true, note: Only with 3 units.}
+  - {key: x.unit2_temperature, label: Tmp (Synergy unit 2), table: holding, address: 40187, type: s16, unit: °C, optional: true, note: Only with 3 units.}
+  - {key: x.i_temp_cab, label: I_Temp_Cab, table: holding, address: 40102, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40106, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40106). Not supported by SolarEdge inverters (solaredge-modbus-multi)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.i_temp_trns, label: I_Temp_Trns, table: holding, address: 40104, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40106, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40106). Not supported by SolarEdge inverters (solaredge-modbus-multi)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.i_temp_other, label: I_Temp_Other, table: holding, address: 40105, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40106, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40106). Not supported by SolarEdge inverters (solaredge-modbus-multi)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.evt1, label: Evt1, table: holding, address: 40109, type: u32, invalid: [4294967295], note: No known use on SolarEdge inverters (solaredge-modbus-multi)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.evt2, label: Evt2, table: holding, address: 40111, type: u32, invalid: [4294967295], note: No known use on SolarEdge inverters (solaredge-modbus-multi)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.i_grid_status, label: I_Grid_Status, table: holding, address: 40113, type: u32, invalid: [4294967295], note: 0 = connected to the grid., verified: false, sources: [solaredge-modbus-multi, solaredged], conflicts: [{sources: [sunspec2], word_order: little, label: Grid status}]}
+  - {key: x.evtvnd2, label: EvtVnd2, table: holding, address: 40115, type: u32, invalid: [4294967295], note: No known use on SolarEdge inverters (solaredge-modbus-multi)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.evtvnd3, label: EvtVnd3, table: holding, address: 40117, type: u32, invalid: [4294967295], note: No known use on SolarEdge inverters (solaredge-modbus-multi)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.mmppt_dcwh_sf, label: mmppt_DCWH_SF, table: holding, address: 40126, type: s16, invalid: [-32768], verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.mmppt_events, label: mmppt_Events, table: holding, address: 40127, type: u32, flags: mmppt_events, invalid: [4294967295], verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.mppt1_id, label: mppt1_ID, table: holding, address: 40131, type: u16, invalid: [65535], verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.mppt1_dcwh, label: mppt1_DCWH, table: holding, address: 40143, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40126, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40126)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.mppt1_tms, label: mppt1_Tms, table: holding, address: 40145, type: u32, invalid: [4294967295], verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.mppt1_dcst, label: mppt1_DCSt, table: holding, address: 40148, type: u16, invalid: [65535], verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.mppt1_dcevt, label: mppt1_DCEvt, table: holding, address: 40149, type: u32, invalid: [4294967295], verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.mppt2_id, label: mppt2_ID, table: holding, address: 40151, type: u16, invalid: [65535], verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.mppt2_dcwh, label: mppt2_DCWH, table: holding, address: 40163, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40126, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40126)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.mppt2_tms, label: mppt2_Tms, table: holding, address: 40165, type: u32, invalid: [4294967295], verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.mppt2_dcst, label: mppt2_DCSt, table: holding, address: 40168, type: u16, invalid: [65535], verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.mppt2_dcevt, label: mppt2_DCEvt, table: holding, address: 40169, type: u32, invalid: [4294967295], verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.mppt3_id, label: mppt3_ID, table: holding, address: 40171, type: u16, invalid: [65535], note: Only with 3 modules (40129 = 3)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.mppt3_dcwh, label: mppt3_DCWH, table: holding, address: 40183, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40126, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40126). Only with 3 modules (40129 = 3)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.mppt3_tms, label: mppt3_Tms, table: holding, address: 40185, type: u32, invalid: [4294967295], note: Only with 3 modules (40129 = 3)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.mppt3_dcst, label: mppt3_DCSt, table: holding, address: 40188, type: u16, invalid: [65535], note: Only with 3 modules (40129 = 3)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.mppt3_dcevt, label: mppt3_DCEvt, table: holding, address: 40189, type: u32, invalid: [4294967295], note: Only with 3 modules (40129 = 3)., verified: false, sources: [solaredge-modbus-multi]}
+
+enums:
+  inverter_did: {'101': Single phase, '102': Split phase, '103': Three phase}
+  status: {'1': 'Off', '2': 'Sleeping (auto-shutdown, night)', '3': Grid monitoring / wake-up, '4': Producing (MPPT), '5': Producing (curtailed), '6': Shutting down, '7': Fault, '8': Maintenance / setup}
+
+flags:
+  mmppt_events: {'0': GROUND_FAULT, '1': INPUT_OVER_VOLTAGE, '3': DC_DISCONNECT, '5': CABINET_OPEN, '6': MANUAL_SHUTDOWN, '7': OVER_TEMP, '12': BLOWN_FUSE, '13': UNDER_TEMP, '14': MEMORY_LOSS, '15': ARC_DETECTION, '19': RESERVED, '20': TEST_FAILED, '21': INPUT_UNDER_VOLTAGE, '22': INPUT_OVER_CURRENT}
+
+problems:
+  - {when: {key: state, equals: 7}, kind: fault, text: Inverter fault (I_Status 7)}
+
+notes:
+- Addresses are the document's base-0 protocol addresses (it also lists base-1 PLC addresses, one higher). The common block
+  starts at 40000, the inverter model at 40069.
+- 'Values with a SunSpec scale factor: real value = raw × 10^(scale factor register). Registers an inverter doesn''t support
+  read SunSpec''s not-implemented value (0xFFFF, 0x8000).'
+- Modbus TCP is off by default. Inverters configured with SetApp use TCP port 1502 by default; inverters with an LCD use 502.
+  Both ports can be changed. The inverter on Ethernet has unit id 1 by default.
+- Modbus TCP serves only one client connection; the server drops an idle connection after 2 minutes without a request.
+- 'RS485 (RTU): 115200 bit/s 8N1 by default, adjustable from 9600 bit/s. Every inverter on the bus needs its own Modbus id
+  (1–247). Only one Modbus master (RTU or TCP) per system.'
+- Inverters configured with SetApp support SunSpec; inverters with an LCD need firmware 3.x or later (the 2016 note named
+  CPU version 2.0496).
+- 'Registers not listed in the document (40102, 40104, 40105, 40109–40118: cabinet / transformer / other temperatures and
+  SunSpec event words) are not given here.'
+- The document doesn't say whether I_Status_Vendor or I_Status_Vendor4 = 0 means no error, so no problem rules are given for
+  them.
+- 'Model 160 at 40121: the document marks DCWH, Evt, TmsPer, Tms, DCSt and DCEvt as not supported (0), so they are left out.
+  The fixed block is for the whole Synergy system; each unit has a block of 20 registers from 40131. The 2.0 note (before
+  model 160) says Synergy three-phase inverters give no DC values in the inverter model.'
+- Meters (solaredge-meter) follow in the SunSpec chain; batteries and the power / storage control blocks are SolarEdge-specific
+  (solaredge-battery, solaredge-control).
+- Typical response time under 0.5 s per read; leave at least 0.1 s between requests (Appendix B of document 3.2, for SetApp
+  three-phase commercial inverters).
+- 'Left out: I_Status_Vendor4_controller (holding 40119, u32) from solaredge-modbus-multi overlaps x.status_vendor4_controller
+  from the documents.'
+- 'SolarEdge inverters are partly SunSpec: the common block (40000), the inverter model 101/102/103 (40069) and the multiple-MPPT
+  model 160 (40121) are SunSpec and big-endian; the battery, meter and control blocks are in the devices solaredge-battery,
+  solaredge-meter and solaredge-control.'
+- 'Identification: 40000–40001 holds ''SunS'' (0x53756E53), 40002 = 1 and 40003 = 65 (common block).'
+- 'Values with a SunSpec scale factor: real value = raw × 10^(scale factor register); the scale factor registers are listed
+  as points of their own.'
+- 'SunSpec ''not implemented'' values: 0xFFFF (u16), 0x8000 (s16), 0xFFFFFFFF (u32); energy counters read 0 when not accumulated.'
+- 'Multiple-MPPT model (40121): present when 40121 = 160 and 40129 (number of modules) is 2 or 3; each module is a block of
+  20 registers from 40131. solaredge-modbus-multi only reads it on firmware 4.13.0 or later. Without it, 40121 is where meter
+  1 starts.'
+- 40113–40120 (grid status, extended vendor status) are not served by all firmware; solaredge-modbus-multi reads 40119 (status
+  vendor 4) only on firmware 3.20.0 or later, solaredged probes the block. Grid status 0 means the inverter is connected to
+  the grid.
+- 'Status vendor 4 (40119): bits 24–31 name the controller, bits 0–15 the event code; solaredge-modbus-multi has a text table
+  per controller (controllers 0x0, 0x3, 0x8, 0x18, 0x1C, 0x1D, 0x26, 0x32, 0x33, 0xF1).'
+- SolarEdge EV chargers answer like an inverter (model name starting SE-EV-SA) but give no measurements over Modbus.
+- A SunSpec storage capacity model (713) may follow in the model chain when the grid profile enables IEEE 1547-2018; its address
+  depends on the chain and is not listed here.
+- Identification as solaredge-modbus-multi recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

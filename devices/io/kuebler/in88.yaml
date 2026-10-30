@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Kübler IN88 Modbus inclinometer data sheet (02/2021).
+
+modbusspec: 0
+id: kuebler-in88
+manufacturer: Kübler
+name: IN88 inclinometer (Modbus RTU)
+kind: io
+
+sources:
+- title: Inclinometer IN88, 1- and 2-dimensional, Modbus (data sheet, as distributed by Astat)
+  version: 02/2021
+  url: https://astat.pl/pliki/Komponenty_automatyki_przemyslowej/Inklinometry/karta-katalogowa-IN88_Modbus.pdf
+  sha256: 3e3bf0a8fb42977819e0295833865a0f4b393c4231c85135a9284287e4f2fcb7
+
+connection:
+  default_port: 502
+  default_unit: 63
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 147
+    type: u32
+
+points:
+  # Measurements
+  - {key: x.inclination_x, label: Inclination X axis, table: holding, address: 0, type: s16, unit: °, scale: 0.01, note: '2-dimensional version: −85.00 … +85.00°.'}
+  - {key: x.inclination_y, label: Inclination Y axis, table: holding, address: 1, type: s16, unit: °, scale: 0.01, note: '2-dimensional version: −85.00 … +85.00°.'}
+  - {key: x.euler_x, label: Euler angle X axis, table: holding, address: 2, type: s16, unit: °, scale: 0.01, note: '1-dimensional version: 0 … 180.99°.'}
+  - {key: x.euler_y, label: Euler angle Y axis, table: holding, address: 3, type: u16, unit: °, scale: 0.01, note: '1-dimensional version: 0 … 359.99°.'}
+  - {key: x.supply_voltage, label: Supply voltage, table: holding, address: 6, type: u16, unit: V, scale: 0.1}
+  - {key: temperature, label: Temperature, table: holding, address: 7, type: u16, unit: °C, scale: 0.1, note: Unsigned in the document although the sensor works down to −40 °C; how negative values are coded isn't stated.}
+  - {key: x.side_view, label: Side view, table: holding, address: 15, type: u16, enum: side_view}
+  - {key: x.system_state, label: System state, table: holding, address: 22, type: u16, note: 0 = no errors; other codes aren't listed.}
+  # Identity and settings (read back)
+  - {key: x.baud_rate, label: Current baud rate, table: holding, address: 139, type: u16, poll: slow, note: Code; 2 = 19200 baud. The other codes aren't listed.}
+  - {key: x.node_id, label: Current node address, table: holding, address: 143, type: u16, poll: slow}
+  - {key: x.termination, label: Bus termination, table: holding, address: 144, type: u16, enum: termination, poll: slow}
+  - {key: x.filter_active, label: Filter active, table: holding, address: 145, type: u16, enum: off_on, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 147, type: u32, poll: slow, verified: false, note: 'The document lists the serial (U32) at 00148 and the product code (U32, e.g. 0x88616100) at 00149, one register apart, and the filter value (F32) at 00147; they can''t all be 32 bits wide as listed. The product code and filter value are left out.'}
+  - {key: x.resolution, label: Resolution X/Y axis, table: holding, address: 149, type: u16, poll: slow, note: 10 = 0.01°.}
+  # Settings (write only, function 16)
+  - {key: x.set_baud_rate, label: Baud rate, table: holding, address: 299, type: u16, writable: true, write_only: true, poll: slow, note: Code; 2 = 19200 baud (default).}
+  - {key: x.set_parity, label: Parity, table: holding, address: 300, type: u16, enum: parity, writable: true, write_only: true, poll: slow}
+  - {key: x.set_stop_bits, label: Stop bits, table: holding, address: 301, type: u16, enum: stop_bits, writable: true, write_only: true, poll: slow}
+  - {key: x.set_node_number, label: Node number, table: holding, address: 303, type: u16, writable: true, write_only: true, min: 1, max: 63, poll: slow, note: Default 63.}
+  - {key: x.set_termination, label: Termination, table: holding, address: 304, type: u16, enum: termination, writable: true, write_only: true, poll: slow}
+  - {key: x.set_filter_active, label: Digital filter active, table: holding, address: 305, type: u16, enum: off_on, writable: true, write_only: true, poll: slow}
+  - {key: x.set_filter_coefficient, label: Digital filter coefficient, table: holding, address: 306, type: f32, unit: Hz, writable: true, write_only: true, poll: slow, note: Default 5.0.}
+  - {key: x.save_parameters, label: Save all application parameters, table: holding, address: 359, type: u16, writable: true, write_only: true, poll: slow, note: Write 0x1010 to store the settings.}
+
+enums:
+  side_view: {'0': Back, '1': Front}
+  termination: {'1': 'Off', '2': 'On'}
+  off_on: {'0': 'Off', '1': 'On'}
+  parity: {'1': None, '2': Even, '3': Odd}
+  stop_bits: {'1': 1 stop bit, '3': 2 stop bits}
+
+problems:
+  - {when: {key: x.system_state, not: 0}, kind: fault, text: 'Inclinometer error (system state {value})'}
+
+notes:
+- The document numbers registers from 1 as 4xxxx references ("00001" = 40001); addresses here are those numbers minus 1.
+- The write-only parameter registers (300 ff.) are taken to use the same numbering.
+- Reading uses function 03, writing function 16; broadcast is not supported.
+- Default node 63 and 19200 baud; parity and stop bits default to none and 1 (8N1 assumed for the data bits).
+- The preset, offset and slope parameters (151–159, 310–320) and the factory-reset register are left out.

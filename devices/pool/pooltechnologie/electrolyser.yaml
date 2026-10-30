@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: pooltechnologie-electrolyser
+manufacturer: Pool Technologie
+name: Salt electrolysers (iBasel Duo, Salt Gold Duo, Poolsquad UV, Just Salt Pro, Racer)
+kind: pool
+
+sources:
+- id: pool-technologie-via-modbus
+  title: HA-Pool-Technologie-via-Modbus (Home Assistant integration)
+  url: https://github.com/Profil404/HA-Pool-Technologie-via-Modbus
+  license: MIT
+  commit: 87668b1380f6cea6d283a4ee0fb6dfb980be6776
+  path: custom_components/pool_technologie/models.py, custom_components/pool_technologie/number.py, custom_components/pool_technologie/switch.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+defaults:
+  verified: false
+  sources:
+  - pool-technologie-via-modbus
+
+models:
+  - {id: waterair_salt_gold_duo, name: WaterAir Salt Gold Duo}
+  - {id: poolsquad_uv, name: Poolsquad UV}
+  - {id: just_salt_pro, name: Just Salt Pro}
+  - {id: racer, name: Racer}
+
+points:
+  - {key: x.ph, label: pH, table: holding, address: 259, type: u16, unit: pH, scale: 0.001}
+  - {key: x.temperature_eau, label: Water temperature, table: holding, address: 260, type: u16, unit: °C, scale: 0.1}
+  - {key: x.taux_sel, label: Salt level, table: holding, address: 261, type: u16, unit: g/L, scale: 0.1}
+  - {key: x.orp, label: ORP, table: holding, address: 262, type: u16, unit: V, scale: 0.001}
+  - {key: x.tension_cellule, label: Cell voltage, table: holding, address: 1061, type: u16, unit: V, scale: 0.001, models: [waterair_salt_gold_duo, poolsquad_uv, just_salt_pro, racer], note: 'Confirmed by the project on: poolsquad_uv, racer; untested on the other models.'}
+  - {key: x.courant_cellule, label: Cell current, table: holding, address: 1062, type: u16, unit: A, scale: 0.001, note: 'Confirmed by the project on: racer; untested on the other models.'}
+  - {key: x.puissance_cellule, label: Cell power, table: holding, address: 1063, type: u16, unit: W, note: 'Confirmed by the project on: racer; untested on the other models.'}
+  - {key: x.taille_bassin, label: Pool size, table: holding, address: 4111, type: u16, unit: m³, writable: true, note: 'Writes confirmed by the project on: just_salt_pro; untested on the other models.'}
+  - {key: x.consigne_electrolyse, label: Electrolysis setpoint, table: holding, address: 4168, type: u16, unit: '%', models: [waterair_salt_gold_duo, poolsquad_uv, just_salt_pro, racer], writable: true, note: 'Writes confirmed by the project on: poolsquad_uv, racer; untested on the other models.'}
+  - {key: x.heure_inversion_cellule, label: Cell inversion time, table: holding, address: 4170, type: u16, unit: h, models: [waterair_salt_gold_duo, poolsquad_uv, just_salt_pro, racer], writable: true, note: 'Writes confirmed by the project on: just_salt_pro, poolsquad_uv; untested on the other models.'}
+  - {key: x.boost_flag, label: Boost flag, table: holding, address: 4182, type: u16, writable: true}
+  - {key: x.boost_duration, label: Boost remaining time, table: holding, address: 4188, type: u16, unit: min, writable: true}
+  - {key: x.ph_auto, label: Automatic pH regulation, table: holding, address: 4200, type: u16, enum: on_off, writable: true}
+  - {key: x.consigne_ph, label: pH setpoint, table: holding, address: 4207, type: u16, unit: pH, scale: 0.000390625, writable: true}
+  - {key: x.concentration_correcteur_ph, label: pH corrector concentration, table: holding, address: 4208, type: u16, unit: '%', writable: true}
+  - {key: x.consigne_orp, label: ORP setpoint, table: holding, address: 4235, type: u16, unit: V, scale: 0.001, writable: true}
+  - {key: x.heures_fonctionnement, label: Operating hours, table: holding, address: 4463, type: u16, unit: h, models: [waterair_salt_gold_duo, poolsquad_uv, just_salt_pro, racer], note: 'Confirmed by the project on: just_salt_pro, poolsquad_uv; untested on the other models.'}
+
+enums:
+  on_off: {'0': 'Off', '1': 'On'}
+
+notes:
+- The project uses the same register map for all supported models (iBasel Duo, WaterAir Salt Gold Duo, Poolsquad UV, Just
+  Salt Pro, Racer), as reported by users; some registers are confirmed only on some models (see point notes).
+- 'Boost: write the duration in minutes to 4188 (the project uses 1440) and 256 to 4182; 4188 > 0 means boost is running,
+  writing 0 stops it.'
+- On the iBasel Duo the Modbus port is on the regulation box (iBaRegul), which does not get the cell values from the separate
+  cell controller (iBaSel); those registers stay at 0 or don't follow writes there.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SmartEVSE project's own register documentation (below): the register table in the SmartEVSE-2
+# README, with the v3 firmware's register comments and value definitions for what changed since. Not yet checked
+# on a device.
+
+modbusspec: 0
+id: edgetech-smartevse
+manufacturer: Edgetech (SmartEVSE)
+name: SmartEVSE v2 / v3 charge controller
+kind: charger
+
+sources:
+- title: SmartEVSE-2 README, section "Modbus" (register table for firmware after 2.20)
+  version: commit 33afd9e17efab087f437fb7c2314de25bef0c336 (2025-08-17)
+  url: https://github.com/SmartEVSE/SmartEVSE-2/blob/33afd9e17efab087f437fb7c2314de25bef0c336/README.md#modbus
+  sha256: f4b1ef633f55368e6f07424313d6b0e0a708cf0f05b0c1d8ef8dd4eb9b41e2ce
+- title: SmartEVSE-3 firmware register definitions (SmartEVSE-3/src/main.h, main_c.h)
+  version: commit b97d97c11e024f1c7f2b19961dc1f56983465d74 (2026-08-28; release v3.11.2)
+  url: https://github.com/SmartEVSE/SmartEVSE-3/blob/b97d97c11e024f1c7f2b19961dc1f56983465d74/SmartEVSE-3/src/main.h
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 22
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    range:
+    - 0
+    - 14
+  - table: holding
+    address: 3
+    type: u16
+    range:
+    - 0
+    - 2
+  # serial number; a device answering 0 or FFFFh everywhere is not this one
+  - table: holding
+    address: 11
+    type: u16
+    not_in:
+    - 0
+    - 65535
+
+points:
+  # 0x00xx: EVSE status
+  - {key: state, label: State, table: holding, address: 0, type: u16, enum: state, writable: true}
+  - {key: x.error_flags, label: Error, table: holding, address: 1, type: u16, flags: error_bits, writable: true}
+  - {key: x.charging_current, label: Charging current, table: holding, address: 2, type: u16, unit: A, scale: 0.1, writable: true, note: Current the EVSE offers the car; 0 = no current available.}
+  - {key: x.mode, label: EVSE mode (without saving), table: holding, address: 3, type: u16, enum: mode, writable: true, persistent: false}
+  - {key: x.solar_timer, label: Solar Timer, table: holding, address: 4, type: u16, unit: s, writable: true}
+  - {key: x.access, label: Access bit, table: holding, address: 5, type: u16, enum: access, writable: true, note: 'Value 2 (pause) only from the v3 firmware''s access status values (off, on, pause); not confirmed that the register reports it.'}
+  - {key: x.max_current, label: Maximum charging current, table: holding, address: 7, type: u16, unit: A}
+  - {key: temperature, label: Temperature, table: holding, address: 10, type: s16, unit: °C, verified: false, note: The v2 table gives kelvin; the v3 firmware returns its °C value (−50…125) here. °C assumed for v3.}
+  - {key: serial, label: Serial number, table: holding, address: 11, type: u16, poll: slow}
+
+  # 0x01xx: node configuration
+  - {key: x.configuration, label: Configuration, table: holding, address: 256, type: u16, enum: configuration, writable: true, poll: slow}
+  - {key: x.cable_lock, label: Cable lock, table: holding, address: 257, type: u16, enum: cable_lock, writable: true, poll: slow}
+  - {key: x.min_current, label: MIN Charge Current the EV will accept, table: holding, address: 258, type: u16, unit: A, writable: true, poll: slow}
+  - {key: x.max_current_evse, label: MAX Charge Current for this EVSE, table: holding, address: 259, type: u16, unit: A, writable: true, poll: slow}
+  - {key: x.load_balance, label: Load Balance, table: holding, address: 260, type: u16, enum: load_balance, writable: true, poll: slow}
+  - {key: x.external_switch, label: External Switch on pin SW, table: holding, address: 261, type: u16, writable: true, poll: slow, note: 'v2: 0 disabled, 1 access push-button, 2 access switch, 3 smart-solar push-button, 4 smart-solar switch; v3 has more options.'}
+  - {key: x.rcm, label: Residual Current Monitor on pin RCM, table: holding, address: 262, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.rfid_reader, label: Use RFID reader, table: holding, address: 263, type: u16, writable: true, poll: slow, note: 0 = disabled; v3 has several reader modes.}
+  - {key: x.ev_meter_type, label: Type of EV electric meter, table: holding, address: 264, type: u16, writable: true, poll: slow, note: Number of the meter in the firmware's meter list.}
+  - {key: x.ev_meter_address, label: Address of EV electric meter, table: holding, address: 265, type: u16, writable: true, poll: slow}
+
+  # 0x02xx: system configuration (same on all SmartEVSEs of a load-balancing group)
+  - {key: x.mode_saved, label: EVSE mode, table: holding, address: 512, type: u16, enum: mode, writable: true, persistent: true, poll: slow, note: 0x0003 changes the mode without saving.}
+  - {key: x.circuit_max_current, label: EVSE Circuit max Current, table: holding, address: 513, type: u16, unit: A, writable: true, poll: slow}
+  - {key: x.max_mains_current, label: Max Mains Current, table: holding, address: 516, type: u16, unit: A, writable: true, poll: slow}
+  - {key: x.solar_start_current, label: Surplus energy start Current (per phase), table: holding, address: 517, type: u16, unit: A, offset: -16, writable: true, min: -16, max: 16, poll: slow, note: Range from the v2 table.}
+  - {key: x.solar_stop_time, label: Stop solar charging at 6A after this time, table: holding, address: 518, type: u16, unit: min, writable: true, poll: slow, note: 0 = off.}
+  - {key: x.solar_import_current, label: Allow grid power when solar charging (sum of phases), table: holding, address: 519, type: u16, unit: A, offset: -48, writable: true, min: -48, max: 48, poll: slow, note: Range from the v2 table.}
+  - {key: x.mains_meter_type, label: Type of Mains electric meter, table: holding, address: 520, type: u16, writable: true, poll: slow}
+  - {key: x.mains_meter_address, label: Address of Mains electric meter, table: holding, address: 521, type: u16, writable: true, poll: slow}
+
+enums:
+  state: {'0': 'A: no vehicle', '1': 'B: vehicle connected, not ready', '2': 'C: charging', '3': 'D: charging, ventilation required', '4': Node requests B, '5': Master confirms B, '6': Node requests C, '7': Master confirms C, '8': Activation mode, '9': 'B1: vehicle connected, no PWM', '10': 'C1: stopping, no PWM', '11': ISO 15118 modem request (v3), '12': ISO 15118 modem wait (v3), '13': 'ISO 15118 modem done, replug (v3)', '14': 'ISO 15118 modem denied, replug (v3)'}
+  mode: {'0': Normal, '1': Smart, '2': Solar}
+  access: {'0': No access, '1': Access, '2': Pause}
+  configuration: {'0': Socket, '1': Fixed cable}
+  cable_lock: {'0': Disabled, '1': Solenoid, '2': Motor}
+  load_balance: {'0': Disabled, '1': Master, '2': Node 1, '3': Node 2, '4': Node 3, '5': Node 4, '6': Node 5, '7': Node 6, '8': Node 7}
+  off_on: {'0': Disabled, '1': Enabled}
+
+flags:
+  error_bits: {'0': Less than 6 A available, '1': No communication with the mains meter / Sensorbox, '2': Temperature too high, '3': No communication with the EV meter (v3; unused in v2), '4': Residual current monitor tripped (RCM), '5': RCM test running or failed (v3; "no sun" in v2), '6': No communication with the circuit meter (v3)}
+
+problems:
+  - {when: {key: x.error_flags, bit: 1}, kind: fault, text: No communication with the mains meter (error bit 1)}
+  - {when: {key: x.error_flags, bit: 2}, kind: fault, text: Temperature too high (error bit 2)}
+  - {when: {key: x.error_flags, bit: 4}, kind: fault, text: 'Residual current detected, RCM tripped (error bit 4)'}
+  - {when: {key: x.error_flags, bit: 3}, kind: warning, text: No communication with the EV meter (error bit 3)}
+  - {when: {key: x.error_flags, bit: 6}, kind: warning, text: No communication with the circuit meter (error bit 6)}
+  - {when: {key: x.error_flags, bit: 0}, kind: warning, text: 'Less than 6 A available, charging paused (error bit 0)'}
+
+notes:
+- 'RS485 only, 9600 baud 8N1. Unit address follows the load-balancing role: 1 standalone / master, 2–8 nodes 1–7; 9 = broadcast.
+  Addresses 1–10 are reserved for SmartEVSEs and the Sensorbox.'
+- All registers are 16-bit unsigned holding registers; addresses are the documents' own 0-based hex numbers. A read must stay
+  inside one block (0x0000–0x000B, 0x0100–0x0109, 0x0200–0x0215); the firmware answers anything else with an exception.
+- The SmartEVSE doesn't report power or energy over Modbus; those come from its external EV meter.
+- 'Register map valid for firmware after 2.20 (v2) and for v3. Not implemented and left out: 0x0006 (configuration changed),
+  0x0008 (phases), 0x0009 (real charging current).'
+- 'Left out: broadcast charge currents 0x0020–0x0027 (write-only, used between master and nodes) and 0x020A–0x0215 (custom
+  meter settings, WiFi), where the v2 table and the v3 firmware no longer agree (v3 inserted circuit-meter settings).'
+- '0x0203 changed meaning: CT calibration in v2, Sensorbox-2 WiFi mode in v3; left out.'

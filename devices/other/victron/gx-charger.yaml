@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Victron's GX Modbus-TCP register list dbus_modbustcp 744e228 (revision 55) and dbus_modbustcp's attributes.csv.
+
+modbusspec: 0
+id: victron-gx-charger
+manufacturer: Victron Energy
+name: 'GX Modbus-TCP: AC battery charger (com.victronenergy.charger)'
+kind: other
+
+sources:
+- title: Victron GX Modbus-TCP register list (CCGX-Modbus-TCP-register-list)
+  version: dbus_modbustcp 744e228 (revision 55)
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/CCGX-Modbus-TCP-register-list.xlsx
+- title: dbus_modbustcp attributes.csv (Victron's register table in the Modbus-TCP service source)
+  version: commit 744e228
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/attributes.csv
+- id: hass-victron
+  title: hass-victron (Home Assistant integration)
+  url: https://github.com/sfstar/hass-victron
+  license: Apache-2.0
+  commit: 3d3ec1e6cb7768d3c6d49ed23e9b52814477c205
+  path: custom_components/victron/const.py
+
+connection:
+  default_port: 502
+  default_unit: 226
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.dc_0_voltage, label: Output 1 - voltage, table: holding, address: 2307, type: u16, unit: V, scale: 0.01}
+  - {key: x.dc_0_current, label: Output 1 - current, table: holding, address: 2308, type: s16, unit: A, scale: 0.1}
+  - {key: x.dc_0_temperature, label: Output 1 - temperature, table: holding, address: 2309, type: s16, unit: °C, scale: 0.1}
+  - {key: x.dc_1_voltage, label: Output 2 - voltage, table: holding, address: 2310, type: u16, unit: V, scale: 0.01}
+  - {key: x.dc_1_current, label: Output 2 - current, table: holding, address: 2311, type: s16, unit: A, scale: 0.1}
+  - {key: x.dc_2_voltage, label: Output 3 - voltage, table: holding, address: 2312, type: u16, unit: V, scale: 0.01}
+  - {key: x.dc_2_current, label: Output 3 - current, table: holding, address: 2313, type: s16, unit: A, scale: 0.1}
+  - {key: x.ac_in_l1_i, label: AC Current, table: holding, address: 2314, type: s16, unit: A, scale: 0.1}
+  - {key: x.ac_in_l1_p, label: AC Power, table: holding, address: 2315, type: u16, unit: W}
+  - {key: x.ac_in_current_limit, label: AC Current limit, table: holding, address: 2316, type: s16, unit: A, scale: 0.1, writable: true}
+  - {key: x.mode, label: Charger on/off, table: holding, address: 2317, type: u16, enum: mode, writable: true}
+  - {key: state, label: Charge state, table: holding, address: 2318, type: u16, enum: state}
+  - {key: error_code, label: Error code, table: holding, address: 2319, type: u16, enum: error_code}
+  - {key: x.relay_0_state, label: Relay on the charger, table: holding, address: 2320, type: u16, enum: relay_0_state}
+  - {key: x.alarms_low_voltage, label: Low voltage alarm, table: holding, address: 2321, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_high_voltage, label: High voltage alarm, table: holding, address: 2322, type: u16, enum: alarms_low_voltage}
+  - {key: x.custom_name, label: Custom Name, table: holding, address: 2330, type: str, length: 8, writable: true, poll: slow}
+
+enums:
+  mode: {'0': 'Off', '1': 'On', '2': Error, '3': Unavailable- Unknown}
+  state: {'0': 'Off', '1': Low Power Mode, '2': Fault, '3': Bulk, '4': Absorption, '5': Float, '6': Storage, '7': Equalize, '8': Passthru, '9': Inverting, '10': Power assist, '11': Power supply mode, '252': External control}
+  error_code: {'0': No error, '1': Battery temperature too high, '2': Battery voltage too high, '3': Battery temperature sensor miswired (+), '4': Battery temperature sensor miswired (-), '5': Battery temperature sensor disconnected, '6': Battery voltage sense miswired (+), '7': Battery voltage sense miswired (-), '8': Battery voltage sense disconnected, '9': Battery voltage wire losses too high, '17': Charger temperature too high, '18': Charger over-current, '19': Charger current polarity reversed, '20': Bulk time limit reached, '22': Charger temperature sensor miswired, '23': Charger temperature sensor disconnected, '34': Input current too high}
+  relay_0_state: {'0': Open, '1': Closed}
+  alarms_low_voltage: {'0': No alarm, '2': Alarm}
+
+problems:
+  - {when: {key: state, equals: 2}, kind: fault, text: Charger fault (state 2)}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charger error {value}'}
+  - {when: {key: x.alarms_low_voltage, equals: 2}, kind: warning, text: Low voltage alarm}
+  - {when: {key: x.alarms_high_voltage, equals: 2}, kind: warning, text: High voltage alarm}
+
+notes:
+- No fixed unit id (since Venus OS 2.60 the GX assigns them, normally the device instance; see Settings → Integrations → Modbus
+  TCP server → Available services). 226 is the list's id for the Cerbo GX VE.Direct port 1; other ports and GX models have
+  other ids.
+- Addresses are the list's numbers, which are the protocol addresses (no 30001/40001 offset); read them as holding registers
+  (function 03). Strings carry two characters per register, first character in the high byte.
+- Registers the device or firmware doesn't have make the GX answer the whole request with an exception; read them in separate
+  requests or skip them.
+- Taken from the register list dbus_modbustcp 744e228 (revision 55); attributes.csv (Victron's dbus_modbustcp source) filled
+  in what the list leaves out.
+- The unit id is the GX device instance of this service; hass-victron finds it by scanning a fixed list of unit ids.

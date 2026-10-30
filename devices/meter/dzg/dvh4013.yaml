@@ -1,0 +1,148 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DZG Communication-Protocol DVH4013 (11.06.2014, last changes 02.07.2014).
+
+modbusspec: 0
+id: dzg-dvh4013
+manufacturer: DZG
+name: DVH4013 energy meter
+kind: meter
+
+sources:
+- title: DZG Communication-Protocol DVH4013 (Communication Protocol WH4013)
+  version: '2014-07-02'
+  url: https://www.dzg.de/fileadmin/dzg/content/downloads/produkte-zaehler/dvh4013/Communication-Protocol_DVH4013.pdf
+  sha256: aa298b155a860035cdc8326c963ed40e2be54eae9a5346d4d20e21bfd69b562a
+  archive_url: https://web.archive.org/web/20240627045152/https://www.dzg.de/fileadmin/dzg/content/downloads/produkte-zaehler/dvh4013/Communication-Protocol_DVH4013.pdf
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/dzg.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 1036
+    type: u16
+    equals: 23000
+  - table: holding
+    address: 1038
+    type: u16
+    equals: 50000
+  - table: holding
+    address: 1040
+    type: u16
+    equals: 1000
+
+points:
+  # Instantaneous data (4 bytes each, high word first)
+  - {key: x.import_power, label: The total import active power, table: holding, address: 0, type: u32, unit: W, scale: 0.1, poll: fast, note: Import power only (≥ 0); export has its own register.}
+  - {key: x.export_power, label: The total export active power, table: holding, address: 2, type: u32, unit: W, scale: 0.1, poll: fast, note: Export power only (≥ 0); import has its own register.}
+  - {key: l1_voltage, label: L1 Voltage effective value, table: holding, address: 4, type: u32, unit: V, scale: 0.01, poll: fast}
+  - {key: l2_voltage, label: L2 Voltage effective value, table: holding, address: 6, type: u32, unit: V, scale: 0.01, poll: fast}
+  - {key: l3_voltage, label: L3 Voltage effective value, table: holding, address: 8, type: u32, unit: V, scale: 0.01, poll: fast}
+  - {key: l1_current, label: L1 Current effective value, table: holding, address: 10, type: u32, unit: A, scale: 0.001, poll: fast}
+  - {key: l2_current, label: L2 current effective value, table: holding, address: 12, type: u32, unit: A, scale: 0.001, poll: fast}
+  - {key: l3_current, label: L3 current effective value, table: holding, address: 14, type: u32, unit: A, scale: 0.001, poll: fast}
+  - {key: power_factor, label: Power factor, table: holding, address: 16, type: u32, scale: 0.001, poll: fast, verified: false, note: Given as an unsigned 4-byte value; whether it can carry a sign is not stated.}
+  - {key: frequency, label: Frequency, table: holding, address: 18, type: u32, unit: Hz, scale: 0.001, poll: fast}
+  - {key: x.import_demand, label: The total import demand, table: holding, address: 20, type: u32, unit: kW, scale: 0.0001}
+  - {key: x.export_demand, label: The total export demand, table: holding, address: 22, type: u32, unit: kW, scale: 0.0001}
+  - {key: x.l1_voltage_threshold, label: L1 voltage threshold, table: holding, address: 24, type: u32, unit: '%', scale: 0.001, poll: slow}
+  - {key: x.l2_voltage_threshold, label: L2 voltage threshold, table: holding, address: 26, type: u32, unit: '%', scale: 0.001, poll: slow}
+  - {key: x.l3_voltage_threshold, label: L3 voltage threshold, table: holding, address: 28, type: u32, unit: '%', scale: 0.001, poll: slow}
+  # Energy (current data, active, 3 decimals kWh)
+  - {key: grid_import_energy, label: Current total tariff rate import active energy, table: holding, address: 16384, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.import_energy_t1, label: Current tariff rate 1 import active energy, table: holding, address: 16386, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.import_energy_t2, label: Current tariff rate 2 import active energy, table: holding, address: 16388, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.import_energy_l1, label: Phase L1 total import active energy, table: holding, address: 16416, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.import_energy_l2, label: Phase L2 total import active energy, table: holding, address: 16448, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.import_energy_l3, label: Phase L3 total import active energy, table: holding, address: 16480, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: grid_export_energy, label: Current total tariff rate export active energy, table: holding, address: 16640, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.export_energy_t1, label: Current tariff rate 1 export active energy, table: holding, address: 16642, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.export_energy_t2, label: Current tariff rate 2 export active energy, table: holding, address: 16644, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.export_energy_l1, label: Phase L1 total export active energy, table: holding, address: 16672, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.export_energy_l2, label: Phase L2 total export active energy, table: holding, address: 16704, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.export_energy_l3, label: Phase L3 total export active energy, table: holding, address: 16736, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  # Maximum demand (current data, 4 decimals kW)
+  - {key: x.import_max_demand, label: Current total tariff rate import active max demand, table: holding, address: 32768, type: u32, unit: kW, scale: 0.0001, poll: slow}
+  - {key: x.export_max_demand, label: Current total tariff rate export active max demand, table: holding, address: 33024, type: u32, unit: kW, scale: 0.0001, poll: slow}
+  # Basic parameters
+  - {key: x.second_index, label: Second index, table: holding, address: 1024, type: u32, unit: s, poll: slow, note: Seconds counter of the meter (time stamp for logs and load profile).}
+  - {key: x.meter_number_low, label: Meter number (digits 1–4), table: holding, address: 1026, type: bcd16, byte_order: little, poll: slow, verified: false}
+  - {key: x.meter_number_mid, label: Meter number (digits 5–8), table: holding, address: 1027, type: bcd16, byte_order: little, poll: slow, verified: false}
+  - {key: x.meter_number_high, label: Meter number (digits 9–12), table: holding, address: 1028, type: bcd16, byte_order: little, poll: slow, verified: false}
+  - {key: x.clock, label: Soft clock date and time, table: holding, address: 1029, type: datetime, length: 4, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 2, bits: [8, 15]}, minute: {register: 2, bits: [0, 7]}, second: {register: 3, bits: [8, 15]}}, poll: slow, writable: true, verified: false, note: 'Date: year, month, day, day of week (one byte each); time: hour, minute, second, hundredths. The year is one byte; that it counts from 2000 is not stated in the document; assumed.'}
+  - {key: x.baud_rate, label: Communication baud rate, table: holding, address: 1035, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.rated_voltage, label: Rated Voltage, table: holding, address: 1036, type: u16, unit: V, scale: 0.01, poll: slow}
+  - {key: x.rated_current, label: Rated Current, table: holding, address: 1037, type: u16, unit: A, scale: 0.001, poll: slow}
+  - {key: x.rated_frequency, label: Rated Frequency, table: holding, address: 1038, type: u16, unit: Hz, scale: 0.001, poll: slow}
+  - {key: x.max_current, label: Maximum Current, table: holding, address: 1039, type: u16, unit: A, scale: 0.001, poll: slow}
+  - {key: x.pulse_constant, label: Active pulse constant, table: holding, address: 1040, type: u16, unit: imp/kWh, poll: slow}
+  - {key: x.remote_pulse_constant, label: Active remote control pulse constant, table: holding, address: 1041, type: u16, unit: imp/kWh, writable: true, poll: slow, note: '1000, 500, 250 or 100.'}
+  - {key: x.status, label: Status word, table: holding, address: 1043, type: u16, flags: status_bits, poll: fast}
+  # Tariff and demand
+  - {key: x.demand_period, label: Demand calculation cycle, table: holding, address: 2048, type: u16, unit: s, writable: true, poll: slow, note: '60, 120, 300, 600, 900 or 1200 s.'}
+  - {key: x.current_tariff, label: The current tariff rate, table: holding, address: 2050, type: u16, poll: slow, note: 1–8; writable only when the tariff is controlled by command (0x0803 = 1).}
+  - {key: x.tariff_control, label: Tariff rate control word, table: holding, address: 2051, type: u16, enum: tariff_control, writable: true, poll: slow}
+
+derived:
+  - {key: grid_power, label: Active power (import − export), unit: W, positive: import, sum: [{key: x.import_power}, {key: x.export_power, factor: -1}]}
+  - {key: serial, label: Meter number, unit: '', sum: [{key: x.meter_number_high, factor: 100000000}, {key: x.meter_number_mid, factor: 10000}, {key: x.meter_number_low}], verified: false, note: The meter number is 6 bytes of packed BCD with the lowest byte first; the byte and register order here is our reading of that and not checked on a device.}
+
+enums:
+  baud_rate: {'5': 9600 bps, '6': 19200 bps}
+  tariff_control: {'0': Controlled by external terminal, '1': Controlled by command}
+
+flags:
+  status_bits: {'0': RTC error, '1': EEPROM error, '2': Dataflash error, '8': Phase failure L1, '9': Phase failure L2, '10': Phase failure L3, '11': Reverse phase sequence}
+
+problems:
+  - {when: {key: x.status, bit: 0}, kind: warning, text: Real-time clock error (bit 0)}
+  - {when: {key: x.status, bit: 1}, kind: fault, text: EEPROM error (bit 1)}
+  - {when: {key: x.status, bit: 2}, kind: fault, text: Dataflash error (bit 2)}
+  - {when: {key: x.status, bit: 8}, kind: warning, text: Phase failure L1 (bit 8)}
+  - {when: {key: x.status, bit: 9}, kind: warning, text: Phase failure L2 (bit 9)}
+  - {when: {key: x.status, bit: 10}, kind: warning, text: Phase failure L3 (bit 10)}
+  - {when: {key: x.status, bit: 11}, kind: warning, text: Reverse phase sequence (bit 11)}
+
+notes:
+- The document's cover and headers name the meter WH4013 (and the notice DVS60x.xx); it is published by DZG Metering as the
+  DVH4013 protocol.
+- 'Addresses are the hexadecimal register addresses of the document, used as they are (0-based). Energy and demand addresses
+  are built from bit fields: bit 8 = export, bits 5–6 = phase (0 total, 1–3 = L1–L3), bits 1–4 = tariff (0 all, 1–8), bits
+  9–13 = history (0 current, 1–20 previous periods); 0x8000 + … is max demand, 0xC000 + … the time it occurred. Only current
+  total, tariff 1/2 and per-phase values are listed here.'
+- Values of 4 bytes are high word first; their sign is not stated (unsigned assumed). Import and export power are separate
+  positive registers; grid_power is derived as import − export.
+- 'The unit id follows from the meter ID: its lowest two digits plus one. The document''s example (ID …11 → address 12, sent
+  as 0x12) suggests the result is read as hexadecimal. 1 is a placeholder.'
+- 'Baud rate: 9600 or 19200 (register 0x040B); the default and the parity are not stated in the document; 9600 8E1 assumed.'
+- Rated voltage 230.00 V, rated frequency 50.000 Hz and pulse constant 1000 imp/kWh are the fixed values given in the document
+  and used to identify the meter; the rated and maximum current (5 A / 65 A in the document) may differ by variant.
+- Device identification (manufacturer "REC" in the document's example, product code, version) is only available through Modbus
+  function 43, which is not described here.
+- 'Left out: history (previous period) values, event logs (0x2000–0x2827), load profile (file records), load profile and display
+  parameters, factory commands (0x04FF).'
+- 'Serial defaults to 9600 baud 8E1. The unit id follows from the serial number: take its last two digits, add one, read the
+  result as hexadecimal (…23 → 0x24 = 36).'
+- 'mbmd calls its support partial: no per-phase power, only aggregate import/export power.'
+- mbmd (type code DZG) detects the meter by reading L1 Voltage (holding register 4, u32, scale 0.01); its bus scan accepts
+  a value within 10% of 110 or 230 V.
+- Identification as mbmd recognises the device (not checked against a document).

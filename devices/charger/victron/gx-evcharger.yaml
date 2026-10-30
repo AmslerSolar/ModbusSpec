@@ -1,0 +1,85 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Victron's GX Modbus-TCP register list dbus_modbustcp 744e228 (revision 55) and dbus_modbustcp's attributes.csv.
+
+modbusspec: 0
+id: victron-gx-evcharger
+manufacturer: Victron Energy
+name: 'GX Modbus-TCP: EV charger (com.victronenergy.evcharger)'
+kind: charger
+
+sources:
+- title: Victron GX Modbus-TCP register list (CCGX-Modbus-TCP-register-list)
+  version: dbus_modbustcp 744e228 (revision 55)
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/CCGX-Modbus-TCP-register-list.xlsx
+- title: dbus_modbustcp attributes.csv (Victron's register table in the Modbus-TCP service source)
+  version: commit 744e228
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/attributes.csv
+- id: hass-victron
+  title: hass-victron (Home Assistant integration)
+  url: https://github.com/sfstar/hass-victron
+  license: Apache-2.0
+  commit: 3d3ec1e6cb7768d3c6d49ed23e9b52814477c205
+  path: custom_components/victron/const.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 3804
+    type: str
+    length: 6
+
+points:
+  - {key: x.product_id, label: Product ID, table: holding, address: 3800, type: u16, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 3802, type: u32, poll: slow}
+  - {key: serial, label: Serial, table: holding, address: 3804, type: str, length: 6, poll: slow}
+  - {key: x.model, label: Model, table: holding, address: 3810, type: str, length: 4, poll: slow}
+  - {key: x.max_current, label: Maximum charge current, table: holding, address: 3814, type: u16, unit: A, writable: true}
+  - {key: x.mode, label: Mode, table: holding, address: 3815, type: u16, enum: mode, writable: true}
+  - {key: session_energy, label: Session Energy, table: holding, address: 3816, type: u32, unit: kWh, scale: 0.01, poll: slow, conflicts: [{sources: [hass-victron], key: consumer_energy, label: evcharger energy forward}]}
+  - {key: l1_power, label: L1 Power, table: holding, address: 3818, type: u16, unit: W, positive: consumption, verified: false, note: 'Unsigned power the charger draws, so positive = consumption (derived).'}
+  - {key: l2_power, label: L2 Power, table: holding, address: 3819, type: u16, unit: W, positive: consumption, verified: false, note: 'Unsigned power the charger draws, so positive = consumption (derived).'}
+  - {key: l3_power, label: L3 Power, table: holding, address: 3820, type: u16, unit: W, positive: consumption, verified: false, note: 'Unsigned power the charger draws, so positive = consumption (derived).'}
+  - {key: consumer_power, label: Total power, table: holding, address: 3821, type: u16, unit: W, positive: consumption, verified: false, note: 'Unsigned power the charger draws, so positive = consumption (derived).'}
+  - {key: x.charging_time, label: Charging time, table: holding, address: 3822, type: u16, unit: s, scale: 100}
+  - {key: x.current, label: Charge current, table: holding, address: 3823, type: u16, unit: A}
+  - {key: state, label: Status, table: holding, address: 3824, type: u16, enum: state}
+  - {key: x.set_current, label: Set charge current (manual mode), table: holding, address: 3825, type: u16, unit: A, writable: true}
+  - {key: x.start_stop, label: Start/stop charging (manual mode), table: holding, address: 3826, type: u16, enum: start_stop, writable: true}
+  - {key: x.position, label: Position, table: holding, address: 3827, type: u16, enum: position, writable: true}
+  - {key: x.session_time, label: Session Time, table: holding, address: 3828, type: u32, unit: s}
+  - {key: x.session_energy, label: Session Energy, table: holding, address: 3830, type: u32, unit: kWh, scale: 0.01, poll: slow, verified: false, note: 'The list and attributes.csv say W, but it is the same session energy path and scale as 3816 (kWh).'}
+  - {key: x.session_cost, label: Session Cost, table: holding, address: 3832, type: s32, scale: 0.01}
+  - {key: x.session_saved_cost, label: Session Saved Cost, table: holding, address: 3834, type: s32, scale: 0.01}
+  - {key: consumer_energy, label: Total energy consumed by charger, table: holding, address: 3836, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.custom_name, label: Custom Name, table: holding, address: 3840, type: str, length: 8, writable: true, poll: slow}
+
+enums:
+  mode: {'0': Manual, '1': Auto}
+  state: {'0': Disconnected, '1': Connected, '2': Charging, '3': Charged, '4': Waiting for sun, '5': Waiting for RFID, '6': Waiting for start, '7': Low SOC, '8': Ground test error, '9': Welded contacts test error, '10': CP input test error (shorted), '11': Residual current detected, '12': Undervoltage detected, '13': Overvoltage detected, '14': Overheating detected, '15': Reserved, '16': Reserved, '17': Reserved, '18': Reserved, '19': Reserved, '20': Charging limit, '21': Start charging, '22': Switching to 3 phase, '23': Switching to 1 phase, '24': Stop charging}
+  start_stop: {'0': Stop, '1': Start}
+  position: {'0': AC output, '1': AC input}
+
+notes:
+- 'No fixed unit id: the GX assigns them (since Venus OS 2.60), normally the device instance; see Settings → Integrations
+  → Modbus TCP server → Available services. 1 is only a placeholder.'
+- Addresses are the list's numbers, which are the protocol addresses (no 30001/40001 offset); read them as holding registers
+  (function 03). Strings carry two characters per register, first character in the high byte.
+- Registers the device or firmware doesn't have make the GX answer the whole request with an exception; read them in separate
+  requests or skip them.
+- Taken from the register list dbus_modbustcp 744e228 (revision 55); attributes.csv (Victron's dbus_modbustcp source) filled
+  in what the list leaves out.
+- The unit id is the GX device instance of this service; hass-victron finds it by scanning a fixed list of unit ids.

@@ -1,0 +1,51 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the LAMBRECHT meteo 879 Pt100 / Pt1000 Modbus-Umsetzer Betriebsanleitung 3 (no version, 23.26).
+
+modbusspec: 0
+id: lambrecht-pt-converter
+manufacturer: LAMBRECHT meteo
+name: Pt100 / Pt1000 Modbus converter (879)
+kind: io
+
+sources:
+- title: LAMBRECHT meteo Modbus-Umsetzer 879 Pt100 / Pt1000 Betriebsanleitung (879_Pt100_1000_Modbus_Umsetzer_Betriebsanleitung_3)
+  version: no version (23.26)
+  url: https://api.lambrecht.net/upload/manuals/879_Pt100_1000_Modbus_Umsetzer_Betriebsanleitung_3.pdf
+  sha256: 653f37f19c844652ca91582dda5d2b9b8f75e4d8b462d606455be7d56b96c14b
+
+connection:
+  default_port: 502
+  default_unit: 12
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.temperature, label: Lufttemperatur, table: input, address: 30401, type: s16, unit: °C, scale: 0.1, invalid: [-9999], note: Temperature of the connected Pt100 / Pt1000 sensor (−40 … +80 °C).}
+
+  # Configuration (holding registers, write with function 16 only)
+  - {key: x.modbus_address, label: Modbus-Adresse Gerät, table: holding, address: 40001, type: u16, writable: true, write_only: true, min: 1, max: 99, poll: slow, note: Restart the device after a change. The address is also set with two rotary switches.}
+  - {key: x.baud_rate, label: Baudrate, table: holding, address: 40200, type: u16, enum: baud_rate, writable: true, write_only: true, poll: slow, note: Restart the device after a change.}
+  - {key: x.parity, label: Parität, table: holding, address: 40201, type: u16, enum: parity, writable: true, write_only: true, poll: slow, note: Restart the device after a change.}
+
+enums:
+  baud_rate: {'96': '9600', '192': '19200', '384': '38400'}
+  parity: {'0': None, '1': Even}
+
+notes:
+- 'Models: 00.08790.000000 (Pt100) and 00.08790.010000 (Pt1000); same registers.'
+- 'Addresses: the document''s register numbers (30401, 40001 …) are sent on the wire unchanged, as its example frames show
+  (30401 = 0x76C1); they are used here as the protocol addresses, no offset subtracted.'
+- A value of −9999 means an internal sensor error (e.g. a signal out of range; the green LED then flashes). Signed 16-bit
+  integer divided by 10 (signedness not spelled out; needed for negative temperatures).
+- 'Defaults: unit id 12, 19200 baud, 8E1. Address range 1 … 99.'
+- The document lists no identification registers; it refers to a separate general document for the autoconfiguration (mapping)
+  registers.

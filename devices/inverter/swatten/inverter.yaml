@@ -1,0 +1,182 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Swatten inverter Modbus table (undated spreadsheet).
+
+modbusspec: 0
+id: swatten-inverter
+manufacturer: Swatten
+name: Swatten SiH hybrid inverters
+kind: inverter
+
+sources:
+- title: Swatten inverter Modbus table
+  version: undated
+  url: https://github.com/user-attachments/files/17558047/Swatten.inverter.Modbus.table.xlsx
+  sha256: 1aba93a4074548db37ce3e862214b271bfc97a8d45d5658574e9ccb82eb9b0d8
+- id: solax-modbus
+  title: homeassistant-solax-modbus (Home Assistant integration)
+  url: https://github.com/wills106/homeassistant-solax-modbus
+  license: Apache-2.0
+  commit: d644181940210c4a00a6b4637888495c7a7d6217
+  path: custom_components/solax_modbus/plugin_swatten.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+
+identify:
+  serial:
+    table: input
+    address: 5809
+    type: str
+    length: 8
+  any:
+  - table: input
+    address: 5809
+    type: str
+    length: 8
+    prefix: SiH3KSH
+  - table: input
+    address: 5809
+    type: str
+    length: 8
+    prefix: SiH4KSH
+  - table: input
+    address: 5809
+    type: str
+    length: 8
+    prefix: SiH5KSH
+  - table: input
+    address: 5809
+    type: str
+    length: 8
+    prefix: SiH6KSH
+  - table: input
+    address: 5809
+    type: str
+    length: 8
+    prefix: SiH5KTH
+  - table: input
+    address: 5809
+    type: str
+    length: 8
+    prefix: SiH6KTH
+  - table: input
+    address: 5809
+    type: str
+    length: 8
+    prefix: SiH8KTH
+  - table: input
+    address: 5809
+    type: str
+    length: 8
+    prefix: SiH10KTH
+
+defaults:
+  verified: false
+
+models:
+  - {id: gen_x1_hybrid, name: 'GEN | X1 | HYBRID (prefix SiH3KSH*, SiH4KSH*, SiH5KSH*, SiH6KSH*)'}
+  - {id: gen_x3_hybrid, name: 'GEN | X3 | HYBRID (prefix SiH5KTH*, SiH6KTH*, SiH8KTH*, SiH10KTH*)'}
+
+points:
+  # Monitoring (read only)
+  - {key: x.on_off_status, label: On/Off Status, table: input, address: 4056, type: u16}
+  - {key: temperature, label: Internal Temperature, table: input, address: 4058, type: s16, unit: °C, scale: 0.1}
+  - {key: apparent_power, label: Total AC Apparent Power, table: input, address: 4059, type: u32, unit: VA, note: 32 bits over 4059/4060; the table gives the unit as W.}
+  - {key: x.pv1_voltage, label: PV1 Voltage, table: input, address: 4061, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: PV1 Current, table: input, address: 4062, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv2_voltage, label: PV2 Voltage, table: input, address: 4063, type: u16, unit: V, scale: 0.1, note: Scale not given for PV2; assumed as PV1.}
+  - {key: x.pv2_current, label: PV2 Current, table: input, address: 4064, type: u16, unit: A, scale: 0.1, note: Scale not given for PV2; assumed as PV1.}
+  - {key: pv_power, label: PV total power, table: input, address: 4067, type: u32, unit: W}
+  - {key: l1_voltage, label: L1 Voltage, table: input, address: 4069, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: L2 Voltage, table: input, address: 4070, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: l3_voltage, label: L3 Voltage, table: input, address: 4071, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: l1_current, label: L1 Current, table: input, address: 4072, type: u16, unit: A, scale: 0.1}
+  - {key: l2_current, label: L2 Current, table: input, address: 4073, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: l3_current, label: L3 Current, table: input, address: 4074, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.ac_output_power, label: Total AC Output Power, table: input, address: 4081, type: s32, unit: W, note: '32 bits; signedness not stated, assumed signed.', conflicts: [{sources: [solax-modbus], type: u32, label: Total Output Power}]}
+  - {key: reactive_power, label: Reactive Power, table: input, address: 4083, type: s32, unit: var, note: '32 bits; the table gives the unit as W. Signedness not stated, assumed signed.', conflicts: [{sources: [solax-modbus], type: u32}]}
+  - {key: x.insulation_resistance, label: Insulation resistance, table: input, address: 4121, type: u16, unit: kΩ, poll: slow, note: Scale not given.}
+  - {key: x.bus_voltage, label: Busbar Voltage 1, table: input, address: 4197, type: u16, unit: V, scale: 0.1}
+  - {key: frequency, label: Grid Frequency, table: input, address: 4198, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.feeder_power, label: Real-time feeder power, table: input, address: 5401, type: s16, unit: W, note: 'Power at the grid connection point (meter). Type and sign not stated; assumed signed, direction unknown.'}
+  - {key: state, label: Inverter status, table: input, address: 10000, type: u16, enum: state}
+  - {key: pv_energy_today, label: Daily PV Power Generation, table: input, address: 10002, type: u16, unit: kWh, scale: 0.1}
+  - {key: pv_energy, label: Total PV Production, table: input, address: 10003, type: u32, unit: kWh, scale: 0.1}
+  - {key: load_power, label: Total Consumption Power, table: input, address: 10008, type: u16, unit: W, conflicts: [{sources: [solax-modbus], unit: kWh, scale: 0.1, label: Total Consumption}]}
+  - {key: battery_voltage, label: Battery Voltage, table: input, address: 10020, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [solax-modbus], scale: 0}]}
+  - {key: x.battery_current, label: Battery Current, table: input, address: 10021, type: s16, unit: A, scale: 0.1, note: Signedness and direction not stated; assumed signed like the battery power., conflicts: [{sources: [solax-modbus], type: u16}]}
+  - {key: x.battery_power, label: Battery Power, table: input, address: 10022, type: s16, unit: W, note: Signed; the table doesn't say which direction is positive.}
+  - {key: battery_soc, label: SoC, table: input, address: 10023, type: u16, unit: '%'}
+  - {key: battery_soh, label: SoH, table: input, address: 10024, type: u16, unit: '%', poll: slow}
+  - {key: x.battery_discharge_today, label: Daily Discharging Energy, table: input, address: 10026, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.battery_discharge_total, label: Total Discharging Energy, table: input, address: 10027, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.grid_import_today, label: Daily Energy Purchased, table: input, address: 10036, type: u16, unit: kWh, scale: 0.1}
+  - {key: grid_import_energy, label: Cumulative Energy Purchased, table: input, address: 10037, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.battery_charge_today, label: Daily Charging Energy, table: input, address: 10040, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.battery_charge_total, label: Total Charging Energy, table: input, address: 10041, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.grid_export_today, label: Daily Grid Feed-in, table: input, address: 10045, type: u16, unit: kWh, scale: 0.1}
+  - {key: grid_export_energy, label: Cumulative Grid Feed-in, table: input, address: 10046, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.self_use_rate_today, label: Daily spontaneous self-use rate, table: input, address: 10129, type: u16, unit: '%', note: Scale not given.}
+
+  # Settings (read / write)
+  - {key: x.clock, label: Current time, table: holding, address: 4050, type: datetime, length: 6, datetime: {year: {register: 0}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, writable: true, poll: slow, note: The year is the full year (2000…2099).}
+  - {key: x.on_off, label: Switch On/Off Settings, table: holding, address: 20030, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.battery_selection, label: Battery selection, table: holding, address: 26101, type: u16, enum: battery_selection, writable: true, poll: slow}
+  - {key: x.off_grid_enable, label: Off-grid enablement setting, table: holding, address: 23000, type: u16, enum: enable_aa_55, writable: true, poll: slow, note: The monitoring sheet calls it Load Mode.}
+  - {key: x.mppt_mode, label: MPPT mode, table: holding, address: 20206, type: u16, enum: mppt_mode, writable: true, poll: slow}
+  - {key: x.power_limit_enable, label: Power limit switch, table: holding, address: 21204, type: u16, enum: enable_aa_55, writable: true, poll: slow}
+  - {key: x.power_limit, label: Power limit percentage setting, table: holding, address: 21205, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.feeder_limit_mode, label: Feeder power limit enable, table: holding, address: 21221, type: u16, enum: feeder_limit_mode, writable: true, poll: slow}
+  - {key: x.feeder_limit, label: Feeder limit value percentage, table: holding, address: 21223, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.energy_management_mode, label: Energy Management Mode, table: holding, address: 23146, type: u16, enum: energy_management_mode, writable: true, poll: slow}
+  - {key: x.battery_command, label: Battery Charge and Discharge Commands, table: holding, address: 23147, type: u16, enum: battery_command, writable: true, poll: slow, note: Used in forced charge / discharge mode.}
+  - {key: x.battery_command_power, label: Battery Charge and Discharge Power, table: holding, address: 23148, type: u16, unit: W, scale: 10, writable: true, poll: slow, note: The table's unit is 0.01 kW.}
+  - {key: x.max_soc, label: Maximum SOC, table: holding, address: 23031, type: u16, unit: '%', scale: 0.1, writable: true, min: 50, max: 100, poll: slow}
+  - {key: x.min_soc, label: Minimum SOC, table: holding, address: 23032, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 50, poll: slow}
+  - {key: x.forced_charge_enable, label: Energy Management Forced Charge Enable, table: holding, address: 23208, type: u16, enum: enable_aa_55, writable: true, poll: slow}
+  - {key: x.country, label: Country Selection, table: holding, address: 22310, type: u16, writable: true, poll: slow}
+  - {key: x.modbus_address, label: Modbus address, table: holding, address: 20460, type: u16, writable: true, min: 1, max: 246, poll: slow, note: Default 1.}
+  - {key: x.power_factor, label: Power Factor, table: holding, address: 4085, type: s16, sources: [solax-modbus]}
+  - {key: x.rtc, label: RTC, table: input, address: 4050, type: datetime, length: 6, datetime: {year: {register: 0, offset: 2000}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, sources: [solax-modbus]}
+  - {key: x.model_type, label: Model Type, table: input, address: 5809, type: str, length: 8, sources: [solax-modbus]}
+
+enums:
+  state: {'0': 'Grid-connected, normal operation', '2048': Forced grid-connected operation, '4096': Off-grid operation, '4608': Initial standby, '5120': Idle, '5632': Starting (self-test), '16385': Emergency charging}
+  on_off: {'206': 'Off', '207': 'On'}
+  battery_selection: {'0': No battery, '1': Lithium battery, '2': Battery simulator}
+  enable_aa_55: {'85': Disabled, '170': Enabled}
+  mppt_mode: {'0': No PV, '85': Independent, '170': Parallel}
+  feeder_limit_mode: {'85': 'Off', '161': Soft limit, '162': Hard limit, '163': Generation limit}
+  energy_management_mode: {'0': Self-use, '2': Forced charge / discharge}
+  battery_command: {'170': Charge, '187': Discharge, '204': No action}
+
+problems:
+  - {when: {key: state, equals: 4096}, kind: backup_mode, text: Inverter runs off-grid}
+  - {when: {key: state, equals: 16385}, kind: warning, text: Emergency charging}
+
+notes:
+- The table doesn't name function codes. Read-only monitoring registers are taken as input registers (function 04) and read
+  / write settings as holding registers (function 03); not stated in the table, assumed.
+- Addresses are the table's decimal addresses, used as 0-based protocol addresses.
+- 32-bit values (marked "32 bits") take two registers; the word order isn't stated, big-endian (high word first) is assumed.
+- The table gives no serial number, model or alarm registers, nor the transport, unit id or serial settings; port 502 and
+  unit 1 are assumed.
+- Enable switches use 0xAA (170) = on and 0x55 (85) = off. Settings marked [x] in the table have default x.
+- 'Left out: grid protection and ramp settings, reactive power control, the weekday / non-working-day discharge windows (23151…23187)
+  and forced charge windows (23210…23219), restart and restore commands (20031, 20050), DRM and DO settings, energy compensation
+  counters (20118…20121). Battery temperature (10025) and power factor (4085) are left out because their scaling isn''t given.'
+- Models gen_x3_hybrid come from projects and are listed after a model without a match, so detection never reaches them; their
+  points apply only when a reader selects such a model by hand.
+- Identification as solax-modbus recognises the device (not checked against a document).
+- 'Models without a match can''t be picked by a single serial prefix; their names list the prefixes the project maps to them
+  ("some": only some of those serials, the project also looks at other data).'
+- The plugin's 32-bit word order setting is little, but most of its 32-bit readings use big (set per description, which wins
+  when reading); writes of 32-bit values use little.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

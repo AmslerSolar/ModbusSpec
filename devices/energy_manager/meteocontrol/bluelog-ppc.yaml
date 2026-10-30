@@ -1,0 +1,194 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the meteocontrol Modbus Power Control Interface Register list (557008, 2026-10-01).
+
+modbusspec: 0
+id: meteocontrol-bluelog-ppc
+manufacturer: meteocontrol
+name: blue'Log power plant controller (Modbus power control interface)
+kind: energy_manager
+
+sources:
+- title: Modbus Power Control Interface Register (557008)
+  version: '2026-10-01'
+  url: https://help-center.meteocontrol.com/__attachments/a_f03c93b287eab33839e15ef591f4e1049134590fc53bdc9c362b3ea6a51c5b45/557008_Modbus-Power-Control_registers_en_2026-10-01.pdf
+  sha256: e7a4de2151d144c5fb2376655b8384ded55d349843bd8fb00ddc5e54d5b8a8c9
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  any:
+  - - table: holding
+      address: 0
+      type: u32
+      equals: 1835204608
+    - table: holding
+      address: 2
+      type: u32
+      equals: 1651245056
+  - - table: holding
+      address: 1000
+      type: u32
+      equals: 1835204608
+    - table: holding
+      address: 1002
+      type: u32
+      equals: 1651245056
+
+models:
+  - {id: standard, name: Without Hybrid EMS, match: [{table: holding, address: 0, type: u32, equals: 1835204608}, {table: holding, address: 2, type: u32, equals: 1651245056}]}
+  - {id: hybrid_ems, name: With Hybrid EMS, match: [{table: holding, address: 1000, type: u32, equals: 1835204608}, {table: holding, address: 1002, type: u32, equals: 1651245056}]}
+
+points:
+  # ---- Without Hybrid EMS: read values (function 03) ----
+  - {key: x.vendor, label: Vendor, table: holding, address: 0, type: u32, poll: slow, models: [standard], note: '"mc" = 0x6D630000 (meteocontrol); firmware 33.1.12 or later.'}
+  - {key: x.model, label: Model, table: holding, address: 2, type: u32, poll: slow, models: [standard], note: '"bl" = 0x626C0000 (blue''Log); firmware 33.1.12 or later.'}
+  - {key: x.timestamp, label: Current timestamp of device, table: holding, address: 4, type: u32, models: [standard], note: Changes while the device is alive (health check); firmware 34.2.6 or later. Epoch not stated.}
+  - {key: x.p_agreed, label: Agreed connected active power PAV, table: holding, address: 6, type: f32, unit: W, poll: slow, models: [standard]}
+  - {key: x.s_agreed, label: Agreed connected apparent power SAV, table: holding, address: 8, type: f32, unit: VA, poll: slow, models: [standard]}
+  - {key: x.p_installed, label: Total installed active power Pinst, table: holding, address: 10, type: f32, unit: W, poll: slow, models: [standard]}
+  - {key: x.s_max, label: Total maximum apparent power Smax, table: holding, address: 12, type: f32, unit: VA, poll: slow, models: [standard]}
+  - {key: x.v_agreed, label: Agreed supply voltage Vc, table: holding, address: 14, type: f32, unit: V, poll: slow, models: [standard]}
+  - {key: x.p_setpoint_gridop, label: Active power setpoint (grid operator), table: holding, address: 50, type: f32, unit: '%', models: [standard]}
+  - {key: x.p_setpoint_gridop_abs, label: Absolute active power setpoint (grid operator), table: holding, address: 52, type: f32, unit: W, models: [standard], note: Negative = import (demand); positive = export (generation).}
+  - {key: x.p_setpoint_rpc, label: Active power setpoint (3rd party), table: holding, address: 54, type: f32, unit: '%', models: [standard]}
+  - {key: x.p_setpoint, label: Active power setpoint, table: holding, address: 56, type: f32, unit: '%', models: [standard], note: The setpoint in force.}
+  - {key: x.p_control_mode, label: Active power control method, table: holding, address: 58, type: f32, enum: p_control_mode, models: [standard], note: A float holding an integer code.}
+  - {key: x.pf_setpoint, label: Power factor setpoint, table: holding, address: 60, type: f32, models: [standard], note: Negative = underexcited; positive = overexcited.}
+  - {key: x.q_setpoint, label: Reactive power setpoint, table: holding, address: 62, type: f32, unit: '%', models: [standard], note: Negative = underexcited; positive = overexcited.}
+  - {key: x.q_setpoint_abs, label: Absolute reactive power setpoint, table: holding, address: 64, type: f32, unit: var, models: [standard]}
+  - {key: x.q_control_mode, label: Reactive power control method, table: holding, address: 66, type: f32, enum: q_control_mode, models: [standard], note: A float holding an integer code.}
+  # Active power meter (power analyzer at the grid connection point)
+  - {key: grid_power, label: Actual active power (Active power meter), table: holding, address: 90, type: f32, unit: W, positive: export, models: [standard], note: Negative = import (demand); positive = export (generation).}
+  - {key: power_factor, label: Actual power factor cos φ (Active power meter), table: holding, address: 92, type: f32, models: [standard], note: Negative = underexcited; positive = overexcited.}
+  - {key: reactive_power, label: Actual reactive power (Active power meter), table: holding, address: 94, type: f32, unit: var, models: [standard], note: Negative = underexcited; positive = overexcited.}
+  - {key: apparent_power, label: Actual apparent power (Active power meter), table: holding, address: 96, type: f32, unit: VA, models: [standard]}
+  - {key: frequency, label: Actual grid frequency (Active power meter), table: holding, address: 98, type: f32, unit: Hz, models: [standard]}
+  - {key: x.voltage_l1_l2, label: Actual phase voltage VPhA-PhB, table: holding, address: 100, type: f32, unit: V, models: [standard]}
+  - {key: x.voltage_l2_l3, label: Actual phase voltage VPhB-PhC, table: holding, address: 102, type: f32, unit: V, models: [standard]}
+  - {key: x.voltage_l3_l1, label: Actual phase voltage VPhC-PhA, table: holding, address: 104, type: f32, unit: V, models: [standard]}
+  - {key: l1_current, label: Actual current IPhA, table: holding, address: 106, type: f32, unit: A, models: [standard]}
+  - {key: l2_current, label: Actual current IPhB, table: holding, address: 108, type: f32, unit: A, models: [standard]}
+  - {key: l3_current, label: Actual current IPhC, table: holding, address: 110, type: f32, unit: A, models: [standard]}
+  - {key: l1_voltage, label: Line-to-neutral voltage VPhA-N, table: holding, address: 112, type: f32, unit: V, models: [standard], note: Firmware 17.1.7 or later.}
+  - {key: l2_voltage, label: Line-to-neutral voltage VPhB-N, table: holding, address: 114, type: f32, unit: V, models: [standard], note: Firmware 17.1.7 or later.}
+  - {key: l3_voltage, label: Line-to-neutral voltage VPhC-N, table: holding, address: 116, type: f32, unit: V, models: [standard], note: Firmware 17.1.7 or later.}
+  # Sensors and inverters
+  - {key: x.irradiance, label: Actual global irradiation, table: holding, address: 200, type: f32, unit: W/m², models: [standard], optional: true, note: From a connected sensor; firmware 23.0.8 or later.}
+  - {key: x.ambient_temperature, label: Actual ambient temperature, table: holding, address: 202, type: f32, unit: °C, models: [standard], optional: true, note: From a connected sensor; firmware 23.0.8 or later.}
+  - {key: x.inverter_power, label: Inverter active power, table: holding, address: 254, type: f32, unit: W, models: [standard], note: Sum of all PV and battery inverters on the master and slave loggers; firmware 17.1.7 or later.}
+  - {key: x.inverter_reactive_power, label: Inverter reactive power, table: holding, address: 256, type: f32, unit: var, models: [standard]}
+  - {key: x.p_available, label: Available theoretical active power, table: holding, address: 258, type: f32, unit: W, models: [standard]}
+  - {key: x.q_available, label: Available theoretical reactive power, table: holding, address: 260, type: f32, unit: var, models: [standard]}
+  - {key: x.inverters_installed, label: Number of installed inverters, table: holding, address: 262, type: f32, poll: slow, models: [standard]}
+  - {key: x.inverters_active, label: Number of active inverters, table: holding, address: 264, type: f32, models: [standard]}
+  - {key: x.qv_limit, label: Q (V) Lower / upper limit reached, table: holding, address: 268, type: f32, enum: qv_limit, models: [standard]}
+  - {key: x.battery_inverter_power, label: Sum of inverter active power (battery), table: holding, address: 270, type: f32, unit: W, models: [standard], note: Sign not stated; firmware 33.1.12 or later.}
+  - {key: pv_power, label: Sum of inverter active power (PV), table: holding, address: 272, type: f32, unit: W, models: [standard], note: Firmware 33.1.12 or later.}
+  - {key: battery_soc, label: State of charge relative, table: holding, address: 278, type: f32, unit: '%', models: [standard], note: Firmware 33.1.12 or later.}
+  - {key: x.battery_energy, label: State of charge absolute, table: holding, address: 280, type: f32, unit: Wh, models: [standard]}
+  - {key: x.battery_capacity, label: Battery capacity, table: holding, address: 282, type: f32, unit: Wh, poll: slow, models: [standard]}
+  - {key: x.fsm_status, label: Status of Frequency Sensitive Mode (FSM), table: holding, address: 300, type: f32, enum: off_on, models: [standard]}
+  - {key: x.ramp_limiter_status, label: Ramp rate limiter status, table: holding, address: 324, type: f32, enum: off_on, models: [standard]}
+
+  # ---- Without Hybrid EMS: write values (function 16) ----
+  - {key: x.p_setpoint_gridop_write, label: Active power setpoint (grid operator), table: holding, address: 5000, type: f32, unit: '%', writable: true, models: [standard], note: 'Write with function 16. 0–100 %; up to 125 % from firmware 15.1.8, down to −10000 % from firmware 23.2.11.'}
+  - {key: x.pf_setpoint_write, label: Power factor setpoint, table: holding, address: 5002, type: f32, writable: true, min: -0.999, max: 1, models: [standard], note: Negative = underexcited.}
+  - {key: x.q_setpoint_write, label: Actual valid reactive power setpoint, table: holding, address: 5004, type: f32, unit: '%', writable: true, min: -100, max: 100, models: [standard], note: Negative = underexcited.}
+  - {key: x.p_setpoint_gridop_abs_write, label: Absolute active power setpoint command (grid operator), table: holding, address: 5006, type: f32, unit: W, writable: true, models: [standard], note: Firmware 24.3.12 or later.}
+  - {key: x.q_setpoint_abs_write, label: Absolute reactive power setpoint command (grid operator), table: holding, address: 5008, type: f32, unit: var, writable: true, models: [standard], note: Firmware 24.3.12 or later.}
+
+  # ---- With Hybrid EMS: read values (function 03) ----
+  - {key: x.vendor, label: Vendor, table: holding, address: 1000, type: u32, poll: slow, models: [hybrid_ems], note: '"mc" = 0x6D630000 (meteocontrol).'}
+  - {key: x.model, label: Model, table: holding, address: 1002, type: u32, poll: slow, models: [hybrid_ems], note: '"bl" = 0x626C0000 (blue''Log).'}
+  - {key: x.timestamp, label: Current timestamp of device, table: holding, address: 1004, type: u32, models: [hybrid_ems], note: Changes while the device is alive (health check). Epoch not stated.}
+  - {key: x.p_agreed, label: Agreed connected active power PAV, table: holding, address: 1018, type: f32, unit: W, poll: slow, models: [hybrid_ems]}
+  - {key: x.s_agreed, label: Agreed connected apparent power SAV, table: holding, address: 1020, type: f32, unit: VA, poll: slow, models: [hybrid_ems]}
+  - {key: x.p_installed, label: Total installed active power Pinst, table: holding, address: 1022, type: f32, unit: W, poll: slow, models: [hybrid_ems]}
+  - {key: x.p_installed_pv, label: 'Installed active power PV Pinst,PV', table: holding, address: 1024, type: f32, unit: W, poll: slow, models: [hybrid_ems]}
+  - {key: x.p_installed_battery, label: 'Installed active power battery Pinst,bat', table: holding, address: 1026, type: f32, unit: W, poll: slow, models: [hybrid_ems]}
+  - {key: x.s_max, label: Total maximum apparent power Smax, table: holding, address: 1028, type: f32, unit: VA, poll: slow, models: [hybrid_ems]}
+  - {key: x.v_agreed, label: Agreed supply voltage Vc, table: holding, address: 1030, type: f32, unit: V, poll: slow, models: [hybrid_ems]}
+  - {key: x.feedin_limit, label: 'Active power feed-in limitation (grid operator, relative)', table: holding, address: 1050, type: f32, unit: '%', models: [hybrid_ems]}
+  - {key: x.feedin_limit_abs, label: 'Active power feed-in limitation (grid operator, absolute)', table: holding, address: 1052, type: f32, unit: W, models: [hybrid_ems]}
+  - {key: x.import_limit, label: 'Active power import limitation (grid operator, relative)', table: holding, address: 1054, type: f32, unit: '%', models: [hybrid_ems]}
+  - {key: x.import_limit_abs, label: 'Active power import limitation (grid operator, absolute)', table: holding, address: 1056, type: f32, unit: W, models: [hybrid_ems]}
+  - {key: x.q_control_mode, label: Reactive setpoint command mode, table: holding, address: 1200, type: f32, enum: q_control_mode_hybrid, models: [hybrid_ems], note: A float holding an integer code.}
+  - {key: x.pf_setpoint, label: Power factor setpoint, table: holding, address: 1202, type: f32, models: [hybrid_ems], note: Negative = underexcited; positive = overexcited.}
+  - {key: x.q_setpoint, label: Reactive power setpoint, table: holding, address: 1204, type: f32, unit: '%', models: [hybrid_ems], note: Negative = underexcited; positive = overexcited.}
+  - {key: x.q_setpoint_abs, label: Absolute reactive power setpoint, table: holding, address: 1206, type: f32, unit: var, models: [hybrid_ems]}
+  - {key: x.pv_limit, label: 'Active power generation limitation PV (grid operator, relative)', table: holding, address: 1300, type: f32, unit: '%', models: [hybrid_ems]}
+  - {key: x.pv_limit_abs, label: 'Active power generation limitation PV (grid operator, absolute)', table: holding, address: 1302, type: f32, unit: W, models: [hybrid_ems]}
+  - {key: pv_power, label: Sum of inverter active power PV, table: holding, address: 1368, type: f32, unit: W, models: [hybrid_ems]}
+  - {key: x.pv_reactive_power, label: Sum of inverter reactive power (PV), table: holding, address: 1406, type: f32, unit: var, models: [hybrid_ems]}
+  - {key: x.inverters_installed, label: Number of installed inverters (PV), table: holding, address: 1422, type: f32, poll: slow, models: [hybrid_ems]}
+  - {key: x.inverters_active, label: Number of active inverters (PV), table: holding, address: 1424, type: f32, models: [hybrid_ems]}
+  - {key: x.battery_charge_limit, label: 'Active power charge limitation battery (grid operator, relative)', table: holding, address: 1452, type: f32, unit: '%', models: [hybrid_ems]}
+  - {key: x.battery_discharge_limit, label: 'Active power discharge limitation (grid operator, relative)', table: holding, address: 1456, type: f32, unit: '%', models: [hybrid_ems]}
+  - {key: x.battery_inverter_power, label: Sum of inverter active power battery, table: holding, address: 1532, type: f32, unit: W, models: [hybrid_ems], note: Sign not stated.}
+  - {key: x.battery_reactive_power, label: Sum of inverter reactive power battery, table: holding, address: 1572, type: f32, unit: var, models: [hybrid_ems]}
+  - {key: battery_soc, label: State of charge (relative), table: holding, address: 1586, type: f32, unit: '%', models: [hybrid_ems]}
+  - {key: x.battery_energy, label: State of charge (absolute), table: holding, address: 1588, type: f32, unit: Wh, models: [hybrid_ems]}
+  - {key: x.battery_capacity, label: Battery capacity, table: holding, address: 1590, type: f32, unit: Wh, poll: slow, models: [hybrid_ems]}
+  # Meter at the grid connection point
+  - {key: grid_power, label: Actual active power, table: holding, address: 3000, type: f32, unit: W, positive: export, verified: false, models: [hybrid_ems], note: Sign not stated for this block; assumed as in the non-hybrid map (positive = export).}
+  - {key: power_factor, label: Actual power factor cos φ, table: holding, address: 3002, type: f32, models: [hybrid_ems]}
+  - {key: reactive_power, label: Actual reactive power, table: holding, address: 3004, type: f32, unit: var, models: [hybrid_ems]}
+  - {key: apparent_power, label: Actual apparent power, table: holding, address: 3006, type: f32, unit: VA, models: [hybrid_ems]}
+  - {key: frequency, label: Actual grid frequency, table: holding, address: 3008, type: f32, unit: Hz, models: [hybrid_ems]}
+  - {key: x.voltage_l1_l2, label: Actual phase voltage VPhA-PhB, table: holding, address: 3010, type: f32, unit: V, models: [hybrid_ems]}
+  - {key: x.voltage_l2_l3, label: Actual phase voltage VPhB-PhC, table: holding, address: 3012, type: f32, unit: V, models: [hybrid_ems]}
+  - {key: x.voltage_l3_l1, label: Actual phase voltage VPhC-PhA, table: holding, address: 3014, type: f32, unit: V, models: [hybrid_ems]}
+  - {key: l1_current, label: Actual current IPhA, table: holding, address: 3016, type: f32, unit: A, models: [hybrid_ems]}
+  - {key: l2_current, label: Actual current IPhB, table: holding, address: 3018, type: f32, unit: A, models: [hybrid_ems]}
+  - {key: l3_current, label: Actual current IPhC, table: holding, address: 3020, type: f32, unit: A, models: [hybrid_ems]}
+  - {key: l1_voltage, label: Line-to-neutral voltage VPhA-N, table: holding, address: 3022, type: f32, unit: V, models: [hybrid_ems]}
+  - {key: l2_voltage, label: Line-to-neutral voltage VPhB-N, table: holding, address: 3024, type: f32, unit: V, models: [hybrid_ems]}
+  - {key: l3_voltage, label: Line-to-neutral voltage VPhC-N, table: holding, address: 3026, type: f32, unit: V, models: [hybrid_ems]}
+  - {key: x.irradiance, label: Actual global irradiation, table: holding, address: 3120, type: f32, unit: W/m², optional: true, models: [hybrid_ems]}
+  - {key: x.ambient_temperature, label: Actual ambient temperature, table: holding, address: 3122, type: f32, unit: °C, optional: true, models: [hybrid_ems]}
+
+  # ---- With Hybrid EMS: write values (function 16) ----
+  - {key: x.feedin_limit_write, label: 'Active power feed-in limitation (grid operator, relative)', table: holding, address: 10000, type: f32, unit: '%', writable: true, min: 0, max: 125, models: [hybrid_ems]}
+  - {key: x.feedin_limit_abs_write, label: 'Active power feed-in limitation (grid operator, absolute)', table: holding, address: 10002, type: f32, unit: W, writable: true, models: [hybrid_ems]}
+  - {key: x.import_limit_write, label: 'Active power import limitation (grid operator, relative)', table: holding, address: 10004, type: f32, unit: '%', writable: true, min: -125, max: 0, models: [hybrid_ems]}
+  - {key: x.import_limit_abs_write, label: 'Active power import limitation (grid operator, absolute)', table: holding, address: 10006, type: f32, unit: W, writable: true, models: [hybrid_ems]}
+  - {key: x.pv_limit_write, label: 'Active power generation limitation PV (grid operator, relative)', table: holding, address: 10020, type: f32, unit: '%', writable: true, min: 0, max: 125, models: [hybrid_ems]}
+  - {key: x.pv_limit_abs_write, label: 'Active power generation limitation PV (grid operator, absolute)', table: holding, address: 10022, type: f32, unit: W, writable: true, models: [hybrid_ems]}
+  - {key: x.battery_charge_limit_write, label: 'Active power charge limitation battery (grid operator, relative)', table: holding, address: 10040, type: f32, unit: '%', writable: true, min: -125, max: 0, models: [hybrid_ems]}
+  - {key: x.battery_charge_limit_abs_write, label: 'Active power charge limitation battery (grid operator, absolute)', table: holding, address: 10042, type: f32, unit: W, writable: true, models: [hybrid_ems]}
+  - {key: x.battery_discharge_limit_write, label: 'Active power discharge limitation battery (grid operator, relative)', table: holding, address: 10044, type: f32, unit: '%', writable: true, min: 0, max: 125, models: [hybrid_ems]}
+  - {key: x.battery_discharge_limit_abs_write, label: 'Active power discharge limitation battery (grid operator, absolute)', table: holding, address: 10046, type: f32, unit: W, writable: true, models: [hybrid_ems]}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  qv_limit: {'0': Limit not reached, '1': Lower limit reached, '2': Upper limit reached}
+  p_control_mode: {'0': No configuration found, '1': Variable fixed value Pvar fix, '2': Variable fixed value Pvar DI, '3': Variable fixed value Pvar AI, '4': Variable fixed value Pvar Modbus, '5': Remote Power Control (RPC), '100': LFSM-O, '101': LFSM-U, '102': FSM, '112': RPC & FSM, '120': Controller freeze (undervoltage), '121': Controller freeze (overvoltage), '200': Fail-safe operation (hold last setpoint), '201': Fail-safe operation (default setpoint), '202': Fail-safe operation (system fallback value), '203': Fail-safe operation (automatic grid disconnection)}
+  q_control_mode: {'0': No configuration found, '1': Variable fixed value cos φ fix, '2': Variable fixed value cos φ DI, '3': Variable fixed value cos φ AI, '4': Variable fixed value cos φ Modbus, '5': Characteristic curve cos φ (P), '6': Characteristic curve cos φ (V), '7': Variable fixed value Q fix, '8': Variable fixed value Q DI, '9': Variable fixed value Q AI, '10': Variable fixed value Q Modbus, '11': Characteristic curve Q (P), '12': Characteristic curve Q (V), '13': Characteristic curve Q (tan φ), '14': Voltage control Q (V droop), '15': Characteristic curve Q(V) Modbus, '16': Characteristic curve cos φ (P) Modbus, '100': Reactive power compensation, '120': Controller freeze (undervoltage), '121': Controller freeze (overvoltage), '200': Fail-safe operation (hold last setpoint), '201': Fail-safe operation (default setpoint), '202': Fail-safe operation (system fallback value)}
+  q_control_mode_hybrid: {'0': No configuration found, '1': Variable fixed value cos φ fix, '2': Variable fixed value cos φ DI, '3': Variable fixed value cos φ AI, '4': Variable fixed value cos φ Modbus, '5': Characteristic curve cos φ (P), '6': Characteristic curve cos φ (V), '7': Variable fixed value Q fix, '8': Variable fixed value Q DI, '9': Variable fixed value Q AI, '10': Variable fixed value Q Modbus, '11': Characteristic curve Q (P), '12': Characteristic curve Q (V), '13': Characteristic curve Q (tan φ), '14': Voltage control Q (V droop), '15': Characteristic curve Q(V) Modbus, '16': Characteristic curve cos φ (P) Modbus, '100': Reactive power compensation, '200': Fail-safe operation (setpoint failure), '201': Fail-safe operation (meter failure), '202': Fail-safe operation (system fallback)}
+
+problems:
+  - {when: {key: x.p_control_mode, range: [200, 203]}, kind: warning, text: 'Active power control in fail-safe operation ({text})'}
+  - {when: {key: x.q_control_mode, range: [200, 202]}, kind: warning, text: 'Reactive power control in fail-safe operation ({text})'}
+
+notes:
+- 'The blue''Log data logger acting as power plant controller. The register map depends on whether the Hybrid EMS is used:
+  without it the values sit at 0 ff. (read) and 5000 ff. (write), with it at 1000 ff. (read) and 10000 ff. (write). The vendor
+  and model registers tell the two apart.'
+- Register numbers in the document are used as 0-based protocol addresses. Values are read with function 03 and written with
+  function 16.
+- Port, unit id and word order of the 32-bit values are not stated in the document; 502, 1 and high word first are assumed.
+- Several registers only exist from a given firmware on (noted per point); older firmware has no vendor and model registers,
+  so the model can't be detected there.
+- 'Left out: frequency (FSM, LFSM) and ramp-rate parameters, characteristic-curve reference points, the reactive power meter
+  block (150 ff.), energy-trader setpoints and test commands.'
+- 'Identification: one of the model matches must hold.'

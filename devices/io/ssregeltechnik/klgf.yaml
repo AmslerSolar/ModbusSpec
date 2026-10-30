@@ -1,0 +1,71 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the S+S Regeltechnik RHEASGARD KLGF-Modbus / KLGFVT-Modbus manual (Rev. Data V13, 04/2023).
+
+modbusspec: 0
+id: ssregeltechnik-klgf
+manufacturer: S+S Regeltechnik
+name: RHEASGARD KLGF-Modbus / KLGFVT-Modbus duct air flow sensors
+kind: io
+
+sources:
+- title: RHEASGARD KLGF-Modbus / KLGFVT-Modbus operating and mounting instructions (Russian edition)
+  version: Rev. Data V13, 04/2023
+  url: https://static.insales-cdn.com/files/1/3777/29961921/original/SplusS_Regeltechnik_klgf-klgfvt-modbus_manual.pdf
+  sha256: 65009bce5fbcf9356b2de4a3fed87b2c694e27deb32cf6b8a64e33e801c31736
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+defaults:
+  verified: false
+
+model_choice: user
+
+models:
+  - {id: klgf, name: KLGF-Modbus (air velocity only)}
+  - {id: klgfvt, name: 'KLGFVT-Modbus (air velocity, volume flow and temperature)'}
+
+points:
+  # Input registers (function 04)
+  - {key: x.air_velocity, label: Flow (4 s reading), table: input, address: 3, type: s16, unit: m/s, scale: 0.1}
+  - {key: x.air_velocity_filtered, label: 'Flow (filtered, max 32 s)', table: input, address: 4, type: s16, unit: m/s, scale: 0.1}
+  - {key: x.air_temperature, label: Temperature (4 s reading), table: input, address: 6, type: s16, unit: °C, scale: 0.1, models: [klgfvt]}
+  - {key: x.air_temperature_filtered, label: 'Temperature (filtered, max 32 s)', table: input, address: 7, type: s16, unit: °C, scale: 0.1, models: [klgfvt]}
+  - {key: x.volume_flow, label: Volume flow (4 s reading), table: input, address: 8, type: s16, models: [klgfvt], note: 0…30000 in the unit given by input 10 (default m³/h).}
+  - {key: x.volume_flow_filtered, label: 'Volume flow (filtered, max 32 s)', table: input, address: 9, type: s16, models: [klgfvt], note: In the unit given by input 10.}
+  - {key: x.volume_flow_unit, label: Volume flow unit, table: input, address: 10, type: s16, enum: volume_flow_unit, models: [klgfvt], poll: slow}
+
+  # Holding registers (function 06 / 16)
+  - {key: x.display_mode, label: Display indication, table: holding, address: 1, type: s16, enum: display_mode, writable: true, poll: slow, note: 'Default 0 on the KLGF, 5 on the KLGFVT; only for devices with a display.'}
+  - {key: x.set_volume_flow_unit, label: Volume flow unit, table: holding, address: 2, type: s16, enum: volume_flow_unit, writable: true, poll: slow}
+  - {key: x.velocity_offset, label: Digital offset of the flow value, table: holding, address: 4, type: s16, unit: m/s, scale: 0.1, writable: true, min: -5, max: 5, poll: slow}
+  - {key: x.temperature_offset, label: Digital offset of the temperature value, table: holding, address: 7, type: s16, unit: °C, scale: 0.1, writable: true, min: -5, max: 5, poll: slow, models: [klgfvt]}
+  - {key: x.duct_cross_section, label: Duct cross section, table: holding, address: 9, type: s16, unit: cm², writable: true, min: 10, max: 30000, poll: slow, note: Default 10000; used for the volume flow.}
+  - {key: x.zero_calibration, label: Set zero point (0 m/s), table: holding, address: 15, type: s16, writable: true, note: Write 1 to calibrate the zero point; the register returns to 0 by itself.}
+
+enums:
+  volume_flow_unit: {'0': m³/h, '1': m³/min, '2': m³/s, '3': l/h, '4': l/min, '5': l/s}
+  display_mode: {'0': Flow, '1': Flow + temperature, '2': Volume flow, '3': Volume flow + temperature, '4': Volume flow + flow, '5': Volume flow / flow alternating + temperature}
+
+notes:
+- Register numbers are taken as protocol addresses as printed (0003 = address 3); the document doesn't say whether they count
+  from 0 or 1. Not verified on a device.
+- Measuring range 0.1…20 m/s and 0…+50 °C; the sensor works in one flow direction only.
+- Bus address (1…247, binary on DIP switch A, no default stated; 1 assumed) and bus settings (9600 / 19200 / 38400 baud, even
+  or odd parity or none with 2 stop bits, or 8N1) are set with DIP switches while the device is unpowered. 8E1 at 9600 baud
+  is assumed as the default; not stated in the document.
+- 'RS485 only: port 502 applies behind a Modbus TCP gateway.'
+- The two models can't be told apart over Modbus; the KLGF has no temperature or volume flow.
+- The device has no serial number or model register, so it can't be identified in a network search.

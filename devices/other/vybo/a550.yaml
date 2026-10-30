@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the VYBO Electric A550 Plus Modbus communication protocol (Appendix A, Slovak edition, undated).
+
+modbusspec: 0
+id: vybo-a550
+manufacturer: VYBO Electric
+name: A550 Plus frequency inverter (drive)
+kind: other
+
+sources:
+- title: 'Príloha A: Komunikačný protokol MODBUS série meničov A 550 PLUS'
+  version: undated (2023 upload)
+  url: https://frekvencnemenice.sk/wp-content/uploads/2023/05/PrilohaA-komunikacny-protokol-MODBUS.pdf
+  sha256: f419a40d2dc69e1d336301eebc5c767475c9eaafe038226b0cb4c646fc13f1c7
+  archive_url: https://web.archive.org/web/20240705160250/https://frekvencnemenice.sk/wp-content/uploads/2023/05/PrilohaA-komunikacny-protokol-MODBUS.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+
+encoding:
+  byte_order: big
+  word_order: big
+
+
+points:
+  # Monitoring parameters (P001…P020)
+  - {key: x.set_frequency, label: P001 Set frequency, table: holding, address: 1, type: u16, poll: fast, note: Unit and scale not stated in the document., verified: false}
+  - {key: x.output_frequency, label: P002 Output frequency, table: holding, address: 2, type: u16, poll: fast, note: Unit and scale not stated in the document., verified: false}
+  - {key: x.output_current, label: P003 Output current, table: holding, address: 3, type: u16, poll: fast, note: Unit and scale not stated in the document., verified: false}
+  - {key: x.motor_speed, label: P004 Motor speed, table: holding, address: 4, type: u16, poll: fast, note: Unit and scale not stated in the document., verified: false}
+  - {key: x.dc_bus_voltage, label: P005 DC bus voltage, table: holding, address: 5, type: u16, poll: fast, note: Unit and scale not stated in the document., verified: false}
+  - {key: x.drive_temperature, label: P006 Drive temperature, table: holding, address: 6, type: u16, poll: fast, note: Unit and scale not stated in the document., verified: false}
+  - {key: x.pid_value, label: P007 PID value, table: holding, address: 7, type: u16, poll: fast, note: Unit and scale not stated in the document., verified: false}
+  - {key: x.output_voltage, label: P009 Output voltage, table: holding, address: 9, type: u16, poll: fast, note: Unit and scale not stated in the document., verified: false}
+  - {key: x.alarm_record_1, label: P010 Alarm record 1, table: holding, address: 10, type: u16, poll: slow, note: The document lists no code table., verified: false}
+  - {key: x.alarm_record_2, label: P011 Alarm record 2, table: holding, address: 11, type: u16, poll: slow, verified: false}
+  - {key: x.alarm_record_3, label: P012 Alarm record 3, table: holding, address: 12, type: u16, poll: slow, verified: false}
+  - {key: x.alarm_record_4, label: P013 Alarm record 4, table: holding, address: 13, type: u16, poll: slow, verified: false}
+  - {key: x.output_power, label: P020 Output power, table: holding, address: 20, type: u16, poll: fast, note: Unit and scale not stated in the document., verified: false}
+  - {key: x.alarm_bits, label: P027 Alarm codes, table: holding, address: 27, type: u16, flags: alarm_bits, poll: fast}
+  - {key: x.direction, label: P028 Status (bit 0), table: holding, address: 28, type: u16, bits: [0, 0], enum: direction, poll: fast}
+  - {key: x.running, label: P028 Status (bit 1), table: holding, address: 28, type: u16, bits: [1, 1], enum: running, poll: fast}
+
+  # Settings
+  - {key: x.digital_frequency, label: P100 Digital frequency setting, table: holding, address: 100, type: u16, writable: true, poll: slow, note: Scale not stated., verified: false}
+  - {key: x.frequency_source, label: P101 Frequency setting source, table: holding, address: 101, type: u16, writable: true, poll: slow, note: 5 = by communication (needed for 0x2001); other values not listed in this document.}
+  - {key: x.start_source, label: P102 Start signal source, table: holding, address: 102, type: u16, writable: true, poll: slow, note: 2 = by communication (needed for 0x2000); other values not listed in this document.}
+  - {key: x.max_frequency, label: P105 Maximum frequency, table: holding, address: 105, type: u16, writable: true, poll: slow, note: Scale not stated., verified: false}
+  - {key: x.min_frequency, label: P106 Minimum frequency, table: holding, address: 106, type: u16, writable: true, poll: slow, note: Scale not stated., verified: false}
+  - {key: x.accel_time_1, label: P107 Acceleration time 1, table: holding, address: 107, type: u16, writable: true, poll: slow, note: Scale not stated., verified: false}
+  - {key: x.decel_time_1, label: P108 Deceleration time 1, table: holding, address: 108, type: u16, writable: true, poll: slow, note: Scale not stated., verified: false}
+
+  # Control (write only)
+  - {key: x.run_command, label: Control word (bits 0–1), table: holding, address: 8192, type: u16, bits: [0, 1], enum: run_command, writable: true, write_only: true, note: Needs P102 = 2.}
+  - {key: x.direction_command, label: Control word (bits 2–3), table: holding, address: 8192, type: u16, bits: [2, 3], enum: direction_command, writable: true, write_only: true}
+  - {key: x.alarm_reset, label: Control word (bit 4), table: holding, address: 8192, type: u16, bits: [4, 4], enum: alarm_reset, writable: true, write_only: true, note: 1 = reset the alarm.}
+  - {key: x.frequency_command, label: Frequency command, table: holding, address: 8193, type: u16, unit: Hz, scale: 0.1, writable: true, write_only: true, min: 0, max: 400, note: Needs P101 = 5.}
+
+enums:
+  direction: {'0': Forward, '1': Reverse}
+  running: {'0': Stopped, '1': Running}
+  run_command: {'0': No action, '1': Stop, '2': Start, '3': JOG start}
+  direction_command: {'0': No action, '1': Reverse, '2': Forward, '3': Change direction}
+  alarm_reset: {'0': No action, '1': Reset alarm}
+
+flags:
+  alarm_bits: {'0': UC, '1': OC (overcurrent), '2': NF (communication error), '3': LO (output phase loss), '4': OU (overvoltage), '6': LU (undervoltage), '7': OL (motor overload), '8': OT (torque exceeded), '9': OH (overheating), '10': No 4–20 mA signal, '15': Alarm}
+
+problems:
+  - {when: {key: x.alarm_bits, bit: 0}, kind: fault, text: Drive alarm UC (bit 0)}
+  - {when: {key: x.alarm_bits, bit: 1}, kind: fault, text: 'Drive alarm OC, overcurrent (bit 1)'}
+  - {when: {key: x.alarm_bits, bit: 2}, kind: fault, text: 'Drive alarm NF, communication error (bit 2)'}
+  - {when: {key: x.alarm_bits, bit: 3}, kind: fault, text: 'Drive alarm LO, output phase loss (bit 3)'}
+  - {when: {key: x.alarm_bits, bit: 4}, kind: fault, text: 'Drive alarm OU, overvoltage (bit 4)'}
+  - {when: {key: x.alarm_bits, bit: 6}, kind: fault, text: 'Drive alarm LU, undervoltage (bit 6)'}
+  - {when: {key: x.alarm_bits, bit: 7}, kind: fault, text: 'Drive alarm OL, motor overload (bit 7)'}
+  - {when: {key: x.alarm_bits, bit: 8}, kind: fault, text: 'Drive alarm OT, torque exceeded (bit 8)'}
+  - {when: {key: x.alarm_bits, bit: 9}, kind: fault, text: 'Drive alarm OH, overheating (bit 9)'}
+  - {when: {key: x.alarm_bits, bit: 10}, kind: fault, text: 'Drive alarm: no 4–20 mA signal (bit 10)'}
+  - {when: {key: x.alarm_bits, bit: 15}, kind: fault, text: Drive alarm (bit 15)}
+
+notes:
+- Parameters Pxxx are read with function 03 and written with function 06 at the hexadecimal addresses the document gives (0-based
+  protocol addresses, e.g. P100 = 0x0064). The document names only functions 03 and 06.
+- The document gives no units or scaling for the monitoring parameters P001…P020; only the frequency command (0x2001) is stated
+  as 0.1 Hz. Check the scaling against the drive's display.
+- 'Serial: 8N1, 8O1 or 8E1 in RTU or ASCII mode; the baud rate is not stated. Addresses 1…240, 0 = broadcast. Unit 1 is an
+  assumption; port 502 only applies behind a Modbus TCP gateway.'
+- 'Control with 0x2000: start = 0x000A (start, forward), reverse start = 0x0006, stop = 0x0001 (the document''s examples).'
+- 'Left out the remaining configuration parameters (P110…P811: V/F curve, motor data, I/O terminals, multi-speed/PLC, PID);
+  their addresses are the parameter''s ordinal from 0 (P200 = 0x00C8, P300 = 0x012C … P800 = 0x0320).'
+- The maker's name is from the document (VYBO Electric); it was found on a Slovak reseller's site. No register identifies
+  the drive, so there is no identify.
+- The document's read example uses address 0x2102, which is not in its register list.

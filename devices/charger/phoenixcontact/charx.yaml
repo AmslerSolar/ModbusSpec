@@ -1,0 +1,132 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From Phoenix Contact's CHARX SEC user manual, appendix "Modbus communication and register overview" (below).
+
+modbusspec: 0
+id: phoenixcontact-charx
+manufacturer: Phoenix Contact
+name: CHARX SEC-3xxx / SEC-1000 AC charging controllers (firmware 1.9.1)
+kind: charger
+
+sources:
+- title: UM EN CHARX SEC – Modbus communication and register overview
+  version: Revision 06, firmware 1.9.1 (published 2026-06-29)
+  url: https://www.phoenixcontact.com/charx-help/Appendix/Modbus_communication_and_register_overview.htm
+  sha256: 6ac951117e02989732f83c3359c3f8f3ee3d7aaebf194257d6e61a7641ddc7f1
+- title: UM EN CHARX SEC – Error codes
+  version: Revision 06, firmware 1.9.1
+  url: https://www.phoenixcontact.com/charx-help/Appendix/Error_codes.htm
+  sha256: 9aaf6221aff181be423fb816075494da8fb659c8cbcc90affdaa7bedcb670e8d
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: charger/phoenix-charx.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Charging station data (0–999: the whole installation)
+  - {key: x.name, label: Device designation, table: holding, address: 100, type: str, length: 10, poll: slow}
+  - {key: firmware, label: Linux software version, table: holding, address: 110, type: str, length: 4, poll: slow}
+  - {key: x.controllers, label: Number of charging controllers, table: holding, address: 114, type: u16, poll: slow}
+  - {key: x.controllers_warning, label: Controllers in non-critical error state, table: holding, address: 147, type: u16}
+  - {key: x.controllers_fault, label: Controllers in status E or F, table: holding, address: 148, type: u16}
+  - {key: x.controllers_free, label: Controllers in status A (free charging points), table: holding, address: 149, type: u16}
+  - {key: x.controllers_occupied, label: 'Controllers in status B, C or D (occupied)', table: holding, address: 150, type: u16}
+  - {key: x.controllers_charging, label: Controllers charging (C2), table: holding, address: 151, type: u16}
+  - {key: x.group_power, label: Total active power of the group, table: holding, address: 152, type: s32, unit: W, scale: 0.001, verified: false, note: mW; signedness not stated.}
+  - {key: x.group_current_l1, label: Total current L1 of the group, table: holding, address: 158, type: s32, unit: A, scale: 0.001, invalid: [-1], note: mA; -1 while the phase rotation is unknown.}
+  - {key: x.group_current_l2, label: Total current L2 of the group, table: holding, address: 160, type: s32, unit: A, scale: 0.001, invalid: [-1]}
+  - {key: x.group_current_l3, label: Total current L3 of the group, table: holding, address: 162, type: s32, unit: A, scale: 0.001, invalid: [-1]}
+  - {key: x.availability, label: Availability of all controllers, table: holding, address: 164, type: u16, enum: availability_all, writable: true, note: Writable only if configured.}
+  - {key: x.dynamic_max_current, label: Dynamic maximum target charging current (load management), table: holding, address: 167, type: u16, unit: A, writable: true, note: Refers to the first load circuit.}
+  # Configuration data, charging point 1 (x100–x199)
+  - {key: x.max_current_config, label: Maximum charging current (configured), table: holding, address: 1101, type: u16, unit: A, poll: slow}
+  - {key: x.min_current_config, label: Minimum charging current (configured), table: holding, address: 1102, type: u16, unit: A, poll: slow}
+  - {key: x.meter, label: Energy measuring device type, table: holding, address: 1112, type: u16, enum: meter_type, poll: slow, note: The measurements (x232–x262) need a meter.}
+  - {key: x.uid, label: UID of the charging controller, table: holding, address: 1113, type: str, length: 3, poll: slow}
+  - {key: x.release_mode, label: Charging release mode, table: holding, address: 1120, type: u16, enum: release_mode, poll: slow}
+  # Status data, charging point 1 (x200–x299)
+  - {key: l1_voltage, label: Voltage L1, table: holding, address: 1232, type: s32, unit: V, scale: 0.001, note: mV; most significant word first (stated).}
+  - {key: l2_voltage, label: Voltage L2, table: holding, address: 1234, type: s32, unit: V, scale: 0.001}
+  - {key: l3_voltage, label: Voltage L3, table: holding, address: 1236, type: s32, unit: V, scale: 0.001}
+  - {key: l1_current, label: Current L1, table: holding, address: 1238, type: s32, unit: A, scale: 0.001, note: mA.}
+  - {key: l2_current, label: Current L2, table: holding, address: 1240, type: s32, unit: A, scale: 0.001}
+  - {key: l3_current, label: Current L3, table: holding, address: 1242, type: s32, unit: A, scale: 0.001}
+  - {key: consumer_power, label: Active power, table: holding, address: 1244, type: s32, unit: W, scale: 0.001, positive: consumption, verified: false, note: mW; the manual calls it an integer without stating sign or direction; a charger only draws power.}
+  - {key: reactive_power, label: Reactive power, table: holding, address: 1246, type: s32, unit: var, scale: 0.001, note: Signed mvar.}
+  - {key: apparent_power, label: Apparent power, table: holding, address: 1248, type: s32, unit: VA, scale: 0.001, note: mVA.}
+  - {key: consumer_energy, label: Counter value for active energy, table: holding, address: 1250, type: u64, unit: kWh, scale: 0.001, poll: slow, verified: false, note: 'Wh. The table gives 2 data words, but the next register is x254 (likewise x254, x258), so a 64-bit value is assumed.', conflicts: [{sources: [evcc], type: s64, label: Energy}]}
+  - {key: x.evcc_id, label: Last EVCC ID, table: holding, address: 1265, type: str, length: 10, poll: slow}
+  - {key: x.rfid, label: Last RFID UID, table: holding, address: 1275, type: str, length: 10, poll: slow}
+  - {key: x.connection_time, label: Connection time (status B/C/D), table: holding, address: 1285, type: u32, unit: s}
+  - {key: x.charge_time, label: Charging duration in status C/D, table: holding, address: 1287, type: u32, unit: s, note: Reset when the state goes from B to A.}
+  - {key: session_energy, label: Active energy of the current charging process, table: holding, address: 1289, type: u64, unit: kWh, scale: 0.001, note: Wh (4 data words).}
+  - {key: error_code, label: Error code, table: holding, address: 1293, type: u32, flags: error_bits, note: 'One bit per error; error n of the error-code list is bit n−1 (x294 = 0x0040 → RFID reader error, error 7).'}
+  - {key: x.digital_inputs, label: Digital inputs, table: holding, address: 1295, type: u16, note: One bit per input.}
+  - {key: x.pwm_duty, label: Charging current setting (PWM duty cycle), table: holding, address: 1296, type: u16, unit: '%'}
+  - {key: x.current_setting, label: Charging current setting, table: holding, address: 1297, type: u16, unit: A}
+  - {key: x.cable_capacity, label: Current carrying capacity of the plugged-in connector, table: holding, address: 1298, type: u16, unit: A}
+  - {key: x.status, label: Vehicle status (IEC 61851-1), table: holding, address: 1299, type: str, length: 1, note: 'Two ASCII characters: A1, A2, B1, B2, C1, C2, E0, F0 or IN.', conflicts: [{sources: [evcc], label: Vehicle state}]}
+  # Control registers, charging point 1 (x300–x399)
+  - {key: x.charging_release, label: Charging release, table: holding, address: 1300, type: u16, enum: charging_release, writable: true, note: Writable only with release mode Modbus.}
+  - {key: x.max_current, label: Maximum charging current, table: holding, address: 1301, type: u16, unit: A, writable: true, note: 6–80 A; a value outside the range withdraws the charging release.}
+  - {key: x.lock, label: Locking, table: holding, address: 1303, type: u16, enum: lock, writable: true, note: Writable only when configured for external control.}
+  - {key: x.available, label: Status F (availability), table: holding, address: 1304, type: u16, enum: available, writable: true, note: Writable only with release mode Modbus.}
+  - {key: x.watchdog_current, label: Maximum charging current when the watchdog expires, table: holding, address: 1306, type: u16, unit: A, writable: true, poll: slow, note: 6–80 A.}
+  - {key: x.watchdog_timeout, label: Watchdog expiry timer, table: holding, address: 1307, type: u16, unit: s, writable: true, poll: slow, note: Reset by writing within the interval; 65535 = watchdog off.}
+
+enums:
+  availability_all: {'0': All assigned controllers set to status F, '1': All assigned controllers in normal operation}
+  meter_type: {'0': No energy measuring device, '1': Phoenix Contact EEM-350-D-MCB, '2': Phoenix Contact EEM-EM357 / EEM-DM357 / EEM-DM357-70, '3': Carlo Gavazzi EM24, '4': Phoenix Contact EEM-EM357-EE, '6': Carlo Gavazzi EM340, '11': Iskra WM3M4(C), '12': Inepro PRO380, '65535': Unknown energy measuring device}
+  release_mode: {'0': Dashboard, '1': Local whitelist, '2': External control, '3': Permanent charging release, '4': OCPP, '5': Modbus}
+  charging_release: {'0': Not enabled, '1': Enabled}
+  lock: {'0': Unlock, '1': Lock}
+  available: {'0': Not available (status F), '1': Available}
+
+flags:
+  error_bits: {'0': External temperature too high, '1': Temperature derating active, '3': Charging point configuration error, '4': EV paused / load management active, '5': Event Actions configuration unclear, '6': RFID reader error, '16': 13 A and 20 A connector rejected, '17': 13 A connector rejected, '18': PP error, '19': CP error, '20': Vehicle error (state F), '21': Locking error, '22': Lock release error, '23': Unknown locking state, '24': Overcurrent detected, '25': Measuring device communication error, '26': Invalid status D, '27': Contactor error, '28': EV diode error, '29': Power supply error, '30': Residual current tripping, '31': Residual current sensor self-test error}
+
+problems:
+  - {when: {key: error_code, bit: 0}, kind: fault, text: External temperature too high}
+  - {when: {key: error_code, bit: 1}, kind: warning, text: Temperature derating active}
+  - {when: {key: error_code, bit: 3}, kind: fault, text: Charging point configuration error}
+  - {when: {key: error_code, bit: 6}, kind: warning, text: RFID reader error}
+  - {when: {key: error_code, bit: 18}, kind: fault, text: PP error (charging cable)}
+  - {when: {key: error_code, bit: 19}, kind: fault, text: CP error}
+  - {when: {key: error_code, bit: 20}, kind: fault, text: Vehicle reports error (state F)}
+  - {when: {key: error_code, bit: 21}, kind: fault, text: Locking error}
+  - {when: {key: error_code, bit: 22}, kind: fault, text: Lock release error}
+  - {when: {key: error_code, bit: 24}, kind: fault, text: Overcurrent detected}
+  - {when: {key: error_code, bit: 25}, kind: warning, text: Energy meter communication error}
+  - {when: {key: error_code, bit: 27}, kind: fault, text: Contactor error}
+  - {when: {key: error_code, bit: 28}, kind: fault, text: EV diode error}
+  - {when: {key: error_code, bit: 29}, kind: fault, text: Power supply error}
+  - {when: {key: error_code, bit: 30}, kind: fault, text: Residual current tripping}
+  - {when: {key: error_code, bit: 31}, kind: fault, text: Residual current sensor self-test error}
+  - {when: {key: x.controllers_fault, not: 0}, kind: fault, text: '{value} charging controller(s) in status E or F'}
+
+notes:
+- Start the Modbus server (System Control / Status), open port 502 (Network / Port Sharing) and, for control, set the charging
+  point's release mode to Modbus; restart the server after configuration changes.
+- Register numbers are used directly as 0-based protocol addresses (the manual doesn't say; the evcc driver reads them the
+  same way).
+- 'Registers from 1000 on are per charging point: charging point N uses N × 1000 + offset (shown for charging point 1). Start
+  addresses can be set in the WBM (Modbus) to multiples of 1000 up to 48000.'
+- 'Left out: MAC and IP addresses (115–144), modem status (145–146), group reactive / apparent power (154–157), the remaining
+  configuration registers (x100, x103–x111, x116–x121), reactive / apparent energy (x254, x258), SOC placeholders (x262, x264),
+  digital outputs (x302) and forced unlock (x305).'
+- 'Registers from 1000 on are per charge point: charge point N uses N × 1000 + offset (shown for charge point 1).'
+- evcc's template lists the same driver for LadeFoxx EvLoad and Mikro 2.0 and Veton One, Two and Wall.

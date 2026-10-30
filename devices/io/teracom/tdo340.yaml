@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Teracom TDO340 MODBUS RTU relay output module user manual (Revision 1.0, August 2024).
+
+modbusspec: 0
+id: teracom-tdo340
+manufacturer: Teracom
+name: TDO340 4-channel relay output module, Modbus RTU
+kind: io
+
+sources:
+- title: Teracom TDO340 MODBUS RTU relay output module, user manual
+  version: 1.0 (August 2024)
+  url: https://www.omniinstruments.co.uk/wp-content/uploads/2025/06/TDO340-Modbus-RTU-Relay-Output-Module.pdf
+  sha256: 402d63e5d4c5885229c5c3bd2e10de11df228fb9a16bbff4335439058c17d91e
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 14
+    type: u16
+    equals: 223
+  - table: holding
+    address: 91
+    type: u16
+    equals: 999
+
+points:
+  # Relays
+  - {key: x.relay_1, label: Relay 1, table: coil, address: 1, type: bool, writable: true, note: 1 = activated (contact closed).}
+  - {key: x.relay_2, label: Relay 2, table: coil, address: 2, type: bool, writable: true, note: 1 = activated (contact closed).}
+  - {key: x.relay_3, label: Relay 3, table: coil, address: 3, type: bool, writable: true, note: 1 = activated (contact closed).}
+  - {key: x.relay_4, label: Relay 4, table: coil, address: 4, type: bool, writable: true, note: 1 = activated (contact closed).}
+  - {key: x.relays, label: 'All relay outputs, binary', table: holding, address: 100, type: u16, flags: relay_bits, writable: true, note: Bits 0–3 = relays 1–4. Holding registers 101–104 hold each relay alone (0 or 1).}
+  # Behaviour after power on and on loss of communication
+  - {key: x.relays_after_power_on, label: Relays after power on, table: holding, address: 200, type: u16, enum: power_on_all, writable: true, poll: slow}
+  - {key: x.relay_1_after_power_on, label: Relay 1 after power on, table: holding, address: 201, type: u16, enum: power_on_relay, writable: true, poll: slow}
+  - {key: x.relay_2_after_power_on, label: Relay 2 after power on, table: holding, address: 202, type: u16, enum: power_on_relay, writable: true, poll: slow}
+  - {key: x.relay_3_after_power_on, label: Relay 3 after power on, table: holding, address: 203, type: u16, enum: power_on_relay, writable: true, poll: slow}
+  - {key: x.relay_4_after_power_on, label: Relay 4 after power on, table: holding, address: 204, type: u16, enum: power_on_relay, writable: true, poll: slow}
+  - {key: x.relay_1_on_timeout, label: Relay 1 behaviour on communication timeout, table: holding, address: 301, type: u16, enum: timeout_relay, writable: true, poll: slow}
+  - {key: x.relay_2_on_timeout, label: Relay 2 behaviour on communication timeout, table: holding, address: 302, type: u16, enum: timeout_relay, writable: true, poll: slow}
+  - {key: x.relay_3_on_timeout, label: Relay 3 behaviour on communication timeout, table: holding, address: 303, type: u16, enum: timeout_relay, writable: true, poll: slow}
+  - {key: x.relay_4_on_timeout, label: Relay 4 behaviour on communication timeout, table: holding, address: 304, type: u16, enum: timeout_relay, writable: true, poll: slow}
+  - {key: x.comm_timeout, label: Timeout of no communication, table: holding, address: 305, type: u16, unit: s, writable: true, min: 0, max: 65535, poll: slow, note: 0 = no timeout (watchdog off).}
+  - {key: x.watchdog_pulse, label: Watch-dog pulse period, table: holding, address: 306, type: u16, unit: s, writable: true, min: 1, max: 255, poll: slow, note: Length of the pulse for timeout behaviour 3.}
+  # Module settings and identity
+  - {key: x.modbus_address, label: RS-485 address, table: holding, address: 10, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 11, type: u16, unit: bps, writable: true, poll: slow, note: '2400, 4800, 9600, 19200, 38400 or 57600; takes effect after a power cycle.'}
+  - {key: x.serial_format, label: 'Parity, data, stop bits', table: holding, address: 12, type: u16, enum: serial_format, writable: true, poll: slow, note: Takes effect after a power cycle.}
+  - {key: x.device_code, label: Device code, table: holding, address: 14, type: u16, poll: slow, note: 0x00DF for the TDO340.}
+  - {key: firmware, label: FW version, table: holding, address: 15, type: u16, poll: slow, verified: false, note: Encoding of the version number not stated in the document.}
+  - {key: x.vendor_url, label: Vendor URL, table: holding, address: 18, type: str, length: 32, poll: slow, note: '64 bytes UTF-8, "teracomsystems.com".'}
+
+enums:
+  power_on_all: {'0': Last set states, '1': All activated, '2': All deactivated, '3': Per relay (registers 201–204)}
+  power_on_relay: {'0': Last set state, '1': Activated, '2': Deactivated}
+  timeout_relay: {'0': No change, '1': Activated, '2': Deactivated, '3': Pulse (opposite state for the watch-dog pulse period)}
+  serial_format: {'1': 8E1, '2': 8O1, '3': 8N1}
+
+flags:
+  relay_bits: {'0': Relay 1, '1': Relay 2, '2': Relay 3, '3': Relay 4}
+
+notes:
+- Addresses are the document's PDU addresses (0-based). Its logical column adds 40001 for holding registers and 1 for coils,
+  so relay 1 is coil 1 (logical 2); coil 0 is not used.
+- Relays can be read and set as coils (functions 01, 05) or through holding registers 100–104 (function 03; the document lists
+  no write function for these, though they are marked R/W).
+- Holding register 91 always reads 999 (unsigned integer test value).
+- The document gives no request size limit and no fault or alarm registers.

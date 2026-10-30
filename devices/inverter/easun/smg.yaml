@@ -1,0 +1,169 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the EASUN SMG-RS232协议 Communication Protocol V1.0 (Nov 2021) and the Modbus_RTU RS232
+# communication protocol V1.0 (September 2022).
+
+modbusspec: 0
+id: easun-smg
+manufacturer: EASUN
+name: SMG off-grid inverters (RS232 Modbus)
+kind: inverter
+
+sources:
+- title: SMG-RS232协议 Communication Protocol V1.0 (Modbus_RTU RS232 communication protocol)
+  version: 1.0 (Nov 2021)
+  url: https://github.com/SeByDocKy/pvbrain2/blob/39e895fe7c6597ed51515ce7e8c1effa19a69054/pvbrain2/inverter/EASUN/SMG-RS232%E5%8D%8F%E8%AE%AE%20Communication%20Protocol%20V1.0.pdf
+  sha256: 35a0594c30afe074f47069883f3ff1bd5021c80120f42241d443b4c771bccf9d
+- title: Modbus_RTU RS232 communication protocol
+  version: 1.0 (September 2022)
+  url: https://github.com/user-attachments/files/20907869/RS232.Communication.Protocol.V1.0-220209.pdf
+  sha256: b5a8e3f41847bc57c05185902eac6ba95d83bc6252dadadad09f5db5336e393e
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  blocks:
+  - table: holding
+    address: 186
+    count: 12
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 186
+    type: str
+    length: 12
+  checks:
+  # working mode
+  - table: holding
+    address: 201
+    type: u16
+    range:
+    - 0
+    - 6
+  # serial number
+  - table: holding
+    address: 186
+    type: str
+    length: 12
+    printable: true
+
+points:
+  # Faults and warnings
+  - {key: error_code, label: Fault code, table: holding, address: 100, type: u32, flags: faults, note: 'One bit per fault code: bit n set = fault code n (see the fault table). 0 = no fault.'}
+  - {key: x.warnings, label: Obtain warning code, table: holding, address: 108, type: u32, flags: warnings}
+  # Identity
+  - {key: serial, label: Series NO., table: holding, address: 186, type: str, length: 12, poll: slow, note: ASCII; the 12 registers (186–197) must be read in one request.}
+  - {key: x.rated_power, label: Rated Power, table: holding, address: 643, type: u16, unit: W, poll: slow}
+  # Live data (201 ff.)
+  - {key: state, label: Working Mode, table: holding, address: 201, type: u16, enum: working_mode}
+  - {key: x.mains_voltage, label: Effective mains voltage, table: holding, address: 202, type: s16, unit: V, scale: 0.1}
+  - {key: frequency, label: Mains Frequency, table: holding, address: 203, type: s16, unit: Hz, scale: 0.01}
+  - {key: x.mains_power, label: Average mains power, table: holding, address: 204, type: s16, unit: W, note: The document doesn't state the sign.}
+  - {key: x.inverter_voltage, label: Effective inverter voltage, table: holding, address: 205, type: s16, unit: V, scale: 0.1}
+  - {key: x.inverter_current, label: Effective inverter current, table: holding, address: 206, type: s16, unit: A, scale: 0.1}
+  - {key: x.inverter_frequency, label: Inverter frequency, table: holding, address: 207, type: s16, unit: Hz, scale: 0.01}
+  - {key: x.inverter_power, label: Average inverter power, table: holding, address: 208, type: s16, unit: W, note: 'Positive = the inverter outputs AC power, negative = it takes AC power in (charging).'}
+  - {key: x.inverter_charging_power, label: Inverter charging power, table: holding, address: 209, type: s16, unit: W}
+  - {key: x.output_voltage, label: Output effective voltage, table: holding, address: 210, type: s16, unit: V, scale: 0.1}
+  - {key: x.output_current, label: Output effective current, table: holding, address: 211, type: s16, unit: A, scale: 0.1}
+  - {key: x.output_frequency, label: Output frequency, table: holding, address: 212, type: s16, unit: Hz, scale: 0.01}
+  - {key: load_power, label: Output active power, table: holding, address: 213, type: s16, unit: W}
+  - {key: apparent_power, label: Output apparent power, table: holding, address: 214, type: s16, unit: VA}
+  - {key: battery_voltage, label: Battery average voltage, table: holding, address: 215, type: s16, unit: V, scale: 0.1}
+  - {key: x.battery_current_216, label: Battery average current, table: holding, address: 216, type: s16, unit: A, scale: 0.1, note: The document doesn't state the sign of this register; 232 has the same name and a stated sign.}
+  - {key: x.battery_power, label: Battery average power, table: holding, address: 217, type: s16, unit: W, note: The document doesn't state the sign.}
+  - {key: x.pv_voltage, label: PV average voltage, table: holding, address: 219, type: s16, unit: V, scale: 0.1}
+  - {key: x.pv_current, label: PV average current, table: holding, address: 220, type: s16, unit: A, scale: 0.1}
+  - {key: pv_power, label: PV average power, table: holding, address: 223, type: s16, unit: W}
+  - {key: x.pv_charging_power, label: PV charging average power, table: holding, address: 224, type: s16, unit: W}
+  - {key: x.load_percent, label: Load percentage, table: holding, address: 225, type: s16, unit: '%'}
+  - {key: x.dcdc_temperature, label: DCDC Temperature, table: holding, address: 226, type: s16, unit: °C}
+  - {key: temperature, label: Inverter Temperature, table: holding, address: 227, type: s16, unit: °C}
+  - {key: battery_soc, label: Battery percentage, table: holding, address: 229, type: u16, unit: '%'}
+  - {key: battery_current, label: Battery average current, table: holding, address: 232, type: s16, unit: A, scale: 0.1, positive: charge}
+  - {key: x.inverter_charging_current, label: Inverter charging average current, table: holding, address: 233, type: s16, unit: A, scale: 0.1}
+  - {key: x.pv_charging_current, label: PV charging average current, table: holding, address: 234, type: s16, unit: A, scale: 0.1}
+
+  # Settings (300 ff.), a selection
+  - {key: x.output_mode, label: Output Mode, table: holding, address: 300, type: u16, enum: output_mode, writable: true, poll: slow}
+  - {key: x.output_priority, label: Output priority, table: holding, address: 301, type: u16, enum: output_priority, writable: true, poll: slow}
+  - {key: x.input_voltage_range, label: Input voltage range, table: holding, address: 302, type: u16, enum: input_voltage_range, writable: true, poll: slow}
+  - {key: x.energy_saving, label: Energy-saving mode, table: holding, address: 307, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.overload_bypass, label: Overload transfer to bypass enabled, table: holding, address: 310, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.battery_type, label: Battery Type, table: holding, address: 322, type: u16, enum: battery_type, writable: true, poll: slow, note: Only in the September 2022 edition.}
+  - {key: x.output_voltage_setting, label: Output voltage, table: holding, address: 320, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.output_frequency_setting, label: Output frequency, table: holding, address: 321, type: u16, unit: Hz, scale: 0.01, writable: true, poll: slow}
+  - {key: x.battery_overvoltage_protection, label: Battery overvoltage protection point, table: holding, address: 323, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.max_charging_voltage, label: Max charging voltage, table: holding, address: 324, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.float_charging_voltage, label: Floating charging voltage, table: holding, address: 325, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.mains_discharge_recovery_voltage, label: Battery discharge recovery point in mains mode, table: holding, address: 326, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.mains_low_voltage_protection, label: Battery low voltage protection point in mains mode, table: holding, address: 327, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.offgrid_low_voltage_protection, label: Battery low voltage protection point in off-grid mode, table: holding, address: 329, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.charging_priority, label: Battery charging priority, table: holding, address: 331, type: u16, enum: charging_priority, writable: true, poll: slow}
+  - {key: x.max_charging_current, label: Maximum charging current, table: holding, address: 332, type: u16, unit: A, scale: 0.1, writable: true, poll: slow}
+  - {key: x.max_mains_charging_current, label: Maximum mains charging current, table: holding, address: 333, type: u16, unit: A, scale: 0.1, writable: true, poll: slow}
+  - {key: x.turn_on_mode, label: Turn on mode, table: holding, address: 406, type: u16, enum: turn_on_mode, writable: true, poll: slow}
+  - {key: x.remote_switch, label: Remote switch, table: holding, address: 420, type: u16, enum: remote_switch, writable: true, poll: slow}
+  - {key: x.exit_fault_mode, label: Exit the fault mode, table: holding, address: 426, type: u16, writable: true, write_only: true, note: 1 leaves the fault state; only accepted while the inverter is in fault mode.}
+
+enums:
+  working_mode: {'0': Power on, '1': Standby, '2': Mains, '3': Off-grid, '4': Bypass, '5': Charging, '6': Fault}
+  output_mode: {'0': Single, '1': Parallel, '2': 3-phase P1, '3': 3-phase P2, '4': 3-phase P3, '5': Split phase P1, '6': Split phase P2}
+  output_priority: {'0': Utility – PV – battery (UTI), '1': PV – utility – battery (SOL), '2': PV – battery – utility (SBU), '3': 'PV – utility – battery, always in grid mode (SUB)'}
+  battery_type: {'0': AGM, '1': FLD (flooded), '2': USER, '3': SMK1, '4': PYL, '5': FOX}
+  input_voltage_range: {'0': Wide range, '1': Narrow range}
+  off_on: {'0': Disabled, '1': Enabled}
+  charging_priority: {'0': Utility first, '1': PV first, '2': PV and utility, '3': PV only}
+  turn_on_mode: {'0': Local or remote, '1': Local only, '2': Remote only}
+  remote_switch: {'0': Remote shutdown, '1': Remote turn-on}
+
+flags:
+  faults: {'1': Inverter module over temperature (Nov 2021 edition; reserved in September 2022), '2': DCDC module over temperature, '3': Battery over voltage, '4': PV module over temperature (Nov 2021 edition; reserved in September 2022), '5': Output short circuit, '6': Inverter over voltage, '7': Output overload, '8': Bus over voltage, '9': Bus soft start timeout, '10': PV over current, '11': PV over voltage, '12': Battery over current, '13': Inverter over current, '14': Bus low voltage, '16': Inverter DC component too high, '18': Output current zero offset too large, '19': Inverter current zero offset too large, '20': Battery current zero offset too large, '21': PV current zero offset too large, '22': Inverter low voltage, '23': Inverter negative power protection, '24': Parallel system host lost, '25': Parallel system synchronisation signal abnormal, '26': Battery type incompatible (Nov 2021 edition; reserved in September 2022), '27': Parallel versions incompatible}
+  warnings: {'0': Mains zero crossing lost, '1': Mains waveform abnormal, '2': Mains over voltage, '3': Mains low voltage, '4': Mains over frequency, '5': Mains low frequency, '6': PV low voltage, '7': Over temperature, '8': Battery low voltage, '9': Battery not connected, '10': Overload, '11': Battery equalisation charging, '12': 'Battery discharged to low voltage, not yet recharged to the recovery point', '13': Output power derating, '14': Fan blocked, '15': PV energy too low to use, '16': Parallel communication interrupted, '17': Single / parallel output mode inconsistent, '18': Parallel system battery voltage difference too large}
+
+problems:
+  - {when: {key: state, equals: 6}, kind: fault, text: Inverter in fault mode}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Inverter fault (fault bits 0x{value:X})'}
+  - {when: {key: state, equals: 3}, kind: backup_mode, text: Running off-grid (working mode 3)}
+  - {when: {key: x.warnings, bit: 0}, kind: warning, text: Mains zero crossing lost}
+  - {when: {key: x.warnings, bit: 1}, kind: warning, text: Mains waveform abnormal}
+  - {when: {key: x.warnings, bit: 2}, kind: warning, text: Mains over voltage}
+  - {when: {key: x.warnings, bit: 3}, kind: warning, text: Mains low voltage}
+  - {when: {key: x.warnings, bit: 4}, kind: warning, text: Mains over frequency}
+  - {when: {key: x.warnings, bit: 5}, kind: warning, text: Mains low frequency}
+  - {when: {key: x.warnings, bit: 6}, kind: warning, text: PV low voltage}
+  - {when: {key: x.warnings, bit: 7}, kind: warning, text: Over temperature}
+  - {when: {key: x.warnings, bit: 8}, kind: warning, text: Battery low voltage}
+  - {when: {key: x.warnings, bit: 9}, kind: warning, text: Battery not connected}
+  - {when: {key: x.warnings, bit: 10}, kind: warning, text: Overload}
+  - {when: {key: x.warnings, bit: 12}, kind: warning, text: 'Battery discharged to low voltage, not yet recharged'}
+  - {when: {key: x.warnings, bit: 13}, kind: warning, text: Output power derating}
+  - {when: {key: x.warnings, bit: 14}, kind: warning, text: Fan blocked}
+  - {when: {key: x.warnings, bit: 16}, kind: warning, text: Parallel communication interrupted}
+  - {when: {key: x.warnings, bit: 17}, kind: warning, text: Single / parallel output mode inconsistent}
+  - {when: {key: x.warnings, bit: 18}, kind: warning, text: Parallel system battery voltage difference too large}
+
+notes:
+- Modbus RTU over the inverter's RS232 port; function 03 to read and 16 to write. Unit id 1–247 (the document's examples use
+  1). Baud rate and frame format aren't stated in the document. Port 502 is only for a serial gateway.
+- Addresses are decimal and 0-based as given (the read example asks for 202 as 0x00CA). 32-bit values high word first; text
+  two ASCII characters per register.
+- 'A read must start and end on whole data blocks: it must not begin or end inside a multi-register value such as the serial
+  number (186–197); otherwise the answer is wrong.'
+- 'The mains and battery power registers (204, 216, 217) have no stated sign; battery_current is taken from 232, whose sign
+  is stated (positive = charging). The document''s register names (inverter, output, mains) are kept: ''inverter'' is the
+  inverter bridge, ''output'' the AC output to the loads.'
+- The fault and warning registers are bit masks; fault bit 0 is unused. Warnings masked on the inverter are not reported.
+- The September 2022 edition adds output modes 5/6 (split phase), output priority 3 (SUB), the battery type (322) and warning
+  bits 0 and 2, and marks fault codes 1, 4 and 26 reserved; the Nov 2021 edition names them (kept here, flagged as such) and
+  has warning bits 0 and 2 unused.
+- 'Left out: buzzer, LCD and restart settings (303–309), equalisation settings (313, 334–337) and internal or reserved ranges.'
+- The same register layout (201 ff.) is used by other brands' off-grid inverters; the document names no manufacturer.

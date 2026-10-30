@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Chint DDSU666.004 single-phase din-rail energy meter user manual (ZTY0.464.1036 V4, 2019-12).
+
+modbusspec: 0
+id: chint-ddsu666
+manufacturer: Chint
+name: DDSU666 single-phase energy meter
+kind: meter
+
+sources:
+- title: DDSU666.004 single-phase electronic energy meter (din rail), user manual ZTY0.464.1036 (Chinese; manual-chint-DDSU666-modbus.pdf)
+  version: V4 (2019-12)
+  url: https://github.com/liwei19920307/ESP485/blob/a1a3383f52a124d26292dbdd1cee70db0bb4e725/other/DTSU666-3PHASE/doc/manual-chint-DDSU666-modbus.pdf
+  sha256: 73f85bb303387cad3f12a5fdd01037894bd9df179a54e2be21a812e32b014069
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.chint/src/io/openems/edge/meter/chint/ddsu666/MeterChintDdsu666Impl.java
+- id: tasmota
+  title: Tasmota (energy meter drivers)
+  url: https://github.com/arendst/Tasmota
+  license: GPL-3.0
+  commit: 4df6fa1d4bf6c4e98765eb76a096a597fb5af709
+  path: tasmota/tasmota_xnrg_energy/xnrg_11_ddsu666.ino
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+
+points:
+  # Programming parameters
+  - {key: x.programming_code, label: Programming password (UcodE), table: holding, address: 0, type: s16, poll: slow, note: Type given as int; signedness assumed.}
+  - {key: firmware, label: Software version (REV.), table: holding, address: 1, type: s16, poll: slow, note: Type given as int; signedness assumed.}
+  - {key: x.energy_reset, label: Energy reset (CLr.E), table: holding, address: 2, type: s16, writable: true, poll: slow, note: Writing 1 clears the total energy.}
+  - {key: x.protocol, label: Protocol switching (ChangeProtocol), table: holding, address: 5, type: s16, enum: protocol, writable: true, poll: slow}
+  - {key: x.modbus_address, label: Address (Addr), table: holding, address: 6, type: s16, writable: true, poll: slow, note: Only used with Modbus RTU., conflicts: [{sources: [openems], type: u16, label: Communication Address}]}
+  - {key: x.baud_rate, label: Baud rate (BAud), table: holding, address: 12, type: s16, enum: baud_rate, writable: true, poll: slow}
+  # Measurements
+  - {key: l1_voltage, label: Phase A voltage (U), table: holding, address: 8192, type: f32, unit: V, note: Unit not stated in the register table; assumed V (the display shows volts)., verified: false}
+  - {key: l1_current, label: Phase A current (I), table: holding, address: 8194, type: f32, unit: A, note: Unit not stated in the register table; assumed A., verified: false}
+  - {key: grid_power, label: Instantaneous total active power (P), table: holding, address: 8196, type: f32, unit: W, scale: 1000, positive: import, note: Unit and sign not stated in the document. Assumed kW (the display shows active power in kW) and + = import (forward)., verified: false}
+  - {key: reactive_power, label: Instantaneous total reactive power (Q), table: holding, address: 8198, type: f32, unit: var, scale: 1000, note: Unit not stated in the register table; assumed kvar like the active power., verified: false}
+  - {key: apparent_power, label: Instantaneous total apparent power (S), table: holding, address: 8200, type: f32, unit: VA, scale: 1000, note: Unit not stated in the register table; assumed kVA like the active power., verified: false}
+  - {key: power_factor, label: Total power factor (PF), table: holding, address: 8202, type: f32}
+  - {key: frequency, label: Grid frequency (Freq), table: holding, address: 8206, type: f32, unit: Hz, note: Unit not stated in the register table; assumed Hz., verified: false}
+  - {key: x.total_active_energy, label: Total active energy (Ep), table: holding, address: 16384, type: f32, unit: kWh, poll: slow, note: 'Unit assumed kWh (as on the display). The meter adds reverse energy to the forward total, so this counts both directions, not import alone.', verified: false}
+  - {key: x.voltage, label: Voltage, table: input, address: 8192, type: f32, unit: V, sources: [tasmota], verified: false}
+  - {key: x.current, label: Current, table: input, address: 8194, type: f32, unit: A, sources: [tasmota], verified: false}
+  - {key: x.power, label: Power, table: input, address: 8196, type: f32, unit: W, scale: 1000, sources: [tasmota], verified: false}
+  - {key: x.reactive_power_8198, label: Reactive power, table: input, address: 8198, type: f32, unit: var, scale: 1000, sources: [tasmota], verified: false}
+  - {key: x.power_factor_8202, label: Power factor, table: input, address: 8202, type: f32, sources: [tasmota], verified: false}
+  - {key: x.frequency, label: Frequency, table: input, address: 8206, type: f32, unit: Hz, sources: [tasmota], verified: false}
+  - {key: grid_import_energy, label: Import active, table: input, address: 16384, type: f32, unit: kWh, sources: [tasmota], verified: false}
+  - {key: x.export_active, label: Export active, table: input, address: 16394, type: f32, unit: kWh, sources: [tasmota], verified: false}
+
+enums:
+  protocol: {'1': DL/T 645-2007, '2': Modbus RTU}
+  baud_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600'}
+
+notes:
+- Addresses are the manual's hex parameter addresses (0-based protocol addresses). The meter supports function 03 (read) and
+  10 (write); all registers are holding registers. The table marks the measurements R/W, which is taken here as read-only
+  in practice.
+- Measurements and the energy are IEEE 754 floats in two registers; the document gives neither word nor byte order, big-endian
+  (high word first) is assumed.
+- 'The meter ships with DL/T 645-2007 as its protocol: it must be switched to Modbus RTU (register 0x0005 = 2, or the switch
+  frame given in the manual over DL/T 645) before it answers Modbus.'
+- 'Serial settings: the display example shows 9600 Bd, 8 data bits, no parity, 1 stop bit, used here as the default; the Modbus
+  appendix describes 11-bit frames with 2 stop bits. Not checked on a device.'
+- The measurement registers are labelled secondary-side data; the DDSU666.004 is a direct-connected 5(80) A meter, so they
+  are the actual values.
+- The driver's default meter type is GRID, for which OpenEMS defines active power as + = purchase from the grid, − = feed-in,
+  and the production energy as the energy bought from the grid.
+- OpenEMS has an 'Invert' option that negates the power values and swaps the two energy counters; the points here are the
+  reading with it off.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Pro-Service Tmaster CO/LPG/NO2 G/EPE RS485 (12-24V) operating manual (4.2A).
+
+modbusspec: 0
+id: proservice-tmaster
+manufacturer: Pro-Service
+name: Tmaster CO/LPG/NO2 G three-gas detector (RS485)
+kind: other
+
+sources:
+- title: Detektor Tmaster CO/LPG/NO2 G/EPE/RS485 (12-24V) - instrukcja obsługi
+  version: 4.2A, 2019-09-13
+  url: https://www.pro-service.com.pl/fileadmin/Product/Tmaster_CO_LPG_NO2_G/Detektor_Tmaster_CO_LPG_NO2_G_EPE_RS485__12-24V__-_instrukcja_obslugi__4_2A_.pdf
+  sha256: 17365414b5cbcde2f11248855ae87360e84dc7c2620f2893925f0f9718528b0c
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.status, label: Status register, table: holding, address: 0, type: u16, flags: status, poll: fast, note: R40001.}
+  - {key: x.sensor_status, label: Sensor status register, table: holding, address: 1, type: u16, flags: sensor_status, poll: fast, note: R40002.}
+  - {key: x.co, label: Measured value CO, table: holding, address: 2, type: u16, unit: ppm, scale: 0.5, poll: fast, verified: false, note: 'R40003: 0…1000 over the CO measuring range. The range is 500 ppm in the technical data (raw × 0.5 ppm); the actual range is on the calibration certificate.'}
+  - {key: x.no2, label: Measured value NO2, table: holding, address: 3, type: u16, unit: ppm, scale: 0.02, poll: fast, verified: false, note: 'R40004: 0…1000 over the NO2 measuring range. The range is 20 ppm in the technical data (raw × 0.02 ppm); the actual range is on the calibration certificate.'}
+
+flags:
+  status: {'0': Alarm threshold 1 exceeded (CO/NO2/LPG), '1': Alarm threshold 2 exceeded (CO/NO2/LPG), '2': Sensor fault (CO/NO2/LPG), '3': Other fault (e.g. supply voltage too low), '4': CO alarm threshold 3 exceeded}
+  sensor_status: {'0': CO alarm threshold 1 exceeded, '1': CO alarm threshold 2 exceeded, '2': CO alarm threshold 3 exceeded, '3': CO sensor fault, '4': LPG alarm threshold 1 exceeded, '5': LPG alarm threshold 2 exceeded, '7': LPG sensor fault, '8': NO2 alarm threshold 1 exceeded, '9': NO2 alarm threshold 2 exceeded, '11': NO2 sensor fault, '12': Upper module fault (e.g. supply voltage too low), '13': 'Lower module fault (e.g. supply voltage too low, no communication with the module)'}
+
+problems:
+  - {when: {key: x.sensor_status, bit: 0}, kind: warning, text: CO alarm threshold 1 exceeded (R40002 bit 0)}
+  - {when: {key: x.sensor_status, bit: 1}, kind: warning, text: CO alarm threshold 2 exceeded (R40002 bit 1)}
+  - {when: {key: x.sensor_status, bit: 2}, kind: warning, text: CO alarm threshold 3 exceeded (R40002 bit 2)}
+  - {when: {key: x.sensor_status, bit: 3}, kind: fault, text: CO sensor fault (R40002 bit 3)}
+  - {when: {key: x.sensor_status, bit: 4}, kind: warning, text: LPG alarm threshold 1 exceeded (R40002 bit 4)}
+  - {when: {key: x.sensor_status, bit: 5}, kind: warning, text: LPG alarm threshold 2 exceeded (R40002 bit 5)}
+  - {when: {key: x.sensor_status, bit: 7}, kind: fault, text: LPG sensor fault (R40002 bit 7)}
+  - {when: {key: x.sensor_status, bit: 8}, kind: warning, text: NO2 alarm threshold 1 exceeded (R40002 bit 8)}
+  - {when: {key: x.sensor_status, bit: 9}, kind: warning, text: NO2 alarm threshold 2 exceeded (R40002 bit 9)}
+  - {when: {key: x.sensor_status, bit: 11}, kind: fault, text: NO2 sensor fault (R40002 bit 11)}
+  - {when: {key: x.sensor_status, bit: 12}, kind: fault, text: Upper module fault (R40002 bit 12)}
+  - {when: {key: x.sensor_status, bit: 13}, kind: fault, text: Lower module (LPG/NO2) fault or no communication (R40002 bit 13)}
+
+notes:
+- 'Addresses: the document numbers registers R40001…R40004; R4000n is taken as holding register n − 1 (as the manufacturer''s
+  other detector manuals state, with 0x0000 for R40001), read with function 03, the only function supported.'
+- R40001 summarises all three sensors and is what single-gas controllers read; R40002 breaks the alarms and faults down by
+  sensor, so the problems are taken from R40002. Bits 6 and 10 of R40002 are always 0.
+- The document gives no measured-value register for LPG, only its alarm and fault bits.
+- 'Alarm threshold 3 for CO is an option. Typical thresholds: CO 40 / 100 / 140 ppm, LPG 10 / 30 % LEL, NO2 3 / 6 ppm.'
+- The unit address 1…63 is set in binary on a DIP switch. No factory address is stated; default_unit 1 is assumed. 9600 baud
+  8N1 is the standard setting.
+- The detector gives no identification registers, so it can't be recognised in a network search.

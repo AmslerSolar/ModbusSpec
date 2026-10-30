@@ -1,0 +1,784 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: idm-navigator
+manufacturer: IDM
+name: Navigator heat pump controllers
+kind: heat_pump
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/charger/idm.yaml
+- id: idm-heatpump-api
+  title: idm-heatpump-api (Python library for iDM Navigator heat pumps)
+  url: https://github.com/Xerolux/idm-heatpump-api
+  license: MIT
+  commit: a370c173aa7930cd607b80f37028119cb63a42b5
+  path: idm_heatpump/registers.py, idm_heatpump/const.py
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/idm/idm, packages/modules/consumers/idm/idm/consumer.py, packages/modules/smarthome/idm/watt.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: little
+
+defaults:
+  verified: false
+  sources:
+  - idm-heatpump-api
+
+models:
+  - {id: idm_heatpump_api_navigator_10, name: Navigator 10}
+
+points:
+  - {key: x.setmaxpower_74, label: Power limit (write), table: holding, address: 74, type: f32, unit: W, scale: 1000, writable: true, sources: [evcc, openwb]}
+  - {key: x.pv_production, label: PV production, table: holding, address: 78, type: f32, unit: W, scale: 1000, writable: true, sources: [openwb]}
+  - {key: x.house_consumption, label: House consumption, table: holding, address: 82, type: f32, unit: W, scale: 1000, writable: true, sources: [openwb]}
+  - {key: x.battery_discharge, label: Battery discharge, table: holding, address: 84, type: f32, unit: W, scale: 1000, writable: true, note: Negative = charging., sources: [openwb]}
+  - {key: x.battery_soc, label: Battery state of charge, table: holding, address: 86, type: s16, unit: '%', writable: true, note: -1 = no battery., sources: [openwb]}
+  - {key: x.temp_1008, label: Temperature, table: holding, address: 1008, type: f32, unit: °C, note: Used by evcc only with the template option tempsource = buffer., sources: [evcc]}
+  - {key: x.temp_1012, label: Temperature, table: holding, address: 1012, type: f32, unit: °C, note: Used by evcc only with the template option tempsource = warmwater_bottom., sources: [evcc]}
+  - {key: x.temp, label: Temperature, table: holding, address: 1014, type: f32, unit: °C, note: Used by evcc only with the template option tempsource = warmwater_top., sources: [evcc]}
+  - {key: consumer_power, label: Power, table: holding, address: 4122, type: f32, unit: W, scale: 1000, positive: consumption, sources: [evcc, openwb]}
+  - {key: x.pv_surplus, label: pv surplus, table: input, address: 74, type: f32, unit: W, scale: 1000, writable: true}
+  - {key: x.electric_heater_power, label: electric heater power, table: input, address: 76, type: f32, unit: W, scale: 1000, writable: true}
+  - {key: x.pv_production_78, label: pv production, table: input, address: 78, type: f32, unit: W, scale: 1000, writable: true}
+  - {key: x.house_consumption_82, label: house consumption, table: input, address: 82, type: f32, unit: W, scale: 1000, writable: true}
+  - {key: x.battery_discharge_84, label: battery discharge, table: input, address: 84, type: f32, unit: W, scale: 1000, writable: true}
+  - {key: x.battery_soc_86, label: battery soc, table: input, address: 86, type: s16, unit: '%', invalid: [-1], writable: true}
+  - {key: x.pv_target_value, label: pv target value, table: input, address: 88, type: f32, unit: W, scale: 1000, writable: true}
+  - {key: x.smart_grid_status, label: smart grid status, table: input, address: 90, type: u16, bits: [0, 7], enum: smart_grid}
+  - {key: x.outdoor_temp, label: outdoor temp, table: input, address: 1000, type: f32, unit: °C}
+  - {key: x.outdoor_temp_avg, label: outdoor temp avg, table: input, address: 1002, type: f32, unit: °C}
+  - {key: x.internal_message, label: internal message, table: input, address: 1004, type: u16}
+  - {key: x.system_mode, label: system mode, table: input, address: 1005, type: u16, bits: [0, 7], enum: system_mode, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.variable_input, label: variable input, table: input, address: 1006, type: u16, bits: [0, 7], enum: variable_input, invalid: [255]}
+  - {key: x.storage_temp, label: storage temp, table: input, address: 1008, type: f32, unit: °C}
+  - {key: x.cold_storage_temp, label: cold storage temp, table: input, address: 1010, type: f32, unit: °C}
+  - {key: x.dhw_temp_bottom, label: dhw temp bottom, table: input, address: 1012, type: f32, unit: °C}
+  - {key: x.dhw_temp_top, label: dhw temp top, table: input, address: 1014, type: f32, unit: °C}
+  - {key: x.dhw_tapping_temp, label: dhw tapping temp, table: input, address: 1030, type: f32, unit: °C}
+  - {key: x.dhw_setpoint, label: dhw setpoint, table: input, address: 1032, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.dhw_charge_on_temp, label: dhw charge on temp, table: input, address: 1033, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.dhw_charge_off_temp, label: dhw charge off temp, table: input, address: 1034, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.current_electricity_price, label: current electricity price, table: input, address: 1048, type: f32, unit: €/MWh}
+  - {key: x.hp_flow_temp, label: hp flow temp, table: input, address: 1050, type: f32, unit: °C}
+  - {key: x.hp_return_temp, label: hp return temp, table: input, address: 1052, type: f32, unit: °C}
+  - {key: x.hgl_flow_temp, label: hgl flow temp, table: input, address: 1054, type: f32, unit: °C}
+  - {key: x.heat_source_inlet_temp, label: heat source inlet temp, table: input, address: 1056, type: f32, unit: °C}
+  - {key: x.heat_source_outlet_temp, label: heat source outlet temp, table: input, address: 1058, type: f32, unit: °C}
+  - {key: x.air_intake_temp, label: air intake temp, table: input, address: 1060, type: f32, unit: °C}
+  - {key: x.air_heat_exchanger_temp, label: air heat exchanger temp, table: input, address: 1062, type: f32, unit: °C}
+  - {key: x.air_intake_temp_2, label: air intake temp 2, table: input, address: 1064, type: f32, unit: °C}
+  - {key: x.charging_sensor_temp, label: charging sensor temp, table: input, address: 1066, type: f32, unit: °C}
+  - {key: x.heat_sink_return_temp, label: heat sink return temp, table: input, address: 1068, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.heat_sink_flow_temp, label: heat sink flow temp, table: input, address: 1070, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.heat_sink_flow_rate, label: heat sink flow rate, table: input, address: 1072, type: f32, unit: L/min, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.heat_sink_charging_pump_signal, label: heat sink charging pump signal, table: input, address: 1074, type: s16, unit: '%', invalid: [-32768, 65535, 255], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.groundwater_inlet_temp_1, label: groundwater inlet temp 1, table: input, address: 1086, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.groundwater_inlet_temp_2, label: groundwater inlet temp 2, table: input, address: 1088, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.hp_operating_mode, label: hp operating mode, table: input, address: 1090, type: u16, bits: [0, 7], enum: hp_operating_mode}
+  - {key: x.heating_demand, label: heating demand, table: input, address: 1091, type: u16, bits: [0, 7]}
+  - {key: x.cooling_demand, label: cooling demand, table: input, address: 1092, type: u16, bits: [0, 7]}
+  - {key: x.dhw_demand, label: dhw demand, table: input, address: 1093, type: u16, bits: [0, 7]}
+  - {key: x.evu_lock, label: evu lock, table: input, address: 1098, type: u16, bits: [0, 7], enum: evu_lock}
+  - {key: x.hp_sum_alarm, label: hp sum alarm, table: input, address: 1099, type: u16, bits: [0, 7]}
+  - {key: x.compressor_status_1, label: compressor status 1, table: input, address: 1100, type: u16, bits: [0, 7]}
+  - {key: x.compressor_status_2, label: compressor status 2, table: input, address: 1101, type: u16, bits: [0, 7]}
+  - {key: x.compressor_status_3, label: compressor status 3, table: input, address: 1102, type: u16, bits: [0, 7]}
+  - {key: x.compressor_status_4, label: compressor status 4, table: input, address: 1103, type: u16, bits: [0, 7]}
+  - {key: x.charging_pump_status, label: charging pump status, table: input, address: 1104, type: s16, unit: '%', invalid: [-32768, 65535, 255]}
+  - {key: x.brine_pump_status, label: brine pump status, table: input, address: 1105, type: s16, unit: '%', invalid: [-32768, 65535, 255]}
+  - {key: x.heat_source_pump_status, label: heat source pump status, table: input, address: 1106, type: s16, unit: '%', invalid: [-32768, 65535, 255]}
+  - {key: x.isc_cold_storage_pump_status, label: isc cold storage pump status, table: input, address: 1108, type: s16, unit: '%', invalid: [-32768, 65535, 255]}
+  - {key: x.isc_recooling_pump_status, label: isc recooling pump status, table: input, address: 1109, type: s16, unit: '%', invalid: [-32768, 65535, 255]}
+  - {key: x.valve_hc_heat_cool, label: valve hc heat cool, table: input, address: 1110, type: u16}
+  - {key: x.valve_storage_heat_cool, label: valve storage heat cool, table: input, address: 1111, type: u16}
+  - {key: x.valve_heat_dhw, label: valve heat dhw, table: input, address: 1112, type: u16}
+  - {key: x.valve_heat_source_heat_cool, label: valve heat source heat cool, table: input, address: 1113, type: u16}
+  - {key: x.valve_solar_heat_dhw, label: valve solar heat dhw, table: input, address: 1114, type: u16}
+  - {key: x.valve_solar_storage_heat_source, label: valve solar storage heat source, table: input, address: 1115, type: u16}
+  - {key: x.valve_isc_heat_source_cold_storage, label: valve isc heat source cold storage, table: input, address: 1116, type: u16}
+  - {key: x.valve_isc_storage_bypass, label: valve isc storage bypass, table: input, address: 1117, type: u16}
+  - {key: x.circulation_pump, label: circulation pump, table: input, address: 1118, type: u16}
+  - {key: x.bivalence_point_1_2nd_gen, label: bivalence point 1 2nd gen, table: input, address: 1120, type: s16, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.bivalence_point_2_2nd_gen, label: bivalence point 2 2nd gen, table: input, address: 1121, type: s16, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.bivalence_point_1_3rd_gen, label: bivalence point 1 3rd gen, table: input, address: 1122, type: s16, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.bivalence_point_2_3rd_gen, label: bivalence point 2 3rd gen, table: input, address: 1123, type: s16, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.bivalence_state, label: bivalence state, table: input, address: 1124, type: u16, bits: [0, 7], enum: bivalence_state, invalid: [255]}
+  - {key: x.cascade_available_heating, label: cascade available heating, table: input, address: 1147, type: u16, bits: [0, 7], invalid: [255]}
+  - {key: x.cascade_available_cooling, label: cascade available cooling, table: input, address: 1148, type: u16, bits: [0, 7]}
+  - {key: x.cascade_available_dhw, label: cascade available dhw, table: input, address: 1149, type: u16, bits: [0, 7]}
+  - {key: x.cascade_running_heating, label: cascade running heating, table: input, address: 1150, type: u16, bits: [0, 7]}
+  - {key: x.cascade_running_cooling, label: cascade running cooling, table: input, address: 1151, type: u16, bits: [0, 7]}
+  - {key: x.cascade_running_dhw, label: cascade running dhw, table: input, address: 1152, type: u16, bits: [0, 7]}
+  - {key: x.cascade_req_heating_temp, label: cascade req heating temp, table: input, address: 1200, type: f32, unit: °C}
+  - {key: x.cascade_req_cooling_temp, label: cascade req cooling temp, table: input, address: 1202, type: f32, unit: °C}
+  - {key: x.cascade_req_dhw_temp, label: cascade req dhw temp, table: input, address: 1204, type: f32, unit: °C}
+  - {key: x.cascade_avg_flow_heating, label: cascade avg flow heating, table: input, address: 1206, type: f32, unit: °C}
+  - {key: x.cascade_avg_flow_cooling, label: cascade avg flow cooling, table: input, address: 1208, type: f32, unit: °C}
+  - {key: x.cascade_avg_flow_dhw, label: cascade avg flow dhw, table: input, address: 1210, type: f32, unit: °C}
+  - {key: x.cascade_min_power_heating, label: cascade min power heating, table: input, address: 1220, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.cascade_max_power_heating, label: cascade max power heating, table: input, address: 1221, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.cascade_min_power_cooling, label: cascade min power cooling, table: input, address: 1222, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.cascade_max_power_cooling, label: cascade max power cooling, table: input, address: 1223, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.cascade_min_power_dhw, label: cascade min power dhw, table: input, address: 1224, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.cascade_max_power_dhw, label: cascade max power dhw, table: input, address: 1225, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.cascade_bivalence_heating_parallel, label: cascade bivalence heating parallel, table: input, address: 1226, type: s16, unit: °C, writable: true}
+  - {key: x.cascade_bivalence_heating_alternative, label: cascade bivalence heating alternative, table: input, address: 1227, type: s16, unit: °C, writable: true}
+  - {key: x.cascade_bivalence_cooling_parallel, label: cascade bivalence cooling parallel, table: input, address: 1228, type: s16, unit: °C, writable: true}
+  - {key: x.cascade_bivalence_cooling_alternative, label: cascade bivalence cooling alternative, table: input, address: 1229, type: s16, unit: °C, writable: true}
+  - {key: x.cascade_bivalence_dhw_parallel, label: cascade bivalence dhw parallel, table: input, address: 1230, type: s16, unit: °C, writable: true}
+  - {key: x.cascade_bivalence_dhw_alternative, label: cascade bivalence dhw alternative, table: input, address: 1231, type: s16, unit: °C, writable: true}
+  - {key: x.hc_a_flow_temp, label: hc a flow temp, table: input, address: 1350, type: f32, unit: °C}
+  - {key: x.hc_b_flow_temp, label: hc b flow temp, table: input, address: 1352, type: f32, unit: °C}
+  - {key: x.hc_c_flow_temp, label: hc c flow temp, table: input, address: 1354, type: f32, unit: °C}
+  - {key: x.hc_d_flow_temp, label: hc d flow temp, table: input, address: 1356, type: f32, unit: °C}
+  - {key: x.hc_e_flow_temp, label: hc e flow temp, table: input, address: 1358, type: f32, unit: °C}
+  - {key: x.hc_f_flow_temp, label: hc f flow temp, table: input, address: 1360, type: f32, unit: °C}
+  - {key: x.hc_g_flow_temp, label: hc g flow temp, table: input, address: 1362, type: f32, unit: °C}
+  - {key: x.hc_a_room_temp, label: hc a room temp, table: input, address: 1364, type: f32, unit: °C}
+  - {key: x.hc_b_room_temp, label: hc b room temp, table: input, address: 1366, type: f32, unit: °C}
+  - {key: x.hc_c_room_temp, label: hc c room temp, table: input, address: 1368, type: f32, unit: °C}
+  - {key: x.hc_d_room_temp, label: hc d room temp, table: input, address: 1370, type: f32, unit: °C}
+  - {key: x.hc_e_room_temp, label: hc e room temp, table: input, address: 1372, type: f32, unit: °C}
+  - {key: x.hc_f_room_temp, label: hc f room temp, table: input, address: 1374, type: f32, unit: °C}
+  - {key: x.hc_g_room_temp, label: hc g room temp, table: input, address: 1376, type: f32, unit: °C}
+  - {key: x.hc_a_setpoint_flow_temp, label: hc a setpoint flow temp, table: input, address: 1378, type: f32, unit: °C}
+  - {key: x.hc_b_setpoint_flow_temp, label: hc b setpoint flow temp, table: input, address: 1380, type: f32, unit: °C}
+  - {key: x.hc_c_setpoint_flow_temp, label: hc c setpoint flow temp, table: input, address: 1382, type: f32, unit: °C}
+  - {key: x.hc_d_setpoint_flow_temp, label: hc d setpoint flow temp, table: input, address: 1384, type: f32, unit: °C}
+  - {key: x.hc_e_setpoint_flow_temp, label: hc e setpoint flow temp, table: input, address: 1386, type: f32, unit: °C}
+  - {key: x.hc_f_setpoint_flow_temp, label: hc f setpoint flow temp, table: input, address: 1388, type: f32, unit: °C}
+  - {key: x.hc_g_setpoint_flow_temp, label: hc g setpoint flow temp, table: input, address: 1390, type: f32, unit: °C}
+  - {key: x.humidity_sensor, label: humidity sensor, table: input, address: 1392, type: f32, unit: '%', invalid: [-1.0]}
+  - {key: x.hc_b_mode, label: hc b mode, table: input, address: 1394, type: u16, bits: [0, 7], enum: circuit_mode, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_mode, label: hc c mode, table: input, address: 1395, type: u16, bits: [0, 7], enum: circuit_mode, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_mode, label: hc d mode, table: input, address: 1396, type: u16, bits: [0, 7], enum: circuit_mode, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_mode, label: hc e mode, table: input, address: 1397, type: u16, bits: [0, 7], enum: circuit_mode, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_mode, label: hc f mode, table: input, address: 1398, type: u16, bits: [0, 7], enum: circuit_mode, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_mode, label: hc g mode, table: input, address: 1399, type: u16, bits: [0, 7], enum: circuit_mode, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_a_room_setpoint_heat_normal, label: hc a room setpoint heat normal, table: input, address: 1401, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_room_setpoint_heat_normal, label: hc b room setpoint heat normal, table: input, address: 1403, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_room_setpoint_heat_normal, label: hc c room setpoint heat normal, table: input, address: 1405, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_room_setpoint_heat_normal, label: hc d room setpoint heat normal, table: input, address: 1407, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_room_setpoint_heat_normal, label: hc e room setpoint heat normal, table: input, address: 1409, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_room_setpoint_heat_normal, label: hc f room setpoint heat normal, table: input, address: 1411, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_room_setpoint_heat_normal, label: hc g room setpoint heat normal, table: input, address: 1413, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_a_room_setpoint_heat_eco, label: hc a room setpoint heat eco, table: input, address: 1415, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_room_setpoint_heat_eco, label: hc b room setpoint heat eco, table: input, address: 1417, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_room_setpoint_heat_eco, label: hc c room setpoint heat eco, table: input, address: 1419, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_room_setpoint_heat_eco, label: hc d room setpoint heat eco, table: input, address: 1421, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_room_setpoint_heat_eco, label: hc e room setpoint heat eco, table: input, address: 1423, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_room_setpoint_heat_eco, label: hc f room setpoint heat eco, table: input, address: 1425, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_room_setpoint_heat_eco, label: hc g room setpoint heat eco, table: input, address: 1427, type: f32, unit: °C, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_a_heating_curve, label: hc a heating curve, table: input, address: 1429, type: f32, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_heating_curve, label: hc b heating curve, table: input, address: 1431, type: f32, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_heating_curve, label: hc c heating curve, table: input, address: 1433, type: f32, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_heating_curve, label: hc d heating curve, table: input, address: 1435, type: f32, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_heating_curve, label: hc e heating curve, table: input, address: 1437, type: f32, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_heating_curve, label: hc f heating curve, table: input, address: 1439, type: f32, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_heating_curve, label: hc g heating curve, table: input, address: 1441, type: f32, writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_heating_limit, label: hc b heating limit, table: input, address: 1443, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_heating_limit, label: hc c heating limit, table: input, address: 1444, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_heating_limit, label: hc d heating limit, table: input, address: 1445, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_heating_limit, label: hc e heating limit, table: input, address: 1446, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_heating_limit, label: hc f heating limit, table: input, address: 1447, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_heating_limit, label: hc g heating limit, table: input, address: 1448, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_a_setpoint_flow_constant, label: hc a setpoint flow constant, table: input, address: 1449, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_setpoint_flow_constant, label: hc b setpoint flow constant, table: input, address: 1450, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_setpoint_flow_constant, label: hc c setpoint flow constant, table: input, address: 1451, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_setpoint_flow_constant, label: hc d setpoint flow constant, table: input, address: 1452, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_setpoint_flow_constant, label: hc e setpoint flow constant, table: input, address: 1453, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_setpoint_flow_constant, label: hc f setpoint flow constant, table: input, address: 1454, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_setpoint_flow_constant, label: hc g setpoint flow constant, table: input, address: 1455, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_a_room_setpoint_cool_normal, label: hc a room setpoint cool normal, table: input, address: 1457, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_room_setpoint_cool_normal, label: hc b room setpoint cool normal, table: input, address: 1459, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_room_setpoint_cool_normal, label: hc c room setpoint cool normal, table: input, address: 1461, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_room_setpoint_cool_normal, label: hc d room setpoint cool normal, table: input, address: 1463, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_room_setpoint_cool_normal, label: hc e room setpoint cool normal, table: input, address: 1465, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_room_setpoint_cool_normal, label: hc f room setpoint cool normal, table: input, address: 1467, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_room_setpoint_cool_normal, label: hc g room setpoint cool normal, table: input, address: 1469, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_a_room_setpoint_cool_eco, label: hc a room setpoint cool eco, table: input, address: 1471, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_room_setpoint_cool_eco, label: hc b room setpoint cool eco, table: input, address: 1473, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_room_setpoint_cool_eco, label: hc c room setpoint cool eco, table: input, address: 1475, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_room_setpoint_cool_eco, label: hc d room setpoint cool eco, table: input, address: 1477, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_room_setpoint_cool_eco, label: hc e room setpoint cool eco, table: input, address: 1479, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_room_setpoint_cool_eco, label: hc f room setpoint cool eco, table: input, address: 1481, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_room_setpoint_cool_eco, label: hc g room setpoint cool eco, table: input, address: 1483, type: f32, unit: °C, invalid: [0.0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_cooling_limit, label: hc b cooling limit, table: input, address: 1485, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_cooling_limit, label: hc c cooling limit, table: input, address: 1486, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_cooling_limit, label: hc d cooling limit, table: input, address: 1487, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_cooling_limit, label: hc e cooling limit, table: input, address: 1488, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_cooling_limit, label: hc f cooling limit, table: input, address: 1489, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_cooling_limit, label: hc g cooling limit, table: input, address: 1490, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_a_setpoint_flow_cooling, label: hc a setpoint flow cooling, table: input, address: 1491, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_setpoint_flow_cooling, label: hc b setpoint flow cooling, table: input, address: 1492, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_setpoint_flow_cooling, label: hc c setpoint flow cooling, table: input, address: 1493, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_setpoint_flow_cooling, label: hc d setpoint flow cooling, table: input, address: 1494, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_setpoint_flow_cooling, label: hc e setpoint flow cooling, table: input, address: 1495, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_setpoint_flow_cooling, label: hc f setpoint flow cooling, table: input, address: 1496, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_setpoint_flow_cooling, label: hc g setpoint flow cooling, table: input, address: 1497, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_a_active_mode, label: hc a active mode, table: input, address: 1498, type: u16, bits: [0, 7], enum: active_hc_mode}
+  - {key: x.hc_b_active_mode, label: hc b active mode, table: input, address: 1499, type: u16, bits: [0, 7], enum: active_hc_mode}
+  - {key: x.hc_c_active_mode, label: hc c active mode, table: input, address: 1500, type: u16, bits: [0, 7], enum: active_hc_mode}
+  - {key: x.hc_d_active_mode, label: hc d active mode, table: input, address: 1501, type: u16, bits: [0, 7], enum: active_hc_mode}
+  - {key: x.hc_e_active_mode, label: hc e active mode, table: input, address: 1502, type: u16, bits: [0, 7], enum: active_hc_mode}
+  - {key: x.hc_f_active_mode, label: hc f active mode, table: input, address: 1503, type: u16, bits: [0, 7], enum: active_hc_mode}
+  - {key: x.hc_g_active_mode, label: hc g active mode, table: input, address: 1504, type: u16, bits: [0, 7], enum: active_hc_mode}
+  - {key: x.hc_a_parallel_shift, label: hc a parallel shift, table: input, address: 1505, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_b_parallel_shift, label: hc b parallel shift, table: input, address: 1506, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_c_parallel_shift, label: hc c parallel shift, table: input, address: 1507, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_d_parallel_shift, label: hc d parallel shift, table: input, address: 1508, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_e_parallel_shift, label: hc e parallel shift, table: input, address: 1509, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_f_parallel_shift, label: hc f parallel shift, table: input, address: 1510, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_g_parallel_shift, label: hc g parallel shift, table: input, address: 1511, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.hc_a_ext_room_temp, label: hc a ext room temp, table: input, address: 1650, type: f32, unit: °C, invalid: [-1.0], writable: true}
+  - {key: x.hc_b_ext_room_temp, label: hc b ext room temp, table: input, address: 1652, type: f32, unit: °C, invalid: [-1.0], writable: true}
+  - {key: x.hc_c_ext_room_temp, label: hc c ext room temp, table: input, address: 1654, type: f32, unit: °C, invalid: [-1.0], writable: true}
+  - {key: x.hc_d_ext_room_temp, label: hc d ext room temp, table: input, address: 1656, type: f32, unit: °C, invalid: [-1.0], writable: true}
+  - {key: x.hc_e_ext_room_temp, label: hc e ext room temp, table: input, address: 1658, type: f32, unit: °C, invalid: [-1.0], writable: true}
+  - {key: x.hc_f_ext_room_temp, label: hc f ext room temp, table: input, address: 1660, type: f32, unit: °C, invalid: [-1.0], writable: true}
+  - {key: x.hc_g_ext_room_temp, label: hc g ext room temp, table: input, address: 1662, type: f32, unit: °C, invalid: [-1.0], writable: true}
+  - {key: x.fault_heat_source_circuit, label: fault heat source circuit, table: input, address: 1680, type: u16, bits: [0, 7], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.fault_heat_source_pressure_switch, label: fault heat source pressure switch, table: input, address: 1681, type: u16, bits: [0, 7], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.fault_charging_pump_1_intermediate, label: fault charging pump 1 intermediate, table: input, address: 1682, type: u16, bits: [0, 7], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.fault_charging_pump_2_intermediate, label: fault charging pump 2 intermediate, table: input, address: 1683, type: u16, bits: [0, 7], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.ext_outdoor_temp, label: ext outdoor temp, table: input, address: 1690, type: f32, unit: °C, writable: true}
+  - {key: x.ext_humidity, label: ext humidity, table: input, address: 1692, type: f32, unit: '%', invalid: [-1.0], writable: true}
+  - {key: x.ext_demand_temp_heating, label: ext demand temp heating, table: input, address: 1694, type: u16, unit: °C, bits: [0, 7], invalid: [0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.ext_demand_temp_cooling, label: ext demand temp cooling, table: input, address: 1695, type: u16, unit: °C, bits: [0, 7], invalid: [0], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.glt_temp_demand_heating, label: glt temp demand heating, table: input, address: 1696, type: f32, unit: °C, writable: true, note: Must be written cyclically or the controller falls back.}
+  - {key: x.glt_temp_demand_cooling, label: glt temp demand cooling, table: input, address: 1698, type: f32, unit: °C, writable: true, note: Must be written cyclically or the controller falls back.}
+  - {key: x.demand_heating, label: demand heating, table: input, address: 1710, type: u16, bits: [0, 0], writable: true}
+  - {key: x.demand_cooling, label: demand cooling, table: input, address: 1711, type: u16, bits: [0, 0], writable: true}
+  - {key: x.demand_dhw_charging, label: demand dhw charging, table: input, address: 1712, type: u16, bits: [0, 0], writable: true}
+  - {key: x.demand_onetime_dhw, label: demand onetime dhw, table: input, address: 1713, type: u16, bits: [0, 0], writable: true}
+  - {key: x.ext_demand_groundwater_pump_m15, label: ext demand groundwater pump m15, table: input, address: 1714, type: u16, unit: '%', bits: [0, 7], invalid: [254], models: [idm_heatpump_api_navigator_10], writable: true}
+  - {key: x.ext_demand_groundwater_pump_m15_sw_max, label: ext demand groundwater pump m15 sw max, table: input, address: 1715, type: u16, unit: '%', bits: [0, 7], invalid: [254], models: [idm_heatpump_api_navigator_10], writable: true}
+  - {key: x.glt_heat_storage_temp, label: glt heat storage temp, table: input, address: 1716, type: f32, unit: °C, writable: true}
+  - {key: x.glt_cold_storage_temp, label: glt cold storage temp, table: input, address: 1718, type: f32, unit: °C, writable: true}
+  - {key: x.glt_dhw_temp_bottom, label: glt dhw temp bottom, table: input, address: 1720, type: f32, unit: °C, writable: true}
+  - {key: x.glt_dhw_temp_top, label: glt dhw temp top, table: input, address: 1722, type: f32, unit: °C, writable: true}
+  - {key: x.energy_heating, label: energy heating, table: input, address: 1748, type: f32, unit: kWh}
+  - {key: x.energy_total, label: energy total, table: input, address: 1750, type: f32, unit: kWh}
+  - {key: x.energy_cooling, label: energy cooling, table: input, address: 1752, type: f32, unit: kWh}
+  - {key: x.energy_dhw, label: energy dhw, table: input, address: 1754, type: f32, unit: kWh}
+  - {key: x.energy_defrost, label: energy defrost, table: input, address: 1756, type: f32, unit: kWh}
+  - {key: x.energy_passive_cooling, label: energy passive cooling, table: input, address: 1758, type: f32, unit: kWh}
+  - {key: x.energy_solar, label: energy solar, table: input, address: 1760, type: f32, unit: kWh}
+  - {key: x.energy_electric_heater, label: energy electric heater, table: input, address: 1762, type: f32, unit: kWh}
+  - {key: x.current_power, label: current power, table: input, address: 1790, type: f32, unit: W, scale: 1000}
+  - {key: x.current_power_solar, label: current power solar, table: input, address: 1792, type: f32, unit: W, scale: 1000}
+  - {key: x.solar_collector_temp, label: solar collector temp, table: input, address: 1850, type: f32, unit: °C}
+  - {key: x.solar_return_temp, label: solar return temp, table: input, address: 1852, type: f32, unit: °C}
+  - {key: x.solar_charging_temp, label: solar charging temp, table: input, address: 1854, type: f32, unit: °C}
+  - {key: x.solar_mode, label: solar mode, table: input, address: 1856, type: u16, bits: [0, 7], enum: solar_mode, invalid: [255], writable: true, note: 'Stored in EEPROM: limited write cycles, avoid frequent writes.'}
+  - {key: x.solar_wq_pool_temp, label: solar wq pool temp, table: input, address: 1857, type: f32, unit: °C}
+  - {key: x.isc_charging_temp_cooling, label: isc charging temp cooling, table: input, address: 1870, type: f32, unit: °C}
+  - {key: x.isc_recooling_temp, label: isc recooling temp, table: input, address: 1872, type: f32, unit: °C}
+  - {key: x.isc_mode, label: isc mode, table: input, address: 1874, type: u16, bits: [0, 7], enum: isc_mode}
+  - {key: x.error_acknowledge, label: error acknowledge, table: input, address: 1999, type: u16, bits: [0, 7], writable: true, note: Write-only command.}
+  - {key: x.zm1_mode_heat_cool, label: zm1 mode heat cool, table: input, address: 2000, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm1_dehumidification, label: zm1 dehumidification, table: input, address: 2001, type: u16, bits: [0, 7]}
+  - {key: x.zm1_room1_temp, label: zm1 room1 temp, table: input, address: 2002, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room1_setpoint, label: zm1 room1 setpoint, table: input, address: 2004, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room1_humidity, label: zm1 room1 humidity, table: input, address: 2006, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm1_room1_mode, label: zm1 room1 mode, table: input, address: 2007, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm1_room1_relay, label: zm1 room1 relay, table: input, address: 2008, type: u16, bits: [0, 7]}
+  - {key: x.zm1_room2_temp, label: zm1 room2 temp, table: input, address: 2009, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room2_setpoint, label: zm1 room2 setpoint, table: input, address: 2011, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room2_humidity, label: zm1 room2 humidity, table: input, address: 2013, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm1_room2_mode, label: zm1 room2 mode, table: input, address: 2014, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm1_room2_relay, label: zm1 room2 relay, table: input, address: 2015, type: u16, bits: [0, 7]}
+  - {key: x.zm1_room3_temp, label: zm1 room3 temp, table: input, address: 2016, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room3_setpoint, label: zm1 room3 setpoint, table: input, address: 2018, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room3_humidity, label: zm1 room3 humidity, table: input, address: 2020, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm1_room3_mode, label: zm1 room3 mode, table: input, address: 2021, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm1_room3_relay, label: zm1 room3 relay, table: input, address: 2022, type: u16, bits: [0, 7]}
+  - {key: x.zm1_room4_temp, label: zm1 room4 temp, table: input, address: 2023, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room4_setpoint, label: zm1 room4 setpoint, table: input, address: 2025, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room4_humidity, label: zm1 room4 humidity, table: input, address: 2027, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm1_room4_mode, label: zm1 room4 mode, table: input, address: 2028, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm1_room4_relay, label: zm1 room4 relay, table: input, address: 2029, type: u16, bits: [0, 7]}
+  - {key: x.zm1_room5_temp, label: zm1 room5 temp, table: input, address: 2030, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room5_setpoint, label: zm1 room5 setpoint, table: input, address: 2032, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room5_humidity, label: zm1 room5 humidity, table: input, address: 2034, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm1_room5_mode, label: zm1 room5 mode, table: input, address: 2035, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm1_room5_relay, label: zm1 room5 relay, table: input, address: 2036, type: u16, bits: [0, 7]}
+  - {key: x.zm1_room6_temp, label: zm1 room6 temp, table: input, address: 2037, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room6_setpoint, label: zm1 room6 setpoint, table: input, address: 2039, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room6_humidity, label: zm1 room6 humidity, table: input, address: 2041, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm1_room6_mode, label: zm1 room6 mode, table: input, address: 2042, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm1_room6_relay, label: zm1 room6 relay, table: input, address: 2043, type: u16, bits: [0, 7]}
+  - {key: x.zm1_room7_temp, label: zm1 room7 temp, table: input, address: 2044, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room7_setpoint, label: zm1 room7 setpoint, table: input, address: 2046, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room7_humidity, label: zm1 room7 humidity, table: input, address: 2048, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm1_room7_mode, label: zm1 room7 mode, table: input, address: 2049, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm1_room7_relay, label: zm1 room7 relay, table: input, address: 2050, type: u16, bits: [0, 7]}
+  - {key: x.zm1_room8_temp, label: zm1 room8 temp, table: input, address: 2051, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room8_setpoint, label: zm1 room8 setpoint, table: input, address: 2053, type: f32, unit: °C, writable: true}
+  - {key: x.zm1_room8_humidity, label: zm1 room8 humidity, table: input, address: 2055, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm1_room8_mode, label: zm1 room8 mode, table: input, address: 2056, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm1_room8_relay, label: zm1 room8 relay, table: input, address: 2057, type: u16, bits: [0, 7]}
+  - {key: x.zm2_mode_heat_cool, label: zm2 mode heat cool, table: input, address: 2065, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm2_dehumidification, label: zm2 dehumidification, table: input, address: 2066, type: u16, bits: [0, 7]}
+  - {key: x.zm2_room1_temp, label: zm2 room1 temp, table: input, address: 2067, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room1_setpoint, label: zm2 room1 setpoint, table: input, address: 2069, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room1_humidity, label: zm2 room1 humidity, table: input, address: 2071, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm2_room1_mode, label: zm2 room1 mode, table: input, address: 2072, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm2_room1_relay, label: zm2 room1 relay, table: input, address: 2073, type: u16, bits: [0, 7]}
+  - {key: x.zm2_room2_temp, label: zm2 room2 temp, table: input, address: 2074, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room2_setpoint, label: zm2 room2 setpoint, table: input, address: 2076, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room2_humidity, label: zm2 room2 humidity, table: input, address: 2078, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm2_room2_mode, label: zm2 room2 mode, table: input, address: 2079, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm2_room2_relay, label: zm2 room2 relay, table: input, address: 2080, type: u16, bits: [0, 7]}
+  - {key: x.zm2_room3_temp, label: zm2 room3 temp, table: input, address: 2081, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room3_setpoint, label: zm2 room3 setpoint, table: input, address: 2083, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room3_humidity, label: zm2 room3 humidity, table: input, address: 2085, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm2_room3_mode, label: zm2 room3 mode, table: input, address: 2086, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm2_room3_relay, label: zm2 room3 relay, table: input, address: 2087, type: u16, bits: [0, 7]}
+  - {key: x.zm2_room4_temp, label: zm2 room4 temp, table: input, address: 2088, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room4_setpoint, label: zm2 room4 setpoint, table: input, address: 2090, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room4_humidity, label: zm2 room4 humidity, table: input, address: 2092, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm2_room4_mode, label: zm2 room4 mode, table: input, address: 2093, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm2_room4_relay, label: zm2 room4 relay, table: input, address: 2094, type: u16, bits: [0, 7]}
+  - {key: x.zm2_room5_temp, label: zm2 room5 temp, table: input, address: 2095, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room5_setpoint, label: zm2 room5 setpoint, table: input, address: 2097, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room5_humidity, label: zm2 room5 humidity, table: input, address: 2099, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm2_room5_mode, label: zm2 room5 mode, table: input, address: 2100, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm2_room5_relay, label: zm2 room5 relay, table: input, address: 2101, type: u16, bits: [0, 7]}
+  - {key: x.zm2_room6_temp, label: zm2 room6 temp, table: input, address: 2102, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room6_setpoint, label: zm2 room6 setpoint, table: input, address: 2104, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room6_humidity, label: zm2 room6 humidity, table: input, address: 2106, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm2_room6_mode, label: zm2 room6 mode, table: input, address: 2107, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm2_room6_relay, label: zm2 room6 relay, table: input, address: 2108, type: u16, bits: [0, 7]}
+  - {key: x.zm2_room7_temp, label: zm2 room7 temp, table: input, address: 2109, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room7_setpoint, label: zm2 room7 setpoint, table: input, address: 2111, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room7_humidity, label: zm2 room7 humidity, table: input, address: 2113, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm2_room7_mode, label: zm2 room7 mode, table: input, address: 2114, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm2_room7_relay, label: zm2 room7 relay, table: input, address: 2115, type: u16, bits: [0, 7]}
+  - {key: x.zm2_room8_temp, label: zm2 room8 temp, table: input, address: 2116, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room8_setpoint, label: zm2 room8 setpoint, table: input, address: 2118, type: f32, unit: °C, writable: true}
+  - {key: x.zm2_room8_humidity, label: zm2 room8 humidity, table: input, address: 2120, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm2_room8_mode, label: zm2 room8 mode, table: input, address: 2121, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm2_room8_relay, label: zm2 room8 relay, table: input, address: 2122, type: u16, bits: [0, 7]}
+  - {key: x.zm3_mode_heat_cool, label: zm3 mode heat cool, table: input, address: 2130, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm3_dehumidification, label: zm3 dehumidification, table: input, address: 2131, type: u16, bits: [0, 7]}
+  - {key: x.zm3_room1_temp, label: zm3 room1 temp, table: input, address: 2132, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room1_setpoint, label: zm3 room1 setpoint, table: input, address: 2134, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room1_humidity, label: zm3 room1 humidity, table: input, address: 2136, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm3_room1_mode, label: zm3 room1 mode, table: input, address: 2137, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm3_room1_relay, label: zm3 room1 relay, table: input, address: 2138, type: u16, bits: [0, 7]}
+  - {key: x.zm3_room2_temp, label: zm3 room2 temp, table: input, address: 2139, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room2_setpoint, label: zm3 room2 setpoint, table: input, address: 2141, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room2_humidity, label: zm3 room2 humidity, table: input, address: 2143, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm3_room2_mode, label: zm3 room2 mode, table: input, address: 2144, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm3_room2_relay, label: zm3 room2 relay, table: input, address: 2145, type: u16, bits: [0, 7]}
+  - {key: x.zm3_room3_temp, label: zm3 room3 temp, table: input, address: 2146, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room3_setpoint, label: zm3 room3 setpoint, table: input, address: 2148, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room3_humidity, label: zm3 room3 humidity, table: input, address: 2150, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm3_room3_mode, label: zm3 room3 mode, table: input, address: 2151, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm3_room3_relay, label: zm3 room3 relay, table: input, address: 2152, type: u16, bits: [0, 7]}
+  - {key: x.zm3_room4_temp, label: zm3 room4 temp, table: input, address: 2153, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room4_setpoint, label: zm3 room4 setpoint, table: input, address: 2155, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room4_humidity, label: zm3 room4 humidity, table: input, address: 2157, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm3_room4_mode, label: zm3 room4 mode, table: input, address: 2158, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm3_room4_relay, label: zm3 room4 relay, table: input, address: 2159, type: u16, bits: [0, 7]}
+  - {key: x.zm3_room5_temp, label: zm3 room5 temp, table: input, address: 2160, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room5_setpoint, label: zm3 room5 setpoint, table: input, address: 2162, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room5_humidity, label: zm3 room5 humidity, table: input, address: 2164, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm3_room5_mode, label: zm3 room5 mode, table: input, address: 2165, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm3_room5_relay, label: zm3 room5 relay, table: input, address: 2166, type: u16, bits: [0, 7]}
+  - {key: x.zm3_room6_temp, label: zm3 room6 temp, table: input, address: 2167, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room6_setpoint, label: zm3 room6 setpoint, table: input, address: 2169, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room6_humidity, label: zm3 room6 humidity, table: input, address: 2171, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm3_room6_mode, label: zm3 room6 mode, table: input, address: 2172, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm3_room6_relay, label: zm3 room6 relay, table: input, address: 2173, type: u16, bits: [0, 7]}
+  - {key: x.zm3_room7_temp, label: zm3 room7 temp, table: input, address: 2174, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room7_setpoint, label: zm3 room7 setpoint, table: input, address: 2176, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room7_humidity, label: zm3 room7 humidity, table: input, address: 2178, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm3_room7_mode, label: zm3 room7 mode, table: input, address: 2179, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm3_room7_relay, label: zm3 room7 relay, table: input, address: 2180, type: u16, bits: [0, 7]}
+  - {key: x.zm3_room8_temp, label: zm3 room8 temp, table: input, address: 2181, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room8_setpoint, label: zm3 room8 setpoint, table: input, address: 2183, type: f32, unit: °C, writable: true}
+  - {key: x.zm3_room8_humidity, label: zm3 room8 humidity, table: input, address: 2185, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm3_room8_mode, label: zm3 room8 mode, table: input, address: 2186, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm3_room8_relay, label: zm3 room8 relay, table: input, address: 2187, type: u16, bits: [0, 7]}
+  - {key: x.zm4_mode_heat_cool, label: zm4 mode heat cool, table: input, address: 2195, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm4_dehumidification, label: zm4 dehumidification, table: input, address: 2196, type: u16, bits: [0, 7]}
+  - {key: x.zm4_room1_temp, label: zm4 room1 temp, table: input, address: 2197, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room1_setpoint, label: zm4 room1 setpoint, table: input, address: 2199, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room1_humidity, label: zm4 room1 humidity, table: input, address: 2201, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm4_room1_mode, label: zm4 room1 mode, table: input, address: 2202, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm4_room1_relay, label: zm4 room1 relay, table: input, address: 2203, type: u16, bits: [0, 7]}
+  - {key: x.zm4_room2_temp, label: zm4 room2 temp, table: input, address: 2204, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room2_setpoint, label: zm4 room2 setpoint, table: input, address: 2206, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room2_humidity, label: zm4 room2 humidity, table: input, address: 2208, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm4_room2_mode, label: zm4 room2 mode, table: input, address: 2209, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm4_room2_relay, label: zm4 room2 relay, table: input, address: 2210, type: u16, bits: [0, 7]}
+  - {key: x.zm4_room3_temp, label: zm4 room3 temp, table: input, address: 2211, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room3_setpoint, label: zm4 room3 setpoint, table: input, address: 2213, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room3_humidity, label: zm4 room3 humidity, table: input, address: 2215, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm4_room3_mode, label: zm4 room3 mode, table: input, address: 2216, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm4_room3_relay, label: zm4 room3 relay, table: input, address: 2217, type: u16, bits: [0, 7]}
+  - {key: x.zm4_room4_temp, label: zm4 room4 temp, table: input, address: 2218, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room4_setpoint, label: zm4 room4 setpoint, table: input, address: 2220, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room4_humidity, label: zm4 room4 humidity, table: input, address: 2222, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm4_room4_mode, label: zm4 room4 mode, table: input, address: 2223, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm4_room4_relay, label: zm4 room4 relay, table: input, address: 2224, type: u16, bits: [0, 7]}
+  - {key: x.zm4_room5_temp, label: zm4 room5 temp, table: input, address: 2225, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room5_setpoint, label: zm4 room5 setpoint, table: input, address: 2227, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room5_humidity, label: zm4 room5 humidity, table: input, address: 2229, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm4_room5_mode, label: zm4 room5 mode, table: input, address: 2230, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm4_room5_relay, label: zm4 room5 relay, table: input, address: 2231, type: u16, bits: [0, 7]}
+  - {key: x.zm4_room6_temp, label: zm4 room6 temp, table: input, address: 2232, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room6_setpoint, label: zm4 room6 setpoint, table: input, address: 2234, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room6_humidity, label: zm4 room6 humidity, table: input, address: 2236, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm4_room6_mode, label: zm4 room6 mode, table: input, address: 2237, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm4_room6_relay, label: zm4 room6 relay, table: input, address: 2238, type: u16, bits: [0, 7]}
+  - {key: x.zm4_room7_temp, label: zm4 room7 temp, table: input, address: 2239, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room7_setpoint, label: zm4 room7 setpoint, table: input, address: 2241, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room7_humidity, label: zm4 room7 humidity, table: input, address: 2243, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm4_room7_mode, label: zm4 room7 mode, table: input, address: 2244, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm4_room7_relay, label: zm4 room7 relay, table: input, address: 2245, type: u16, bits: [0, 7]}
+  - {key: x.zm4_room8_temp, label: zm4 room8 temp, table: input, address: 2246, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room8_setpoint, label: zm4 room8 setpoint, table: input, address: 2248, type: f32, unit: °C, writable: true}
+  - {key: x.zm4_room8_humidity, label: zm4 room8 humidity, table: input, address: 2250, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm4_room8_mode, label: zm4 room8 mode, table: input, address: 2251, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm4_room8_relay, label: zm4 room8 relay, table: input, address: 2252, type: u16, bits: [0, 7]}
+  - {key: x.zm5_mode_heat_cool, label: zm5 mode heat cool, table: input, address: 2260, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm5_dehumidification, label: zm5 dehumidification, table: input, address: 2261, type: u16, bits: [0, 7]}
+  - {key: x.zm5_room1_temp, label: zm5 room1 temp, table: input, address: 2262, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room1_setpoint, label: zm5 room1 setpoint, table: input, address: 2264, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room1_humidity, label: zm5 room1 humidity, table: input, address: 2266, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm5_room1_mode, label: zm5 room1 mode, table: input, address: 2267, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm5_room1_relay, label: zm5 room1 relay, table: input, address: 2268, type: u16, bits: [0, 7]}
+  - {key: x.zm5_room2_temp, label: zm5 room2 temp, table: input, address: 2269, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room2_setpoint, label: zm5 room2 setpoint, table: input, address: 2271, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room2_humidity, label: zm5 room2 humidity, table: input, address: 2273, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm5_room2_mode, label: zm5 room2 mode, table: input, address: 2274, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm5_room2_relay, label: zm5 room2 relay, table: input, address: 2275, type: u16, bits: [0, 7]}
+  - {key: x.zm5_room3_temp, label: zm5 room3 temp, table: input, address: 2276, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room3_setpoint, label: zm5 room3 setpoint, table: input, address: 2278, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room3_humidity, label: zm5 room3 humidity, table: input, address: 2280, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm5_room3_mode, label: zm5 room3 mode, table: input, address: 2281, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm5_room3_relay, label: zm5 room3 relay, table: input, address: 2282, type: u16, bits: [0, 7]}
+  - {key: x.zm5_room4_temp, label: zm5 room4 temp, table: input, address: 2283, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room4_setpoint, label: zm5 room4 setpoint, table: input, address: 2285, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room4_humidity, label: zm5 room4 humidity, table: input, address: 2287, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm5_room4_mode, label: zm5 room4 mode, table: input, address: 2288, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm5_room4_relay, label: zm5 room4 relay, table: input, address: 2289, type: u16, bits: [0, 7]}
+  - {key: x.zm5_room5_temp, label: zm5 room5 temp, table: input, address: 2290, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room5_setpoint, label: zm5 room5 setpoint, table: input, address: 2292, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room5_humidity, label: zm5 room5 humidity, table: input, address: 2294, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm5_room5_mode, label: zm5 room5 mode, table: input, address: 2295, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm5_room5_relay, label: zm5 room5 relay, table: input, address: 2296, type: u16, bits: [0, 7]}
+  - {key: x.zm5_room6_temp, label: zm5 room6 temp, table: input, address: 2297, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room6_setpoint, label: zm5 room6 setpoint, table: input, address: 2299, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room6_humidity, label: zm5 room6 humidity, table: input, address: 2301, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm5_room6_mode, label: zm5 room6 mode, table: input, address: 2302, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm5_room6_relay, label: zm5 room6 relay, table: input, address: 2303, type: u16, bits: [0, 7]}
+  - {key: x.zm5_room7_temp, label: zm5 room7 temp, table: input, address: 2304, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room7_setpoint, label: zm5 room7 setpoint, table: input, address: 2306, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room7_humidity, label: zm5 room7 humidity, table: input, address: 2308, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm5_room7_mode, label: zm5 room7 mode, table: input, address: 2309, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm5_room7_relay, label: zm5 room7 relay, table: input, address: 2310, type: u16, bits: [0, 7]}
+  - {key: x.zm5_room8_temp, label: zm5 room8 temp, table: input, address: 2311, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room8_setpoint, label: zm5 room8 setpoint, table: input, address: 2313, type: f32, unit: °C, writable: true}
+  - {key: x.zm5_room8_humidity, label: zm5 room8 humidity, table: input, address: 2315, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm5_room8_mode, label: zm5 room8 mode, table: input, address: 2316, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm5_room8_relay, label: zm5 room8 relay, table: input, address: 2317, type: u16, bits: [0, 7]}
+  - {key: x.zm6_mode_heat_cool, label: zm6 mode heat cool, table: input, address: 2325, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm6_dehumidification, label: zm6 dehumidification, table: input, address: 2326, type: u16, bits: [0, 7]}
+  - {key: x.zm6_room1_temp, label: zm6 room1 temp, table: input, address: 2327, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room1_setpoint, label: zm6 room1 setpoint, table: input, address: 2329, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room1_humidity, label: zm6 room1 humidity, table: input, address: 2331, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm6_room1_mode, label: zm6 room1 mode, table: input, address: 2332, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm6_room1_relay, label: zm6 room1 relay, table: input, address: 2333, type: u16, bits: [0, 7]}
+  - {key: x.zm6_room2_temp, label: zm6 room2 temp, table: input, address: 2334, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room2_setpoint, label: zm6 room2 setpoint, table: input, address: 2336, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room2_humidity, label: zm6 room2 humidity, table: input, address: 2338, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm6_room2_mode, label: zm6 room2 mode, table: input, address: 2339, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm6_room2_relay, label: zm6 room2 relay, table: input, address: 2340, type: u16, bits: [0, 7]}
+  - {key: x.zm6_room3_temp, label: zm6 room3 temp, table: input, address: 2341, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room3_setpoint, label: zm6 room3 setpoint, table: input, address: 2343, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room3_humidity, label: zm6 room3 humidity, table: input, address: 2345, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm6_room3_mode, label: zm6 room3 mode, table: input, address: 2346, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm6_room3_relay, label: zm6 room3 relay, table: input, address: 2347, type: u16, bits: [0, 7]}
+  - {key: x.zm6_room4_temp, label: zm6 room4 temp, table: input, address: 2348, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room4_setpoint, label: zm6 room4 setpoint, table: input, address: 2350, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room4_humidity, label: zm6 room4 humidity, table: input, address: 2352, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm6_room4_mode, label: zm6 room4 mode, table: input, address: 2353, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm6_room4_relay, label: zm6 room4 relay, table: input, address: 2354, type: u16, bits: [0, 7]}
+  - {key: x.zm6_room5_temp, label: zm6 room5 temp, table: input, address: 2355, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room5_setpoint, label: zm6 room5 setpoint, table: input, address: 2357, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room5_humidity, label: zm6 room5 humidity, table: input, address: 2359, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm6_room5_mode, label: zm6 room5 mode, table: input, address: 2360, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm6_room5_relay, label: zm6 room5 relay, table: input, address: 2361, type: u16, bits: [0, 7]}
+  - {key: x.zm6_room6_temp, label: zm6 room6 temp, table: input, address: 2362, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room6_setpoint, label: zm6 room6 setpoint, table: input, address: 2364, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room6_humidity, label: zm6 room6 humidity, table: input, address: 2366, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm6_room6_mode, label: zm6 room6 mode, table: input, address: 2367, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm6_room6_relay, label: zm6 room6 relay, table: input, address: 2368, type: u16, bits: [0, 7]}
+  - {key: x.zm6_room7_temp, label: zm6 room7 temp, table: input, address: 2369, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room7_setpoint, label: zm6 room7 setpoint, table: input, address: 2371, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room7_humidity, label: zm6 room7 humidity, table: input, address: 2373, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm6_room7_mode, label: zm6 room7 mode, table: input, address: 2374, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm6_room7_relay, label: zm6 room7 relay, table: input, address: 2375, type: u16, bits: [0, 7]}
+  - {key: x.zm6_room8_temp, label: zm6 room8 temp, table: input, address: 2376, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room8_setpoint, label: zm6 room8 setpoint, table: input, address: 2378, type: f32, unit: °C, writable: true}
+  - {key: x.zm6_room8_humidity, label: zm6 room8 humidity, table: input, address: 2380, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm6_room8_mode, label: zm6 room8 mode, table: input, address: 2381, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm6_room8_relay, label: zm6 room8 relay, table: input, address: 2382, type: u16, bits: [0, 7]}
+  - {key: x.zm7_mode_heat_cool, label: zm7 mode heat cool, table: input, address: 2390, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm7_dehumidification, label: zm7 dehumidification, table: input, address: 2391, type: u16, bits: [0, 7]}
+  - {key: x.zm7_room1_temp, label: zm7 room1 temp, table: input, address: 2392, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room1_setpoint, label: zm7 room1 setpoint, table: input, address: 2394, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room1_humidity, label: zm7 room1 humidity, table: input, address: 2396, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm7_room1_mode, label: zm7 room1 mode, table: input, address: 2397, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm7_room1_relay, label: zm7 room1 relay, table: input, address: 2398, type: u16, bits: [0, 7]}
+  - {key: x.zm7_room2_temp, label: zm7 room2 temp, table: input, address: 2399, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room2_setpoint, label: zm7 room2 setpoint, table: input, address: 2401, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room2_humidity, label: zm7 room2 humidity, table: input, address: 2403, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm7_room2_mode, label: zm7 room2 mode, table: input, address: 2404, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm7_room2_relay, label: zm7 room2 relay, table: input, address: 2405, type: u16, bits: [0, 7]}
+  - {key: x.zm7_room3_temp, label: zm7 room3 temp, table: input, address: 2406, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room3_setpoint, label: zm7 room3 setpoint, table: input, address: 2408, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room3_humidity, label: zm7 room3 humidity, table: input, address: 2410, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm7_room3_mode, label: zm7 room3 mode, table: input, address: 2411, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm7_room3_relay, label: zm7 room3 relay, table: input, address: 2412, type: u16, bits: [0, 7]}
+  - {key: x.zm7_room4_temp, label: zm7 room4 temp, table: input, address: 2413, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room4_setpoint, label: zm7 room4 setpoint, table: input, address: 2415, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room4_humidity, label: zm7 room4 humidity, table: input, address: 2417, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm7_room4_mode, label: zm7 room4 mode, table: input, address: 2418, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm7_room4_relay, label: zm7 room4 relay, table: input, address: 2419, type: u16, bits: [0, 7]}
+  - {key: x.zm7_room5_temp, label: zm7 room5 temp, table: input, address: 2420, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room5_setpoint, label: zm7 room5 setpoint, table: input, address: 2422, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room5_humidity, label: zm7 room5 humidity, table: input, address: 2424, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm7_room5_mode, label: zm7 room5 mode, table: input, address: 2425, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm7_room5_relay, label: zm7 room5 relay, table: input, address: 2426, type: u16, bits: [0, 7]}
+  - {key: x.zm7_room6_temp, label: zm7 room6 temp, table: input, address: 2427, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room6_setpoint, label: zm7 room6 setpoint, table: input, address: 2429, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room6_humidity, label: zm7 room6 humidity, table: input, address: 2431, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm7_room6_mode, label: zm7 room6 mode, table: input, address: 2432, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm7_room6_relay, label: zm7 room6 relay, table: input, address: 2433, type: u16, bits: [0, 7]}
+  - {key: x.zm7_room7_temp, label: zm7 room7 temp, table: input, address: 2434, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room7_setpoint, label: zm7 room7 setpoint, table: input, address: 2436, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room7_humidity, label: zm7 room7 humidity, table: input, address: 2438, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm7_room7_mode, label: zm7 room7 mode, table: input, address: 2439, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm7_room7_relay, label: zm7 room7 relay, table: input, address: 2440, type: u16, bits: [0, 7]}
+  - {key: x.zm7_room8_temp, label: zm7 room8 temp, table: input, address: 2441, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room8_setpoint, label: zm7 room8 setpoint, table: input, address: 2443, type: f32, unit: °C, writable: true}
+  - {key: x.zm7_room8_humidity, label: zm7 room8 humidity, table: input, address: 2445, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm7_room8_mode, label: zm7 room8 mode, table: input, address: 2446, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm7_room8_relay, label: zm7 room8 relay, table: input, address: 2447, type: u16, bits: [0, 7]}
+  - {key: x.zm8_mode_heat_cool, label: zm8 mode heat cool, table: input, address: 2455, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm8_dehumidification, label: zm8 dehumidification, table: input, address: 2456, type: u16, bits: [0, 7]}
+  - {key: x.zm8_room1_temp, label: zm8 room1 temp, table: input, address: 2457, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room1_setpoint, label: zm8 room1 setpoint, table: input, address: 2459, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room1_humidity, label: zm8 room1 humidity, table: input, address: 2461, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm8_room1_mode, label: zm8 room1 mode, table: input, address: 2462, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm8_room1_relay, label: zm8 room1 relay, table: input, address: 2463, type: u16, bits: [0, 7]}
+  - {key: x.zm8_room2_temp, label: zm8 room2 temp, table: input, address: 2464, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room2_setpoint, label: zm8 room2 setpoint, table: input, address: 2466, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room2_humidity, label: zm8 room2 humidity, table: input, address: 2468, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm8_room2_mode, label: zm8 room2 mode, table: input, address: 2469, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm8_room2_relay, label: zm8 room2 relay, table: input, address: 2470, type: u16, bits: [0, 7]}
+  - {key: x.zm8_room3_temp, label: zm8 room3 temp, table: input, address: 2471, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room3_setpoint, label: zm8 room3 setpoint, table: input, address: 2473, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room3_humidity, label: zm8 room3 humidity, table: input, address: 2475, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm8_room3_mode, label: zm8 room3 mode, table: input, address: 2476, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm8_room3_relay, label: zm8 room3 relay, table: input, address: 2477, type: u16, bits: [0, 7]}
+  - {key: x.zm8_room4_temp, label: zm8 room4 temp, table: input, address: 2478, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room4_setpoint, label: zm8 room4 setpoint, table: input, address: 2480, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room4_humidity, label: zm8 room4 humidity, table: input, address: 2482, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm8_room4_mode, label: zm8 room4 mode, table: input, address: 2483, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm8_room4_relay, label: zm8 room4 relay, table: input, address: 2484, type: u16, bits: [0, 7]}
+  - {key: x.zm8_room5_temp, label: zm8 room5 temp, table: input, address: 2485, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room5_setpoint, label: zm8 room5 setpoint, table: input, address: 2487, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room5_humidity, label: zm8 room5 humidity, table: input, address: 2489, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm8_room5_mode, label: zm8 room5 mode, table: input, address: 2490, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm8_room5_relay, label: zm8 room5 relay, table: input, address: 2491, type: u16, bits: [0, 7]}
+  - {key: x.zm8_room6_temp, label: zm8 room6 temp, table: input, address: 2492, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room6_setpoint, label: zm8 room6 setpoint, table: input, address: 2494, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room6_humidity, label: zm8 room6 humidity, table: input, address: 2496, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm8_room6_mode, label: zm8 room6 mode, table: input, address: 2497, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm8_room6_relay, label: zm8 room6 relay, table: input, address: 2498, type: u16, bits: [0, 7]}
+  - {key: x.zm8_room7_temp, label: zm8 room7 temp, table: input, address: 2499, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room7_setpoint, label: zm8 room7 setpoint, table: input, address: 2501, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room7_humidity, label: zm8 room7 humidity, table: input, address: 2503, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm8_room7_mode, label: zm8 room7 mode, table: input, address: 2504, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm8_room7_relay, label: zm8 room7 relay, table: input, address: 2505, type: u16, bits: [0, 7]}
+  - {key: x.zm8_room8_temp, label: zm8 room8 temp, table: input, address: 2506, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room8_setpoint, label: zm8 room8 setpoint, table: input, address: 2508, type: f32, unit: °C, writable: true}
+  - {key: x.zm8_room8_humidity, label: zm8 room8 humidity, table: input, address: 2510, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm8_room8_mode, label: zm8 room8 mode, table: input, address: 2511, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm8_room8_relay, label: zm8 room8 relay, table: input, address: 2512, type: u16, bits: [0, 7]}
+  - {key: x.zm9_mode_heat_cool, label: zm9 mode heat cool, table: input, address: 2520, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm9_dehumidification, label: zm9 dehumidification, table: input, address: 2521, type: u16, bits: [0, 7]}
+  - {key: x.zm9_room1_temp, label: zm9 room1 temp, table: input, address: 2522, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room1_setpoint, label: zm9 room1 setpoint, table: input, address: 2524, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room1_humidity, label: zm9 room1 humidity, table: input, address: 2526, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm9_room1_mode, label: zm9 room1 mode, table: input, address: 2527, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm9_room1_relay, label: zm9 room1 relay, table: input, address: 2528, type: u16, bits: [0, 7]}
+  - {key: x.zm9_room2_temp, label: zm9 room2 temp, table: input, address: 2529, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room2_setpoint, label: zm9 room2 setpoint, table: input, address: 2531, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room2_humidity, label: zm9 room2 humidity, table: input, address: 2533, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm9_room2_mode, label: zm9 room2 mode, table: input, address: 2534, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm9_room2_relay, label: zm9 room2 relay, table: input, address: 2535, type: u16, bits: [0, 7]}
+  - {key: x.zm9_room3_temp, label: zm9 room3 temp, table: input, address: 2536, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room3_setpoint, label: zm9 room3 setpoint, table: input, address: 2538, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room3_humidity, label: zm9 room3 humidity, table: input, address: 2540, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm9_room3_mode, label: zm9 room3 mode, table: input, address: 2541, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm9_room3_relay, label: zm9 room3 relay, table: input, address: 2542, type: u16, bits: [0, 7]}
+  - {key: x.zm9_room4_temp, label: zm9 room4 temp, table: input, address: 2543, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room4_setpoint, label: zm9 room4 setpoint, table: input, address: 2545, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room4_humidity, label: zm9 room4 humidity, table: input, address: 2547, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm9_room4_mode, label: zm9 room4 mode, table: input, address: 2548, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm9_room4_relay, label: zm9 room4 relay, table: input, address: 2549, type: u16, bits: [0, 7]}
+  - {key: x.zm9_room5_temp, label: zm9 room5 temp, table: input, address: 2550, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room5_setpoint, label: zm9 room5 setpoint, table: input, address: 2552, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room5_humidity, label: zm9 room5 humidity, table: input, address: 2554, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm9_room5_mode, label: zm9 room5 mode, table: input, address: 2555, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm9_room5_relay, label: zm9 room5 relay, table: input, address: 2556, type: u16, bits: [0, 7]}
+  - {key: x.zm9_room6_temp, label: zm9 room6 temp, table: input, address: 2557, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room6_setpoint, label: zm9 room6 setpoint, table: input, address: 2559, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room6_humidity, label: zm9 room6 humidity, table: input, address: 2561, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm9_room6_mode, label: zm9 room6 mode, table: input, address: 2562, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm9_room6_relay, label: zm9 room6 relay, table: input, address: 2563, type: u16, bits: [0, 7]}
+  - {key: x.zm9_room7_temp, label: zm9 room7 temp, table: input, address: 2564, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room7_setpoint, label: zm9 room7 setpoint, table: input, address: 2566, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room7_humidity, label: zm9 room7 humidity, table: input, address: 2568, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm9_room7_mode, label: zm9 room7 mode, table: input, address: 2569, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm9_room7_relay, label: zm9 room7 relay, table: input, address: 2570, type: u16, bits: [0, 7]}
+  - {key: x.zm9_room8_temp, label: zm9 room8 temp, table: input, address: 2571, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room8_setpoint, label: zm9 room8 setpoint, table: input, address: 2573, type: f32, unit: °C, writable: true}
+  - {key: x.zm9_room8_humidity, label: zm9 room8 humidity, table: input, address: 2575, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm9_room8_mode, label: zm9 room8 mode, table: input, address: 2576, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm9_room8_relay, label: zm9 room8 relay, table: input, address: 2577, type: u16, bits: [0, 7]}
+  - {key: x.zm10_mode_heat_cool, label: zm10 mode heat cool, table: input, address: 2585, type: u16, bits: [0, 7], enum: zone_module_mode}
+  - {key: x.zm10_dehumidification, label: zm10 dehumidification, table: input, address: 2586, type: u16, bits: [0, 7]}
+  - {key: x.zm10_room1_temp, label: zm10 room1 temp, table: input, address: 2587, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room1_setpoint, label: zm10 room1 setpoint, table: input, address: 2589, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room1_humidity, label: zm10 room1 humidity, table: input, address: 2591, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm10_room1_mode, label: zm10 room1 mode, table: input, address: 2592, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm10_room1_relay, label: zm10 room1 relay, table: input, address: 2593, type: u16, bits: [0, 7]}
+  - {key: x.zm10_room2_temp, label: zm10 room2 temp, table: input, address: 2594, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room2_setpoint, label: zm10 room2 setpoint, table: input, address: 2596, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room2_humidity, label: zm10 room2 humidity, table: input, address: 2598, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm10_room2_mode, label: zm10 room2 mode, table: input, address: 2599, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm10_room2_relay, label: zm10 room2 relay, table: input, address: 2600, type: u16, bits: [0, 7]}
+  - {key: x.zm10_room3_temp, label: zm10 room3 temp, table: input, address: 2601, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room3_setpoint, label: zm10 room3 setpoint, table: input, address: 2603, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room3_humidity, label: zm10 room3 humidity, table: input, address: 2605, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm10_room3_mode, label: zm10 room3 mode, table: input, address: 2606, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm10_room3_relay, label: zm10 room3 relay, table: input, address: 2607, type: u16, bits: [0, 7]}
+  - {key: x.zm10_room4_temp, label: zm10 room4 temp, table: input, address: 2608, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room4_setpoint, label: zm10 room4 setpoint, table: input, address: 2610, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room4_humidity, label: zm10 room4 humidity, table: input, address: 2612, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm10_room4_mode, label: zm10 room4 mode, table: input, address: 2613, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm10_room4_relay, label: zm10 room4 relay, table: input, address: 2614, type: u16, bits: [0, 7]}
+  - {key: x.zm10_room5_temp, label: zm10 room5 temp, table: input, address: 2615, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room5_setpoint, label: zm10 room5 setpoint, table: input, address: 2617, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room5_humidity, label: zm10 room5 humidity, table: input, address: 2619, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm10_room5_mode, label: zm10 room5 mode, table: input, address: 2620, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm10_room5_relay, label: zm10 room5 relay, table: input, address: 2621, type: u16, bits: [0, 7]}
+  - {key: x.zm10_room6_temp, label: zm10 room6 temp, table: input, address: 2622, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room6_setpoint, label: zm10 room6 setpoint, table: input, address: 2624, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room6_humidity, label: zm10 room6 humidity, table: input, address: 2626, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm10_room6_mode, label: zm10 room6 mode, table: input, address: 2627, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm10_room6_relay, label: zm10 room6 relay, table: input, address: 2628, type: u16, bits: [0, 7]}
+  - {key: x.zm10_room7_temp, label: zm10 room7 temp, table: input, address: 2629, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room7_setpoint, label: zm10 room7 setpoint, table: input, address: 2631, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room7_humidity, label: zm10 room7 humidity, table: input, address: 2633, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm10_room7_mode, label: zm10 room7 mode, table: input, address: 2634, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm10_room7_relay, label: zm10 room7 relay, table: input, address: 2635, type: u16, bits: [0, 7]}
+  - {key: x.zm10_room8_temp, label: zm10 room8 temp, table: input, address: 2636, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room8_setpoint, label: zm10 room8 setpoint, table: input, address: 2638, type: f32, unit: °C, writable: true}
+  - {key: x.zm10_room8_humidity, label: zm10 room8 humidity, table: input, address: 2640, type: u16, unit: '%', bits: [0, 7], writable: true}
+  - {key: x.zm10_room8_mode, label: zm10 room8 mode, table: input, address: 2641, type: u16, bits: [0, 7], enum: room_mode, writable: true}
+  - {key: x.zm10_room8_relay, label: zm10 room8 relay, table: input, address: 2642, type: u16, bits: [0, 7]}
+  - {key: x.booster_fault, label: booster fault, table: input, address: 4001, type: u16, bits: [0, 7], enum: booster_fault, invalid: [255], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_interlock, label: booster interlock, table: input, address: 4002, type: u16, bits: [0, 7], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_a_source_inlet_temp, label: booster a source inlet temp, table: input, address: 4010, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_a_source_outlet_temp, label: booster a source outlet temp, table: input, address: 4012, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_a_storage_temp, label: booster a storage temp, table: input, address: 4014, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_a_flow_temp, label: booster a flow temp, table: input, address: 4016, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_a_return_temp, label: booster a return temp, table: input, address: 4018, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_a_source_pump, label: booster a source pump, table: input, address: 4020, type: s16, unit: '%', invalid: [-32768, 65535, 255], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_a_charging_pump, label: booster a charging pump, table: input, address: 4021, type: s16, unit: '%', invalid: [-32768, 65535, 255], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_a_compressor, label: booster a compressor, table: input, address: 4022, type: u16, bits: [0, 7], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_b_source_inlet_temp, label: booster b source inlet temp, table: input, address: 4040, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_b_source_outlet_temp, label: booster b source outlet temp, table: input, address: 4042, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_b_storage_temp, label: booster b storage temp, table: input, address: 4044, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_b_flow_temp, label: booster b flow temp, table: input, address: 4046, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_b_return_temp, label: booster b return temp, table: input, address: 4048, type: f32, unit: °C, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_b_source_pump, label: booster b source pump, table: input, address: 4050, type: s16, unit: '%', invalid: [-32768, 65535, 255], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_b_charging_pump, label: booster b charging pump, table: input, address: 4051, type: s16, unit: '%', invalid: [-32768, 65535, 255], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.booster_b_compressor, label: booster b compressor, table: input, address: 4052, type: u16, bits: [0, 7], models: [idm_heatpump_api_navigator_10]}
+  - {key: x.power_limit_hp, label: power limit hp, table: input, address: 4108, type: f32, unit: W, scale: 1000, models: [idm_heatpump_api_navigator_10], writable: true}
+  - {key: x.power_limit_cascade, label: power limit cascade, table: input, address: 4112, type: f32, unit: W, scale: 1000, models: [idm_heatpump_api_navigator_10], writable: true}
+  - {key: x.firmware_version, label: firmware version, table: input, address: 4120, type: f32}
+  - {key: x.power_consumption_hp, label: power consumption hp, table: input, address: 4122, type: f32, unit: W, scale: 1000, sources: [idm-heatpump-api, openwb]}
+  - {key: x.power_consumption_hp_smartfox, label: power consumption hp smartfox, table: input, address: 4124, type: f32, unit: W, scale: 1000, models: [idm_heatpump_api_navigator_10]}
+  - {key: x.thermal_power_flow_sensor, label: thermal power flow sensor, table: input, address: 4126, type: f32, unit: W, scale: 1000}
+  - {key: x.total_heat_energy, label: total heat energy, table: input, address: 4128, type: f32, unit: kWh}
+
+enums:
+  system_mode: {'0': Standby, '1': Automatic, '2': Absent, '4': Hot Water Only, '5': Heating/Cooling Only}
+  smart_grid: {'0': Red, '1': Yellow, '2': Green, '4': Supergreen}
+  variable_input: {'0': Not configured, '1': External DHW Charging, '2': PV / Digital Input, '3': External Heat/Cool Switch}
+  hp_operating_mode: {'0': Standby, '1': Heating, '2': Cooling, '4': DHW, '8': Defrost}
+  evu_lock: {'0': Locked, '1': Not Locked}
+  bivalence_state: {'0': 'Off', '1': Bivalence 1 Active, '2': Bivalence 2 Active, '3': Bivalence 1+2 Active}
+  booster_fault: {'0': No fault, '1': Booster A fault, '2': Booster B fault, '3': Booster A + B fault}
+  solar_mode: {'0': Automatic, '1': DHW, '2': Heating, '3': DHW + Heating, '4': Heat Source / Pool}
+  isc_mode: {'0': No Waste Heat, '1': Heating, '4': DHW, '8': Heat Source, '255': Not configured / Unavailable}
+  circuit_mode: {'0': 'Off', '1': Time Program, '2': Normal, '3': Eco, '4': Manual Heat, '5': Manual Cool, '255': Not configured / Unavailable}
+  active_hc_mode: {'0': 'Off', '1': Heating, '2': Cooling, '255': Not configured / Unavailable}
+  zone_module_mode: {'0': Cooling, '1': Heating}
+  room_mode: {'0': 'Off', '1': Automatic, '2': Eco, '3': Normal, '4': Comfort}
+
+notes:
+- 'evcc template `idm` (single device) lists: IDM.'
+- The template has the option `tempsource` (default unset); points used only with another value say so in their note.
+- Floats span two registers with the low word first.
+- Single-byte values (UCHAR in iDM's list) sit in the low byte of the register (bits 0-7).
+- 'idm-heatpump-api tells the controller generations apart by which addresses are rejected with Illegal Data Address: Navigator
+  10 answers the 4001+ booster and 4108/4122/4126 power registers, Navigator 2.0 / Pro reject them; Navigator 1.0/1.7 rejects
+  the heating-circuit block at 1350 (see the separate device).'
+- 'Heating circuits A-G repeat the same registers per circuit: floats at a stride of 2 registers, single bytes at a stride
+  of 1.'
+- Zone modules 1-10 start at 2000 + 65 × (n − 1); each room n uses 7 registers from module base + 2 + 7 × (n − 1). Current
+  Navigator 10 modules have 6 rooms, older ones up to 8; all 8 are listed.
+- Optional blocks (solar 1850+, ISC 1870+, PV 74+, cascade) exist only when installed; idm-heatpump-api probes them before
+  polling.
+- When a register has no explicit no-value marker, idm-heatpump-api treats −1.0 (float), 255 (byte), 65535 (UINT16) and −1
+  / −32768 (INT16) as "not configured"; only explicit markers are listed as `invalid` here.
+- The PV / energy-management registers (74-88) and the GLT registers (1690+) are inputs a building management system writes
+  to the heat pump.
+- The values openWB writes (registers 74-86) go to the building management (Smartfox) interface; the controller plans its
+  surplus use from them.
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- 'Left out: hc_a_mode (input 1393, u16) from idm-heatpump-api overlaps humidity_sensor (input 1392, f32); check a document.'
+- 'Left out: hc_a_heating_limit (input 1442, u16) from idm-heatpump-api overlaps hc_g_heating_curve (input 1441, f32); check
+  a document.'
+- 'Left out: hc_a_cooling_limit (input 1484, u16) from idm-heatpump-api overlaps hc_g_room_setpoint_cool_eco (input 1483,
+  f32); check a document.'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

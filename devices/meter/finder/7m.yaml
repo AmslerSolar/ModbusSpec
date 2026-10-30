@@ -1,0 +1,228 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Finder Modbus communication protocol 7M24 - 7M38 (v2, 30.06.2021).
+
+modbusspec: 0
+id: finder-7m
+manufacturer: Finder
+name: 7M.24 / 7M.38 energy meters
+kind: meter
+
+sources:
+- title: Modbus communication protocol 7M24 - 7M38
+  version: v2 30.06.2021
+  url: https://cdn.findernet.com/app/uploads/2021/09/20090052/Modbus-7M24-7M38_v2_30062021.pdf
+  sha256: 7c7c1fb3c8e2f709ebb755b58069a4a21067f6a1d1c6ef2b6ab3b9f916ecef80
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/finder7m24.go, meters/rs485/finder7m38.go
+- id: modbus-local-gateway
+  title: modbus_local_gateway (Home Assistant integration)
+  url: https://github.com/timlaing/modbus_local_gateway
+  license: MIT
+  commit: e770d6c91220d98b8f0be22b103fdb607c3c67f4
+  path: custom_components/modbus_local_gateway/device_configs/7M_24.yaml, custom_components/modbus_local_gateway/device_configs/7M_38.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 9
+    type: str
+    length: 4
+  checks:
+  - table: input
+    address: 39000
+    type: u16
+    equals: 5
+  - table: input
+    address: 1
+    type: str
+    length: 8
+    printable: true
+
+model_choice: user
+
+models:
+  - {id: 7m24, name: 7M.24 (single phase)}
+  - {id: 7m38, name: 7M.38 (three phase)}
+  - {id: mbmd_7m24, name: 7M.24}
+  - {id: mbmd_7m38, name: 7M.38}
+  - {id: modbus_local_gateway_7m24, name: 7M.24}
+  - {id: modbus_local_gateway_7m38, name: 7M.38}
+
+points:
+  # Identity (input registers)
+  - {key: x.model_number, label: Model number, table: input, address: 1, type: str, length: 8, poll: slow}
+  - {key: serial, label: Serial number, table: input, address: 9, type: str, length: 4, poll: slow}
+  - {key: firmware, label: Software reference, table: input, address: 13, type: u16, poll: slow}
+  - {key: x.hardware_version, label: Hardware reference, table: input, address: 14, type: str, length: 1, poll: slow}
+  - {key: x.status, label: Status register, table: input, address: 44, type: u16, flags: status}
+  - {key: x.mid_lock, label: MID lock status, table: input, address: 76, type: u16, enum: mid_lock, poll: slow}
+  - {key: x.max_registers, label: Modbus max. registers read at once, table: input, address: 99, type: u16, poll: slow}
+  - {key: x.device_group, label: Device group, table: input, address: 39000, type: u16, poll: slow, note: 5 = 7M.}
+
+  # State
+  - {key: x.phase_invalid, label: Phase valid measurement, table: input, address: 101, type: u16, flags: phase_invalid}
+  - {key: x.alarm_flags_g1_g2, label: Alarm status flags G1 G2, table: input, address: 191, type: u16, note: 'Bits 0–4 group 1 limits 1–4, bits 8–12 group 2 limits 1–4 (the user''s own limit alarms).'}
+  - {key: x.checksum_status, label: Checksum status, table: input, address: 400, type: u16, flags: checksum_status}
+  - {key: x.active_tariff, label: Current active tariff, table: input, address: 405, type: u16}
+
+  # Measurements (IEEE 754 floats)
+  - {key: x.run_time, label: Run time, table: input, address: 2480, type: f32, unit: s, poll: slow}
+  - {key: x.voltage_avg, label: Uavg (phase to neutral), table: input, address: 2484, type: f32, unit: V}
+  - {key: x.voltage_ll_avg, label: Uavg (phase to phase), table: input, address: 2486, type: f32, unit: V, models: [7m38]}
+  - {key: x.current_sum, label: SI, table: input, address: 2488, type: f32, unit: A}
+  - {key: frequency, label: Frequency, table: input, address: 2498, type: f32, unit: Hz}
+  - {key: l1_voltage, label: U1, table: input, address: 2500, type: f32, unit: V}
+  - {key: l2_voltage, label: U2, table: input, address: 2502, type: f32, unit: V, models: [7m38]}
+  - {key: l3_voltage, label: U3, table: input, address: 2504, type: f32, unit: V, models: [7m38]}
+  - {key: x.l1_l2_voltage, label: U12, table: input, address: 2508, type: f32, unit: V, models: [7m38]}
+  - {key: x.l2_l3_voltage, label: U23, table: input, address: 2510, type: f32, unit: V, models: [7m38]}
+  - {key: x.l3_l1_voltage, label: U31, table: input, address: 2512, type: f32, unit: V, models: [7m38]}
+  - {key: l1_current, label: I1, table: input, address: 2516, type: f32, unit: A}
+  - {key: l2_current, label: I2, table: input, address: 2518, type: f32, unit: A, models: [7m38]}
+  - {key: l3_current, label: I3, table: input, address: 2520, type: f32, unit: A, models: [7m38]}
+  - {key: x.current_avg, label: Iavg, table: input, address: 2528, type: f32, unit: A, models: [7m38]}
+  - {key: l1_power, label: Active Power Phase L1 (P1), table: input, address: 2530, type: f32, unit: W, positive: import, verified: false, note: Sign convention not stated; assumed positive = import.}
+  - {key: l2_power, label: Active Power Phase L2 (P2), table: input, address: 2532, type: f32, unit: W, models: [7m38], positive: import, verified: false, note: Sign convention not stated; assumed positive = import.}
+  - {key: l3_power, label: Active Power Phase L3 (P3), table: input, address: 2534, type: f32, unit: W, models: [7m38], positive: import, verified: false, note: Sign convention not stated; assumed positive = import.}
+  - {key: grid_power, label: Active Power Total (Pt), table: input, address: 2536, type: f32, unit: W, positive: import, verified: false, note: 'Signed, but the document doesn''t say which direction is positive; assumed positive = import (the power factor type marks import / export separately). The same value is also at 2490.'}
+  - {key: x.l1_reactive_power, label: Reactive Power Phase L1 (Q1), table: input, address: 2538, type: f32, unit: var}
+  - {key: x.l2_reactive_power, label: Reactive Power Phase L2 (Q2), table: input, address: 2540, type: f32, unit: var, models: [7m38]}
+  - {key: x.l3_reactive_power, label: Reactive Power Phase L3 (Q3), table: input, address: 2542, type: f32, unit: var, models: [7m38]}
+  - {key: reactive_power, label: Reactive Power Total (Qt), table: input, address: 2544, type: f32, unit: var}
+  - {key: x.l1_apparent_power, label: Apparent Power Phase L1 (S1), table: input, address: 2546, type: f32, unit: VA}
+  - {key: x.l2_apparent_power, label: Apparent Power Phase L2 (S2), table: input, address: 2548, type: f32, unit: VA, models: [7m38]}
+  - {key: x.l3_apparent_power, label: Apparent Power Phase L3 (S3), table: input, address: 2550, type: f32, unit: VA, models: [7m38]}
+  - {key: apparent_power, label: Apparent Power Total (St), table: input, address: 2552, type: f32, unit: VA}
+  - {key: x.l1_power_factor, label: Power Factor Phase 1 (PF1), table: input, address: 2554, type: f32}
+  - {key: x.l2_power_factor, label: Power Factor Phase 2 (PF2), table: input, address: 2556, type: f32, models: [7m38]}
+  - {key: x.l3_power_factor, label: Power Factor Phase 3 (PF3), table: input, address: 2558, type: f32, models: [7m38]}
+  - {key: power_factor, label: Power Factor Total (PFt), table: input, address: 2560, type: f32}
+  - {key: x.power_factor_cap_ind, label: CAP/IND P. F. Total (PFt), table: input, address: 2568, type: f32}
+  - {key: x.power_angle, label: 'Power Angle Total (atan2(Pt,Qt))', table: input, address: 2576, type: f32, unit: °}
+  - {key: x.l1_current_thd, label: I1 THD%, table: input, address: 2588, type: f32, unit: '%'}
+  - {key: x.l2_current_thd, label: I2 THD%, table: input, address: 2590, type: f32, unit: '%', models: [7m38]}
+  - {key: x.l3_current_thd, label: I3 THD%, table: input, address: 2592, type: f32, unit: '%', models: [7m38]}
+  - {key: x.l1_voltage_thd, label: U1 THD%, table: input, address: 2594, type: f32, unit: '%'}
+  - {key: x.l2_voltage_thd, label: U2 THD%, table: input, address: 2596, type: f32, unit: '%', models: [7m38]}
+  - {key: x.l3_voltage_thd, label: U3 THD%, table: input, address: 2598, type: f32, unit: '%', models: [7m38]}
+  - {key: temperature, label: Internal Temperature, table: input, address: 2658, type: f32, unit: °C}
+
+  # Energy (floats in Wh / varh)
+  - {key: x.tariff, label: Active tariff, table: input, address: 2750, type: f32}
+  - {key: grid_import_energy, label: Energy Counter n1, table: input, address: 2752, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: 'Counter n1 is in Wh; what it counts is set by holding 421–424 (quantity, quadrants, tariffs). The factory setting isn''t stated; import active energy assumed.'}
+  - {key: x.energy_counter_n2, label: Energy Counter n2, table: input, address: 2754, type: f32, unit: kvarh, scale: 0.001, poll: slow, verified: false, note: 'In varh; configurable (holding 425–428), factory setting not stated.'}
+  - {key: grid_export_energy, label: Energy Counter n3, table: input, address: 2756, type: f32, unit: kWh, scale: 0.001, poll: slow, verified: false, note: Counter n3 is in Wh; configurable (holding 429–432). The factory setting isn't stated; export active energy assumed.}
+  - {key: x.energy_counter_n4, label: Energy Counter n4, table: input, address: 2758, type: f32, unit: kvarh, scale: 0.001, poll: slow, verified: false, note: 'In varh; configurable (holding 433–436), factory setting not stated.'}
+  - {key: x.energy_counter_n1_fine, label: 1000 x Energy Counter n1, table: input, address: 462, type: s32, unit: kWh, scale: 0.0001, poll: slow, note: 'Steps of 0.1 Wh: for accurate energy differences.', conflicts: [{sources: [modbus-local-gateway], type: u32, scale: 0.001, models: [modbus_local_gateway_7m24], label: Counter N1}, {sources: [modbus-local-gateway], type: u32, models: [modbus_local_gateway_7m38], label: Counter N1}]}
+  - {key: x.energy_counter_n2_fine, label: 1000 x Energy Counter n2, table: input, address: 464, type: s32, unit: kvarh, scale: 0.0001, poll: slow, conflicts: [{sources: [modbus-local-gateway], type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], label: Counter N2}, {sources: [modbus-local-gateway], type: u32, unit: kWh, models: [modbus_local_gateway_7m38], label: Counter N2}]}
+  - {key: x.energy_counter_n3_fine, label: 1000 x Energy Counter n3, table: input, address: 466, type: s32, unit: kWh, scale: 0.0001, poll: slow, conflicts: [{sources: [modbus-local-gateway], type: u32, scale: 0.001, models: [modbus_local_gateway_7m24], label: Counter N3}, {sources: [modbus-local-gateway], type: u32, models: [modbus_local_gateway_7m38], label: Counter N3}]}
+  - {key: x.energy_counter_n4_fine, label: 1000 x Energy Counter n4, table: input, address: 468, type: s32, unit: kvarh, scale: 0.0001, poll: slow, conflicts: [{sources: [modbus-local-gateway], type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], label: Counter N4}, {sources: [modbus-local-gateway], type: u32, unit: kWh, models: [modbus_local_gateway_7m38], label: Counter N4}]}
+
+  # Settings (holding registers)
+  - {key: x.select_tariff, label: Select Active Tariff, table: holding, address: 30, type: u16, writable: true, min: 1, max: 6}
+  - {key: x.connection_mode, label: Connection Mode, table: holding, address: 143, type: u16, enum: connection_mode, models: [7m38], writable: true, poll: slow}
+  - {key: x.modbus_address, label: 'Port 1: Device Address (Modbus)', table: holding, address: 202, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: 'Port 1: Baud Rate', table: holding, address: 203, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.stop_bits, label: 'Port 1: Stop Bit', table: holding, address: 204, type: u16, enum: stop_bits, writable: true, poll: slow}
+  - {key: x.parity, label: 'Port 1: Parity', table: holding, address: 205, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: x.tcp_port, label: 'Port 1: TCP Port', table: holding, address: 207, type: u16, writable: true, poll: slow}
+  - {key: x.counter_n1_parameter, label: Energy Counter n1 Parameter, table: holding, address: 421, type: u16, enum: counter_parameter, writable: true, poll: slow}
+  - {key: x.counter_n1_configuration, label: Energy Counter n1 Configuration, table: holding, address: 422, type: u16, flags: counter_configuration, writable: true, poll: slow}
+  - {key: x.counter_n3_parameter, label: Energy Counter n3 Parameter, table: holding, address: 429, type: u16, enum: counter_parameter, writable: true, poll: slow}
+  - {key: x.counter_n3_configuration, label: Energy Counter n3 Configuration, table: holding, address: 430, type: u16, flags: counter_configuration, writable: true, poll: slow}
+  - {key: x.counter_c1, label: Counter C1, table: input, address: 470, type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c1_470, label: Counter C1, table: input, address: 470, type: u32, unit: kWh, scale: 0.0001, models: [modbus_local_gateway_7m38], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c2, label: Counter C2, table: input, address: 472, type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c2_472, label: Counter C2, table: input, address: 472, type: u32, unit: kWh, scale: 0.0001, models: [modbus_local_gateway_7m38], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c3, label: Counter C3, table: input, address: 474, type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c3_474, label: Counter C3, table: input, address: 474, type: u32, unit: kWh, scale: 0.0001, models: [modbus_local_gateway_7m38], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c4, label: Counter C4, table: input, address: 476, type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c4_476, label: Counter C4, table: input, address: 476, type: u32, unit: kWh, scale: 0.0001, models: [modbus_local_gateway_7m38], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c5, label: Counter C5, table: input, address: 478, type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c5_478, label: Counter C5, table: input, address: 478, type: u32, unit: kWh, scale: 0.0001, models: [modbus_local_gateway_7m38], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c6, label: Counter C6, table: input, address: 480, type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c6_480, label: Counter C6, table: input, address: 480, type: u32, unit: kWh, scale: 0.0001, models: [modbus_local_gateway_7m38], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c7, label: Counter C7, table: input, address: 482, type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c7_482, label: Counter C7, table: input, address: 482, type: u32, unit: kWh, scale: 0.0001, models: [modbus_local_gateway_7m38], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c8, label: Counter C8, table: input, address: 484, type: u32, unit: kWh, scale: 0.001, models: [modbus_local_gateway_7m24], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.counter_c8_484, label: Counter C8, table: input, address: 484, type: u32, unit: kWh, scale: 0.0001, models: [modbus_local_gateway_7m38], verified: false, sources: [modbus-local-gateway]}
+  - {key: x.l2_voltage_2502, label: L2 Voltage, table: input, address: 2502, type: f32, unit: V, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.l3_voltage_2504, label: L3 Voltage, table: input, address: 2504, type: f32, unit: V, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.l2_current_2518, label: L2 Current, table: input, address: 2518, type: f32, unit: A, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.l3_current_2520, label: L3 Current, table: input, address: 2520, type: f32, unit: A, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.power_l2, label: L2 Power, table: input, address: 2532, type: f32, unit: W, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.power_l3, label: L3 Power, table: input, address: 2534, type: f32, unit: W, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.reactive_power_l2, label: L2 Reactive Power, table: input, address: 2540, type: f32, unit: var, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.reactive_power_l3, label: L3 Reactive Power, table: input, address: 2542, type: f32, unit: var, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.apparent_power_l2, label: L2 Apparent Power, table: input, address: 2548, type: f32, unit: VA, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.apparent_power_l3, label: L3 Apparent Power, table: input, address: 2550, type: f32, unit: VA, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.cosphi_l2, label: L2 Cosphi, table: input, address: 2556, type: f32, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.cosphi_l3, label: L3 Cosphi, table: input, address: 2558, type: f32, models: [mbmd_7m38, modbus_local_gateway_7m38], verified: false, sources: [mbmd, modbus-local-gateway]}
+  - {key: x.frequency, label: Frequency, table: input, address: 2584, type: f32, unit: Hz, verified: false, sources: [mbmd]}
+  - {key: x.thd_l2, label: L2 Voltage to neutral THD, table: input, address: 2596, type: f32, unit: '%', models: [mbmd_7m38], verified: false, sources: [mbmd]}
+  - {key: x.thd_l3, label: L3 Voltage to neutral THD, table: input, address: 2598, type: f32, unit: '%', models: [mbmd_7m38], verified: false, sources: [mbmd]}
+
+enums:
+  mid_lock: {'0': Unlocked, '1': Locked}
+  connection_mode: {'0': No mode, '1': 1b - single phase, '2': 3b - 3 phase 3 wire balanced, '3': 4b - 3 phase 4 wire balanced, '4': 3u - 3 phase 3 wire unbalanced, '5': 4u - 3 phase 4 wire unbalanced}
+  baud_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200', '5': '38400', '6': '57600', '7': '115200'}
+  stop_bits: {'0': '1', '1': '2'}
+  parity: {'0': None, '1': Odd, '2': Even}
+  counter_parameter: {'0': No parameter, '1': Active power, '2': Reactive power, '3': Apparent power, '5': Active power phase 1, '6': Reactive power phase 1, '7': Apparent power phase 1}
+
+flags:
+  status: {'0': Locked, '4': Clock not set}
+  phase_invalid: {'0': Invalid measurement phase 1, '1': Invalid measurement phase 2, '2': Invalid measurement phase 3}
+  checksum_status: {'0': Parameter CRC error, '1': Firmware CRC error, '2': MID lock error, '3': Phase module 1 checksum error, '4': Phase module 2 checksum error, '5': Phase module 3 checksum error, '6': Measurement module checksum error, '7': Software checksum error, '8': Calibration data checksum error, '9': MID setting data checksum error, '10': Setting data checksum error, '11': Phase module 1 calibration data checksum error, '12': Phase module 2 calibration data checksum error, '13': Phase module 3 calibration data checksum error}
+  counter_configuration: {'0': Quadrant I enabled, '1': Quadrant II enabled, '2': Quadrant III enabled, '3': Quadrant IV enabled, '4': Absolute value, '5': Invert value}
+
+problems:
+  - {when: {key: x.checksum_status, not: 0}, kind: fault, text: 'Meter checksum error (status 0x{value:X})'}
+  - {when: {key: x.phase_invalid, bit: 0}, kind: warning, text: Invalid measurement on phase 1 (bit 0)}
+  - {when: {key: x.phase_invalid, bit: 1}, kind: warning, text: Invalid measurement on phase 2 (bit 1)}
+  - {when: {key: x.phase_invalid, bit: 2}, kind: warning, text: Invalid measurement on phase 3 (bit 2)}
+  - {when: {key: x.status, bit: 4}, kind: warning, text: Clock not set (bit 4)}
+
+notes:
+- The document gives registers as 30000 + address (input, function 04) and 40000 + address (holding, function 03); its example
+  reads 30107 at address 107. Addresses here have the 30000 / 40000 taken off.
+- 'Only the IEEE 754 float copies of the measurements are listed (32480 ff.). The integer copies at 30105 ff. use the meter''s
+  own formats (a decimal exponent in the top byte with a 24-bit value; a power factor with separate import/export and inductive/capacitive
+  sign bytes) that this format can''t express; so do the energy counters at 30406 ff. (mantissa × 10^exponent register). Average,
+  maximum and minimum interval values (35500 ff.), the configurable energy counters 1–8 (7M.38: 1–16), nominal values, alarm
+  limits, logic functions, outputs and LCD settings are left out.'
+- Energy counters n1 … n4 are configurable (quantity, quadrants, absolute value, inversion, tariffs); the document gives n1
+  and n3 in Wh and n2 and n4 in varh but not the factory assignment.
+- 'The models can''t be told apart from the registers the document describes (the model number text values aren''t given):
+  pick the model. The 7M.38 has three phases, connection mode, three I/Os and Ethernet / WiFi; the 7M.24 is single phase.'
+- 'Interfaces by order code: RS485, M-bus, Ethernet or WiFi (input register 24 gives the communication type). Default address,
+  baud rate and TCP port are not stated; 1, 9600 8N1 and 502 are assumed.'
+- The measurement registers refresh once per second, the energy counters every 40 ms. The meter reports how many registers
+  it reads at once in input register 99.
+- '7M.24: mbmd (type code FIND7M24) detects the meter by reading Voltage (input register 2500, f32); its bus scan accepts
+  a value within 10% of 110 or 230 V.'
+- '7M.38: mbmd (type code FIND7M38) detects the meter by reading L1 Voltage (input register 2500, f32); its bus scan accepts
+  a value within 10% of 110 or 230 V.'
+- Identification as mbmd recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

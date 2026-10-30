@@ -1,0 +1,555 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DuNext PowerMount-P960-2007kWh Series Modbus Interface Definitions (issue 02, 2026-04-08).
+# The PowerMount-P960-2250kWh Series document (issue 01, 2026-04-08) has the same register map word for word, and so
+# have chapters 3–6 of the PowerMount-P960-2250kWh Local EMS document (issue 03, 2026-04-17).
+
+modbusspec: 0
+id: dunext-powermount
+manufacturer: DuNext
+name: PowerMount P960 battery storage cabinet (ESS controller PUC)
+kind: battery
+
+sources:
+- title: PowerMount-P960-2007kWh Series Modbus Interface Definitions
+  version: 02 (2026-04-08)
+  url: https://artsani-energy.ro/wp-content/uploads/2026/08/dunext-powermount-modbus-2-mwh.pdf
+  sha256: 76f0e896815efa4a38b69a82c22925e10c28b487882edf41ac1b290aed78afb0
+- title: PowerMount-P960-2250kWh Series Modbus Interface Definitions
+  version: 01 (2026-04-08)
+  url: https://artsani-energy.ro/wp-content/uploads/2026/08/dunext-powermount-modbus-2-25-mwh.pdf
+  sha256: 9508af24cbe7533cad8921fcab601ea916769e3ee2759826f55a3a3289f84fd9
+- title: PowerMount-P960-2250kWh Series Local EMS Modbus Interface Definitions
+  version: 03 (2026-04-17)
+  url: https://artsani-energy.ro/wp-content/uploads/2026/08/dunext-ems-modbus.pdf
+  sha256: d21ed70022177ceb5f2a440fee3d60a79bb3527cd787685e0e9b9ce59c655011
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # working status
+  - table: holding
+    address: 300
+    type: u16
+    in:
+    - 1
+    - 2
+    - 3
+  # working mode
+  - table: holding
+    address: 301
+    type: u16
+    in:
+    - 1
+    - 2
+    - 3
+    - 11
+  # PCS summary status
+  - table: holding
+    address: 371
+    type: u16
+    in:
+    - 1
+    - 2
+    - 3
+  # BMS summary status
+  - table: holding
+    address: 377
+    type: u16
+    in:
+    - 1
+    - 2
+    - 3
+
+points:
+  # PUC summary data (300 ff.)
+  - {key: state, label: Working status, table: holding, address: 300, type: u16, enum: stop_run_fault}
+  - {key: x.working_mode, label: Working mode, table: holding, address: 301, type: u16, enum: working_mode}
+  - {key: x.max_discharge_power, label: Allowable discharge active power limit, table: holding, address: 302, type: s16, unit: kW, scale: 0.1}
+  - {key: x.max_charge_power, label: Allowable charging active power limit, table: holding, address: 303, type: s16, unit: kW, scale: 0.1}
+  - {key: x.grid_voltage, label: System grid voltage, table: holding, address: 304, type: u16, unit: V, scale: 0.1}
+  - {key: grid_power, label: System grid active power, table: holding, address: 305, type: s16, unit: W, scale: 100, positive: export, verified: false, note: kW × 0.1 in the document. Sign not stated in the document; assumed + = export.}
+  - {key: x.load_voltage, label: Load voltage, table: holding, address: 306, type: s16, unit: V, scale: 0.1}
+  - {key: load_power, label: Load active power, table: holding, address: 307, type: u16, unit: W, scale: 100, note: kW × 0.1 in the document.}
+  - {key: pv_power, label: MPPT total power, table: holding, address: 308, type: u16, unit: W, scale: 100, note: kW × 0.1 in the document.}
+  - {key: grid_import_energy, label: Grid input active energy, table: holding, address: 319, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_export_energy, label: Grid output active energy, table: holding, address: 321, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.load_energy, label: Load output active energy, table: holding, address: 323, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: pv_energy, label: PV input active energy, table: holding, address: 325, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.io_input, label: IO input, table: holding, address: 338, type: u16, flags: io_input}
+  - {key: x.io_output, label: IO output, table: holding, address: 339, type: u16, flags: io_output}
+  - {key: x.alarm_0, label: Alarm 0, table: holding, address: 340, type: u16, flags: alarm_0}
+  - {key: x.alarm_1, label: Alarm 1, table: holding, address: 341, type: u16, flags: alarm_1, note: 'Bits 0–3 tell whether the battery cabinets (BC), ACDC, DCDC and MPPT units are available; a unit that has failed is unavailable.'}
+  - {key: x.fault_0, label: Fault 0, table: holding, address: 342, type: u16, flags: fault_0, note: The smoke sensor fault is reported when both smoke sensors are triggered.}
+  - {key: x.fault_1, label: Fault 1, table: holding, address: 343, type: u16, flags: fault_1}
+  - {key: x.alarm_2, label: Alarm 2, table: holding, address: 344, type: u16, flags: alarm_2}
+  - {key: x.io2_input, label: IO2 input, table: holding, address: 345, type: u16, flags: io2_input}
+  - {key: x.alarm_3, label: Alarm 3, table: holding, address: 346, type: u16, flags: alarm_3}
+  - {key: x.ac_software_version, label: AC software version, table: holding, address: 355, type: u16, poll: slow}
+  - {key: x.iot_software_version, label: IOT software version, table: holding, address: 360, type: u16, poll: slow}
+  - {key: x.pmc_software_version, label: PMC software version, table: holding, address: 362, type: u16, poll: slow}
+  - {key: x.hmi_software_version, label: HMI software version, table: holding, address: 364, type: u16, poll: slow}
+  - {key: x.clock, label: Date and time, table: holding, address: 365, type: datetime, length: 6, datetime: {year: {register: 0}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, poll: slow, verified: false, note: 'One register each for year, month, day, hour, minute and second. Whether the year is the full year (2026) isn''t stated; assumed.'}
+  - {key: x.pcs_status, label: Summary of PCS status, table: holding, address: 371, type: u16, enum: stop_run_fault_short}
+  - {key: x.pcs_ac_power, label: Summary of PCS AC active power, table: holding, address: 372, type: s16, unit: kW, scale: 0.1, verified: false, note: 'Sign not stated; presumably + = discharging, as the active power control register (702).'}
+  - {key: x.pcs_ac_current, label: Summary of PCS AC current, table: holding, address: 373, type: s16, unit: A, scale: 0.1}
+  - {key: l1_voltage, label: Summary of PCS AC phase A voltage, table: holding, address: 374, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Summary of PCS AC phase B voltage, table: holding, address: 375, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Summary of PCS AC phase C voltage, table: holding, address: 376, type: u16, unit: V, scale: 0.1}
+  - {key: x.bms_status, label: Summary of BMS status, table: holding, address: 377, type: u16, enum: stop_run_fault_short}
+  - {key: battery_voltage, label: Summary of BMS pack voltage, table: holding, address: 378, type: u16, unit: V, scale: 0.1}
+  - {key: battery_current, label: Summary of BMS pack current, table: holding, address: 379, type: s16, unit: A, scale: 0.1, positive: discharge, verified: false, note: 'Sign not stated in the document; assumed + = discharging, as the active power control register (702).'}
+  - {key: battery_soc, label: Summary of BMS pack SOC, table: holding, address: 380, type: u16, unit: '%', note: The document gives no unit; percent assumed.}
+  - {key: battery_soh, label: Summary of BMS pack SOH, table: holding, address: 381, type: u16, unit: '%'}
+  - {key: x.dcdc_status, label: Summary of DCDC status, table: holding, address: 382, type: u16, enum: stop_run_fault_short}
+  - {key: x.dcdc_high_voltage, label: Summary of DCDC high-voltage side voltage, table: holding, address: 383, type: u16, unit: V, scale: 0.1}
+  - {key: x.dcdc_high_current, label: Summary of DCDC high-voltage side current, table: holding, address: 384, type: s16, unit: A, scale: 0.1}
+  - {key: x.dcdc_high_power, label: Summary of DCDC high-voltage side power, table: holding, address: 385, type: s16, unit: kW, scale: 0.1}
+  - {key: x.dcdc_low_voltage, label: Summary of DCDC low-voltage side voltage, table: holding, address: 386, type: u16, unit: V, scale: 0.1}
+  - {key: x.dcdc_low_current, label: Summary of DCDC low-voltage side current, table: holding, address: 387, type: s16, unit: A, scale: 0.1}
+  - {key: x.dcdc_low_power, label: Summary of DCDC low-voltage side power, table: holding, address: 388, type: s16, unit: kW, scale: 0.1}
+  - {key: x.mppt_status, label: Summary of MPPT status, table: holding, address: 389, type: u16, enum: stop_run_fault_short}
+  - {key: x.mppt_high_voltage, label: Summary of MPPT high-voltage side voltage, table: holding, address: 390, type: u16, unit: V, scale: 0.1}
+  - {key: x.mppt_high_current, label: Summary of MPPT high-voltage side current, table: holding, address: 391, type: s16, unit: A, scale: 0.1}
+  - {key: x.mppt_high_power, label: Summary of MPPT high-voltage side power, table: holding, address: 392, type: s16, unit: kW, scale: 0.1}
+  - {key: x.mppt_low_voltage, label: Summary of MPPT low-voltage side voltage, table: holding, address: 393, type: u16, unit: V, scale: 0.1}
+  - {key: x.mppt_low_current, label: Summary of MPPT low-voltage side current, table: holding, address: 394, type: s16, unit: A, scale: 0.1}
+  - {key: x.mppt_low_power, label: Summary of MPPT low-voltage side power, table: holding, address: 395, type: s16, unit: kW, scale: 0.1}
+  - {key: temperature, label: Summary of maximum IGBT temperature, table: holding, address: 406, type: u16, unit: °C, scale: 0.1}
+  - {key: x.min_igbt_temperature, label: Summary of minimum IGBT temperature, table: holding, address: 407, type: u16, unit: °C, scale: 0.1}
+  - {key: x.soc_calibration_flag, label: SOC verification flag, table: holding, address: 427, type: u16, enum: soc_calibration}
+  - {key: battery_power, label: Total DC power of battery cabinet, table: holding, address: 428, type: s16, unit: W, scale: 100, positive: discharge, verified: false, note: 'kW × 0.1 in the document. Sign not stated in the document; assumed + = discharging, as the active power control register (702).'}
+  - {key: x.max_cell_voltage_cluster, label: Cluster number with highest cell voltage, table: holding, address: 430, type: s16}
+  - {key: x.max_cell_voltage_cabinet, label: Battery cabinet number with highest cell voltage, table: holding, address: 431, type: s16}
+  - {key: x.max_cell_voltage, label: System highest cell voltage, table: holding, address: 432, type: u16, unit: V, scale: 0.001}
+  - {key: x.min_cell_voltage_cluster, label: Cluster number with lowest cell voltage, table: holding, address: 433, type: u16}
+  - {key: x.min_cell_voltage_cabinet, label: Battery cabinet number with lowest cell voltage, table: holding, address: 434, type: u16}
+  - {key: x.min_cell_voltage, label: System lowest cell voltage, table: holding, address: 435, type: u16, unit: V, scale: 0.001}
+  - {key: x.max_cell_temperature, label: System highest cell temperature, table: holding, address: 438, type: u16, unit: °C, offset: -40}
+  - {key: x.min_cell_temperature, label: System lowest cell temperature, table: holding, address: 441, type: u16, unit: °C, offset: -40}
+  - {key: x.bc1_status, label: BC1 working status, table: holding, address: 500, type: u16, enum: bc_status, note: Battery cabinets 1–20 at 500–519; only the first is listed here.}
+  - {key: x.acdc1_status, label: ACDC1 working status, table: holding, address: 520, type: u16, enum: acdc_status, note: ACDC units 1–20 at 520–539; only the first is listed here.}
+  - {key: x.dcdc1_status, label: DCDC1 working status, table: holding, address: 540, type: u16, enum: dcdc_status, note: DCDC units 1–20 at 540–559; only the first is listed here.}
+  - {key: x.mppt1_status, label: MPPT1 working status, table: holding, address: 560, type: u16, enum: dcdc_status, note: MPPT units 1–20 at 560–579; only the first is listed here. Same value table as the DCDC units.}
+  - {key: x.pmc_status, label: PMC status, table: holding, address: 580, type: u16, enum: pmc_status}
+  # PUC control (700 ff.)
+  - {key: x.start_stop, label: Start/stop control, table: holding, address: 700, type: u16, enum: start_stop, writable: true, poll: slow}
+  - {key: x.active_power_setpoint, label: Active power control, table: holding, address: 702, type: s16, unit: kW, scale: 0.1, writable: true, poll: slow, note: '− = battery charging, + = discharging.'}
+  - {key: x.clear_fault, label: Clear fault, table: holding, address: 704, type: u16, writable: true, poll: slow, note: 1 = clear.}
+  - {key: x.fan_start_temperature, label: Electrical cabinet fan start temperature, table: holding, address: 705, type: u16, unit: °C, writable: true, min: 40, max: 60, poll: slow, note: Default 47 °C.}
+  - {key: x.fan_stop_temperature, label: Electrical cabinet fan stop temperature, table: holding, address: 706, type: u16, unit: °C, writable: true, min: 20, max: 40, poll: slow, note: Default 40 °C.}
+  - {key: x.control_right, label: Control right, table: holding, address: 715, type: u16, enum: control_right, writable: true, poll: slow}
+  # BMS 1 (15000 ff.)
+  - {key: x.bms1_state, label: BMS operating status, table: holding, address: 15000, type: u16, enum: stop_run_fault, note: 'BMS n at 15000 + 1000 × (n − 1), up to 20; only the first is listed here.'}
+  - {key: x.bms1_max_discharge_power, label: Allowable discharge power limit, table: holding, address: 15001, type: u16, unit: kW, scale: 0.1}
+  - {key: x.bms1_max_charge_power, label: Allow charging power limit, table: holding, address: 15002, type: u16, unit: kW, scale: 0.1}
+  - {key: x.bms1_cabinet_humidity, label: Battery cabinet humidity, table: holding, address: 15008, type: u16, unit: '%', scale: 0.1}
+  - {key: x.bms1_cabinet_temperature, label: Battery cabinet temperature, table: holding, address: 15009, type: u16, unit: °C, scale: 0.1}
+  - {key: x.bms1_io_status, label: IO status, table: holding, address: 15015, type: u16, flags: bms_io_status}
+  - {key: x.bms1_system_alarm_0, label: System alarm 0, table: holding, address: 15016, type: u16, flags: bms_system_alarm_0}
+  - {key: x.bms1_system_alarm_1, label: System alarm 1, table: holding, address: 15017, type: u16, flags: bms_system_alarm_1}
+  - {key: x.bms1_system_fault_0, label: System fault 0, table: holding, address: 15018, type: u16, flags: bms_system_fault_0}
+  - {key: x.bms1_system_fault_1, label: System fault 1, table: holding, address: 15019, type: u16, flags: bms_system_fault_1}
+  - {key: x.bms1_air_conditioner_1, label: Air conditioner 1 status, table: holding, address: 15020, type: u16, enum: air_conditioner}
+  - {key: x.bms1_air_conditioner_2, label: Air conditioner 2 status, table: holding, address: 15021, type: u16, enum: air_conditioner}
+  - {key: x.bms1_software_version, label: BC software version number, table: holding, address: 15033, type: u16, poll: slow}
+  - {key: x.bms1_pack_status, label: Battery pack status, table: holding, address: 15040, type: u16, enum: stop_run_fault_short}
+  - {key: x.bms1_pack_voltage, label: Total battery pack voltage, table: holding, address: 15041, type: u16, unit: V, scale: 0.1}
+  - {key: x.bms1_pack_current, label: Battery pack current, table: holding, address: 15042, type: u16, unit: A, scale: 0.1, offset: -3000, verified: false, note: '−3000…3000 A, raw offset by 3000 A. Which direction is positive isn''t stated.'}
+  - {key: x.bms1_pack_soc, label: Battery pack SOC, table: holding, address: 15043, type: u16, unit: '%'}
+  - {key: x.bms1_pack_soh, label: Battery pack SOH, table: holding, address: 15044, type: u16, unit: '%'}
+  - {key: x.bms1_max_charge_current, label: Maximum charging current, table: holding, address: 15045, type: u16, unit: A, scale: 0.1, offset: -3000}
+  - {key: x.bms1_max_discharge_current, label: Maximum discharge current, table: holding, address: 15046, type: u16, unit: A, scale: 0.1, offset: -3000}
+  - {key: x.bms1_do_status, label: DO status, table: holding, address: 15047, type: u16, flags: bms_do_status}
+  - {key: x.bms1_di_status, label: DI status, table: holding, address: 15048, type: u16, flags: bms_di_status}
+  - {key: x.bms1_max_cell_voltage, label: Highest cell voltage, table: holding, address: 15049, type: u16, unit: V, scale: 0.001}
+  - {key: x.bms1_min_cell_voltage, label: Lowest cell voltage, table: holding, address: 15050, type: u16, unit: V, scale: 0.001}
+  - {key: x.bms1_max_cell_voltage_number, label: Battery cell number with highest voltage, table: holding, address: 15051, type: u16}
+  - {key: x.bms1_min_cell_voltage_number, label: Battery cell number with lowest voltage, table: holding, address: 15052, type: u16}
+  - {key: x.bms1_max_cell_temperature, label: Highest cell temperature, table: holding, address: 15053, type: u16, unit: °C, offset: -40}
+  - {key: x.bms1_min_cell_temperature, label: Lowest cell temperature, table: holding, address: 15054, type: u16, unit: °C, offset: -40}
+  - {key: x.bms1_charge_forbidden, label: High voltage charge forbidden flag, table: holding, address: 15057, type: u16, enum: charge_forbidden}
+  - {key: x.bms1_discharge_forbidden, label: Low voltage discharge forbidden flag, table: holding, address: 15058, type: u16, enum: discharge_forbidden}
+  - {key: x.bms1_pack_alarm_0, label: Battery pack alarm 0, table: holding, address: 15059, type: u16, flags: pack_alarm_0}
+  - {key: x.bms1_pack_alarm_1, label: Battery pack alarm 1, table: holding, address: 15060, type: u16, note: The bit meanings aren't given.}
+  - {key: x.bms1_pack_fault_0, label: Battery pack fault 0, table: holding, address: 15061, type: u16, flags: pack_fault_0}
+  - {key: x.bms1_pack_fault_1, label: Battery pack fault 1, table: holding, address: 15062, type: u16, flags: pack_fault_1}
+  - {key: x.bms1_cycles, label: Number of cycles, table: holding, address: 15063, type: u16, poll: slow}
+  - {key: x.bms1_pack_software_version, label: Software version, table: holding, address: 15064, type: u16, poll: slow}
+  - {key: x.bms1_soc_precise, label: High precision SOC, table: holding, address: 15065, type: u16, unit: '%', scale: 0.1}
+  - {key: x.bms1_cell_voltage_difference, label: Differential voltage, table: holding, address: 15066, type: u16, unit: V, scale: 0.001}
+  - {key: x.bms1_dc_power, label: DC power, table: holding, address: 15067, type: u16, unit: kW, scale: 0.1, note: 'Unsigned in the document, so it carries no direction.'}
+  - {key: x.bms1_average_temperature, label: Average temperature, table: holding, address: 15068, type: u16, unit: °C, verified: false, note: 'The document gives no unit; °C assumed, scale 1, no offset.'}
+  # PCS 1 (4000 ff.)
+  - {key: x.pcs1_l1_voltage, label: AC phase A voltage, table: holding, address: 4000, type: u16, unit: V, scale: 0.1, note: 'PCS n at 4000 + 100 × (n − 1), up to 20; only the first is listed here.'}
+  - {key: x.pcs1_l2_voltage, label: AC phase B voltage, table: holding, address: 4001, type: u16, unit: V, scale: 0.1}
+  - {key: x.pcs1_l3_voltage, label: AC phase C voltage, table: holding, address: 4002, type: u16, unit: V, scale: 0.1}
+  - {key: x.pcs1_l1_current, label: AC phase A current, table: holding, address: 4003, type: s16, unit: A, scale: 0.1}
+  - {key: x.pcs1_l2_current, label: AC phase B current, table: holding, address: 4004, type: s16, unit: A, scale: 0.1}
+  - {key: x.pcs1_l3_current, label: AC phase C current, table: holding, address: 4005, type: s16, unit: A, scale: 0.1}
+  - {key: x.pcs1_active_power, label: AC active power, table: holding, address: 4006, type: s16, unit: kW, scale: 0.1, verified: false, note: 'Sign not stated; presumably + = discharging, as the active power control register (702).'}
+  - {key: x.pcs1_reactive_power, label: AC reactive power, table: holding, address: 4007, type: s16, unit: kvar, scale: 0.1, verified: false, note: 'The document''s unit column is shifted by one row for 4007–4010 (kW, kvar, kVA, Hz); the units here follow the names.'}
+  - {key: x.pcs1_apparent_power, label: AC apparent power, table: holding, address: 4008, type: s16, unit: kVA, scale: 0.1, verified: false}
+  - {key: frequency, label: AC frequency, table: holding, address: 4009, type: u16, unit: Hz, scale: 0.01, verified: false, note: PCS 1.}
+  - {key: x.pcs1_power_factor, label: Power factor, table: holding, address: 4010, type: s16, scale: 0.001, verified: false}
+  - {key: x.pcs1_dc_voltage, label: DC port voltage, table: holding, address: 4011, type: u16, unit: V, scale: 0.1}
+  - {key: x.pcs1_dc_current, label: DC port current, table: holding, address: 4012, type: s16, unit: A, scale: 0.1, verified: false, note: Sign not stated.}
+  - {key: x.pcs1_dc_power, label: DC port power, table: holding, address: 4013, type: s16, unit: kW, scale: 0.1, verified: false, note: Sign not stated.}
+  - {key: x.pcs1_igbt1_temperature, label: Module IGBT1 temperature, table: holding, address: 4014, type: s16, unit: °C, scale: 0.1, note: IGBT2–6 at 4015–4019.}
+  - {key: x.pcs1_inlet_temperature, label: Module air inlet temperature, table: holding, address: 4020, type: s16, unit: °C, scale: 0.1}
+  - {key: x.pcs1_outlet_temperature, label: Module air outlet temperature, table: holding, address: 4021, type: s16, unit: °C, scale: 0.1}
+  - {key: x.pcs1_l1_power, label: AC phase A active power, table: holding, address: 4022, type: s16, unit: kW, scale: 0.1, verified: false}
+  - {key: x.pcs1_l2_power, label: AC phase B active power, table: holding, address: 4023, type: s16, unit: kW, scale: 0.1, verified: false}
+  - {key: x.pcs1_l3_power, label: AC phase C active power, table: holding, address: 4024, type: s16, unit: kW, scale: 0.1, verified: false}
+  - {key: x.pcs1_bus_voltage, label: DC bus voltage, table: holding, address: 4025, type: u16, unit: V, scale: 0.1}
+  - {key: x.pcs1_status_word, label: Device operating status word, table: holding, address: 4026, type: u16}
+  - {key: x.pcs1_power_on, label: Power on (status word bit 0), table: holding, address: 4026, type: u16, bits: [0, 0], enum: off_on}
+  - {key: x.pcs1_working_status, label: Working status (status word bits 1–3), table: holding, address: 4026, type: u16, bits: [1, 3], enum: pcs_working_status}
+  - {key: x.pcs1_charge_status, label: Charge and discharge status (status word bits 4–5), table: holding, address: 4026, type: u16, bits: [4, 5], enum: pcs_charge_status}
+  - {key: x.pcs1_derating, label: Power derating status (status word bits 6–8), table: holding, address: 4026, type: u16, bits: [6, 8], enum: pcs_derating}
+  - {key: x.pcs1_master, label: Master (status word bit 9), table: holding, address: 4026, type: u16, bits: [9, 9], enum: slave_master}
+  - {key: x.pcs1_faulty, label: Fault (status word bit 10), table: holding, address: 4026, type: u16, bits: [10, 10], enum: no_fault_fault}
+  - {key: x.pcs1_fault_1, label: System comprehensive fault word (fault 1), table: holding, address: 4027, type: u16, flags: pcs_fault_1}
+  - {key: x.pcs1_fault_2, label: System environment fault word (fault 2), table: holding, address: 4028, type: u16, flags: pcs_fault_2}
+  - {key: x.pcs1_fault_3, label: System hardware fault word (fault 3), table: holding, address: 4029, type: u16, flags: pcs_fault_3}
+  - {key: x.pcs1_fault_4, label: System temperature fault word (fault 4), table: holding, address: 4030, type: u16, flags: pcs_fault_4}
+  - {key: x.pcs1_software_version, label: Software version number, table: holding, address: 4031, type: u32, poll: slow, note: High and low register.}
+  - {key: x.pcs1_hardware_version, label: Hardware version number, table: holding, address: 4033, type: u32, poll: slow, note: High and low register.}
+  - {key: x.pcs1_fault_5, label: Fault 5, table: holding, address: 4043, type: u16, flags: pcs_fault_5}
+  - {key: x.pcs1_fault_6, label: Fault 6, table: holding, address: 4044, type: u16, flags: pcs_fault_6}
+  - {key: x.pcs1_fault_7, label: Fault 7, table: holding, address: 4045, type: u16, flags: pcs_fault_7}
+  - {key: x.pcs1_fault_8, label: Fault 8, table: holding, address: 4046, type: u16, flags: pcs_fault_8}
+  - {key: x.pcs1_fault_9, label: Fault 9, table: holding, address: 4047, type: u16, flags: pcs_fault_9}
+  - {key: x.pcs1_fault_10, label: Fault 10, table: holding, address: 4048, type: u16, flags: pcs_fault_10}
+  - {key: x.pcs1_ac_charge_energy, label: Cumulative AC charging energy, table: holding, address: 4049, type: u32, unit: kWh, poll: slow}
+  - {key: x.pcs1_ac_discharge_energy, label: Cumulative AC discharging energy, table: holding, address: 4051, type: u32, unit: kWh, poll: slow}
+
+enums:
+  stop_run_fault: {'1': Shutdown, '2': Running, '3': Fault}
+  stop_run_fault_short: {'1': Stop, '2': Running, '3': Fault}
+  working_mode: {'1': Grid-connected, '2': Off-grid, '3': Grid-connected and off-grid, '11': Debugging}
+  soc_calibration: {'0': Normal, '1': Needs a full charge and discharge}
+  bc_status: {'1': Stop, '2': Running, '3': Fault, '5': Communication interrupted}
+  acdc_status: {'1': Shutdown, '2': On-grid, '3': Off-grid, '4': Fault, '5': Communication interrupted}
+  dcdc_status: {'1': Stop, '2': Running, '3': Fault, '4': Soft start, '5': Communication interrupted}
+  pmc_status: {'1': Stop, '2': Running, '3': Fault, '4': Communication interrupted}
+  start_stop: {'2': Stop, '6': Run}
+  control_right: {'0': IOT control (RS485-2), '1': Client control (RS485-1), '2': HMI control (CAN2)}
+  air_conditioner: {'1': Shutdown, '2': Power on, '3': Fault}
+  charge_forbidden: {'0': Normal, '1': Charge forbidden}
+  discharge_forbidden: {'0': Normal, '1': Discharge forbidden}
+  off_on: {'0': 'Off', '1': 'On'}
+  pcs_working_status: {'1': Shutdown, '2': Self-test, '3': Grid-connected operation, '4': Off-grid operation, '5': Standby}
+  pcs_charge_status: {'0': Standby, '1': Charging, '2': Discharging}
+  pcs_derating: {'0': No derating, '1': Temperature derating, '2': Derating for low AC voltage, '3': Derating for high DC voltage}
+  slave_master: {'0': Slave, '1': Master}
+  no_fault_fault: {'0': No fault, '1': Fault}
+
+flags:
+  io_input: {'0': Smoke sensor 1, '1': Smoke sensor 2, '2': Fan, '3': Lightning protection 1, '4': Lightning protection 2, '5': Emergency stop, '6': AC circuit breaker, '9': Access control}
+  io_output: {'0': Operating light, '1': Warning light, '2': Fault light, '3': Fan, '4': Audible and visual alarm, '5': Alarm, '6': Fire alarm signal}
+  alarm_0: {'0': Fan abnormal, '1': Meter communication interrupted, '2': RS485 communication interrupted, '3': Access control triggered, '5': PMC communication interrupted, '8': HMI communication interrupted, '11': ASS communication interrupted, '14': IO controller 1 communication interrupted, '15': IO controller 2 communication interrupted}
+  alarm_1: {'0': BC available, '1': ACDC available, '2': DCDC available, '3': MPPT available, '4': All ACDC failed, '5': All MPPT failed, '6': Smoke sensor 1, '7': Smoke sensor 2, '8': AC circuit breaker open, '9': Lightning protection 1, '10': Lightning protection 2}
+  fault_0: {'0': Emergency stop, '1': Repeated start-up failure, '2': Smoke sensor fault}
+  fault_1: {'0': All BC failed, '2': All DCDC failed}
+  alarm_2: {'0': Battery cabinet 1 large voltage difference, '1': Battery cabinet 2 large voltage difference, '2': Battery cabinet 3 large voltage difference, '3': Battery cabinet 4 large voltage difference, '4': Battery cabinet 5 large voltage difference, '5': Battery cabinet 6 large voltage difference, '6': Battery cabinet 7 large voltage difference, '7': Battery cabinet 8 large voltage difference, '8': Battery cabinet 9 large voltage difference, '9': Battery cabinet 10 large voltage difference}
+  io2_input: {'0': PV1 circuit breaker, '1': PV2 circuit breaker, '2': PV3 circuit breaker, '3': PV4 circuit breaker, '4': PV5 circuit breaker, '5': PV6 circuit breaker, '6': PV7 circuit breaker, '7': PV8 circuit breaker, '8': PV9 circuit breaker, '9': PV10 circuit breaker}
+  alarm_3: {'0': PV1 lightning protection, '1': PV2 lightning protection, '2': PV3 lightning protection, '3': PV4 lightning protection, '4': PV5 lightning protection, '5': PV6 lightning protection, '6': PV7 lightning protection, '7': PV8 lightning protection, '8': PV9 lightning protection, '9': PV10 lightning protection}
+  bms_io_status: {'0': Exhaust valve 1, '1': Exhaust valve 2, '6': Smoke sensor 1, '7': Smoke sensor 2, '8': Fire extinguishing agent released, '9': Water immersion, '10': Emergency stop signal, '11': Trip signal, '15': External emergency signal}
+  bms_system_alarm_0: {'2': Air conditioner communication interrupted, '8': RS485 slave communication interrupted, '11': CAN2 communication interrupted, '12': Air conditioner 2 communication interrupted, '13': IO controller communication interrupted, '14': Combustible gas detector communication interrupted}
+  bms_system_alarm_1: {'0': Access control triggered, '1': Fire sprinkler feedback, '2': Combustible gas alarm}
+  bms_system_fault_0: {'3': Smoke sensor 1 triggered, '4': Smoke sensor 2 triggered, '6': Water immersion triggered, '7': Trip / EPO, '8': Fire release control, '9': Combustible gas fault, '10': Disconnector open, '11': Exhaust valve open, '12': External emergency signal}
+  bms_system_fault_1: {'2': BMS communication interrupted, '8': Repeated start-up failure}
+  bms_do_status: {'0': Main contactor, '2': Intermediate contactor}
+  bms_di_status: {'0': Main contactor, '1': Intermediate contactor, '2': Emergency stop signal, '3': Isolation switch, '4': Repair switch}
+  pack_alarm_0: {'0': Cell low voltage alarm, '1': Cell high voltage alarm, '2': Pack low voltage alarm, '3': Pack high voltage alarm, '4': Low temperature charge alarm, '5': High temperature charge alarm, '6': Low temperature discharge alarm, '7': High temperature discharge alarm, '8': Pack charge overcurrent alarm, '9': Pack discharge overcurrent alarm, '10': Module low voltage alarm, '11': Module high voltage alarm, '12': Cell voltage difference alarm, '13': SOC low alarm, '14': Insulation low alarm, '15': SOC high alarm}
+  pack_fault_0: {'0': Cell low voltage fault, '1': Cell high voltage fault, '2': Pack low voltage fault, '3': Pack high voltage fault, '4': Low temperature charge fault, '5': High temperature charge fault, '6': Low temperature discharge fault, '7': High temperature discharge fault, '8': Pack charge overcurrent fault, '9': Pack discharge overcurrent fault, '10': Module low voltage fault, '11': Module high voltage fault, '12': Cell voltage difference fault, '13': SOC low fault, '14': Insulation low fault, '15': SOC high fault}
+  pack_fault_1: {'0': Cell voltage acquisition fault, '1': Temperature acquisition fault, '2': BMM communication fault, '3': Input overvoltage fault, '4': Input reverse polarity fault, '5': Circuit breaker / contactor fault, '6': Temperature rise fault, '7': Other fault}
+  pcs_fault_1: {'0': PLL alarm, '1': DC side hardware soft start fault, '2': AC side hardware soft start fault, '3': DC software soft start fault, '4': Grid resonance fault, '5': Input impedance fault, '6': Input impedance alarm, '7': CANB communication alarm, '8': System address conflict fault, '9': System master address conflict fault, '10': Module address fault, '11': DC voltage sampling alarm, '12': AC voltage sampling alarm, '13': DC side main relay alarm, '14': Busbar voltage imbalance alarm, '15': Overload alarm}
+  pcs_fault_2: {'0': Positive busbar level 2 overvoltage alarm, '1': Negative busbar level 2 overvoltage alarm, '2': Module A1 phase overcurrent alarm, '3': Module B1 phase overcurrent alarm, '4': Module C1 phase overcurrent alarm, '5': Module A2 phase overcurrent alarm, '6': Module B2 phase overcurrent alarm, '7': Module C2 phase overcurrent alarm, '8': Auxiliary power supply fault, '9': Parallel CANA communication fault, '10': Fan 1 fault, '11': Fan 2 fault, '12': Fan 3 fault, '13': Inverter overvoltage alarm, '14': Inverter undervoltage alarm, '15': Emergency stop fault}
+  pcs_fault_3: {'0': Grid overvoltage alarm, '1': Grid undervoltage alarm, '2': Grid overfrequency alarm, '3': Grid underfrequency alarm, '4': Busbar high voltage alarm, '5': Busbar low voltage alarm, '6': Positive busbar level 1 overvoltage alarm, '7': Negative busbar level 1 overvoltage alarm, '8': DC port overvoltage alarm, '9': DC port undervoltage alarm, '10': Grid phase sequence alarm, '11': Inverter phase sequence alarm, '12': Inverter amplitude locking alarm, '13': AC output short circuit fault, '14': AC current sampling fault, '15': RS485 communication fault}
+  pcs_fault_4: {'0': Inlet high ambient temperature alarm, '1': Outlet high ambient temperature alarm, '2': Module A2 high temperature alarm, '3': Module B2 high temperature alarm, '4': Module C2 high temperature alarm, '5': Module A1 high temperature alarm, '6': Module B1 high temperature alarm, '7': Module C1 high temperature alarm, '8': Module A2 temperature sensor fault, '9': Module B2 temperature sensor fault, '10': Module C2 temperature sensor fault, '11': Module A1 temperature sensor fault, '12': Module B1 temperature sensor fault, '13': Module C1 temperature sensor fault, '14': AC constant voltage mode grid connection fault, '15': DSP software version mismatch fault}
+  pcs_fault_5: {'3': Inverter island protection, '5': Grid-connected / off-grid switching error, '9': AC bus voltage abnormal, '10': AC phase loss, '13': Low battery level, '14': DC input overcurrent}
+  pcs_fault_6: {'0': PLL failure, '1': High ambient temperature, '2': Ambient temperature probe fault, '3': Cabinet temperature probe fault, '4': High cabinet temperature, '5': Off-grid voltage phase loss, '6': AC current harmonics abnormal}
+  pcs_fault_7: {'0': 24 V auxiliary power supply fault, '2': Grounding fault, '5': Module current imbalance, '7': DC relay open circuit, '8': Parameter calibration abnormal, '9': Busbar voltage imbalance, '10': Fuse fault, '11': DSP initialisation fault, '13': CANA communication fault, '14': DC input reverse polarity, '15': AC current DC component abnormal}
+  pcs_fault_8: {'0': Transformer overtemperature, '1': U2 communication abnormal 2, '2': BMS fault or DC switch open, '3': Lightning arrester fault, '4': Overload timeout fault, '5': AC soft start failure, '6': Synchronisation signal fault 1, '8': AC relay open circuit, '9': Sampling zero point abnormal, '10': U2 communication abnormal 1, '11': 15 V auxiliary power supply fault, '12': Duplicate module number fault, '13': RS485 communication fault, '15': Too many restarts}
+  pcs_fault_9: {'0': CPLD version fault, '1': Hardware version fault, '2': DC relay short circuit, '3': DC busbar undervoltage, '4': AC relay short circuit, '5': Synchronisation signal fault 2, '6': Parameter mismatch, '7': CANC communication fault, '8': High ambient humidity, '9': BMS voltage abnormal, '10': BMS current abnormal, '11': BMS temperature abnormal, '12': BMS shutdown fault, '13': Insulation detection abnormal, '14': Hardware sampling abnormal, '15': Remote communication lost}
+  pcs_fault_10: {'4': PE-N contactor short circuit, '5': PE-N contactor open circuit, '6': N contactor short circuit, '7': N contactor open circuit, '8': Grid access abnormal, '10': Grid voltage distortion, '11': Input dry contact 4 failure, '12': Input dry contact 5 failure}
+
+problems:
+  - {when: {key: state, equals: 3}, kind: fault, text: Cabinet fault (working status 3)}
+  - {when: {key: x.working_mode, equals: 2}, kind: backup_mode, text: Cabinet runs off-grid}
+  - {when: {key: x.pcs_status, equals: 3}, kind: fault, text: PCS fault (summary status 3)}
+  - {when: {key: x.bms_status, equals: 3}, kind: fault, text: BMS fault (summary status 3)}
+  - {when: {key: x.dcdc_status, equals: 3}, kind: fault, text: DCDC fault (summary status 3)}
+  - {when: {key: x.mppt_status, equals: 3}, kind: fault, text: MPPT fault (summary status 3)}
+  - {when: {key: x.soc_calibration_flag, equals: 1}, kind: warning, text: SOC needs a full charge and discharge to calibrate}
+  - {when: {key: x.bc1_status, equals: 3}, kind: fault, text: Battery cabinet 1 fault}
+  - {when: {key: x.bc1_status, equals: 5}, kind: warning, text: Battery cabinet 1 communication interrupted}
+  - {when: {key: x.acdc1_status, equals: 4}, kind: fault, text: ACDC 1 fault}
+  - {when: {key: x.acdc1_status, equals: 5}, kind: warning, text: ACDC 1 communication interrupted}
+  - {when: {key: x.dcdc1_status, equals: 3}, kind: fault, text: DCDC 1 fault}
+  - {when: {key: x.dcdc1_status, equals: 5}, kind: warning, text: DCDC 1 communication interrupted}
+  - {when: {key: x.mppt1_status, equals: 3}, kind: fault, text: MPPT 1 fault}
+  - {when: {key: x.mppt1_status, equals: 5}, kind: warning, text: MPPT 1 communication interrupted}
+  - {when: {key: x.pmc_status, equals: 3}, kind: fault, text: PMC fault}
+  - {when: {key: x.pmc_status, equals: 4}, kind: warning, text: PMC communication interrupted}
+  - {when: {key: x.bms1_state, equals: 3}, kind: fault, text: BMS 1 fault (operating status 3)}
+  - {when: {key: x.bms1_pack_status, equals: 3}, kind: fault, text: 'BMS 1: battery pack fault'}
+  - {when: {key: x.bms1_air_conditioner_1, equals: 3}, kind: warning, text: 'BMS 1: air conditioner 1 fault'}
+  - {when: {key: x.bms1_air_conditioner_2, equals: 3}, kind: warning, text: 'BMS 1: air conditioner 2 fault'}
+  - {when: {key: x.pcs1_faulty, equals: 1}, kind: fault, text: PCS 1 fault (status word bit 10)}
+  - {when: {key: x.alarm_0, bit: 0}, kind: warning, text: 'Cabinet: Fan abnormal (alarm 0 bit 0)'}
+  - {when: {key: x.alarm_0, bit: 1}, kind: warning, text: 'Cabinet: Meter communication interrupted (alarm 0 bit 1)'}
+  - {when: {key: x.alarm_0, bit: 2}, kind: warning, text: 'Cabinet: RS485 communication interrupted (alarm 0 bit 2)'}
+  - {when: {key: x.alarm_0, bit: 3}, kind: warning, text: 'Cabinet: Access control triggered (alarm 0 bit 3)'}
+  - {when: {key: x.alarm_0, bit: 5}, kind: warning, text: 'Cabinet: PMC communication interrupted (alarm 0 bit 5)'}
+  - {when: {key: x.alarm_0, bit: 8}, kind: warning, text: 'Cabinet: HMI communication interrupted (alarm 0 bit 8)'}
+  - {when: {key: x.alarm_0, bit: 11}, kind: warning, text: 'Cabinet: ASS communication interrupted (alarm 0 bit 11)'}
+  - {when: {key: x.alarm_0, bit: 14}, kind: warning, text: 'Cabinet: IO controller 1 communication interrupted (alarm 0 bit 14)'}
+  - {when: {key: x.alarm_0, bit: 15}, kind: warning, text: 'Cabinet: IO controller 2 communication interrupted (alarm 0 bit 15)'}
+  - {when: {key: x.alarm_1, bit: 4}, kind: fault, text: 'Cabinet: All ACDC failed (alarm 1 bit 4)'}
+  - {when: {key: x.alarm_1, bit: 5}, kind: fault, text: 'Cabinet: All MPPT failed (alarm 1 bit 5)'}
+  - {when: {key: x.alarm_1, bit: 6}, kind: warning, text: 'Cabinet: Smoke sensor 1 (alarm 1 bit 6)'}
+  - {when: {key: x.alarm_1, bit: 7}, kind: warning, text: 'Cabinet: Smoke sensor 2 (alarm 1 bit 7)'}
+  - {when: {key: x.alarm_1, bit: 8}, kind: warning, text: 'Cabinet: AC circuit breaker open (alarm 1 bit 8)'}
+  - {when: {key: x.alarm_1, bit: 9}, kind: warning, text: 'Cabinet: Lightning protection 1 (alarm 1 bit 9)'}
+  - {when: {key: x.alarm_1, bit: 10}, kind: warning, text: 'Cabinet: Lightning protection 2 (alarm 1 bit 10)'}
+  - {when: {key: x.fault_0, bit: 0}, kind: fault, text: 'Cabinet: Emergency stop (fault 0 bit 0)'}
+  - {when: {key: x.fault_0, bit: 1}, kind: fault, text: 'Cabinet: Repeated start-up failure (fault 0 bit 1)'}
+  - {when: {key: x.fault_0, bit: 2}, kind: fault, text: 'Cabinet: Smoke sensor fault (fault 0 bit 2)'}
+  - {when: {key: x.fault_1, bit: 0}, kind: fault, text: 'Cabinet: All BC failed (fault 1 bit 0)'}
+  - {when: {key: x.fault_1, bit: 2}, kind: fault, text: 'Cabinet: All DCDC failed (fault 1 bit 2)'}
+  - {when: {key: x.alarm_2, bit: 0}, kind: warning, text: 'Cabinet: Battery cabinet 1 large voltage difference (alarm 2 bit 0)'}
+  - {when: {key: x.alarm_2, bit: 1}, kind: warning, text: 'Cabinet: Battery cabinet 2 large voltage difference (alarm 2 bit 1)'}
+  - {when: {key: x.alarm_2, bit: 2}, kind: warning, text: 'Cabinet: Battery cabinet 3 large voltage difference (alarm 2 bit 2)'}
+  - {when: {key: x.alarm_2, bit: 3}, kind: warning, text: 'Cabinet: Battery cabinet 4 large voltage difference (alarm 2 bit 3)'}
+  - {when: {key: x.alarm_2, bit: 4}, kind: warning, text: 'Cabinet: Battery cabinet 5 large voltage difference (alarm 2 bit 4)'}
+  - {when: {key: x.alarm_2, bit: 5}, kind: warning, text: 'Cabinet: Battery cabinet 6 large voltage difference (alarm 2 bit 5)'}
+  - {when: {key: x.alarm_2, bit: 6}, kind: warning, text: 'Cabinet: Battery cabinet 7 large voltage difference (alarm 2 bit 6)'}
+  - {when: {key: x.alarm_2, bit: 7}, kind: warning, text: 'Cabinet: Battery cabinet 8 large voltage difference (alarm 2 bit 7)'}
+  - {when: {key: x.alarm_2, bit: 8}, kind: warning, text: 'Cabinet: Battery cabinet 9 large voltage difference (alarm 2 bit 8)'}
+  - {when: {key: x.alarm_2, bit: 9}, kind: warning, text: 'Cabinet: Battery cabinet 10 large voltage difference (alarm 2 bit 9)'}
+  - {when: {key: x.alarm_3, bit: 0}, kind: warning, text: 'Cabinet: PV1 lightning protection (alarm 3 bit 0)'}
+  - {when: {key: x.alarm_3, bit: 1}, kind: warning, text: 'Cabinet: PV2 lightning protection (alarm 3 bit 1)'}
+  - {when: {key: x.alarm_3, bit: 2}, kind: warning, text: 'Cabinet: PV3 lightning protection (alarm 3 bit 2)'}
+  - {when: {key: x.alarm_3, bit: 3}, kind: warning, text: 'Cabinet: PV4 lightning protection (alarm 3 bit 3)'}
+  - {when: {key: x.alarm_3, bit: 4}, kind: warning, text: 'Cabinet: PV5 lightning protection (alarm 3 bit 4)'}
+  - {when: {key: x.alarm_3, bit: 5}, kind: warning, text: 'Cabinet: PV6 lightning protection (alarm 3 bit 5)'}
+  - {when: {key: x.alarm_3, bit: 6}, kind: warning, text: 'Cabinet: PV7 lightning protection (alarm 3 bit 6)'}
+  - {when: {key: x.alarm_3, bit: 7}, kind: warning, text: 'Cabinet: PV8 lightning protection (alarm 3 bit 7)'}
+  - {when: {key: x.alarm_3, bit: 8}, kind: warning, text: 'Cabinet: PV9 lightning protection (alarm 3 bit 8)'}
+  - {when: {key: x.alarm_3, bit: 9}, kind: warning, text: 'Cabinet: PV10 lightning protection (alarm 3 bit 9)'}
+  - {when: {key: x.bms1_system_alarm_0, bit: 2}, kind: warning, text: 'BMS 1: Air conditioner communication interrupted (system alarm 0 bit 2)'}
+  - {when: {key: x.bms1_system_alarm_0, bit: 8}, kind: warning, text: 'BMS 1: RS485 slave communication interrupted (system alarm 0 bit 8)'}
+  - {when: {key: x.bms1_system_alarm_0, bit: 11}, kind: warning, text: 'BMS 1: CAN2 communication interrupted (system alarm 0 bit 11)'}
+  - {when: {key: x.bms1_system_alarm_0, bit: 12}, kind: warning, text: 'BMS 1: Air conditioner 2 communication interrupted (system alarm 0 bit 12)'}
+  - {when: {key: x.bms1_system_alarm_0, bit: 13}, kind: warning, text: 'BMS 1: IO controller communication interrupted (system alarm 0 bit 13)'}
+  - {when: {key: x.bms1_system_alarm_0, bit: 14}, kind: warning, text: 'BMS 1: Combustible gas detector communication interrupted (system alarm 0 bit 14)'}
+  - {when: {key: x.bms1_system_alarm_1, bit: 0}, kind: warning, text: 'BMS 1: Access control triggered (system alarm 1 bit 0)'}
+  - {when: {key: x.bms1_system_alarm_1, bit: 1}, kind: warning, text: 'BMS 1: Fire sprinkler feedback (system alarm 1 bit 1)'}
+  - {when: {key: x.bms1_system_alarm_1, bit: 2}, kind: warning, text: 'BMS 1: Combustible gas alarm (system alarm 1 bit 2)'}
+  - {when: {key: x.bms1_system_fault_0, bit: 3}, kind: fault, text: 'BMS 1: Smoke sensor 1 triggered (system fault 0 bit 3)'}
+  - {when: {key: x.bms1_system_fault_0, bit: 4}, kind: fault, text: 'BMS 1: Smoke sensor 2 triggered (system fault 0 bit 4)'}
+  - {when: {key: x.bms1_system_fault_0, bit: 6}, kind: fault, text: 'BMS 1: Water immersion triggered (system fault 0 bit 6)'}
+  - {when: {key: x.bms1_system_fault_0, bit: 7}, kind: fault, text: 'BMS 1: Trip / EPO (system fault 0 bit 7)'}
+  - {when: {key: x.bms1_system_fault_0, bit: 8}, kind: fault, text: 'BMS 1: Fire release control (system fault 0 bit 8)'}
+  - {when: {key: x.bms1_system_fault_0, bit: 9}, kind: fault, text: 'BMS 1: Combustible gas fault (system fault 0 bit 9)'}
+  - {when: {key: x.bms1_system_fault_0, bit: 10}, kind: fault, text: 'BMS 1: Disconnector open (system fault 0 bit 10)'}
+  - {when: {key: x.bms1_system_fault_0, bit: 11}, kind: fault, text: 'BMS 1: Exhaust valve open (system fault 0 bit 11)'}
+  - {when: {key: x.bms1_system_fault_0, bit: 12}, kind: fault, text: 'BMS 1: External emergency signal (system fault 0 bit 12)'}
+  - {when: {key: x.bms1_system_fault_1, bit: 2}, kind: fault, text: 'BMS 1: BMS communication interrupted (system fault 1 bit 2)'}
+  - {when: {key: x.bms1_system_fault_1, bit: 8}, kind: fault, text: 'BMS 1: Repeated start-up failure (system fault 1 bit 8)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 0}, kind: warning, text: 'BMS 1: Cell low voltage alarm (battery pack alarm 0 bit 0)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 1}, kind: warning, text: 'BMS 1: Cell high voltage alarm (battery pack alarm 0 bit 1)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 2}, kind: warning, text: 'BMS 1: Pack low voltage alarm (battery pack alarm 0 bit 2)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 3}, kind: warning, text: 'BMS 1: Pack high voltage alarm (battery pack alarm 0 bit 3)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 4}, kind: warning, text: 'BMS 1: Low temperature charge alarm (battery pack alarm 0 bit 4)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 5}, kind: warning, text: 'BMS 1: High temperature charge alarm (battery pack alarm 0 bit 5)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 6}, kind: warning, text: 'BMS 1: Low temperature discharge alarm (battery pack alarm 0 bit 6)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 7}, kind: warning, text: 'BMS 1: High temperature discharge alarm (battery pack alarm 0 bit 7)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 8}, kind: warning, text: 'BMS 1: Pack charge overcurrent alarm (battery pack alarm 0 bit 8)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 9}, kind: warning, text: 'BMS 1: Pack discharge overcurrent alarm (battery pack alarm 0 bit 9)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 10}, kind: warning, text: 'BMS 1: Module low voltage alarm (battery pack alarm 0 bit 10)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 11}, kind: warning, text: 'BMS 1: Module high voltage alarm (battery pack alarm 0 bit 11)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 12}, kind: warning, text: 'BMS 1: Cell voltage difference alarm (battery pack alarm 0 bit 12)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 13}, kind: warning, text: 'BMS 1: SOC low alarm (battery pack alarm 0 bit 13)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 14}, kind: warning, text: 'BMS 1: Insulation low alarm (battery pack alarm 0 bit 14)'}
+  - {when: {key: x.bms1_pack_alarm_0, bit: 15}, kind: warning, text: 'BMS 1: SOC high alarm (battery pack alarm 0 bit 15)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 0}, kind: fault, text: 'BMS 1: Cell low voltage fault (battery pack fault 0 bit 0)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 1}, kind: fault, text: 'BMS 1: Cell high voltage fault (battery pack fault 0 bit 1)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 2}, kind: fault, text: 'BMS 1: Pack low voltage fault (battery pack fault 0 bit 2)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 3}, kind: fault, text: 'BMS 1: Pack high voltage fault (battery pack fault 0 bit 3)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 4}, kind: fault, text: 'BMS 1: Low temperature charge fault (battery pack fault 0 bit 4)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 5}, kind: fault, text: 'BMS 1: High temperature charge fault (battery pack fault 0 bit 5)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 6}, kind: fault, text: 'BMS 1: Low temperature discharge fault (battery pack fault 0 bit 6)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 7}, kind: fault, text: 'BMS 1: High temperature discharge fault (battery pack fault 0 bit 7)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 8}, kind: fault, text: 'BMS 1: Pack charge overcurrent fault (battery pack fault 0 bit 8)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 9}, kind: fault, text: 'BMS 1: Pack discharge overcurrent fault (battery pack fault 0 bit 9)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 10}, kind: fault, text: 'BMS 1: Module low voltage fault (battery pack fault 0 bit 10)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 11}, kind: fault, text: 'BMS 1: Module high voltage fault (battery pack fault 0 bit 11)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 12}, kind: fault, text: 'BMS 1: Cell voltage difference fault (battery pack fault 0 bit 12)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 13}, kind: fault, text: 'BMS 1: SOC low fault (battery pack fault 0 bit 13)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 14}, kind: fault, text: 'BMS 1: Insulation low fault (battery pack fault 0 bit 14)'}
+  - {when: {key: x.bms1_pack_fault_0, bit: 15}, kind: fault, text: 'BMS 1: SOC high fault (battery pack fault 0 bit 15)'}
+  - {when: {key: x.bms1_pack_fault_1, bit: 0}, kind: fault, text: 'BMS 1: Cell voltage acquisition fault (battery pack fault 1 bit 0)'}
+  - {when: {key: x.bms1_pack_fault_1, bit: 1}, kind: fault, text: 'BMS 1: Temperature acquisition fault (battery pack fault 1 bit 1)'}
+  - {when: {key: x.bms1_pack_fault_1, bit: 2}, kind: fault, text: 'BMS 1: BMM communication fault (battery pack fault 1 bit 2)'}
+  - {when: {key: x.bms1_pack_fault_1, bit: 3}, kind: fault, text: 'BMS 1: Input overvoltage fault (battery pack fault 1 bit 3)'}
+  - {when: {key: x.bms1_pack_fault_1, bit: 4}, kind: fault, text: 'BMS 1: Input reverse polarity fault (battery pack fault 1 bit 4)'}
+  - {when: {key: x.bms1_pack_fault_1, bit: 5}, kind: fault, text: 'BMS 1: Circuit breaker / contactor fault (battery pack fault 1 bit 5)'}
+  - {when: {key: x.bms1_pack_fault_1, bit: 6}, kind: fault, text: 'BMS 1: Temperature rise fault (battery pack fault 1 bit 6)'}
+  - {when: {key: x.bms1_pack_fault_1, bit: 7}, kind: fault, text: 'BMS 1: Other fault (battery pack fault 1 bit 7)'}
+  - {when: {key: x.pcs1_fault_1, bit: 0}, kind: warning, text: 'PCS 1: PLL alarm (system comprehensive fault word bit 0)'}
+  - {when: {key: x.pcs1_fault_1, bit: 1}, kind: fault, text: 'PCS 1: DC side hardware soft start fault (system comprehensive fault word bit 1)'}
+  - {when: {key: x.pcs1_fault_1, bit: 2}, kind: fault, text: 'PCS 1: AC side hardware soft start fault (system comprehensive fault word bit 2)'}
+  - {when: {key: x.pcs1_fault_1, bit: 3}, kind: fault, text: 'PCS 1: DC software soft start fault (system comprehensive fault word bit 3)'}
+  - {when: {key: x.pcs1_fault_1, bit: 4}, kind: fault, text: 'PCS 1: Grid resonance fault (system comprehensive fault word bit 4)'}
+  - {when: {key: x.pcs1_fault_1, bit: 5}, kind: fault, text: 'PCS 1: Input impedance fault (system comprehensive fault word bit 5)'}
+  - {when: {key: x.pcs1_fault_1, bit: 6}, kind: warning, text: 'PCS 1: Input impedance alarm (system comprehensive fault word bit 6)'}
+  - {when: {key: x.pcs1_fault_1, bit: 7}, kind: warning, text: 'PCS 1: CANB communication alarm (system comprehensive fault word bit 7)'}
+  - {when: {key: x.pcs1_fault_1, bit: 8}, kind: fault, text: 'PCS 1: System address conflict fault (system comprehensive fault word bit 8)'}
+  - {when: {key: x.pcs1_fault_1, bit: 9}, kind: fault, text: 'PCS 1: System master address conflict fault (system comprehensive fault word bit 9)'}
+  - {when: {key: x.pcs1_fault_1, bit: 10}, kind: fault, text: 'PCS 1: Module address fault (system comprehensive fault word bit 10)'}
+  - {when: {key: x.pcs1_fault_1, bit: 11}, kind: warning, text: 'PCS 1: DC voltage sampling alarm (system comprehensive fault word bit 11)'}
+  - {when: {key: x.pcs1_fault_1, bit: 12}, kind: warning, text: 'PCS 1: AC voltage sampling alarm (system comprehensive fault word bit 12)'}
+  - {when: {key: x.pcs1_fault_1, bit: 13}, kind: warning, text: 'PCS 1: DC side main relay alarm (system comprehensive fault word bit 13)'}
+  - {when: {key: x.pcs1_fault_1, bit: 14}, kind: warning, text: 'PCS 1: Busbar voltage imbalance alarm (system comprehensive fault word bit 14)'}
+  - {when: {key: x.pcs1_fault_1, bit: 15}, kind: warning, text: 'PCS 1: Overload alarm (system comprehensive fault word bit 15)'}
+  - {when: {key: x.pcs1_fault_2, bit: 0}, kind: warning, text: 'PCS 1: Positive busbar level 2 overvoltage alarm (system environment fault word bit 0)'}
+  - {when: {key: x.pcs1_fault_2, bit: 1}, kind: warning, text: 'PCS 1: Negative busbar level 2 overvoltage alarm (system environment fault word bit 1)'}
+  - {when: {key: x.pcs1_fault_2, bit: 2}, kind: warning, text: 'PCS 1: Module A1 phase overcurrent alarm (system environment fault word bit 2)'}
+  - {when: {key: x.pcs1_fault_2, bit: 3}, kind: warning, text: 'PCS 1: Module B1 phase overcurrent alarm (system environment fault word bit 3)'}
+  - {when: {key: x.pcs1_fault_2, bit: 4}, kind: warning, text: 'PCS 1: Module C1 phase overcurrent alarm (system environment fault word bit 4)'}
+  - {when: {key: x.pcs1_fault_2, bit: 5}, kind: warning, text: 'PCS 1: Module A2 phase overcurrent alarm (system environment fault word bit 5)'}
+  - {when: {key: x.pcs1_fault_2, bit: 6}, kind: warning, text: 'PCS 1: Module B2 phase overcurrent alarm (system environment fault word bit 6)'}
+  - {when: {key: x.pcs1_fault_2, bit: 7}, kind: warning, text: 'PCS 1: Module C2 phase overcurrent alarm (system environment fault word bit 7)'}
+  - {when: {key: x.pcs1_fault_2, bit: 8}, kind: fault, text: 'PCS 1: Auxiliary power supply fault (system environment fault word bit 8)'}
+  - {when: {key: x.pcs1_fault_2, bit: 9}, kind: fault, text: 'PCS 1: Parallel CANA communication fault (system environment fault word bit 9)'}
+  - {when: {key: x.pcs1_fault_2, bit: 10}, kind: fault, text: 'PCS 1: Fan 1 fault (system environment fault word bit 10)'}
+  - {when: {key: x.pcs1_fault_2, bit: 11}, kind: fault, text: 'PCS 1: Fan 2 fault (system environment fault word bit 11)'}
+  - {when: {key: x.pcs1_fault_2, bit: 12}, kind: fault, text: 'PCS 1: Fan 3 fault (system environment fault word bit 12)'}
+  - {when: {key: x.pcs1_fault_2, bit: 13}, kind: warning, text: 'PCS 1: Inverter overvoltage alarm (system environment fault word bit 13)'}
+  - {when: {key: x.pcs1_fault_2, bit: 14}, kind: warning, text: 'PCS 1: Inverter undervoltage alarm (system environment fault word bit 14)'}
+  - {when: {key: x.pcs1_fault_2, bit: 15}, kind: fault, text: 'PCS 1: Emergency stop fault (system environment fault word bit 15)'}
+  - {when: {key: x.pcs1_fault_3, bit: 0}, kind: warning, text: 'PCS 1: Grid overvoltage alarm (system hardware fault word bit 0)'}
+  - {when: {key: x.pcs1_fault_3, bit: 1}, kind: warning, text: 'PCS 1: Grid undervoltage alarm (system hardware fault word bit 1)'}
+  - {when: {key: x.pcs1_fault_3, bit: 2}, kind: warning, text: 'PCS 1: Grid overfrequency alarm (system hardware fault word bit 2)'}
+  - {when: {key: x.pcs1_fault_3, bit: 3}, kind: warning, text: 'PCS 1: Grid underfrequency alarm (system hardware fault word bit 3)'}
+  - {when: {key: x.pcs1_fault_3, bit: 4}, kind: warning, text: 'PCS 1: Busbar high voltage alarm (system hardware fault word bit 4)'}
+  - {when: {key: x.pcs1_fault_3, bit: 5}, kind: warning, text: 'PCS 1: Busbar low voltage alarm (system hardware fault word bit 5)'}
+  - {when: {key: x.pcs1_fault_3, bit: 6}, kind: warning, text: 'PCS 1: Positive busbar level 1 overvoltage alarm (system hardware fault word bit 6)'}
+  - {when: {key: x.pcs1_fault_3, bit: 7}, kind: warning, text: 'PCS 1: Negative busbar level 1 overvoltage alarm (system hardware fault word bit 7)'}
+  - {when: {key: x.pcs1_fault_3, bit: 8}, kind: warning, text: 'PCS 1: DC port overvoltage alarm (system hardware fault word bit 8)'}
+  - {when: {key: x.pcs1_fault_3, bit: 9}, kind: warning, text: 'PCS 1: DC port undervoltage alarm (system hardware fault word bit 9)'}
+  - {when: {key: x.pcs1_fault_3, bit: 10}, kind: warning, text: 'PCS 1: Grid phase sequence alarm (system hardware fault word bit 10)'}
+  - {when: {key: x.pcs1_fault_3, bit: 11}, kind: warning, text: 'PCS 1: Inverter phase sequence alarm (system hardware fault word bit 11)'}
+  - {when: {key: x.pcs1_fault_3, bit: 12}, kind: warning, text: 'PCS 1: Inverter amplitude locking alarm (system hardware fault word bit 12)'}
+  - {when: {key: x.pcs1_fault_3, bit: 13}, kind: fault, text: 'PCS 1: AC output short circuit fault (system hardware fault word bit 13)'}
+  - {when: {key: x.pcs1_fault_3, bit: 14}, kind: fault, text: 'PCS 1: AC current sampling fault (system hardware fault word bit 14)'}
+  - {when: {key: x.pcs1_fault_3, bit: 15}, kind: fault, text: 'PCS 1: RS485 communication fault (system hardware fault word bit 15)'}
+  - {when: {key: x.pcs1_fault_4, bit: 0}, kind: warning, text: 'PCS 1: Inlet high ambient temperature alarm (system temperature fault word bit 0)'}
+  - {when: {key: x.pcs1_fault_4, bit: 1}, kind: warning, text: 'PCS 1: Outlet high ambient temperature alarm (system temperature fault word bit 1)'}
+  - {when: {key: x.pcs1_fault_4, bit: 2}, kind: warning, text: 'PCS 1: Module A2 high temperature alarm (system temperature fault word bit 2)'}
+  - {when: {key: x.pcs1_fault_4, bit: 3}, kind: warning, text: 'PCS 1: Module B2 high temperature alarm (system temperature fault word bit 3)'}
+  - {when: {key: x.pcs1_fault_4, bit: 4}, kind: warning, text: 'PCS 1: Module C2 high temperature alarm (system temperature fault word bit 4)'}
+  - {when: {key: x.pcs1_fault_4, bit: 5}, kind: warning, text: 'PCS 1: Module A1 high temperature alarm (system temperature fault word bit 5)'}
+  - {when: {key: x.pcs1_fault_4, bit: 6}, kind: warning, text: 'PCS 1: Module B1 high temperature alarm (system temperature fault word bit 6)'}
+  - {when: {key: x.pcs1_fault_4, bit: 7}, kind: warning, text: 'PCS 1: Module C1 high temperature alarm (system temperature fault word bit 7)'}
+  - {when: {key: x.pcs1_fault_4, bit: 8}, kind: fault, text: 'PCS 1: Module A2 temperature sensor fault (system temperature fault word bit 8)'}
+  - {when: {key: x.pcs1_fault_4, bit: 9}, kind: fault, text: 'PCS 1: Module B2 temperature sensor fault (system temperature fault word bit 9)'}
+  - {when: {key: x.pcs1_fault_4, bit: 10}, kind: fault, text: 'PCS 1: Module C2 temperature sensor fault (system temperature fault word bit 10)'}
+  - {when: {key: x.pcs1_fault_4, bit: 11}, kind: fault, text: 'PCS 1: Module A1 temperature sensor fault (system temperature fault word bit 11)'}
+  - {when: {key: x.pcs1_fault_4, bit: 12}, kind: fault, text: 'PCS 1: Module B1 temperature sensor fault (system temperature fault word bit 12)'}
+  - {when: {key: x.pcs1_fault_4, bit: 13}, kind: fault, text: 'PCS 1: Module C1 temperature sensor fault (system temperature fault word bit 13)'}
+  - {when: {key: x.pcs1_fault_4, bit: 14}, kind: fault, text: 'PCS 1: AC constant voltage mode grid connection fault (system temperature fault word bit 14)'}
+  - {when: {key: x.pcs1_fault_4, bit: 15}, kind: fault, text: 'PCS 1: DSP software version mismatch fault (system temperature fault word bit 15)'}
+  - {when: {key: x.pcs1_fault_5, bit: 3}, kind: fault, text: 'PCS 1: Inverter island protection (fault 5 bit 3)'}
+  - {when: {key: x.pcs1_fault_5, bit: 5}, kind: fault, text: 'PCS 1: Grid-connected / off-grid switching error (fault 5 bit 5)'}
+  - {when: {key: x.pcs1_fault_5, bit: 9}, kind: fault, text: 'PCS 1: AC bus voltage abnormal (fault 5 bit 9)'}
+  - {when: {key: x.pcs1_fault_5, bit: 10}, kind: fault, text: 'PCS 1: AC phase loss (fault 5 bit 10)'}
+  - {when: {key: x.pcs1_fault_5, bit: 13}, kind: fault, text: 'PCS 1: Low battery level (fault 5 bit 13)'}
+  - {when: {key: x.pcs1_fault_5, bit: 14}, kind: fault, text: 'PCS 1: DC input overcurrent (fault 5 bit 14)'}
+  - {when: {key: x.pcs1_fault_6, bit: 0}, kind: fault, text: 'PCS 1: PLL failure (fault 6 bit 0)'}
+  - {when: {key: x.pcs1_fault_6, bit: 1}, kind: fault, text: 'PCS 1: High ambient temperature (fault 6 bit 1)'}
+  - {when: {key: x.pcs1_fault_6, bit: 2}, kind: fault, text: 'PCS 1: Ambient temperature probe fault (fault 6 bit 2)'}
+  - {when: {key: x.pcs1_fault_6, bit: 3}, kind: fault, text: 'PCS 1: Cabinet temperature probe fault (fault 6 bit 3)'}
+  - {when: {key: x.pcs1_fault_6, bit: 4}, kind: fault, text: 'PCS 1: High cabinet temperature (fault 6 bit 4)'}
+  - {when: {key: x.pcs1_fault_6, bit: 5}, kind: fault, text: 'PCS 1: Off-grid voltage phase loss (fault 6 bit 5)'}
+  - {when: {key: x.pcs1_fault_6, bit: 6}, kind: fault, text: 'PCS 1: AC current harmonics abnormal (fault 6 bit 6)'}
+  - {when: {key: x.pcs1_fault_7, bit: 0}, kind: fault, text: 'PCS 1: 24 V auxiliary power supply fault (fault 7 bit 0)'}
+  - {when: {key: x.pcs1_fault_7, bit: 2}, kind: fault, text: 'PCS 1: Grounding fault (fault 7 bit 2)'}
+  - {when: {key: x.pcs1_fault_7, bit: 5}, kind: fault, text: 'PCS 1: Module current imbalance (fault 7 bit 5)'}
+  - {when: {key: x.pcs1_fault_7, bit: 7}, kind: fault, text: 'PCS 1: DC relay open circuit (fault 7 bit 7)'}
+  - {when: {key: x.pcs1_fault_7, bit: 8}, kind: fault, text: 'PCS 1: Parameter calibration abnormal (fault 7 bit 8)'}
+  - {when: {key: x.pcs1_fault_7, bit: 9}, kind: fault, text: 'PCS 1: Busbar voltage imbalance (fault 7 bit 9)'}
+  - {when: {key: x.pcs1_fault_7, bit: 10}, kind: fault, text: 'PCS 1: Fuse fault (fault 7 bit 10)'}
+  - {when: {key: x.pcs1_fault_7, bit: 11}, kind: fault, text: 'PCS 1: DSP initialisation fault (fault 7 bit 11)'}
+  - {when: {key: x.pcs1_fault_7, bit: 13}, kind: fault, text: 'PCS 1: CANA communication fault (fault 7 bit 13)'}
+  - {when: {key: x.pcs1_fault_7, bit: 14}, kind: fault, text: 'PCS 1: DC input reverse polarity (fault 7 bit 14)'}
+  - {when: {key: x.pcs1_fault_7, bit: 15}, kind: fault, text: 'PCS 1: AC current DC component abnormal (fault 7 bit 15)'}
+  - {when: {key: x.pcs1_fault_8, bit: 0}, kind: fault, text: 'PCS 1: Transformer overtemperature (fault 8 bit 0)'}
+  - {when: {key: x.pcs1_fault_8, bit: 1}, kind: fault, text: 'PCS 1: U2 communication abnormal 2 (fault 8 bit 1)'}
+  - {when: {key: x.pcs1_fault_8, bit: 2}, kind: fault, text: 'PCS 1: BMS fault or DC switch open (fault 8 bit 2)'}
+  - {when: {key: x.pcs1_fault_8, bit: 3}, kind: fault, text: 'PCS 1: Lightning arrester fault (fault 8 bit 3)'}
+  - {when: {key: x.pcs1_fault_8, bit: 4}, kind: fault, text: 'PCS 1: Overload timeout fault (fault 8 bit 4)'}
+  - {when: {key: x.pcs1_fault_8, bit: 5}, kind: fault, text: 'PCS 1: AC soft start failure (fault 8 bit 5)'}
+  - {when: {key: x.pcs1_fault_8, bit: 6}, kind: fault, text: 'PCS 1: Synchronisation signal fault 1 (fault 8 bit 6)'}
+  - {when: {key: x.pcs1_fault_8, bit: 8}, kind: fault, text: 'PCS 1: AC relay open circuit (fault 8 bit 8)'}
+  - {when: {key: x.pcs1_fault_8, bit: 9}, kind: fault, text: 'PCS 1: Sampling zero point abnormal (fault 8 bit 9)'}
+  - {when: {key: x.pcs1_fault_8, bit: 10}, kind: fault, text: 'PCS 1: U2 communication abnormal 1 (fault 8 bit 10)'}
+  - {when: {key: x.pcs1_fault_8, bit: 11}, kind: fault, text: 'PCS 1: 15 V auxiliary power supply fault (fault 8 bit 11)'}
+  - {when: {key: x.pcs1_fault_8, bit: 12}, kind: fault, text: 'PCS 1: Duplicate module number fault (fault 8 bit 12)'}
+  - {when: {key: x.pcs1_fault_8, bit: 13}, kind: fault, text: 'PCS 1: RS485 communication fault (fault 8 bit 13)'}
+  - {when: {key: x.pcs1_fault_8, bit: 15}, kind: fault, text: 'PCS 1: Too many restarts (fault 8 bit 15)'}
+  - {when: {key: x.pcs1_fault_9, bit: 0}, kind: fault, text: 'PCS 1: CPLD version fault (fault 9 bit 0)'}
+  - {when: {key: x.pcs1_fault_9, bit: 1}, kind: fault, text: 'PCS 1: Hardware version fault (fault 9 bit 1)'}
+  - {when: {key: x.pcs1_fault_9, bit: 2}, kind: fault, text: 'PCS 1: DC relay short circuit (fault 9 bit 2)'}
+  - {when: {key: x.pcs1_fault_9, bit: 3}, kind: fault, text: 'PCS 1: DC busbar undervoltage (fault 9 bit 3)'}
+  - {when: {key: x.pcs1_fault_9, bit: 4}, kind: fault, text: 'PCS 1: AC relay short circuit (fault 9 bit 4)'}
+  - {when: {key: x.pcs1_fault_9, bit: 5}, kind: fault, text: 'PCS 1: Synchronisation signal fault 2 (fault 9 bit 5)'}
+  - {when: {key: x.pcs1_fault_9, bit: 6}, kind: fault, text: 'PCS 1: Parameter mismatch (fault 9 bit 6)'}
+  - {when: {key: x.pcs1_fault_9, bit: 7}, kind: fault, text: 'PCS 1: CANC communication fault (fault 9 bit 7)'}
+  - {when: {key: x.pcs1_fault_9, bit: 8}, kind: fault, text: 'PCS 1: High ambient humidity (fault 9 bit 8)'}
+  - {when: {key: x.pcs1_fault_9, bit: 9}, kind: fault, text: 'PCS 1: BMS voltage abnormal (fault 9 bit 9)'}
+  - {when: {key: x.pcs1_fault_9, bit: 10}, kind: fault, text: 'PCS 1: BMS current abnormal (fault 9 bit 10)'}
+  - {when: {key: x.pcs1_fault_9, bit: 11}, kind: fault, text: 'PCS 1: BMS temperature abnormal (fault 9 bit 11)'}
+  - {when: {key: x.pcs1_fault_9, bit: 12}, kind: fault, text: 'PCS 1: BMS shutdown fault (fault 9 bit 12)'}
+  - {when: {key: x.pcs1_fault_9, bit: 13}, kind: fault, text: 'PCS 1: Insulation detection abnormal (fault 9 bit 13)'}
+  - {when: {key: x.pcs1_fault_9, bit: 14}, kind: fault, text: 'PCS 1: Hardware sampling abnormal (fault 9 bit 14)'}
+  - {when: {key: x.pcs1_fault_9, bit: 15}, kind: fault, text: 'PCS 1: Remote communication lost (fault 9 bit 15)'}
+  - {when: {key: x.pcs1_fault_10, bit: 4}, kind: fault, text: 'PCS 1: PE-N contactor short circuit (fault 10 bit 4)'}
+  - {when: {key: x.pcs1_fault_10, bit: 5}, kind: fault, text: 'PCS 1: PE-N contactor open circuit (fault 10 bit 5)'}
+  - {when: {key: x.pcs1_fault_10, bit: 6}, kind: fault, text: 'PCS 1: N contactor short circuit (fault 10 bit 6)'}
+  - {when: {key: x.pcs1_fault_10, bit: 7}, kind: fault, text: 'PCS 1: N contactor open circuit (fault 10 bit 7)'}
+  - {when: {key: x.pcs1_fault_10, bit: 8}, kind: fault, text: 'PCS 1: Grid access abnormal (fault 10 bit 8)'}
+  - {when: {key: x.pcs1_fault_10, bit: 10}, kind: fault, text: 'PCS 1: Grid voltage distortion (fault 10 bit 10)'}
+  - {when: {key: x.pcs1_fault_10, bit: 11}, kind: fault, text: 'PCS 1: Input dry contact 4 failure (fault 10 bit 11)'}
+  - {when: {key: x.pcs1_fault_10, bit: 12}, kind: fault, text: 'PCS 1: Input dry contact 5 failure (fault 10 bit 12)'}
+
+notes:
+- Modbus TCP to the ESS controller (PUC), default IP 192.168.1.100, port 502, unit id 1; the cabinet also has an external
+  RS485 port (485-1). Serial settings aren't given. Behind a DuNext Local EMS the cabinets answer on unit ids 1, 2, … (see
+  dunext-powermount-ems).
+- Function codes 03 (read) and 06 (write single register) only. Addresses are the document's register numbers as they are
+  (its example reads 300 as 0x012C).
+- Energy counters are two registers, high word first, read here as one 32-bit value.
+- 'The document states a sign only for the active power control (702: − = charging, + = discharging). The grid power, battery
+  power and battery current signs here are assumed and unverified.'
+- BMS 1–20 at 15000 + 1000 × (n − 1) and PCS 1–20 at 4000 + 100 × (n − 1); only BMS 1 and PCS 1 are listed. Likewise only
+  the first of the 20 BC, ACDC, DCDC and MPPT status registers (500–579).
+- 'Left out: the BC / ACDC / DCDC / MPPT version summaries (408–420), boot and protocol versions, the cell numbers of the
+  extreme temperatures, the BMS detector values (PM2.5, temperature, CO; no unit given), the BMS clock, the bit list at 15022
+  (marked reserved), the per-cell voltages (15100–15549) and temperatures (15550–15999), IGBT 2–6 temperatures, PCS setting
+  echoes (4036–4042) and parallel operation info (4053–4056).'

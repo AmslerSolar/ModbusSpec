@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Sauter NRFC4..: Fancoil Thermostat Modbus (product data sheet 43.078, 2.1).
+
+modbusspec: 0
+id: sauter-nrfc4
+manufacturer: Fr. Sauter AG
+name: NRFC4 Modbus fan coil thermostat (NRFC413MF111, NRFC422MF111, NRFC423MF111, NRFC424MF112)
+kind: hvac
+
+sources:
+- title: 'NRFC 413, 422…424: Modbus Fancoil-Thermostat (product data sheet 43.078)'
+  version: '2.1'
+  url: https://www.sauter-controls.at/wp-content/uploads/ImportPDM/NRFC4..:_Fancoil_Thermostat_Modbus.pdf
+  sha256: c5adb3afb15e9400f8b0ebaa2cfd00812b79175bc549f0bb2f9d74987d3baeff
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+defaults:
+  verified: false
+
+points:
+  # Relay outputs (function 01)
+  - {key: x.relay_4, label: Relay 4, table: coil, address: 1, type: bool}
+  - {key: x.relay_5, label: Relay 5, table: coil, address: 2, type: bool}
+  - {key: x.relay_1, label: Relay 1, table: coil, address: 3, type: bool}
+  - {key: x.relay_2, label: Relay 2, table: coil, address: 4, type: bool}
+  - {key: x.relay_3, label: Relay 3, table: coil, address: 5, type: bool}
+
+  # State (functions 03 and 04 read the same values at 1–4)
+  - {key: x.device_type, label: Device type, table: holding, address: 1, type: u16, bits: [8, 15], poll: slow, note: High byte of register 1; the document gives no values.}
+  - {key: x.application, label: Application, table: holding, address: 1, type: u16, bits: [0, 7], poll: slow, note: Low byte of register 1 (application parameter); the document gives no values.}
+  - {key: x.room_temperature, label: Room temperature, table: holding, address: 2, type: u16, unit: °C, scale: 0.1, note: 0…99 °C. In °F when register 21 is set to Fahrenheit; °C (the default) assumed.}
+  - {key: x.occupancy, label: Occupancy, table: holding, address: 3, type: u16, enum: occupancy}
+  - {key: error_code, label: Error messages, table: holding, address: 4, type: u16, enum: error_code, note: '0 = no error: not stated in the document; assumed.'}
+
+  # Settings (functions 03, 06, 16)
+  - {key: x.power, label: Power, table: holding, address: 5, type: u16, enum: off_on, writable: true}
+  - {key: x.operating_mode, label: Operating mode, table: holding, address: 6, type: u16, enum: operating_mode, writable: true}
+  - {key: x.setpoint, label: Setpoint, table: holding, address: 7, type: u16, unit: °C, scale: 0.1, writable: true, min: 0, max: 99, note: Room temperature setpoint.}
+  - {key: x.fan_speed, label: Fan speed, table: holding, address: 8, type: u16, enum: fan_speed, writable: true}
+  - {key: x.setpoint_upper_limit, label: Upper setpoint limit, table: holding, address: 9, type: u16, unit: °C, scale: 0.1, writable: true, min: 0, max: 40, poll: slow}
+  - {key: x.setpoint_lower_limit, label: Lower setpoint limit, table: holding, address: 10, type: u16, unit: °C, scale: 0.1, writable: true, min: 0, max: 38, poll: slow}
+  - {key: x.cooling_setpoint_unoccupied, label: Cooling setpoint unoccupied, table: holding, address: 11, type: u16, unit: °C, scale: 0.1, writable: true, min: 22, max: 32, poll: slow}
+  - {key: x.heating_setpoint_unoccupied, label: Heating setpoint unoccupied, table: holding, address: 12, type: u16, unit: °C, scale: 0.1, writable: true, min: 10, max: 21, poll: slow}
+  - {key: x.frost_protection, label: Frost protection, table: holding, address: 13, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.frost_protection_setpoint, label: Frost protection setpoint, table: holding, address: 14, type: u16, unit: °C, scale: 0.1, writable: true, min: 0, max: 20, poll: slow}
+  - {key: x.power_on_behaviour, label: Operation after power returns, table: holding, address: 17, type: u16, enum: power_on_behaviour, writable: true, poll: slow}
+  - {key: x.keypad_lock, label: Keypad lock, table: holding, address: 18, type: u16, enum: keypad_lock, writable: true, poll: slow}
+  - {key: x.digital_input_function, label: Digital input function, table: holding, address: 20, type: u16, enum: digital_input_function, writable: true, poll: slow}
+  - {key: x.temperature_unit, label: Temperature unit, table: holding, address: 21, type: u16, enum: temperature_unit, writable: true, poll: slow}
+  - {key: x.sensor_compensation, label: Sensor compensation, table: holding, address: 22, type: s16, unit: °C, scale: 0.1, writable: true, min: -5, max: 5, poll: slow, note: Listed as u16 like all registers; signed assumed for the negative range.}
+  - {key: x.operating_modes, label: Operating modes, table: holding, address: 25, type: u16, enum: operating_modes, writable: true, poll: slow}
+  - {key: x.dead_zone, label: Dead zone, table: holding, address: 29, type: u16, unit: °C, scale: 0.1, writable: true, min: 0, max: 10, poll: slow}
+  - {key: x.auto_changeover, label: Automatic changeover, table: holding, address: 30, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.esp_relay, label: TiO2/ESP relay, table: holding, address: 43, type: u16, enum: off_on, writable: true}
+  - {key: x.ao1, label: AO1, table: holding, address: 44, type: u16, unit: '%', writable: true, min: 0, max: 100, note: PWM duty cycle.}
+  - {key: x.ao2_ai, label: AO2 / AI, table: holding, address: 45, type: u16, unit: '%', writable: true, min: 0, max: 100, note: 'Output: PWM duty cycle. Input (NRFC413 valve position feedback): 0…10 V as 0…100 %; the document gives a factor of 10 for the raw value, which isn''t clear for a percentage, so it is left unscaled.'}
+
+enums:
+  occupancy: {'0': Unoccupied, '1': Occupied}
+  error_code: {'0': No error, '1': Internal sensor short-circuited (valve and fan off), '2': Internal sensor open (valve and fan off), '3': Room temperature high (> 55 °C) or low (< 0 °C), '4': Remote sensor short-circuited, '5': Remote sensor open, '6': Dew point risk (valve and fan off)}
+  off_on: {'0': 'Off', '1': 'On'}
+  operating_mode: {'0': Cooling, '1': Heating, '2': Ventilation}
+  fan_speed: {'0': Low, '1': Medium, '2': High, '3': Auto}
+  power_on_behaviour: {'0': Last state, '1': 'On', '2': 'Off'}
+  keypad_lock: {'0': No lock, '1': All keys locked, '2': All keys except fan speed and setpoint locked, '3': On/off and on/off timer locked, '4': All keys except on/off locked}
+  digital_input_function: {'0': 'Open = occupied, closed = unoccupied (setpoint setback)', '1': 'Closed = occupied, open = unoccupied (setpoint setback)', '2': Closed = dew point reached, '3': Open = dew point reached, '4': 'Open = occupied, closed = unoccupied (fan off, valve closed)', '5': Closed = filter alarm, '6': Open = filter alarm}
+  temperature_unit: {'0': °C, '1': °F}
+  operating_modes: {'0': Heating / cooling / ventilation, '1': Cooling only, '2': Heating only}
+
+problems:
+  - {when: {key: error_code, in: [1, 2, 6]}, kind: fault, text: 'Thermostat error {value}: {text}'}
+  - {when: {key: error_code, in: [3, 4, 5]}, kind: warning, text: 'Thermostat warning {value}: {text}'}
+
+notes:
+- 'Addresses: the data sheet numbers registers and coils from 1 and doesn''t say whether these are protocol addresses or 1-based
+  reference numbers; they are taken unchanged as protocol addresses, so every point is unverified.'
+- Holding registers 1–4 can also be read as input registers (function 04) at the same numbers. All registers are 16-bit; temperatures
+  are in 0.1 °C steps.
+- The temperature unit can be switched to °F (register 21); this file assumes °C, the default.
+- RS485 Modbus RTU, up to 32 thermostats per bus, address 1–64 (default 1), 9600 (default) or 4800 baud, 8N1.
+- 'Not taken: fan dead zone (15), unoccupied fan speed (16), display selection (19), fan speed limit (23), language (24),
+  backlight (26), remote sensor type (28), EC motor voltages and relay (31–33), control loop parameters (34–36), floor heating
+  stages (37, 38), filter control mode (39).'
+- 'No identify: the device type and application values in register 1 aren''t listed.'

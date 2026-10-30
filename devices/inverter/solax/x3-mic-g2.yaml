@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SolaX Power MIC-G2 three phase inverter Modbus-RTU comms protocol (V1.9, 2022-09-21).
+
+modbusspec: 0
+id: solax-x3-mic-g2
+manufacturer: SolaX
+name: X3-MIC G2 / X3-PRO G2 inverters
+kind: inverter
+
+sources:
+- title: Modbus-RTU protocol of SolaX Power three phase inverter MIC-G2/Pro-G2
+  version: V1.9 (2022-09-21, ARM V1.13)
+  url: https://github.com/tobiasfaust/SolaxModbusGateway/blob/d512ac7f57d1e363b1a80f1d59d44e4a2d003bff/docs/ModbusProtocolReferences/solax/SolaX%20Power%20MIC-G2%20three%20phase%20inverter%20Modbus-RTU%20comms%20protocol%20V1.9.pdf
+  sha256: 5c61c1535c6dd7998b49a8421a78374ba0710002805c2daaa798d5c67b207bbf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    min_interval_ms: 1000
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 768
+    type: str
+    length: 7
+
+points:
+  # Identity and settings (function 03)
+  - {key: serial, label: SeriesNumber, table: holding, address: 768, type: str, length: 7, poll: slow}
+  - {key: x.factory_name, label: FactoryName, table: holding, address: 775, type: str, length: 7, poll: slow}
+  - {key: x.module_name, label: ModuleName, table: holding, address: 782, type: str, length: 7, poll: slow}
+  - {key: firmware, label: FirmwareVersion, table: holding, address: 789, type: str, length: 3, poll: slow}
+  - {key: x.clock, label: 'RTC (seconds, minutes, hours, day, month, year)', table: holding, address: 792, type: datetime, length: 6, datetime: {second: {register: 0}, minute: {register: 1}, hour: {register: 2}, day: {register: 3}, month: {register: 4}, year: {register: 5, offset: 2000}}, poll: slow, verified: false, note: One register per part. The year's form isn't stated; taken as years since 2000 (assumed).}
+  - {key: x.machine_type, label: PowerType, table: holding, address: 846, type: u16, bits: [0, 7], enum: machine_type, poll: slow}
+  - {key: x.safety, label: Safety, table: holding, address: 846, type: u16, bits: [8, 15], enum: safety, poll: slow, note: Grid code. Set by writing register 0x0607 (function 06).}
+  - {key: x.mppt_scan_mode, label: MpptScanMode, table: holding, address: 847, type: u16, bits: [0, 7], poll: slow, note: 0–3.}
+  - {key: x.firmware_dsp, label: DSP Firmware Version, table: holding, address: 850, type: u16, poll: slow}
+  - {key: x.firmware_arm, label: ARM Firmware Version, table: holding, address: 851, type: u16, poll: slow}
+  - {key: x.datalogger_power_limit, label: DataLoggerPowerRatioLimit, table: holding, address: 852, type: u16, unit: '%', poll: slow, note: Power limit set by the data logger (written with function 16 at 0x1800 as a 32-bit value in 0.001 %).}
+
+  # Live data (function 04)
+  - {key: x.pv1_voltage, label: Vdc1, table: input, address: 1024, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_voltage, label: Vdc2, table: input, address: 1025, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: Idc1, table: input, address: 1026, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv2_current, label: Idc2, table: input, address: 1027, type: u16, unit: A, scale: 0.1}
+  - {key: l1_voltage, label: VacR, table: input, address: 1028, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: VacS, table: input, address: 1029, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: VacT, table: input, address: 1030, type: u16, unit: V, scale: 0.1}
+  - {key: frequency, label: FacR, table: input, address: 1031, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.frequency_l2, label: FacS, table: input, address: 1032, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.frequency_l3, label: FacT, table: input, address: 1033, type: u16, unit: Hz, scale: 0.01}
+  - {key: l1_current, label: IacR, table: input, address: 1034, type: u16, unit: A, scale: 0.1}
+  - {key: l2_current, label: IacS, table: input, address: 1035, type: u16, unit: A, scale: 0.1}
+  - {key: l3_current, label: IacT, table: input, address: 1036, type: u16, unit: A, scale: 0.1}
+  - {key: temperature, label: INVTemperatureDeg (radiator), table: input, address: 1037, type: s16, unit: °C, verified: false, note: The document gives uint16; read as signed so that temperatures below 0 °C come out right (assumed).}
+  - {key: x.ac_power, label: Pac, table: input, address: 1038, type: u16, unit: W, note: The inverter's AC output power.}
+  - {key: state, label: RunMode, table: input, address: 1039, type: u16, enum: run_mode}
+  - {key: l1_power, label: PacR, table: input, address: 1040, type: u16, unit: W, positive: export, note: Output power of phase R (unsigned).}
+  - {key: l2_power, label: PacS, table: input, address: 1041, type: u16, unit: W, positive: export, note: Output power of phase S (unsigned).}
+  - {key: l3_power, label: PacT, table: input, address: 1042, type: u16, unit: W, positive: export, note: Output power of phase T (unsigned).}
+  - {key: pv_power, label: Pdc, table: input, address: 1043, type: u16, unit: W, note: Total DC power of all PV inputs.}
+  - {key: x.pv1_power, label: Pdc1, table: input, address: 1044, type: u16, unit: W}
+  - {key: x.pv2_power, label: Pdc2, table: input, address: 1045, type: u16, unit: W}
+  - {key: pv_energy, label: YieldTotal, table: input, address: 1059, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: pv_energy_today, label: YieldToday, table: input, address: 1061, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.inverter_fault, label: Inverter_FaultMessage, table: input, address: 1063, type: u32, flags: inverter_fault}
+  - {key: x.pv3_voltage, label: Vdc3, table: input, address: 1065, type: u16, unit: V, scale: 0.1, note: Only models with three PV inputs.}
+  - {key: x.pv3_current, label: Idc3, table: input, address: 1066, type: u16, unit: A, scale: 0.1, note: Only models with three PV inputs.}
+  - {key: x.pv3_power, label: Pdc3, table: input, address: 1067, type: u16, unit: W, note: Only models with three PV inputs.}
+  - {key: x.control_board_temperature, label: ENVTemperatureDeg, table: input, address: 1068, type: s16, unit: °C, verified: false, note: The document gives uint16; read as signed (assumed).}
+  - {key: x.manager_fault, label: Manager_FaultMessage, table: input, address: 1071, type: u16, flags: manager_fault}
+  - {key: grid_power, label: Feed In Power (GridPower), table: input, address: 1083, type: s32, unit: W, positive: export, verified: false, note: 'From the grid meter or CT. Sign not stated in the document; assumed positive when feeding in, as the name says.'}
+  - {key: grid_export_energy, label: Feed In Energy, table: input, address: 1085, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_import_energy, label: Consume Energy, table: input, address: 1087, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.grid_power_l1, label: FeedinPower_R_phase (meter / CT), table: input, address: 1796, type: s32, unit: W, verified: false, note: 'Sign not stated; positive when feeding in (assumed). The table puts this value at 0x0704–0x0705, its description at 0x0705–0x0706; the table''s address is used (unchecked).'}
+  - {key: x.grid_power_l2, label: FeedinPower_S_phase (meter / CT), table: input, address: 1798, type: s32, unit: W, verified: false, note: Sign not stated; positive when feeding in (assumed). Table address 0x0706–0x0707 used; the description says 0x0707–0x0708 (unchecked).}
+  - {key: x.grid_power_l3, label: FeedinPower_T_phase (meter / CT), table: input, address: 1800, type: s32, unit: W, verified: false, note: Sign not stated; positive when feeding in (assumed). Table address 0x0708–0x0709 used; the description says 0x0709–0x070A (unchecked).}
+
+  # Settings, write only (function 06)
+  - {key: x.password, label: Password, table: holding, address: 1536, type: u16, writable: true, write_only: true, note: Writing the right password unlocks the other write registers; a wrong one locks them again.}
+  - {key: x.power_limit_percent, label: PowerLimitsPercent, table: holding, address: 1551, type: u16, unit: '%', writable: true, write_only: true}
+  - {key: x.remote_control, label: RemoteControl, table: holding, address: 1552, type: u16, enum: remote_control, writable: true, write_only: true, note: Remote start and stop.}
+  - {key: x.change_power, label: ChangePower (value), table: holding, address: 1565, type: u16, unit: W, writable: true, write_only: true}
+  - {key: x.change_power_percent, label: ChangePower (percent), table: holding, address: 1566, type: u16, unit: '%', writable: true, write_only: true}
+  - {key: x.remote_control_power, label: RemoteControlPower, table: holding, address: 1597, type: u16, unit: W, writable: true, write_only: true, note: Fast remote power control.}
+
+enums:
+  run_mode: {'0': Waiting, '1': Checking, '2': Normal, '3': Fault, '4': Permanent fault}
+  remote_control: {'0': Stop, '1': Start}
+  machine_type: {'1': X3-MIC 3 kW, '2': X3-MIC 4 kW, '3': X3-MIC 5 kW, '4': X3-MIC 6 kW, '5': X3-MIC 8 kW, '6': X3-MIC 10 kW, '7': X3-MIC 12 kW, '8': X3-MIC 15 kW, '9': X3-PRO 8 kW, '10': X3-PRO 10 kW, '11': X3-PRO 12 kW EU (3 PV inputs), '12': X3-PRO 12 kW AU, '13': X3-PRO 15 kW EU (3 PV inputs), '14': X3-PRO 15 kW AU, '15': X3-PRO 17 kW EU (3 PV inputs), '16': X3-PRO 17 kW AU, '17': X3-PRO 20 kW EU (3 PV inputs), '18': X3-PRO 20 kW AU, '19': X3-PRO 25 kW (3 PV inputs), '20': X3-PRO 30 kW (3 PV inputs), '21': 'X3-MIC 10 kW (2 MPPT, 3 strings)', '22': X3-MIC-5K-G2-LV, '23': X3-MIC-6K-G2-LV, '24': X3-MIC-8K-G2-LV, '25': X3-MIC-10K-G2-LV (PRO G2), '26': X3-MIC-12K-G2-LV (PRO G2), '27': X3-MIC-15K-G2-LV (PRO G2)}
+  safety: {'0': VDE0126, '1': ARN4105, '2': AS4777_AU, '3': G98, '4': C10_11, '5': E8001, '6': EN50438_Netherlands, '7': EN50438_Denmark2019_W, '8': CEB, '9': CEI0_21, '10': NRS097_2_1, '11': VDE0126_Greece_Island, '12': UTE_C15_712_Fr, '13': IEC61727_In, '14': G99, '15': VDE0126_Greece, '16': France_Guyana_50Hz, '17': France_Island_50Hz, '18': France_Island_60Hz, '19': AS4777_NZ, '20': RD1699, '21': Chile, '22': EN50438_Ireland, '23': G98_Philippines, '24': Czech_PPDS, '25': EN50438_Czech, '26': EN50549_1, '27': EN50438_Denmark2019_E, '28': RD1699_Island, '29': EN50549_Poland, '30': MEA_Thailand, '31': PEA_Thailand, '32': CEI0_21_ACEA, '33': AS4777_B, '34': AS4777_C, '35': UserDefined, '36': CQC, '37': IEC61727_Br, '38': IEC61727, '39': IEC61727_Br_LV, '40': TOR, '41': CEI0_16, '42': Chile_2021, '43': Chile_2021_MT_R, '44': Chile_2021_MT_U, '45': Czech_2021_2, '46': EN50549_Sweden, '47': EN50549_Romania, '48': Slovenia}
+
+flags:
+  inverter_fault: {'0': TZ protect fault, '1': Mains lost fault, '2': Grid voltage fault, '3': Grid frequency fault, '4': PV voltage fault, '5': Bus voltage fault, '7': Grid 10-minute voltage fault, '8': DC injection overcurrent, '10': SW overcurrent, '11': Residual current overcurrent, '12': Isolation fault, '13': Over-temperature fault, '20': Low-temperature fault, '24': Internal communication fault, '25': Fan fault, '26': AC terminal over-temperature, '27': EEPROM fault, '28': Residual current device fault, '29': PV connection direction fault, '30': Grid relay fault, '31': Other device fault}
+  manager_fault: {'0': Power type fault, '2': EEPROM error, '3': ARM-DSP communication error, '4': Meter error, '14': Fan 1 error, '15': Fan 2 error}
+
+problems:
+  - {when: {key: state, equals: 3}, kind: fault, text: Inverter fault (run mode 3)}
+  - {when: {key: state, equals: 4}, kind: fault, text: Inverter permanent fault (run mode 4)}
+  - {when: {key: x.inverter_fault, not: 0}, kind: fault, text: 'Inverter fault code 0x{value:X}'}
+  - {when: {key: x.manager_fault, not: 0}, kind: warning, text: 'Manager fault code 0x{value:X}'}
+
+notes:
+- Covers the three-phase X3-MIC G2 and X3-PRO G2 inverters (and their LV variants); the machine type in holding 0x034E (low
+  byte) tells them apart. The document gives no register that tells this family from other SolaX inverters, nor the serial-number
+  prefixes.
+- 'Addresses are the document''s hexadecimal register addresses, used as they are (0-based): function 03 reads the holding
+  table, function 04 the input table, function 06 writes single registers. 32-bit values have the low word first, as the document
+  states.'
+- Modbus RTU on RS485 at 9600 baud 8N1; at least 1 s between requests and a 1 s response timeout. The default unit id isn't
+  stated (1 assumed); port 502 applies only behind a Modbus TCP gateway. Maximum registers per request not stated.
+- 'Two-value holding registers pack two bytes: 0x034E machine type (low byte) and grid code (high byte); 0x034F MPPT scan
+  mode (low byte) and power ratio (high byte, left out: its unit is unclear).'
+- Writing is locked until the password is written to 0x0600. Write registers 0x0600–0x0641 can't be read back except where
+  a holding register mirrors them. Calibration, EEPROM-default and yield-clearing registers (0x0611–0x061C, 0x063A–0x063B)
+  must not be used for control.
+- The phase power values PacR/S/T and Pac are unsigned output powers; the grid-meter values at 0x043B and 0x0704 ff. are signed
+  but their sign isn't stated.
+- 'Left out: grid-code protection limits and trip times (holding 0x0324–0x0345, write 0x0601–0x060E), power-factor and Q(U)
+  / P(U) curves, fault values at the time of a fault (input 0x0416–0x0422, 0x042D–0x042E), the EV-charger values RefPowerToEV
+  / PowerToEV / PvRef (input 0x0700–0x0703, whose described addresses don''t agree with the table), the 0xF000 mirror block
+  (names only, no types) and DataHub registers.'

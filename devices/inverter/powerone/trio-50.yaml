@@ -1,0 +1,182 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Power-One's Modbus RTU Register Map for the TRIO-50.0/60.0-TL-OUTD and TRIO-TM (Gt03.0, Rev. 3.4).
+
+modbusspec: 0
+id: powerone-trio-50
+manufacturer: Power-One / ABB
+name: TRIO-50.0/60.0-TL-OUTD and TRIO-TM-50.0/60.0 string inverters (register map Gt03)
+kind: inverter
+
+sources:
+- title: Modbus RTU Register Map, TRIO-50.0/60.0-TL-OUTD, TRIO-TM-50.0-400, TRIO-TM-60.0-480
+  version: Gt03.0, Rev. 3.4 (10/06/2019)
+
+connection:
+  default_port: 502
+  default_unit: 2
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+  limits:
+    max_registers: 86
+    max_gap: 15
+  sleeps: true   # powered by its panels: silent after sunset
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 1008
+    type: str
+    length: 6
+    chars: low
+  checks:
+  - table: input
+    address: 999
+    type: u16
+    equals: 261
+
+models:
+  - {id: trio_50_eu, name: TRIO-50-TL-OUTD-EU, match: {table: input, address: 1021, type: u16, equals: 40}}
+  - {id: trio_60, name: TRIO-60-TL-OUTD, match: {table: input, address: 1021, type: u16, equals: 47}}
+  - {id: trio_50_us, name: TRIO-50-TL-OUTD-US, match: {table: input, address: 1021, type: u16, equals: 41}}
+  - {id: trio_60_us, name: TRIO-60-TL-OUTD-US, match: {table: input, address: 1021, type: u16, equals: 58}}
+  - {id: trio_50_jp, name: TRIO-50-TL-OUTD-JP, match: {table: input, address: 1021, type: u16, equals: 59}}
+  - {id: trio_tm, name: TRIO-TM-50.0/60.0, match: {table: input, address: 1021, type: u16, equals: 92}}
+
+points:
+  - {key: x.inverter_id, label: Inverter ID, table: input, address: 999, type: u16, poll: slow, note: Fixed value 261.}
+  - {key: x.part_number, label: Inverter part number, table: input, address: 1002, type: str, length: 6, chars: low, poll: slow, note: A request must cover all six registers.}
+  - {key: serial, label: Inverter serial number, table: input, address: 1008, type: str, length: 6, chars: low, poll: slow, note: A request must cover all six registers.}
+  - {key: x.model_type, label: Model type, table: input, address: 1021, type: u16, bits: [0, 7], enum: model, poll: slow}
+  - {key: state, label: Global state, table: input, address: 1049, type: u16, enum: global_state}
+  - {key: x.alarm_state, label: Alarm state, table: input, address: 1050, type: u16, enum: alarm_state}
+  - {key: x.derating_state, label: Derating state, table: input, address: 1053, type: u16, flags: derating}
+  - {key: pv_energy_today, label: Daily energy, table: input, address: 1069, type: u32, word_order: big, unit: kWh, scale: 0.001}
+  - {key: pv_energy, label: Total energy, table: input, address: 1071, type: u32, word_order: big, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.partial_energy, label: Partial energy, table: input, address: 1073, type: u32, word_order: big, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.week_energy, label: Weekly energy, table: input, address: 1075, type: u32, word_order: big, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.month_energy, label: Monthly energy, table: input, address: 1077, type: u32, word_order: big, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.year_energy, label: Yearly energy, table: input, address: 1079, type: u32, word_order: big, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.mean_grid_voltage, label: Mean grid voltage (phase to neutral), table: input, address: 1089, type: f32, unit: V}
+  - {key: x.mean_output_current, label: Mean output current (phase to neutral), table: input, address: 1091, type: f32, unit: A}
+  - {key: pv_power, label: 'Output active power: instantaneous', table: input, address: 1093, type: f32, unit: W, note: AC output power.}
+  - {key: x.peak_power_absolute, label: 'Output active power: absolute peak', table: input, address: 1095, type: f32, unit: W, poll: slow}
+  - {key: x.peak_power_today, label: 'Output active power: daily peak', table: input, address: 1097, type: f32, unit: W, poll: slow}
+  - {key: reactive_power, label: 'Reactive power: feedback on set point applied', table: input, address: 1101, type: f32, unit: var, verified: false, note: Sign convention not stated for this register.}
+  - {key: power_factor, label: 'Power factor: feedback on set point applied', table: input, address: 1103, type: f32, unit: ''}
+  - {key: frequency, label: Mean grid frequency, table: input, address: 1105, type: f32, unit: Hz}
+  - {key: x.input1_power, label: 'Active power on DC input #1', table: input, address: 1107, type: f32, unit: W}
+  - {key: x.input1_voltage, label: 'Voltage on DC input #1', table: input, address: 1109, type: f32, unit: V}
+  - {key: x.input1_current, label: 'Current on DC input #1', table: input, address: 1111, type: f32, unit: A}
+  - {key: x.input2_power, label: 'Active power on DC input #2', table: input, address: 1113, type: f32, unit: W, models: [trio_tm]}
+  - {key: x.input2_voltage, label: 'Voltage on DC input #2', table: input, address: 1115, type: f32, unit: V, models: [trio_tm]}
+  - {key: x.input2_current, label: 'Current on DC input #2', table: input, address: 1117, type: f32, unit: A, models: [trio_tm]}
+  - {key: x.input3_power, label: 'Active power on DC input #3', table: input, address: 1129, type: f32, unit: W, models: [trio_tm]}
+  - {key: x.input3_voltage, label: 'Voltage on DC input #3', table: input, address: 1131, type: f32, unit: V, models: [trio_tm]}
+  - {key: x.input3_current, label: 'Current on DC input #3', table: input, address: 1133, type: f32, unit: A, models: [trio_tm]}
+  - {key: x.internal_temperature, label: Internal temperature (DC box), table: input, address: 1119, type: f32, unit: °C}
+  - {key: temperature, label: Inverter temperature (DC/AC converter), table: input, address: 1121, type: f32, unit: °C}
+  - {key: x.isolation_resistance, label: Isolation resistance, table: input, address: 1125, type: f32, unit: MΩ, poll: slow, note: Value measured at start-up.}
+  - {key: x.max_leakage_current, label: Max leakage current, table: input, address: 1127, type: f32, unit: A, poll: slow, note: In case of a ground fault.}
+
+enums:
+  model: {'40': TRIO-50-TL-OUTD-EU, '41': TRIO-50-TL-OUTD-US, '47': TRIO-60-TL-OUTD, '58': TRIO-60-TL-OUTD-US, '59': TRIO-50-TL-OUTD-JP, '92': TRIO-TM-50.0/60.0}
+  global_state: {'0': Initializing (configuring power control), '1': Waiting for sun or grid, '2': Connecting (checking grid), '3': Initializing (system start-up), '4': Connecting (switching on DC/DC), '5': Connecting (switching on DC/AC), '6': Connected to grid, '7': Post-alarm (recovery), '8': Post-alarm (pause), '9': Ground fault, '10': Over-temperature fault, '12': Connecting (grid protection self-test), '13': Grid protection self-test fault, '14': Connecting (safety checks), '15': Leakage fault, '24': Under-temperature fault, '25': Interlock (remote off), '26': Interlock (emergency stop), '27': Executing auto-test, '29': Grounding-kit fault, '30': SW bundle not valid, '41': Temperature sensors fault, '42': Grid sequence fault, '51': Arc fault, '53': Arc detector self-test fault, '116': Power stage off-line, '118': Arc detector wrong configuration, '119': Arc detector self-test, '120': Configuration fault (bad model), '124': Latch with reset by hand, '150': Power stage communication fault, '151': Configuration fault (bad global settings), '200': Programming power stage}
+  alarm_state: {'0': No alarm, '2': Input OC (E001), '3': Input UV (W002), '4': Input OV (E002), '6': No parameters (E003), '7': Bulk OV (E004), '8': Internal error (E005), '9': Output OC (E006), '10': IGBT sat (E007), '11': Bulk UV (W011), '14': Bulk UV (E010), '15': Ramp fault (E011), '16': Internal error (E012), '17': Wrong input mode (E013), '19': Over-temperature (E014), '20': Capacitor fault (E015), '21': Internal error (E016), '22': Internal error (E017), '23': Leak fault (E018), '24': Internal error (E049), '25': Internal error (E019), '26': Internal error (E012), '27': Internal error (E020), '28': Internal error (E021), '29': Internal error (E019), '30': Internal error (E022), '31': DC injection (E023), '38': Riso low (E025), '42': Mid bulk OV (E029), '44': Internal error (E031), '45': Internal error (E032), '48': Under-temperature (E033), '49': IGBT not ready (E034), '50': Remote off (E035), '51': Internal error (E036), '54': Riso low (E037), '62': Island detected (W015), '78': Riso test fail (E078), '79': Arc fault detected (E050), '82': Arc detector fault (E053), '85': Arc detector wrong configuration (E055), '90': Periodic grid off (W048), '91': Internal error (E077), '95': Grid connection fault (W046), '96': 'Latch, manual reset needed (E075)', '150': Update incomplete (W047), '152': Wrong sequence (E079), '156': Back-feed OC (E084), '167': Aux. bulk feed connection error (E098), '170': Ground kit self-test error (E099)}
+
+flags:
+  derating: {'0': Power curtailment from user setpoint, '1': Grid over-frequency derating, '2': Average grid over-voltage derating, '3': Anti-islanding derating, '4': Nameplate grid current limitation, '5': Over-temperature derating, '6': DC over-voltage derating, '7': Energy storage system zero-power injection}
+
+problems:
+  - {when: {key: state, equals: 9}, kind: fault, text: Ground fault (state 9)}
+  - {when: {key: state, equals: 10}, kind: fault, text: Over-temperature fault (state 10)}
+  - {when: {key: state, equals: 13}, kind: fault, text: Grid protection self-test fault (state 13)}
+  - {when: {key: state, equals: 15}, kind: fault, text: Leakage fault (state 15)}
+  - {when: {key: state, equals: 24}, kind: fault, text: Under-temperature fault (state 24)}
+  - {when: {key: state, equals: 29}, kind: fault, text: Grounding-kit fault (state 29)}
+  - {when: {key: state, equals: 30}, kind: fault, text: SW bundle not valid (state 30)}
+  - {when: {key: state, equals: 41}, kind: fault, text: Temperature sensors fault (state 41)}
+  - {when: {key: state, equals: 42}, kind: fault, text: Grid sequence fault (state 42)}
+  - {when: {key: state, equals: 51}, kind: fault, text: Arc fault (state 51)}
+  - {when: {key: state, equals: 53}, kind: fault, text: Arc detector self-test fault (state 53)}
+  - {when: {key: state, equals: 116}, kind: fault, text: Power stage off-line (state 116)}
+  - {when: {key: state, equals: 118}, kind: fault, text: Arc detector wrong configuration (state 118)}
+  - {when: {key: state, equals: 120}, kind: fault, text: Configuration fault (bad model) (state 120)}
+  - {when: {key: state, equals: 124}, kind: fault, text: Latch with reset by hand (state 124)}
+  - {when: {key: state, equals: 150}, kind: fault, text: Power stage communication fault (state 150)}
+  - {when: {key: state, equals: 151}, kind: fault, text: Configuration fault (bad global settings) (state 151)}
+  - {when: {key: x.alarm_state, equals: 2}, kind: fault, text: Input OC (E001)}
+  - {when: {key: x.alarm_state, equals: 4}, kind: fault, text: Input OV (E002)}
+  - {when: {key: x.alarm_state, equals: 6}, kind: fault, text: No parameters (E003)}
+  - {when: {key: x.alarm_state, equals: 7}, kind: fault, text: Bulk OV (E004)}
+  - {when: {key: x.alarm_state, equals: 8}, kind: fault, text: Internal error (E005)}
+  - {when: {key: x.alarm_state, equals: 9}, kind: fault, text: Output OC (E006)}
+  - {when: {key: x.alarm_state, equals: 10}, kind: fault, text: IGBT sat (E007)}
+  - {when: {key: x.alarm_state, equals: 14}, kind: fault, text: Bulk UV (E010)}
+  - {when: {key: x.alarm_state, equals: 15}, kind: fault, text: Ramp fault (E011)}
+  - {when: {key: x.alarm_state, equals: 16}, kind: fault, text: Internal error (E012)}
+  - {when: {key: x.alarm_state, equals: 17}, kind: fault, text: Wrong input mode (E013)}
+  - {when: {key: x.alarm_state, equals: 19}, kind: fault, text: Over-temperature (E014)}
+  - {when: {key: x.alarm_state, equals: 20}, kind: fault, text: Capacitor fault (E015)}
+  - {when: {key: x.alarm_state, equals: 21}, kind: fault, text: Internal error (E016)}
+  - {when: {key: x.alarm_state, equals: 22}, kind: fault, text: Internal error (E017)}
+  - {when: {key: x.alarm_state, equals: 23}, kind: fault, text: Leak fault (E018)}
+  - {when: {key: x.alarm_state, equals: 24}, kind: fault, text: Internal error (E049)}
+  - {when: {key: x.alarm_state, equals: 25}, kind: fault, text: Internal error (E019)}
+  - {when: {key: x.alarm_state, equals: 26}, kind: fault, text: Internal error (E012)}
+  - {when: {key: x.alarm_state, equals: 27}, kind: fault, text: Internal error (E020)}
+  - {when: {key: x.alarm_state, equals: 28}, kind: fault, text: Internal error (E021)}
+  - {when: {key: x.alarm_state, equals: 29}, kind: fault, text: Internal error (E019)}
+  - {when: {key: x.alarm_state, equals: 30}, kind: fault, text: Internal error (E022)}
+  - {when: {key: x.alarm_state, equals: 31}, kind: fault, text: DC injection (E023)}
+  - {when: {key: x.alarm_state, equals: 38}, kind: fault, text: Riso low (E025)}
+  - {when: {key: x.alarm_state, equals: 42}, kind: fault, text: Mid bulk OV (E029)}
+  - {when: {key: x.alarm_state, equals: 44}, kind: fault, text: Internal error (E031)}
+  - {when: {key: x.alarm_state, equals: 45}, kind: fault, text: Internal error (E032)}
+  - {when: {key: x.alarm_state, equals: 48}, kind: fault, text: Under-temperature (E033)}
+  - {when: {key: x.alarm_state, equals: 49}, kind: fault, text: IGBT not ready (E034)}
+  - {when: {key: x.alarm_state, equals: 51}, kind: fault, text: Internal error (E036)}
+  - {when: {key: x.alarm_state, equals: 54}, kind: fault, text: Riso low (E037)}
+  - {when: {key: x.alarm_state, equals: 62}, kind: mains_lost, text: Island detected (W015)}
+  - {when: {key: x.alarm_state, equals: 78}, kind: fault, text: Riso test fail (E078)}
+  - {when: {key: x.alarm_state, equals: 79}, kind: fault, text: Arc fault detected (E050)}
+  - {when: {key: x.alarm_state, equals: 82}, kind: fault, text: Arc detector fault (E053)}
+  - {when: {key: x.alarm_state, equals: 85}, kind: fault, text: Arc detector wrong configuration (E055)}
+  - {when: {key: x.alarm_state, equals: 90}, kind: warning, text: Periodic grid off (W048)}
+  - {when: {key: x.alarm_state, equals: 91}, kind: fault, text: Internal error (E077)}
+  - {when: {key: x.alarm_state, equals: 95}, kind: warning, text: Grid connection fault (W046)}
+  - {when: {key: x.alarm_state, equals: 96}, kind: fault, text: 'Latch, manual reset needed (E075)'}
+  - {when: {key: x.alarm_state, equals: 150}, kind: warning, text: Update incomplete (W047)}
+  - {when: {key: x.alarm_state, equals: 152}, kind: fault, text: Wrong sequence (E079)}
+  - {when: {key: x.alarm_state, equals: 156}, kind: fault, text: Back-feed OC (E084)}
+  - {when: {key: x.alarm_state, equals: 167}, kind: fault, text: Aux. bulk feed connection error (E098)}
+  - {when: {key: x.alarm_state, equals: 170}, kind: fault, text: Ground kit self-test error (E099)}
+  - {when: {key: x.derating_state, bit: 1}, kind: warning, text: Grid over-frequency derating (derating bit 1)}
+  - {when: {key: x.derating_state, bit: 2}, kind: warning, text: Average grid over-voltage derating (derating bit 2)}
+  - {when: {key: x.derating_state, bit: 3}, kind: warning, text: Anti-islanding derating (derating bit 3)}
+  - {when: {key: x.derating_state, bit: 5}, kind: warning, text: Over-temperature derating (derating bit 5)}
+  - {when: {key: x.derating_state, bit: 6}, kind: warning, text: DC over-voltage derating (derating bit 6)}
+
+notes:
+- RS-485 only (Modbus RTU; 19200 bit/s, no parity by default, even or odd selectable). It is reached through an RS-485 ↔ Modbus
+  TCP gateway; the unit id is the inverter's RS-485 address (1–247; 2 is only the document's example). The serial port must
+  be set to "Modbus RTU Slave" (not Aurora or SunSpec).
+- Data address X is sent as X − 1 (stated); addresses here are protocol addresses. Some gateways renumber; checking the fixed
+  Inverter ID (261) at both 999 and 1000 finds the offset.
+- Floats are word-swapped IEEE 754 (low word first, stated); U32 values are high word first.
+- A request may span unmapped registers only if it starts and ends on mapped ones; strings and 32-bit values must be read
+  whole. DC inputs 2 and 3 (1114–1119, 1130–1135) are marked TRIO-TM only; a request ending at 1135 might be rejected by a
+  TRIO-50/60-TL if those registers aren't mapped there (unverified).
+- Energies are in Wh (the document's table; its encoding example calls the same value kWh).
+- Solar power is the inverter's AC output; the DC inputs are informative. A TRIO doesn't measure the grid connection.
+- 'Problems: global states that are faults → fault; alarm codes Exxx → fault, Wxxx → warning, W015 island detected → mains
+  lost; derating bits → warning except bit 0 (user curtailment), 4 (nameplate current limit) and 7 (storage zero-injection).
+  Not problems: input UV, bulk UV (W011) and remote off. Any alarm code not listed counts as a fault.'

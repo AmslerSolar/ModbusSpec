@@ -1,0 +1,131 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: anker-smart-meter
+manufacturer: Anker SOLIX
+name: Smart Meter Gen 2
+kind: meter
+
+sources:
+- id: anker-solix-official
+  title: ha-anker-solix-official (Home Assistant integration)
+  url: https://github.com/anker-charging/ha-anker-solix-official
+  license: MIT
+  commit: 21c94833993cc14dbb03fd1a945106f7b1afaafe
+  path: custom_components/anker_solix_official/config/42bcf12f6663b19b5eaa517f050b6cbf286037eed3c569a5ccae6724c19de64e.yaml,
+    custom_components/anker_solix_official/translations/en.json
+- id: openhab
+  title: openHAB add-ons (Modbus bindings)
+  url: https://github.com/openhab/openhab-addons
+  license: EPL-2.0
+  commit: 391d63d8597d9b5b535ee83c85f557cad4fba2c7
+  path: bundles/org.openhab.binding.modbus.ankersolix/src/main/java/org/openhab/binding/modbus/ankersolix/internal/AnkerSolixSmartMeterHandler.java
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/anker/smartmeter_gen2
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 100
+
+encoding:
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 10702
+    type: str
+    length: 10
+  any:
+  - table: input
+    address: 10702
+    type: str
+    length: 10
+    contains:
+    - DNSL
+    - DNSM
+  - table: input
+    address: 10620
+    type: str
+    length: 10
+    contains:
+    - Smart Meter
+
+defaults:
+  verified: false
+  sources:
+  - anker-solix-official
+  - openhab
+
+models:
+  - {id: ae1x0, name: Smart Meter Gen 2, match: {table: input, address: 32768, type: str, length: 5, prefix: AE1X0}}
+
+points:
+  - {key: x.meter_model, label: Device Model, table: input, address: 10620, type: str, length: 10}
+  - {key: x.meter_type, label: Meter Type, table: input, address: 10630, type: u16, enum: meter_type}
+  - {key: l1_voltage, label: Main CT Phase 1 Voltage, table: input, address: 10632, type: u16, unit: V, scale: 0.1, sources: [anker-solix-official, openhab, openwb]}
+  - {key: l2_voltage, label: Main CT Phase 2 Voltage, table: input, address: 10633, type: u16, unit: V, scale: 0.1, sources: [anker-solix-official, openhab, openwb]}
+  - {key: l3_voltage, label: Main CT Phase 3 Voltage, table: input, address: 10634, type: u16, unit: V, scale: 0.1, sources: [anker-solix-official, openhab, openwb]}
+  - {key: l1_current, label: Main CT Phase 1 Active Current, table: input, address: 10635, type: s16, unit: A, scale: 0.01, sources: [anker-solix-official, openhab, openwb]}
+  - {key: l2_current, label: Main CT Phase 2 Active Current, table: input, address: 10636, type: s16, unit: A, scale: 0.01, sources: [anker-solix-official, openhab, openwb]}
+  - {key: l3_current, label: Main CT Phase 3 Active Current, table: input, address: 10637, type: s16, unit: A, scale: 0.01, sources: [anker-solix-official, openhab, openwb]}
+  - {key: l1_power, label: Main CT Phase 1 Active Power, table: input, address: 10638, type: s32, unit: W, positive: import, sources: [anker-solix-official, openhab, openwb]}
+  - {key: l2_power, label: Main CT Phase 2 Active Power, table: input, address: 10640, type: s32, unit: W, positive: import, sources: [anker-solix-official, openhab, openwb]}
+  - {key: l3_power, label: Main CT Phase 3 Active Power, table: input, address: 10642, type: s32, unit: W, positive: import, sources: [anker-solix-official, openhab, openwb]}
+  - {key: grid_power, label: Main CT Total Active Power, table: input, address: 10644, type: s32, unit: W, positive: import, sources: [anker-solix-official, openhab, openwb]}
+  - {key: x.primary_total_reactive_power, label: Main CT Total Reactive Power, table: input, address: 10646, type: s32, unit: var, note: Reactive power; the project gives the unit as W.}
+  - {key: x.primary_total_power_factor, label: Main CT Total Power Factor, table: input, address: 10648, type: s16, scale: 0.001}
+  - {key: x.primary_phase_a_forward_active_energy, label: Main CT Phase A Import, table: input, address: 10650, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.primary_phase_b_forward_active_energy, label: Main CT Phase B Import, table: input, address: 10652, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.primary_phase_c_forward_active_energy, label: Main CT Phase C Import, table: input, address: 10654, type: u32, unit: kWh, scale: 0.1}
+  - {key: grid_import_energy, label: Main CT Total Import, table: input, address: 10656, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.primary_phase_a_reverse_active_energy, label: Main CT Phase A Export, table: input, address: 10658, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.primary_phase_b_reverse_active_energy, label: Main CT Phase B Export, table: input, address: 10660, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.primary_phase_c_reverse_active_energy, label: Main CT Phase C Export, table: input, address: 10662, type: u32, unit: kWh, scale: 0.1}
+  - {key: grid_export_energy, label: Main CT Total Export, table: input, address: 10664, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.secondary_phase_1_current, label: Secondary CT Phase 1 Active Current, table: input, address: 10666, type: s16, unit: A, scale: 0.01}
+  - {key: x.secondary_phase_2_current, label: Secondary CT Phase 2 Active Current, table: input, address: 10667, type: s16, unit: A, scale: 0.01}
+  - {key: x.secondary_phase_3_current, label: Secondary CT Phase 3 Active Current, table: input, address: 10668, type: s16, unit: A, scale: 0.01}
+  - {key: x.secondary_phase_1_active_power, label: Secondary CT Phase 1 Active Power, table: input, address: 10669, type: s32, unit: W}
+  - {key: x.secondary_phase_2_active_power, label: Secondary CT Phase 2 Active Power, table: input, address: 10671, type: s32, unit: W}
+  - {key: x.secondary_phase_3_active_power, label: Secondary CT Phase 3 Active Power, table: input, address: 10673, type: s32, unit: W}
+  - {key: x.secondary_total_active_power, label: Secondary CT Total Active Power, table: input, address: 10675, type: s32, unit: W}
+  - {key: x.secondary_total_reactive_power, label: Secondary CT Total Reactive Power, table: input, address: 10677, type: s32, unit: var, note: Reactive power; the project gives the unit as W.}
+  - {key: x.secondary_total_power_factor, label: Secondary CT Total Power Factor, table: input, address: 10679, type: s16, scale: 0.001}
+  - {key: x.secondary_phase_a_forward_active_energy, label: Secondary CT Phase A Import, table: input, address: 10680, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.secondary_phase_b_forward_active_energy, label: Secondary CT Phase B Import, table: input, address: 10682, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.secondary_phase_c_forward_active_energy, label: Secondary CT Phase C Import, table: input, address: 10684, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.secondary_total_forward_active_energy, label: Secondary CT Total Import, table: input, address: 10686, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.secondary_phase_a_reverse_active_energy, label: Secondary CT Phase A Export, table: input, address: 10688, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.secondary_phase_b_reverse_active_energy, label: Secondary CT Phase B Export, table: input, address: 10690, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.secondary_phase_c_reverse_active_energy, label: Secondary CT Phase C Export, table: input, address: 10692, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.secondary_total_reverse_active_energy, label: Secondary CT Total Export, table: input, address: 10694, type: u32, unit: kWh, scale: 0.1}
+  - {key: firmware, label: Firmware Version, table: input, address: 10696, type: u32, note: 'Version: one byte per part, e.g. 0x01020304 = 1.2.3.4.'}
+  - {key: serial, label: Device Serial Number, table: input, address: 10702, type: str, length: 10}
+
+enums:
+  meter_type: {'1': Single Phase, '2': Three Phase}
+
+notes:
+- Modbus TCP must first be switched on in the Anker app (communication settings).
+- The product number (5 registers from input 0x8000, spaces and NULs removed) tells the products apart.
+- secondary_phase_1_voltage reads the same register as primary_phase_1_voltage (10632); listed once.
+- secondary_phase_2_voltage reads the same register as primary_phase_2_voltage (10633); listed once.
+- secondary_phase_3_voltage reads the same register as primary_phase_3_voltage (10634); listed once.
+- 'AE1X0: the serial number''s product code (characters 4-6 of a 16-character serial, 4-7 of a 17-character one) names the
+  product: DNSL = Anker SOLIX Smart Meter Gen 2, DNSM = Anker SOLIX Smart Meter Gen 2.'
+- Two CT groups (primary, secondary) share the phase voltages 10632…10634.
+- Taken from the openHAB binding (see sources); not checked against manufacturer documents.
+- The sources don't state the default unit id; 1 is a guess.
+- Identification as openhab recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

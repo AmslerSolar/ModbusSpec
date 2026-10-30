@@ -1,0 +1,125 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: e3dc-s10
+manufacturer: E3/DC
+name: S10 home power station
+kind: inverter
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/e3dc-modbus.yaml
+- id: openhab
+  title: openHAB add-ons (Modbus bindings)
+  url: https://github.com/openhab/openhab-addons
+  license: EPL-2.0
+  commit: 391d63d8597d9b5b535ee83c85f557cad4fba2c7
+  path: bundles/org.openhab.binding.modbus.e3dc/src/main/java/org/openhab/binding/modbus/e3dc/internal/dto, bundles/org.openhab.binding.modbus.e3dc/src/main/java/org/openhab/binding/modbus/e3dc/internal/modbus
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/e3dc/e3dc
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: little
+
+defaults:
+  verified: false
+  sources:
+  - openhab
+
+points:
+  - {key: x.modbus_id, label: Modbus id, table: holding, address: 0, type: u16, note: Shown as hex (magic value).}
+  - {key: x.modbus_version, label: Modbus version, table: holding, address: 1, type: u16, note: 'High byte major, low byte minor.'}
+  - {key: x.supported_registers, label: Supported registers, table: holding, address: 2, type: s16}
+  - {key: x.manufacturer, label: Manufacturer, table: holding, address: 3, type: str, length: 16}
+  - {key: x.model_name, label: Model name, table: holding, address: 19, type: str, length: 16}
+  - {key: serial, label: Serial number, table: holding, address: 35, type: str, length: 16}
+  - {key: firmware, label: Firmware, table: holding, address: 51, type: str, length: 16}
+  - {key: pv_power, label: PV output, table: holding, address: 67, type: s32, unit: W}
+  - {key: battery_power, label: 'Battery power (+ charging, − discharging)', table: holding, address: 69, type: s32, unit: W, positive: charge}
+  - {key: load_power, label: Household consumption, table: holding, address: 71, type: s32, unit: W}
+  - {key: grid_power, label: 'Grid power (+ from grid, − to grid)', table: holding, address: 73, type: s32, unit: W, positive: import}
+  - {key: x.external_power_supply, label: External power supply, table: holding, address: 75, type: s32, unit: W}
+  - {key: x.wallbox_power_consumption, label: Wallbox consumption, table: holding, address: 77, type: s32, unit: W}
+  - {key: x.wallbox_pv_power_consumption, label: Wallbox PV consumption, table: holding, address: 79, type: s32, unit: W}
+  - {key: x.self_consumption, label: Self consumption, table: holding, address: 81, type: u16, unit: '%', bits: [0, 7]}
+  - {key: x.autarky, label: Autarky, table: holding, address: 81, type: u16, unit: '%', bits: [8, 15]}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 82, type: s16, unit: '%'}
+  - {key: x.ep_status, label: Emergency power status, table: holding, address: 83, type: u16, enum: ep_status}
+  - {key: x.ems_status, label: EMS status, table: holding, address: 84, type: u16, flags: ems_status}
+  - {key: x.wallbox0, label: Wallbox 0 control, table: holding, address: 87, type: u16, flags: wallbox_status, writable: true, note: 'One register per wallbox id 0…7 from here. The binding writes back the bits Sunmode, Charging aborted, Schuko on, 1phase.'}
+  - {key: x.string1_volt, label: String1 volt, table: holding, address: 95, type: u16, unit: V}
+  - {key: x.string2_volt, label: String2 volt, table: holding, address: 96, type: u16, unit: V}
+  - {key: x.string3_volt, label: String3 volt, table: holding, address: 97, type: u16, unit: V}
+  - {key: x.string1_ampere, label: String1 ampere, table: holding, address: 98, type: u16, unit: A, scale: 0.01}
+  - {key: x.string2_ampere, label: String2 ampere, table: holding, address: 99, type: u16, unit: A, scale: 0.01}
+  - {key: x.string3_ampere, label: String3 ampere, table: holding, address: 100, type: u16, unit: A, scale: 0.01}
+  - {key: x.string1_watt, label: String1 watt, table: holding, address: 101, type: u16, unit: W}
+  - {key: x.string2_watt, label: String2 watt, table: holding, address: 102, type: u16, unit: W}
+  - {key: x.string3_watt, label: String3 watt, table: holding, address: 103, type: u16, unit: W}
+  - {key: x.pv_power_1, label: PV power (part 1), table: holding, address: 40067, type: s32, unit: W, sources: [evcc, openwb]}
+  - {key: x.battery_power, label: Battery power, table: holding, address: 40069, type: s32, unit: W, sources: [evcc, openwb]}
+  - {key: x.grid_power, label: Grid power, table: holding, address: 40073, type: s32, unit: W, sources: [evcc]}
+  - {key: x.pv_power_2, label: PV power (part 2), table: holding, address: 40075, type: s32, unit: W, note: evcc negates it for the PV power., sources: [evcc, openwb]}
+  - {key: x.battery_soc, label: Battery state of charge, table: holding, address: 40082, type: u16, unit: '%', sources: [evcc], conflicts: [{sources: [openwb], type: s16}]}
+  - {key: x.counter_meter1_type, label: Meter 1 type, table: holding, address: 40104, type: s16, note: 'openWB takes the block with type 5 (a farm), else type 1, as the grid meter.', sources: [openwb]}
+  - {key: x.counter_meter1_power_l1, label: Meter 1 power L1, table: holding, address: 40105, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter1_power_l2, label: Meter 1 power L2, table: holding, address: 40106, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter1_power_l3, label: Meter 1 power L3, table: holding, address: 40107, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter2_type, label: Meter 2 type, table: holding, address: 40108, type: s16, note: 'openWB takes the block with type 5 (a farm), else type 1, as the grid meter.', sources: [openwb]}
+  - {key: x.counter_meter2_power_l1, label: Meter 2 power L1, table: holding, address: 40109, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter2_power_l2, label: Meter 2 power L2, table: holding, address: 40110, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter2_power_l3, label: Meter 2 power L3, table: holding, address: 40111, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter3_type, label: Meter 3 type, table: holding, address: 40112, type: s16, note: 'openWB takes the block with type 5 (a farm), else type 1, as the grid meter.', sources: [openwb]}
+  - {key: x.counter_meter3_power_l1, label: Meter 3 power L1, table: holding, address: 40113, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter3_power_l2, label: Meter 3 power L2, table: holding, address: 40114, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter3_power_l3, label: Meter 3 power L3, table: holding, address: 40115, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter4_type, label: Meter 4 type, table: holding, address: 40116, type: s16, note: 'openWB takes the block with type 5 (a farm), else type 1, as the grid meter.', sources: [openwb]}
+  - {key: x.counter_meter4_power_l1, label: Meter 4 power L1, table: holding, address: 40117, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter4_power_l2, label: Meter 4 power L2, table: holding, address: 40118, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter4_power_l3, label: Meter 4 power L3, table: holding, address: 40119, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter5_type, label: Meter 5 type, table: holding, address: 40120, type: s16, note: 'openWB takes the block with type 5 (a farm), else type 1, as the grid meter.', sources: [openwb]}
+  - {key: x.counter_meter5_power_l1, label: Meter 5 power L1, table: holding, address: 40121, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter5_power_l2, label: Meter 5 power L2, table: holding, address: 40122, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter5_power_l3, label: Meter 5 power L3, table: holding, address: 40123, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter6_type, label: Meter 6 type, table: holding, address: 40124, type: s16, note: 'openWB takes the block with type 5 (a farm), else type 1, as the grid meter.', sources: [openwb]}
+  - {key: x.counter_meter6_power_l1, label: Meter 6 power L1, table: holding, address: 40125, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter6_power_l2, label: Meter 6 power L2, table: holding, address: 40126, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter6_power_l3, label: Meter 6 power L3, table: holding, address: 40127, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter7_type, label: Meter 7 type, table: holding, address: 40128, type: s16, note: 'openWB takes the block with type 5 (a farm), else type 1, as the grid meter.', sources: [openwb]}
+  - {key: x.counter_meter7_power_l1, label: Meter 7 power L1, table: holding, address: 40129, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter7_power_l2, label: Meter 7 power L2, table: holding, address: 40130, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+  - {key: x.counter_meter7_power_l3, label: Meter 7 power L3, table: holding, address: 40131, type: s16, unit: W, note: Raw > 0 = import when this block is the grid meter; openWB sums the three phases for the grid power., sources: [openwb]}
+
+derived:
+  - {key: x.pv_power, label: PV power, unit: W, sum: [{key: x.pv_power_1}, {key: x.pv_power_2, factor: -1}], sources: [evcc]}
+
+enums:
+  ep_status: {'0': EP not supported, '1': EP active, '2': EP not active, '3': EP possible, '4': EP Switch in wrong position}
+
+flags:
+  ems_status: {'0': Charging lock, '1': Discharging lock, '2': Available, '3': Weather charging, '4': Regulation, '5': Charge locktime, '6': Discharge locktime}
+  wallbox_status: {'0': Available, '1': Sunmode, '2': Charging aborted, '3': Charging, '4': Jack locked, '5': Jack plugged, '6': Schuko on, '7': Schuko plugged, '8': Schuko locked, '9': Schuko relay16a, '10': Relay 16a, '11': Relay 32a, '12': 1phase}
+
+notes:
+- 'evcc template `e3dc` (grid, pv, battery) lists: E3/DC.'
+- openHAB reads the E3/DC 'simple mode' block from holding address 0 (the document's register 40001 = address 0) with function
+  03; evcc's template uses addresses 40000 higher for the same values — check which offset the device answers on.
+- 'Battery power: the binding treats positive as charging; grid power: positive as drawn from the grid.'
+- Taken from the openHAB binding (see sources); not checked against manufacturer documents.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

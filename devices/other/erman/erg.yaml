@@ -1,0 +1,149 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the ERMAN (trademark ERMANGIZER) ERG-220-05 frequency converter MODBUS protocol (1.2, 2025-01-17) and
+# the ERG-220-02 (05) MODBUS RTU protocol by KB AGAVA (1.0, 2025-01-17).
+
+modbusspec: 0
+id: erman-erg
+manufacturer: ERMAN
+name: ERG-220-02 / ERG-220-05 pump frequency converter (ERMANGIZER)
+kind: other
+
+sources:
+- title: Преобразователь частоты ERG-220-05 — Протокол связи MODBUS (ERG-220-05 frequency converter, MODBUS protocol)
+  version: 1.2 (2025-01-17), firmware 01.25
+  url: https://github.com/user-attachments/files/32493266/protocol_modbus_erg-220-05.pdf
+  sha256: 75cee578bcae4594cc3838192623c3dafd195e2e0a96315221e8853924c2137f
+- title: Преобразователь частоты ERG-220-02 (05) — Протокол связи MODBUS RTU (KB AGAVA; ERG-220-02 (05) frequency converter,
+    MODBUS RTU protocol)
+  version: 1.0 (2025-01-17), firmware 0.1.2.5
+  url: https://www.ermangizer.ru/docs/220-05R/protocol_modbus_erg-220-05.pdf
+  sha256: 571519b4dfa3da0fca9955a0f17506690468ab26259cdd99ab564b89a1dd6714
+- id: modbus-devices
+  title: Modbus_Devices (Home Assistant integration)
+  url: https://github.com/dk-1983/Modbus_Devices
+  license: MIT
+  commit: 88460d5b9db9b7cb3abb0032de81a562522ec8b7
+  path: custom_components/modbus_devices/equipment/erman.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 17   # input registers; holding registers allow up to 88 per request
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Control commands (coils: read 0x01, write 0x05 / 0x0F)
+  - {key: x.start, label: Start command, table: coil, address: 0, type: bool, writable: true}
+  - {key: x.stop, label: Stop command, table: coil, address: 1, type: bool, writable: true}
+  - {key: x.emergency_stop, label: Emergency stop command, table: coil, address: 2, type: bool, writable: true}
+  - {key: x.save_parameters, label: Save parameters to ROM, table: coil, address: 5, type: bool, writable: true}
+  - {key: x.load_parameters, label: Load parameters from ROM, table: coil, address: 7, type: bool, writable: true}
+  - {key: x.reset_fault, label: Fault reset command, table: coil, address: 9, type: bool, writable: true}
+  - {key: x.output_y1, label: State / command – Y1, table: coil, address: 13, type: bool, writable: true, note: 'Switchable when output Y1''s function (P118, holding 1118) is 4.'}
+  - {key: x.output_y2, label: State / command – Y2, table: coil, address: 14, type: bool, writable: true, note: 'Switchable when output Y2''s function (P120, holding 1120) is 4.'}
+
+  # Status (input registers, function 0x04)
+  - {key: x.output_frequency, label: Output frequency, table: input, address: 2000, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.motor_current, label: Motor current, table: input, address: 2001, type: u16, unit: A, scale: 0.1}
+  - {key: x.input_voltage, label: Input voltage, table: input, address: 2002, type: u16, unit: V}
+  - {key: temperature, label: Converter temperature, table: input, address: 2003, type: u16, unit: °C, verified: false, note: Signedness not stated; read as unsigned.}
+  - {key: state, label: Converter state, table: input, address: 2004, type: u16, enum: state}
+  - {key: error_code, label: Error code, table: input, address: 2005, type: u16, enum: error_code}
+  - {key: x.current_pressure, label: Current pressure, table: input, address: 2006, type: u16, unit: atm, scale: 0.01}
+  - {key: firmware, label: 'Software version (MM:YY)', table: input, address: 2007, type: u16, poll: slow, verified: false, note: Month and year of the software; how they are packed into the register isn't stated.}
+  - {key: x.analog_input_1, label: Current input A1, table: input, address: 2008, type: u16, unit: '%'}
+  - {key: x.analog_input_2, label: Current input A2, table: input, address: 2009, type: u16, unit: '%'}
+
+  # Control registers (read 0x03, write 0x06 / 0x10)
+  - {key: x.frequency_setpoint, label: Frequency setpoint, table: holding, address: 2, type: u16, unit: Hz, scale: 0.1, writable: true, verified: false, note: Used when P100 (1100) is 2 (frequency by RS-485). The document gives the step 0.1 without a unit; Hz assumed.}
+  - {key: x.p001, label: P001 Pressure setpoint, table: holding, address: 1001, type: u16, unit: kgf/cm², scale: 0.01, writable: true, poll: slow}
+  - {key: x.p002, label: P002 Proportional coefficient, table: holding, address: 1002, type: u16, scale: 0.01, writable: true, poll: slow}
+  - {key: x.p003, label: P003 Integration time, table: holding, address: 1003, type: u16, unit: s, scale: 0.01, writable: true, poll: slow}
+  - {key: x.p004, label: P004 Start duration, table: holding, address: 1004, type: u16, unit: s, writable: true, poll: slow}
+  - {key: x.p005, label: P005 Emergency pressure threshold, table: holding, address: 1005, type: u16, unit: kgf/cm², scale: 0.01, writable: true, poll: slow}
+  - {key: x.p006, label: P006 Pressure sensor limit, table: holding, address: 1006, type: u16, unit: kgf/cm², scale: 0.01, writable: true, poll: slow}
+  - {key: x.p008, label: P008 Main menu mode, table: holding, address: 1008, type: u16, writable: true, min: 0, max: 1, poll: slow, note: The values aren't explained.}
+  - {key: x.p100, label: P100 Operating mode (frequency source), table: holding, address: 1100, type: u16, enum: p100, writable: true, poll: slow, note: The document gives the range 0–5 but explains only 0–2.}
+  - {key: x.p101, label: P101 Frequency in manual mode, table: holding, address: 1101, type: u16, unit: Hz, scale: 0.1, writable: true, poll: slow}
+  - {key: x.p102, label: P102 Upper frequency limit, table: holding, address: 1102, type: u16, unit: Hz, scale: 0.1, writable: true, poll: slow}
+  - {key: x.p103, label: P103 Lower frequency limit, table: holding, address: 1103, type: u16, unit: Hz, scale: 0.1, writable: true, poll: slow}
+  - {key: x.p104, label: P104 Starting frequency, table: holding, address: 1104, type: u16, unit: Hz, scale: 0.1, writable: true, poll: slow}
+  - {key: x.p113, label: P113 Dry-run sensor threshold, table: holding, address: 1113, type: u16, unit: kgf/cm², scale: 0.01, writable: true, poll: slow}
+  - {key: x.p114, label: P114 Dry-run sensor time, table: holding, address: 1114, type: u16, unit: s, writable: true, poll: slow}
+  - {key: x.p115, label: P115 Pressure difference for start, table: holding, address: 1115, type: u16, unit: kgf/cm², scale: 0.01, writable: true, poll: slow}
+  - {key: x.p117, label: P117 Start method, table: holding, address: 1117, type: u16, enum: p117, writable: true, poll: slow}
+  - {key: x.p118, label: P118 Function of digital output Y1, table: holding, address: 1118, type: u16, writable: true, min: 0, max: 4, poll: slow, note: 4 = switched over Modbus (coil 13).}
+  - {key: x.p119, label: P119 State of digital output Y1, table: holding, address: 1119, type: u16, writable: true, min: 0, max: 1, poll: slow}
+  - {key: x.p120, label: P120 Function of digital output Y2, table: holding, address: 1120, type: u16, writable: true, min: 0, max: 4, poll: slow, note: 4 = switched over Modbus (coil 14).}
+  - {key: x.p121, label: P121 State of digital output Y2, table: holding, address: 1121, type: u16, writable: true, min: 0, max: 1, poll: slow}
+  - {key: x.p122, label: P122 MODBUS device address, table: holding, address: 1122, type: u16, writable: true, min: 1, max: 31, poll: slow}
+  - {key: x.p123, label: P123 RS485 speed, table: holding, address: 1123, type: u16, writable: true, min: 0, max: 6, poll: slow, note: The codes aren't listed.}
+  - {key: x.p125, label: P125 State at power-on, table: holding, address: 1125, type: u16, writable: true, min: 0, max: 2, poll: slow}
+  - {key: x.p126, label: P126 Sleep lock, table: holding, address: 1126, type: u16, writable: true, min: 0, max: 1, poll: slow}
+  - {key: x.p130, label: P130 Time relay, table: holding, address: 1130, type: u16, enum: p130, writable: true, poll: slow, optional: true, note: ERG-220-05 only.}
+  - {key: x.p131, label: P131 Relay outputs off on fault, table: holding, address: 1131, type: u16, writable: true, min: 0, max: 1, poll: slow, optional: true, note: ERG-220-05 only.}
+  - {key: x.p133, label: P133 Channel 1 run time, table: holding, address: 1133, type: u16, unit: min, writable: true, poll: slow, optional: true, note: ERG-220-05 only.}
+  - {key: x.p134, label: P134 Channel 1 days, table: holding, address: 1134, type: u16, flags: weekdays, writable: true, poll: slow, optional: true, note: ERG-220-05 only.}
+  - {key: x.p136, label: P136 Channel 2 run time, table: holding, address: 1136, type: u16, unit: min, writable: true, poll: slow, optional: true, note: ERG-220-05 only.}
+  - {key: x.p137, label: P137 Channel 2 days, table: holding, address: 1137, type: u16, flags: weekdays, writable: true, poll: slow, optional: true, note: ERG-220-05 only.}
+  - {key: x.p105, label: P105 Starting-frequency voltage, table: holding, address: 1105, type: u16, unit: '%', writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p106, label: P106 Motor-start test frequency, table: holding, address: 1106, type: u16, unit: Hz, scale: 0.1, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p107, label: P107 Motor-start wait time, table: holding, address: 1107, type: u16, unit: s, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p108, label: P108 Leak-test period, table: holding, address: 1108, type: u16, unit: s, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p109, label: P109 Leak-detection pressure difference, table: holding, address: 1109, type: u16, unit: kgf/cm², scale: 0.01, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p110, label: P110 Flow-test period, table: holding, address: 1110, type: u16, unit: s, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p111, label: P111 Flow-detection pressure difference, table: holding, address: 1111, type: u16, unit: kgf/cm², scale: 0.01, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p112, label: P112 Test duration, table: holding, address: 1112, type: u16, unit: s, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p116, label: P116 Motor-start pressure difference, table: holding, address: 1116, type: u16, unit: kgf/cm², scale: 0.01, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p124, label: P124 Current input, table: holding, address: 1124, type: u16, enum: p124, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p129, label: P129 Current year, table: holding, address: 1129, type: u16, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p132, label: P132 Channel 1 start time, table: holding, address: 1132, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, verified: false, sources: [modbus-devices]}
+  - {key: x.p135, label: P135 Channel 2 start time, table: holding, address: 1135, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, verified: false, sources: [modbus-devices]}
+
+enums:
+  state: {'0': Initialising, '1': 'Off', '2': Motor starting, '3': Moving to setpoint, '4': Holding setpoint, '5': Flow detection, '6': Sleep, '7': Stopping, '8': Running at set frequency, '9': Fault, '10': Delay before start, '11': Relay test before start}
+  error_code: {'0': No error, '4': Err1, '5': E P1, '6': E FA, '7': E tH, '8': E C1, '9': E C2, '10': E UL, '11': E Er, '12': E UH, '13': E U3, '14': E U4, '15': E U5, '16': E U6, '17': E U7, '18': E U8, '19': E U9, '20': E S1, '21': E SH, '24': E S2, '25': E rF, '26': E C3, '27': E AF, '28': E CF}
+  p100: {'0': Pressure control, '1': Manual frequency, '2': Frequency by RS-485}
+  p117: {'0': Control panel, '1': Digital inputs, '2': RS-485}
+  p130: {'0': 'Off', '1': 'On'}
+  p124: {'0': automatic, '1': an1, '2': an2, '3': an1_and_an2}
+
+flags:
+  weekdays: {'1': Monday, '2': Tuesday, '3': Wednesday, '4': Thursday, '5': Friday, '6': Saturday, '7': Sunday}
+
+problems:
+  - {when: {key: state, equals: 9}, kind: fault, text: Converter fault (state 9)}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Converter error {text} (code {value})'}
+
+notes:
+- RS-485 (terminals 485A / 485B), default address 1 (1–31, P122; the frame allows 0–31, 0 = broadcast), 9600 baud (P123),
+  1 stop bit, no parity. 8 data bits are not stated; assumed. Port 502 only applies behind an RS485-to-TCP gateway.
+- To start/stop and set the frequency over the bus, set P117 (1117) = 2 and P100 (1100) = 2.
+- 'Request limits (1.0): coils start 0–12 and count 1–12 per request (its register table still lists Y1 / Y2 at 13 / 14);
+  holding registers 0–0x1043, up to 88 per request; input registers 0–0x1300, up to 17 per request. Port settings change only
+  while stopped and apply after a power cycle.'
+- P127–P137 (clock, time relay and its two channels) exist on the ERG-220-05 only, not on the ERG-220-02.
+- 1.0 gives the RS-485 frequency setpoint at 0x0002 in its text but writes it to 0x0001 in its example; 0x0002 is used here.
+- Addresses are given in decimal and hex in the document and are used as protocol addresses.
+- The document says to leave reserved coils at 0 and not to write reserved holding registers.
+- 'P134 / P137: the document numbers the weekdays from bit 1 (Monday) to bit 7 (Sunday).'
+- Pressure is reported in 0.01 atm, the settings in 0.01 kgf/cm² (as the document states; both are practically the same unit).
+- 'An error history of the last 50 faults sits in input registers 3000–3499: entry N (0 = newest) starts at 3000 + 10 × N,
+  with offsets 0 error code, 1 instantaneous motor current, 2 motor current (0.1 A), 3 input voltage (V), 4 temperature (°C),
+  5 output frequency (0.1 Hz), 6 pressure (0.01 atm), 7–9 time, date and year of the fault (ERG-220-05 only). Not listed as
+  points.'
+- 'Left out: P105–P112 and P116 (start and leak/flow test tuning), P124 (current input), P127–P129 and P132 / P135 (clock
+  and timer start times, packed as HH.MM / DD.MM in a way the document doesn''t detail).'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

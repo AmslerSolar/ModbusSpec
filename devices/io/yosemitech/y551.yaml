@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Yosemitech Y551-UV254-COD Modbus (v2020-05-11).
+
+modbusspec: 0
+id: yosemitech-y551
+manufacturer: Yosemitech
+name: Y551 UV254 COD sensor
+kind: io
+
+sources:
+- title: Yosemitech Optical COD Sensor Modbus RTU Programmer Manual (Y551-UV254-COD Modbus)
+  version: '2020-05-11'
+  url: https://github.com/EnviroDIY/YosemitechModbus/blob/0d300ac8fad83a24e979ee278fd00111ca6c8943/doc/Y551-UV254-COD_Modbus_v2020-05-11.pdf
+  sha256: 131ac0970ceab10113b4022977611c152c98def3b4415953400435b0c91a5ed4
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+  write_multiple: true
+
+encoding:
+  byte_order: little
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 2304
+    type: str
+    length: 7
+    byte_order: big
+
+points:
+  # Measurements (0x2600)
+  - {key: x.water_temperature, label: Temperature, table: holding, address: 9728, type: f32, unit: °C}
+  - {key: x.cod, label: COD value, table: holding, address: 9730, type: f32, unit: mg/L, note: 'Chemical oxygen demand; user calibration (K, B) applied.'}
+  - {key: x.error_flag, label: Error flag, table: holding, address: 9732, type: u16, bits: [0, 7], note: 'First byte of the register (the second byte is reserved). 0 = correct, 0xFF = the wiper is in the wrong position and the probe stopped measuring.'}
+  - {key: x.turbidity, label: Turbidity value, table: holding, address: 4608, type: f32, unit: NTU, note: User calibration applied.}
+  # Calibration and settings
+  - {key: x.calibration_k, label: User calibration coefficient K, table: holding, address: 4352, type: f32, writable: true, poll: slow, note: 'Final value = K × value + B; default K = 1. The document writes the equation for turbidity, though the section is about the COD value.'}
+  - {key: x.calibration_b, label: User calibration coefficient B, table: holding, address: 4354, type: f32, writable: true, poll: slow, note: Default B = 0.}
+  - {key: x.brush_interval, label: Brush interval of time, table: holding, address: 12800, type: u16, unit: min, writable: true, poll: slow, note: Time between wiper rotations; default 30 min.}
+  - {key: x.modbus_address, label: Slave address, table: holding, address: 12288, type: u16, bits: [0, 7], writable: true, min: 1, max: 247, poll: slow, note: 'First byte of the register, the second is reserved. The document reads it with unit id 0xFF.'}
+  # Identity
+  - {key: serial, label: SN, table: holding, address: 2304, type: str, length: 7, byte_order: big, poll: slow, note: '14 bytes: one reserved byte, 12 ASCII characters (e.g. YL1014010022), one reserved byte.'}
+  - {key: x.hardware_version, label: HW Rev, table: holding, address: 1792, type: u16, byte_order: big, poll: slow, note: 'High byte major, low byte minor: 0x0100 = 1.0.'}
+  - {key: firmware, label: SW Rev, table: holding, address: 1793, type: u16, byte_order: big, poll: slow, note: 'High byte major, low byte minor: 0x0100 = 1.0.'}
+
+problems:
+  - {when: {key: x.error_flag, not: 0}, kind: fault, text: 'Sensor error (flag 0x{value:X}): wiper in wrong position'}
+
+notes:
+- For probes with hardware Rev 1.0 and software Rev 1.5 or later.
+- Addresses are the start addresses in the document's request frames (0-based protocol addresses, as written). The document's
+  remark that addresses start at 1 is general Modbus text and doesn't apply to them.
+- Read with function 03 only.
+- 'Floats are IEEE 754 single precision stored fully little-endian: 17.625 (0x418D0000) comes as bytes 00 00 8D 41, i.e. low
+  word first, low byte first. The single-byte values (slave address, error flag) and the brush interval are in the first byte
+  / little-endian; serial and revision bytes are in transmission order.'
+- Same register layout as the Y504/Y510/Y511/Y514/Y520 sensors, with COD in place of their measured value and turbidity added
+  at 0x1200.
+- 'Commands left out (no value to read): start measurement (read one register at 0x2500), stop measurement (read one register
+  at 0x2E00), wipe now (write zero registers at 0x3100). The probe measures automatically after power-on.'
+- The document recommends averaging 10 readings, read 2 s apart, after a warm-up of at least 2 s.
+- 'Not stated in the document: a default unit id; 1 (the address used in the examples) is assumed.'

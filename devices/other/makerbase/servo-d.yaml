@@ -1,0 +1,66 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Makerbase MKS SERVO42D/57D Modbus RTU User Manual (V1.0.9, firmware V1.0.9, Nov 2025).
+
+modbusspec: 0
+id: makerbase-servo-d
+manufacturer: Makerbase
+name: MKS SERVO42D / 57D closed-loop stepper motor drivers
+kind: other
+
+sources:
+- title: MKS SERVO42D/57D Modbus RTU User Manual
+  version: V1.0.9 (Nov 2025)
+  url: https://github.com/makerbase-motor/MKS-SERVO42D-57D/blob/5c6d5b2e579b18d0465b2cb0d5a8ef44970bfdf8/User%20Manual/V1.0.9/MKS%20SERVO42%2657D_Modbus%20RTU%20User%20Manual%20V1.0.9.pdf
+  sha256: 951e1d3e3b0dc24781fa8e94b54052b6943619419170dff2b598ca15b2ec1fd1
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 38400
+    format: 8N1
+  limits:
+    max_registers: 2
+    max_gap: 0
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.speed, label: Real-time speed, table: input, address: 50, type: s16, unit: rpm, poll: fast, note: 'Positive when turning forward, negative in reverse.'}
+  - {key: x.io_status, label: I/O port status, table: input, address: 52, type: u16, flags: io_status, note: 'With the limit remapping on, bit 0 shows the En input and bit 1 the Dir input.'}
+  - {key: x.enabled, label: Motor enable status, table: input, address: 58, type: u16, bits: [0, 7], enum: enabled}
+  - {key: x.stalled, label: Motor stall status, table: input, address: 62, type: u16, bits: [0, 7], enum: stalled}
+  - {key: firmware, label: Version information, table: input, address: 64, type: u32, poll: slow, note: The document doesn't say how the version is encoded.}
+  - {key: state, label: Motor operating status, table: input, address: 241, type: u16, bits: [0, 7], enum: operating_status}
+
+enums:
+  enabled: {'0': Not enabled, '1': Enabled}
+  stalled: {'0': Not stalled, '1': Stalled}
+  operating_status: {'0': Query failed, '1': Stopped, '2': Accelerating, '3': Decelerating, '4': Full speed, '5': Homing, '6': Calibrating}
+
+flags:
+  io_status: {'0': IN_1, '1': IN_2, '2': OUT_1, '3': OUT_2}
+
+problems:
+  - {when: {key: x.stalled, equals: 1}, kind: fault, text: Motor stalled}
+
+notes:
+- 'Addresses are the register start addresses of the document''s request frames (0-based). The driver''s registers are not
+  a contiguous map: each address is a command and has to be read on its own with the count the document gives; don''t combine
+  neighbouring registers in one request.'
+- The document's examples read with function 04 (input); it also says 32-bit values and multi-register reads use function
+  03, so a device may answer those on holding as well (not verified).
+- 'Left out: the encoder value with carry (0x0030, 3 registers: s32 turns + u16 angle), the cumulative encoder value (0x0031,
+  48-bit), received pulses (0x0033, u32), the position angle error (0x0039, s32, 51200 = 360°) and the zero-return status
+  (0x003B, one byte each for single-turn and other homing: 0 running, 1 done, 2 failed) — they overlap neighbouring addresses
+  or need a 48-bit type.'
+- Settings (work mode 0x0082, working current 0x0083 in mA, holding current 0x009B, microsteps 0x0084, baud 0x008A, address
+  0x008B, Modbus on/off 0x008E, heartbeat time 0x0098 …) and motion commands are documented as writes only (function 06 /
+  16) and are not listed here. A failed write answers 0xFFFF (06) or a count of 0 (16).
+- 'Defaults: unit id 1 (0 = broadcast, no answer), 38400 baud 8N1.'

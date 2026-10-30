@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: byd-battery-box
+manufacturer: BYD
+name: Battery-Box Premium HVS / HVM / HVL / LVS
+kind: battery
+
+sources:
+- id: smarthomeng
+  title: SmartHomeNG plugins
+  url: https://github.com/smarthomeNG/plugins
+  license: GPL-3.0-or-later
+  commit: 0176a8684934aab9a52f905cdea80f8410200c2f
+  path: byd_bat/__init__.py
+
+connection:
+  default_port: 8080
+  default_unit: 1
+
+defaults:
+  verified: false
+  sources:
+  - smarthomeng
+
+points:
+  - {key: serial, label: Serial number, table: holding, address: 0, type: str, length: 10, note: The project takes 19 characters.}
+  - {key: x.bmu_bank_a_version, label: 'BMU firmware, bank A', table: holding, address: 12, type: u16, note: Version high byte . low byte.}
+  - {key: x.bmu_bank_b_version, label: 'BMU firmware, bank B', table: holding, address: 13, type: u16, note: Version high byte . low byte.}
+  - {key: x.bms_version, label: BMS firmware, table: holding, address: 14, type: u16, note: Version high byte . low byte; the build letter is in the low byte of the next register.}
+  - {key: x.bms_version_letter, label: BMS firmware letter, table: holding, address: 15, type: u16, bits: [0, 7], note: '0 = A, 1 = B, …'}
+  - {key: x.bmu_active_bank, label: Active BMU firmware bank, table: holding, address: 15, type: u16, bits: [8, 15], note: '0 = bank A, otherwise bank B.'}
+  - {key: x.modules, label: Modules per tower, table: holding, address: 16, type: u16, bits: [0, 3]}
+  - {key: x.towers, label: Number of towers (BMS), table: holding, address: 16, type: u16, bits: [4, 7], note: The project treats 0 or more than 3 as one tower.}
+  - {key: x.inverter_type, label: Inverter type, table: holding, address: 16, type: u16, bits: [8, 15], enum: inverter, note: The names are those for HVM and HVS; HVL and LVS number the inverters differently.}
+  - {key: x.application, label: Application (grid mode), table: holding, address: 17, type: u16, bits: [0, 7], enum: application}
+  - {key: x.battery_type, label: Battery type, table: holding, address: 17, type: u16, bits: [8, 15], enum: battery_type, note: 'Any other value: LVS when the serial number''s second character is 1 or 2.'}
+  - {key: battery_soc, label: State of charge, table: holding, address: 1280, type: s16, unit: '%'}
+  - {key: x.cell_voltage_max, label: Highest cell voltage, table: holding, address: 1281, type: s16, unit: V, scale: 0.01}
+  - {key: x.cell_voltage_min, label: Lowest cell voltage, table: holding, address: 1282, type: s16, unit: V, scale: 0.01}
+  - {key: battery_soh, label: State of health, table: holding, address: 1283, type: s16, unit: '%'}
+  - {key: battery_current, label: Battery current, table: holding, address: 1284, type: s16, unit: A, scale: 0.1, positive: discharge, note: 'The project counts output voltage × current as discharging power when positive, charging when negative.'}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 1285, type: u16, unit: V, scale: 0.01}
+  - {key: x.cell_temperature_max, label: Highest cell temperature, table: holding, address: 1286, type: s16, unit: °C}
+  - {key: x.cell_temperature_min, label: Lowest cell temperature, table: holding, address: 1287, type: s16, unit: °C}
+  - {key: battery_temperature, label: Battery temperature, table: holding, address: 1288, type: s16, unit: °C}
+  - {key: x.error, label: Error bits, table: holding, address: 1293, type: u16, flags: error}
+  - {key: x.parameter_table, label: Parameter table version, table: holding, address: 1294, type: u16, note: Version high byte . low byte.}
+  - {key: x.output_voltage, label: Output voltage, table: holding, address: 1296, type: u16, unit: V, scale: 0.01}
+  - {key: x.charge_total, label: Total energy charged, table: holding, address: 1297, type: u32, unit: kWh, scale: 0.1, word_order: little}
+  - {key: x.discharge_total, label: Total energy discharged, table: holding, address: 1299, type: u32, unit: kWh, scale: 0.1, word_order: little}
+
+enums:
+  application: {'0': Off-grid, '1': On-grid, '2': Backup}
+  battery_type: {'0': HVL, '1': HVM, '2': HVS}
+  inverter: {'0': Fronius HV, '1': Goodwe HV/Viessmann HV, '2': KOSTAL HV, '3': SMA SBS3.7/5.0/6.0 HV, '4': Sungrow HV, '5': KACO_HV, '6': Ingeteam HV, '7': SMA SBS2.5 HV, '8': Solis HV, '9': SMA STP 5.0-10.0 SE HV, '10': GE HV, '11': Deye HV, '12': KACO_NH, '13': Solplanet, '14': Western HV, '15': SOSEN, '16': Hoymiles HV}
+
+flags:
+  error: {'0': High Temperature Charging (Cells), '1': Low Temperature Charging (Cells), '2': Over Current Discharging, '3': Over Current Charging, '4': Main circuit Failure, '5': Short Current Alarm, '6': Cells Imbalance, '7': Current Sensor Failure, '8': Battery Over Voltage, '9': Battery Under Voltage, '10': Cell Over Voltage, '11': Cell Under Voltage, '12': Voltage Sensor Failure, '13': Temperature Sensor Failure, '14': High Temperature Discharging (Cells), '15': Low Temperature Discharging (Cells)}
+
+notes:
+- The battery's BMU answers on TCP port 8080 with Modbus RTU frames (CRC, no MBAP header) on unit 1 and accepts only one connection
+  at a time.
+- 'The project reads three blocks with function 03: 102 registers from 0x0000, 25 from 0x0500 and 3 from 0x0010.'
+- Per-tower diagnostics (cell voltages and temperatures, balancing, tower state bits) and the event log are fetched through
+  a request/answer mailbox (write 0x0550 or 0x05A0, then read 0x0551 / 0x0558 / 0x05A8 repeatedly); they are not a fixed register
+  map and are not part of this file.
+- Tested by the project on HVS, HVM and LVS systems with 1 to 3 towers (some marked untested).
+- SmartHomeNG plugin byd_bat.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

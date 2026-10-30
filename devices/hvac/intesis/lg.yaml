@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Intesis Modbus RTU (EIA-485) Interface for LG air conditioners user manual (r1.7, 05/2020).
+
+modbusspec: 0
+id: intesis-lg
+manufacturer: Intesis (HMS Networks)
+name: Modbus RTU interface for LG air conditioners (INMBSLGE001R000)
+kind: hvac
+
+sources:
+- title: Intesis Modbus RTU (EIA-485) Interface for LG air conditioners, user manual (INMBSLGE001R000)
+  version: r1.7 (05/2020)
+  url: https://idx.co.za/wp-content/uploads/2021/01/lg-vrf-modbus-rtu-user-manual.pdf
+  sha256: 37f4b524671a2983d59c9245eb888da41b809fd1e0a6ec1d45d562bfa20c367e
+  archive_url: https://web.archive.org/web/20240718152858/https://www.idx.co.za/wp-content/uploads/2021/01/lg-vrf-modbus-rtu-user-manual.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # device ID
+  - table: holding
+    address: 49
+    type: u16
+    equals: 4096
+
+points:
+  # Control and status
+  - {key: x.on_off, label: AC unit on/off, table: holding, address: 0, type: u16, enum: off_on, writable: true}
+  - {key: x.operation_mode, label: AC unit mode, table: holding, address: 1, type: u16, enum: operation_mode, writable: true, note: The values available depend on the indoor unit.}
+  - {key: x.fan_speed, label: AC unit fan speed, table: holding, address: 2, type: u16, writable: true, note: '0 = auto, 1…7 = position 1…7; the number of speeds is in register 21.'}
+  - {key: x.vane_position, label: AC unit vane position, table: holding, address: 3, type: u16, enum: vane, writable: true}
+  - {key: x.setpoint, label: AC unit temperature setpoint, table: holding, address: 4, type: s16, unit: °C, invalid: [-32768], writable: true, min: 16, max: 30, verified: false, note: -32768 = not yet initialised. Scale depends on DIP switch SW4 (see notes); assumed whole °C.}
+  - {key: x.room_temperature, label: AC unit temperature reference, table: holding, address: 5, type: s16, unit: °C, invalid: [-32768], verified: false, note: 'Temperature the indoor unit controls on (its return air sensor or the remote controller''s sensor), 10…38 °C. Scale as for the setpoint.'}
+  - {key: x.window_contact, label: Window contact, table: holding, address: 6, type: u16, enum: window, writable: true}
+  - {key: x.interface_disabled, label: Interface disablement, table: holding, address: 7, type: u16, enum: enabled_disabled, writable: true, persistent: true, poll: slow}
+  - {key: x.remote_control_disabled, label: AC remote control disablement, table: holding, address: 8, type: u16, enum: enabled_disabled, writable: true, persistent: true, poll: slow}
+  - {key: x.operation_hours, label: AC unit operation time, table: holding, address: 9, type: u16, unit: h, writable: true, persistent: true, poll: slow, note: Hours the unit has been on.}
+  - {key: x.alarm, label: AC unit alarm status, table: holding, address: 10, type: u16, enum: alarm}
+  - {key: error_code, label: Error code, table: holding, address: 11, type: u16, enum: error_code, note: 0 = no error; 65535 (-1) = the interface or remote controller can't communicate with the unit; otherwise the LG remote controller error number.}
+  - {key: x.external_temperature, label: Ambient temperature from external sensor (Modbus side), table: holding, address: 22, type: s16, unit: °C, invalid: [-32768], writable: true, verified: false, note: -32768 = no external temperature given (initial value). Scale as for the setpoint.}
+  - {key: x.real_setpoint, label: AC real setpoint temperature, table: holding, address: 23, type: s16, unit: °C, invalid: [-32768], verified: false, note: The setpoint the indoor unit actually uses; differs from register 4 while an external temperature is written. Scale as for the setpoint.}
+  - {key: x.setpoint_max, label: Current AC maximum setpoint, table: holding, address: 24, type: s16, unit: °C, invalid: [-32768], poll: slow, verified: false}
+  - {key: x.setpoint_min, label: Current AC minimum setpoint, table: holding, address: 25, type: s16, unit: °C, invalid: [-32768], poll: slow, verified: false}
+  - {key: x.vane_left_right, label: AC unit left/right vane position, table: holding, address: 26, type: u16, enum: vane_lr, writable: true}
+  - {key: x.vane_up_down_pulse, label: Up/down vane position, table: holding, address: 27, type: u16, writable: true, poll: slow, note: Write 1 to step the vane.}
+  - {key: x.window_open, label: Status (window open feedback), table: holding, address: 31, type: u16, enum: window_status}
+  - {key: state, label: Compressor status, table: holding, address: 53, type: u16, enum: compressor}
+  - {key: x.compressor_hours, label: Compressor on time, table: holding, address: 54, type: u16, unit: h, writable: true, persistent: true, poll: slow, note: Hours the compressor has been on.}
+  - {key: x.input_reference_temperature, label: Input reference temperature (feedback), table: holding, address: 65, type: s16, unit: °C, invalid: [-32768], verified: false}
+  - {key: x.block_periodic_sendings, label: Block periodic sendings, table: holding, address: 97, type: u16, enum: block, writable: true, persistent: true, poll: slow, note: 'From firmware 1.7. Blocked: a Modbus command is sent to the unit only when it differs from the previous value.'}
+  - {key: x.bus_role, label: Master/slave (interface role on the LG bus), table: holding, address: 98, type: u16, enum: role, writable: true, poll: slow}
+
+  # Configuration
+  - {key: x.open_window_timeout, label: Open window switch-off timeout, table: holding, address: 13, type: u16, unit: min, writable: true, min: 0, max: 30, poll: slow, note: 'Factory 30: after the window contact opens, the unit is switched off once this time has passed.'}
+  - {key: x.baud_rate, label: Modbus RTU baud rate, table: holding, address: 14, type: u16, poll: slow, verified: false, note: Values 2400…115200 bps; the manual doesn't say whether the register holds the rate itself or an index.}
+  - {key: x.modbus_address, label: Modbus slave address, table: holding, address: 15, type: u16, poll: slow, note: 1…63.}
+  - {key: x.fan_speeds, label: Max number of fan speeds, table: holding, address: 21, type: u16, poll: slow}
+  - {key: x.switch_value, label: Switch value, table: holding, address: 48, type: u16, poll: slow}
+  - {key: x.device_id, label: Device ID, table: holding, address: 49, type: u16, poll: slow, note: 0x1000 for this interface.}
+  - {key: x.software_version, label: Software version, table: holding, address: 50, type: u16, poll: slow}
+  - {key: x.reset, label: Reset, table: holding, address: 99, type: u16, writable: true, poll: slow, note: Write 1 to restart the interface.}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  operation_mode: {'0': Auto, '1': Heat, '2': Dry, '3': Fan, '4': Cool}
+  vane: {'0': No swing, '1': Position 1, '2': Position 2, '3': Position 3, '4': Position 4, '10': Swing, '11': Swirl}
+  vane_lr: {'0': Auto, '1': Position 1, '2': Position 2, '3': Position 3, '4': Position 4, '5': Position 5, '6': Position 6, '7': Position 7, '8': Position 8, '9': Position 9, '10': Swing}
+  window: {'0': Closed, '1': Open}
+  window_status: {'0': Not active, '1': Active (window open)}
+  enabled_disabled: {'0': Enabled, '1': Disabled}
+  alarm: {'0': No alarm, '1': Alarm}
+  compressor: {'0': 'Off', '1': Switching off, '2': Switching on, '3': 'On'}
+  block: {'0': Not blocked, '1': Blocked}
+  role: {'0': Slave, '1': Master}
+  error_code: {'0': No error, '1': Room air sensor fault, '2': Indoor unit pipe in sensor fault, '3': Communication fault between wired remote controller and indoor unit, '4': Drain pump fault, '5': Communication fault between indoor and outdoor unit, '6': Indoor unit pipe out sensor fault, '7': Indoor unit mode opposite to outdoor unit, '9': EEPROM fault, '10': BLDC motor signal fault or motor lock, '11': Heat exchanger middle point sensor fault, '12': Heater terminal block sensor fault, '17': Outlet air sensor fault, '18': Return air sensor fault, '19': No response from sub PCB to main PCB, '20': No response from main PCB to sub PCB, '21': IPM fault, '22': AC input over current (RMS), '23': DC link low or high voltage, '24': High or low pressure switch on, '25': High/low input voltage, '26': Compressor start failure, '27': PSC/PFC fault, '28': DC link high voltage, '29': Over current at compressor input, '32': 'High discharge temperature, inverter compressor', '33': 'High discharge temperature, constant speed compressor', '34': High pressure too high, '35': Low pressure too low, '36': Compression ratio too low, '39': Communication fault between PFC and inverter PCB, '40': CT sensor fault, '41': Inverter compressor discharge sensor fault, '42': Low pressure sensor fault, '43': High pressure sensor fault, '44': Outdoor air sensor fault, '45': Outdoor heat exchanger sensor fault, '46': Compressor suction sensor fault, '47': Constant speed compressor discharge sensor fault, '48': Outdoor heat exchanger outlet sensor fault, '49': IPM temperature sensor fault, '50': Missing phase, '51': Over combination ratio, '52': No communication from inverter PCB at main PCB, '53': Communication fault between indoor and outdoor unit, '54': Reverse phase, '57': No communication from main PCB at inverter PCB, '59': Wrong outdoor unit combination, '60': Inverter EEPROM fault, '61': Outdoor pipe temperature too high, '62': IPM temperature too high, '65': IPM temperature sensor fault, '67': Fan locked or fan start failure, '69': 'CT sensor fault, constant speed compressor 1', '70': 'CT sensor fault, constant speed compressor 2', '71': PFC CT sensor fault, '72': Outdoor 4-way valve function error, '73': DC peak over current, '74': Phase unbalance, '75': Fan CT sensor fault, '76': Fan DC link voltage high, '77': Fan input voltage high, '78': Fan hall sensor fault, '79': Fan motor start failure, '86': Main PCB EEPROM fault, '87': Fan PCB EEPROM fault, '88': PFC PCB EEPROM fault, '90': External PCB inlet temperature sensor fault, '91': External PCB outlet temperature sensor fault, '104': No communication from slave, '105': Communication fault between fan and inverter PCB, '106': Fan PCB IOM fault, '107': Fan DC link voltage low, '113': Liquid pipe sensor fault, '114': Sub-cooling inlet pipe sensor fault, '115': Sub-cooling outlet pipe sensor fault, '116': Oil level sensor fault, '145': No communication from external PCB at main PCB, '151': 4-way valve failure, '153': Upper heat exchanger sensor fault, '154': Bottom heat exchanger sensor fault, '173': 'Over/low current, constant speed compressor 1', '174': 'Over/low current, constant speed compressor 2', '182': Communication fault between main and sub micom in external PCB, '187': Hydro-kit water temperature sensor fault, '190': Inverter PCB heat sink temperature high, '191': Inverter PCB heat sink temperature sensor fault, '193': Fan PCB heat sink temperature high, '194': Fan PCB heat sink temperature sensor fault, '200': Auto piping failure, '201': Heat recovery unit liquid pipe sensor fault, '202': Heat recovery unit sub-cooling inlet pipe sensor fault, '203': Heat recovery unit sub-cooling outlet pipe sensor fault, '204': No communication from outdoor unit at heat recovery unit, '205': Duplicate heat recovery unit addresses, '237': No response from outdoor unit modem at indoor unit modem, '238': No response from outdoor unit at outdoor unit modem, '65535': Interface or remote controller can't communicate with the AC unit}
+
+problems:
+  - {when: {key: error_code, equals: 65535}, kind: fault, text: No communication with the AC unit}
+  - {when: {key: error_code, not_in: [0, 65535]}, kind: fault, text: 'AC unit error {value} ({text})'}
+
+notes:
+- Single-unit interface (one LG indoor unit per interface, on the unit's B/Y/R bus); up to 63 interfaces on one RS485 line.
+  Despite the source's file name it isn't a VRF-wide gateway.
+- Addresses are the protocol addresses the manual lists; its PLC addresses are these + 1.
+- All registers are holding registers, readable with function 03 or 04. Writes with 06, or with 16 for a single register only.
+- Modbus RTU only. 8N2 by default (8N1 also accepted); baud rate 2400…115200, 9600 by default, and the unit id 1…63 (default
+  1) are set with DIP switches SW3/SW4. Changes need a power cycle. Port 502 only applies behind a Modbus TCP gateway.
+- 'Temperatures (registers 4, 5, 22, 23, 24, 25, 65): DIP switch SW4 selects whole degrees or tenths, and °C or °F. The DIP
+  switch table names whole °C as the default, which is used here; a footnote in the register table calls tenths the default.
+  With tenths set, scale is 0.1; °F can''t be expressed here. -32768 means no value yet.'
+- Writing the external temperature (register 22) makes the interface shift the unit's setpoint so that the room reaches the
+  user's setpoint by the external reading; register 23 then shows the setpoint actually applied.
+- Error code meanings are LG's remote controller error numbers (same number on Modbus); descriptions here are shortened.

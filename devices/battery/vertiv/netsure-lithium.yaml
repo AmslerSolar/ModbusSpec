@@ -1,0 +1,87 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Vertiv NetSure Lithium Battery Modbus Table (V1.2, AN45 rev. A).
+
+modbusspec: 0
+id: vertiv-netsure-lithium
+manufacturer: Vertiv
+name: NetSure lithium battery (BMS monitoring table)
+kind: battery
+
+sources:
+- title: Vertiv NetSure Lithium Battery Modbus Table
+  version: V1.2 (AN45 rev. A, 2023)
+  url: https://www.vertiv.com/49f55b/globalassets/shared/vertiv-netsure-lithium-battery-modbus-an45_na-english_rev0226.pdf
+  sha256: ea12eaaad1178afed3b91077a609204bb0d503115b9cd981d0618b0ad2391b4c
+
+connection:
+  default_port: 502
+  default_unit: 38
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: battery_voltage, label: Pack Volt, table: input, address: 4096, type: u16, unit: V, scale: 0.01, invalid: [65535]}
+  - {key: battery_current, label: Current, table: input, address: 4097, type: u16, unit: A, scale: 0.1, offset: -1000, positive: charge, invalid: [65535], verified: false, note: Stored with an offset of 10000 (raw 9505 = −49.5 A). The document doesn't say which direction is positive; + = charging assumed.}
+  - {key: x.remaining_capacity, label: Remain Capacity, table: input, address: 4098, type: u16, unit: Ah, scale: 0.1, invalid: [65535]}
+  - {key: battery_temperature, label: Average Cell T, table: input, address: 4099, type: u16, unit: °C, scale: 0.1, offset: -40, invalid: [65535], note: Stored with an offset of 400 (raw 300 = −10.0 °C).}
+  - {key: x.bms_temperature, label: Env T, table: input, address: 4100, type: u16, unit: °C, scale: 0.1, offset: -40, invalid: [65535], note: BMS (environment) temperature; same offset as the cell temperature.}
+  - {key: x.warning_flags, label: Warning Flag, table: input, address: 4101, type: u16, flags: warning, verified: false, note: Bit order within the word assumed (see notes).}
+  - {key: x.protection_flags, label: Protection Flag, table: input, address: 4102, type: u16, flags: protection, verified: false, note: Bit order within the word assumed (see notes).}
+  - {key: x.fault_status_flags, label: Fault/Status, table: input, address: 4103, type: u16, flags: fault_status, verified: false, note: Bit order within the word assumed (see notes).}
+  - {key: battery_soc, label: SoC, table: input, address: 4104, type: u16, unit: '%', scale: 0.01, invalid: [65535]}
+  - {key: battery_soh, label: SoH, table: input, address: 4105, type: u16, unit: '%', scale: 0.01, invalid: [65535]}
+  - {key: x.discharge_energy, label: Energy Discharge, table: input, address: 4107, type: u16, unit: kWh, scale: 0.001, invalid: [65535], poll: slow}
+  - {key: x.cycle_count, label: Cycle Count, table: input, address: 4110, type: u16, invalid: [65535], poll: slow, note: The document gives the scale as 0; the example (123 = 123 cycles) shows the raw value is the count.}
+
+flags:
+  warning: {'0': Cell over voltage alarm, '1': Cell under voltage alarm, '2': Pack over voltage alarm, '3': Pack under voltage alarm, '4': Charge over current alarm, '5': Discharge over current alarm, '6': Cell over temperature alarm, '7': Cell under temperature alarm, '8': Environment over temperature alarm, '9': Environment under temperature alarm, '10': PCB over temperature alarm, '11': SOC low alarm, '12': Cell voltage difference alarm}
+  protection: {'0': Cell over voltage protection, '1': Cell under voltage protection, '2': Pack over voltage protection, '3': Pack under voltage protection, '4': Short circuit protection, '5': Over current protection, '6': Charge over temperature protection, '7': Charge under temperature protection, '8': Discharge over temperature protection, '9': Discharge under temperature protection}
+  fault_status: {'0': Front-end sampling error, '1': Temperature sensor disconnected, '8': Charging, '9': Discharging, '10': Charge MOSFET connected, '11': Discharge MOSFET connected, '12': Current limit enabled}
+
+problems:
+  - {when: {key: x.warning_flags, bit: 0}, kind: warning, text: Cell over voltage alarm}
+  - {when: {key: x.warning_flags, bit: 1}, kind: warning, text: Cell under voltage alarm}
+  - {when: {key: x.warning_flags, bit: 2}, kind: warning, text: Pack over voltage alarm}
+  - {when: {key: x.warning_flags, bit: 3}, kind: warning, text: Pack under voltage alarm}
+  - {when: {key: x.warning_flags, bit: 4}, kind: warning, text: Charge over current alarm}
+  - {when: {key: x.warning_flags, bit: 5}, kind: warning, text: Discharge over current alarm}
+  - {when: {key: x.warning_flags, bit: 6}, kind: warning, text: Cell over temperature alarm}
+  - {when: {key: x.warning_flags, bit: 7}, kind: warning, text: Cell under temperature alarm}
+  - {when: {key: x.warning_flags, bit: 8}, kind: warning, text: Environment over temperature alarm}
+  - {when: {key: x.warning_flags, bit: 9}, kind: warning, text: Environment under temperature alarm}
+  - {when: {key: x.warning_flags, bit: 10}, kind: warning, text: PCB over temperature alarm}
+  - {when: {key: x.warning_flags, bit: 11}, kind: warning, text: SOC low alarm}
+  - {when: {key: x.warning_flags, bit: 12}, kind: warning, text: Cell voltage difference alarm}
+  - {when: {key: x.protection_flags, bit: 0}, kind: fault, text: Cell over voltage protection}
+  - {when: {key: x.protection_flags, bit: 1}, kind: fault, text: Cell under voltage protection}
+  - {when: {key: x.protection_flags, bit: 2}, kind: fault, text: Pack over voltage protection}
+  - {when: {key: x.protection_flags, bit: 3}, kind: fault, text: Pack under voltage protection}
+  - {when: {key: x.protection_flags, bit: 4}, kind: fault, text: Short circuit protection}
+  - {when: {key: x.protection_flags, bit: 5}, kind: fault, text: Over current protection}
+  - {when: {key: x.protection_flags, bit: 6}, kind: fault, text: Charge over temperature protection}
+  - {when: {key: x.protection_flags, bit: 7}, kind: fault, text: Charge under temperature protection}
+  - {when: {key: x.protection_flags, bit: 8}, kind: fault, text: Discharge over temperature protection}
+  - {when: {key: x.protection_flags, bit: 9}, kind: fault, text: Discharge under temperature protection}
+  - {when: {key: x.fault_status_flags, bit: 0}, kind: fault, text: Front-end sampling error}
+  - {when: {key: x.fault_status_flags, bit: 1}, kind: fault, text: Temperature sensor disconnected}
+
+notes:
+- This is the register table Vertiv asks battery makers to implement in their BMS so that the NetSure Control Unit (NCU) can
+  monitor the battery over RS485 ('Monitoring Mode'). Any lithium battery whose BMS follows it can be read this way; the battery
+  itself may come from another maker.
+- Only function 04 is used; the register IDs (0x1000 ff.) are taken as protocol addresses.
+- Unit id = 38 + the BMS board's DIP switch setting (0–15), so 38–53.
+- 0xFFFF in any register means no value.
+- Each flag word is described as Byte0 (bits 0–7) and Byte1 (bits 8–15); Byte0 is taken as the low byte, as the document puts
+  single-byte values in the low byte. Not stated explicitly; assumed.
+- Product style, software and hardware version and the serial number are only available through the vendor function 0x11 (an
+  ASCII string separated by '*'), so there is no identify or serial register.

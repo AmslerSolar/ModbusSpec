@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DAE Instrument CC130 Modbus Reference (V1.0e, 2017-07-26).
+
+modbusspec: 0
+id: daeinstrument-cc130
+manufacturer: DAE Instrument
+name: CC130 totalizer
+kind: meter
+
+sources:
+- title: CC130 Modbus Reference
+  version: V1.0e (2017-07-26)
+  url: http://www.daeinstrument.com/downloads/CC130%20Modbus%20Reference-1.0e.pdf
+  sha256: 94d1e78b860f353bc4a059a687fc318ae96651a27eef7d5e95b7d2b4b148b431
+  archive_url: https://web.archive.org/web/20260510144328/http://www.daeinstrument.com/downloads/CC130%20Modbus%20Reference-1.0e.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  checks:
+  - table: holding
+    address: 250
+    type: str
+    length: 32
+    prefix: CC130
+
+points:
+  - {key: x.total, label: Totals usage, table: holding, address: 0, type: u32, poll: slow, note: '0 … 999,999,999, low word first (register 0 = low word, 1 = high word). The document gives no unit and doesn''t say what is counted. The raw count is given; the display divides it by 10 to the power of the decimal places (register 215).'}
+  - {key: x.device_address, label: Device address, table: holding, address: 210, type: u16, bits: [8, 15], writable: true, min: 0, max: 254, poll: slow, note: 'In the high byte. Factory default: the last two digits of the serial number (00 = 100).'}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 211, type: u16, bits: [8, 15], enum: baud_rate, writable: true, poll: slow, note: In the high byte; an index into the table. Default 0 (9600).}
+  - {key: x.decimal_places, label: Decimal places, table: holding, address: 215, type: u16, bits: [8, 15], poll: slow, note: '0 … 5, in the high byte.'}
+  - {key: x.product_info, label: Product information, table: holding, address: 250, type: str, length: 32, poll: slow, note: '64 ASCII bytes with model, version and firmware, e.g. "CC130 2.0 r--A02".'}
+
+enums:
+  baud_rate: {'0': '9600', '1': '4800', '2': '2400', '3': '1200'}
+
+notes:
+- Addresses are the document's register addresses, which are already 0-based (its Modscan column "03:0001" = address 0). All
+  registers are read with function 03.
+- 'RS485, Modbus RTU only; 1200, 2400, 4800 or 9600 baud, 8N1, set on the front panel. The Modbus address (0 … 254) is also
+  set on the front panel; its factory default is the last two digits of the serial number, so `default_unit: 1` is only a
+  placeholder (not stated in the document; assumed).'
+- 'The device doesn''t answer malformed or unsupported requests or a bad CRC at all (no exception response): a reader sees
+  a timeout. It answers within 300 ms.'
+- The document applies to firmware A02 and later.
+- The serial number has no register; only its last two digits show up as the default address.

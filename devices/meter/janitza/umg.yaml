@@ -1,0 +1,247 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Janitza Modbus address lists for the UMG 604-PRO, UMG 96RM-E and UMG 96RM (07/2025).
+
+modbusspec: 0
+id: janitza-umg
+manufacturer: Janitza
+name: UMG 604-PRO, UMG 96RM-E and UMG 96RM power analysers
+kind: meter
+
+sources:
+- title: Janitza UMG 604-PRO Modbus-address and Formulary (firmware 5.030 and higher), doc. no. 1.033.034.h
+  version: 07/2025
+  url: https://assets.janitza.com/ce18jq9ih0x6/d052b9d04bf01ab4aeb03c/b2dd607ab83dbe66c89e6f49e570a715/janitza-mal-umg604pro-en.pdf
+  sha256: 568e2cd93494edfafec2d253a8b6d596a94cfaa327147cecd01a7f581753c340
+- title: Janitza UMG 96RM-E Modbus-address list and Formulary (firmware 3.01 / hardware 104), doc. no. 1.040.085.8.o
+  version: 07/2025
+  url: https://assets.janitza.com/ce18jq9ih0x6/b80ca06dda38d37f864115/703a1d1d3014935a5c3327ed6b978d37/janitza-mal-umg96rme-en.pdf
+  sha256: 2ba3e0f976bea5b23f88089e86e5683c3d69c5bfc0b49c57c82ecb9d4c7eed4c
+- title: Janitza UMG 96RM (-PN / -P / -CBM) Modbus-address list and Formulary (firmware 1.14 and higher)
+  version: 07/2025
+  url: https://assets.janitza.com/ce18jq9ih0x6/1a0c20e405441fae6a7fec/4d88b3e5f2aa7d320d1b324ee7d1d887/janitza-mal-umg96rm-cbm-p-pn-en.pdf
+  sha256: e20ce4f2c377198edce36fc09bbfd4c00f83134d0bba3466a94e07d38023a1aa
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/janitza.go
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.janitza/src/io/openems/edge/meter/janitza/umg96rme/MeterJanitzaUmg96rmeImpl.java, io.openems.edge.meter.janitza/src/io/openems/edge/meter/janitza/umg96pql/MeterJanitzaUmg96PqlImpl.java,
+    io.openems.edge.meter.janitza/src/io/openems/edge/meter/janitza/umg801/MeterJanitzaUmg801Impl.java, io.openems.edge.meter.janitza/src/io/openems/edge/meter/janitza/umg806/MeterJanitzaUmg806Impl.java,
+    io.openems.edge.meter.janitza/src/io/openems/edge/meter/janitza/umg604/MeterJanitzaUmg604Impl.java, io.openems.edge.meter.janitza/src/io/openems/edge/meter/janitza/umg104/MeterJanitzaUmg104Impl.java,
+    io.openems.edge.meter.janitza/src/io/openems/edge/meter/janitza/umg511/MeterJanitzaUmg511Impl.java
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/janitza/janitza
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  limits:
+    max_registers: 125
+    max_gap: 16
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+  - table: holding
+    address: 10176
+    type: u32
+    models:
+    - umg604pro
+  - table: holding
+    address: 754
+    type: u32
+    models:
+    - umg96rm
+  checks:
+  - table: holding
+    address: 19050
+    type: f32
+    range:
+    - 0
+    - 70
+  # rotation field: rejects word-swapped floats
+  - table: holding
+    address: 19052
+    type: f32
+    in:
+    - -1
+    - 0
+    - 1
+  any:
+  - table: holding
+    address: 10072
+    type: str
+    length: 32
+    printable: true
+  # module number and a serial: a meter answering 0 everywhere (an SDM630 does) is no 96RM
+  - - table: holding
+      address: 761
+      type: u16
+      in:
+      - 0
+      - 1
+      - 2
+      - 3
+    - table: holding
+      address: 754
+      type: u32
+      not: 0
+
+models:
+  - {id: umg604pro, name: UMG 604-PRO, match: {table: holding, address: 10072, type: str, length: 32, printable: true}}
+  - {id: umg96rm, name: UMG 96RM / 96RM-E, match: {table: holding, address: 761, type: u16, in: [0, 1, 2, 3]}}
+  - {id: openems_umg96rme, name: UMG 96-RM-E}
+  - {id: openems_umg96pql, name: UMG 96-PQ-L}
+  - {id: openems_umg801, name: UMG 801}
+  - {id: openems_umg806, name: UMG 806}
+  - {id: openems_umg604, name: UMG 604}
+  - {id: openems_umg104, name: UMG 104}
+  - {id: openems_umg511, name: UMG 511}
+
+points:
+  # Measurement block 19000–19120, the same in all three lists
+  - {key: l1_voltage, label: Voltage L1-N, table: holding, address: 19000, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage L2-N, table: holding, address: 19002, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage L3-N, table: holding, address: 19004, type: f32, unit: V}
+  - {key: x.l1_l2_voltage, label: Voltage L1-L2, table: holding, address: 19006, type: f32, unit: V}
+  - {key: x.l2_l3_voltage, label: Voltage L2-L3, table: holding, address: 19008, type: f32, unit: V}
+  - {key: x.l3_l1_voltage, label: Voltage L3-L1, table: holding, address: 19010, type: f32, unit: V}
+  - {key: l1_current, label: Current L1, table: holding, address: 19012, type: f32, unit: A}
+  - {key: l2_current, label: Current L2, table: holding, address: 19014, type: f32, unit: A}
+  - {key: l3_current, label: Current L3, table: holding, address: 19016, type: f32, unit: A}
+  - {key: x.neutral_current, label: Vector sum; IN=I1+I2+I3, table: holding, address: 19018, type: f32, unit: A}
+  - {key: l1_power, label: Real power L1, table: holding, address: 19020, type: f32, unit: W, positive: import, verified: false, note: Derived like the total power.}
+  - {key: l2_power, label: Real power L2, table: holding, address: 19022, type: f32, unit: W, positive: import, verified: false, note: Derived like the total power.}
+  - {key: l3_power, label: Real power L3, table: holding, address: 19024, type: f32, unit: W, positive: import, verified: false, note: Derived like the total power.}
+  - {key: grid_power, label: Psum3=P1+P2+P3, table: holding, address: 19026, type: f32, unit: W, positive: import, verified: false, note: 'The lists don''t give the sign of the power registers. The formulary defines the cos φ sign as − when supplying and + when obtaining real power, and cos φ = P / S; so P > 0 is drawn from the grid when the analyser sits at the grid connection. Derived.'}
+  - {key: x.l1_apparent_power, label: Apparent power L1, table: holding, address: 19028, type: f32, unit: VA}
+  - {key: x.l2_apparent_power, label: Apparent power L2, table: holding, address: 19030, type: f32, unit: VA}
+  - {key: x.l3_apparent_power, label: Apparent power L3, table: holding, address: 19032, type: f32, unit: VA}
+  - {key: apparent_power, label: Ssum3=S1+S2+S3, table: holding, address: 19034, type: f32, unit: VA}
+  - {key: x.l1_reactive_power, label: Reactive power L1 (fundamental), table: holding, address: 19036, type: f32, unit: var}
+  - {key: x.l2_reactive_power, label: Reactive power L2 (fundamental), table: holding, address: 19038, type: f32, unit: var}
+  - {key: x.l3_reactive_power, label: Reactive power L3 (fundamental), table: holding, address: 19040, type: f32, unit: var}
+  - {key: reactive_power, label: Qsum3=Q1+Q2+Q3 (fundamental), table: holding, address: 19042, type: f32, unit: var}
+  - {key: x.l1_cos_phi, label: CosPhi L1 (fundamental), table: holding, address: 19044, type: f32, unit: '', note: '− when supplying, + when obtaining real power.'}
+  - {key: x.l2_cos_phi, label: CosPhi L2 (fundamental), table: holding, address: 19046, type: f32, unit: ''}
+  - {key: x.l3_cos_phi, label: CosPhi L3 (fundamental), table: holding, address: 19048, type: f32, unit: ''}
+  - {key: frequency, label: Measured frequency, table: holding, address: 19050, type: f32, unit: Hz}
+  - {key: x.rotation_field, label: Rotation field, table: holding, address: 19052, type: f32, enum: rotation_field}
+  - {key: x.l1_net_energy, label: Real energy L1, table: holding, address: 19054, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_net_energy, label: Real energy L2, table: holding, address: 19056, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_net_energy, label: Real energy L3, table: holding, address: 19058, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.net_energy, label: Real energy L1..L3, table: holding, address: 19060, type: f32, unit: kWh, scale: 0.001}
+  - {key: x.l1_import_energy, label: 'Real energy L1, consumed', table: holding, address: 19062, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_import_energy, label: 'Real energy L2, consumed', table: holding, address: 19064, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_import_energy, label: 'Real energy L3, consumed', table: holding, address: 19066, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: grid_import_energy, label: 'Real energy L1..L3, consumed', table: holding, address: 19068, type: f32, unit: kWh, scale: 0.001, note: 'The 604-PRO and 96RM lists call it "consumed, rate 1", the 96RM-E list just "consumed".'}
+  - {key: x.l1_export_energy, label: 'Real energy L1, delivered', table: holding, address: 19070, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_export_energy, label: 'Real energy L2, delivered', table: holding, address: 19072, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_export_energy, label: 'Real energy L3, delivered', table: holding, address: 19074, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: grid_export_energy, label: 'Real energy L1..L3, delivered', table: holding, address: 19076, type: f32, unit: kWh, scale: 0.001}
+  - {key: x.apparent_energy, label: Apparent energy L1..L3, table: holding, address: 19084, type: f32, unit: kVAh, scale: 0.001, poll: slow}
+  - {key: x.reactive_energy, label: Reactive energy L1..L3 (fundamental), table: holding, address: 19092, type: f32, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.inductive_reactive_energy, label: 'Reactive energy L1..L3, inductive', table: holding, address: 19100, type: f32, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.capacitive_reactive_energy, label: 'Reactive energy L1..L3, capacitive', table: holding, address: 19108, type: f32, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.l1_thd_u, label: THD U L1-N, table: holding, address: 19110, type: f32, unit: '%'}
+  - {key: x.l2_thd_u, label: THD U L2-N, table: holding, address: 19112, type: f32, unit: '%'}
+  - {key: x.l3_thd_u, label: THD U L3-N, table: holding, address: 19114, type: f32, unit: '%'}
+  - {key: x.l1_thd_i, label: THD I L1, table: holding, address: 19116, type: f32, unit: '%'}
+  - {key: x.l2_thd_i, label: THD I L2, table: holding, address: 19118, type: f32, unit: '%'}
+  - {key: x.l3_thd_i, label: THD I L3, table: holding, address: 19120, type: f32, unit: '%'}
+
+  # UMG 604-PRO identity
+  - {key: x.device_name, label: Device name, table: holding, address: 10072, type: str, length: 32, models: [umg604pro], poll: slow}
+  - {key: x.device_description, label: Device description, table: holding, address: 10104, type: str, length: 64, models: [umg604pro], poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 10176, type: u32, models: [umg604pro], poll: slow}
+  - {key: x.production_number, label: Production number, table: holding, address: 10178, type: u32, models: [umg604pro], poll: slow}
+
+  # UMG 96RM / 96RM-E identity
+  - {key: x.software_release, label: Software release, table: holding, address: 750, type: s16, models: [umg96rm], poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 754, type: u32, models: [umg96rm], poll: slow, verified: false, note: The lists don't define the SERNR type; read as an unsigned 32-bit value.}
+  - {key: x.production_number, label: Production number, table: holding, address: 756, type: u32, models: [umg96rm], poll: slow, verified: false, note: SERNR type as for the serial number.}
+  - {key: x.module, label: Module number, table: holding, address: 761, type: u16, enum: module, models: [umg96rm], poll: slow}
+  - {key: x.voltage_l1_1317, label: Voltage L1, table: holding, address: 1317, type: f32, unit: V, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.voltage_l2_1319, label: Voltage L2, table: holding, address: 1319, type: f32, unit: V, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.voltage_l3_1321, label: Voltage L3, table: holding, address: 1321, type: f32, unit: V, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.current_l1_1325, label: Current L1, table: holding, address: 1325, type: f32, unit: A, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.current_l2_1327, label: Current L2, table: holding, address: 1327, type: f32, unit: A, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.current_l3_1329, label: Current L3, table: holding, address: 1329, type: f32, unit: A, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.active_power_l1, label: Active Power L1, table: holding, address: 1333, type: f32, unit: W, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.active_power_l2, label: Active Power L2, table: holding, address: 1335, type: f32, unit: W, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.active_power_l3, label: Active Power L3, table: holding, address: 1337, type: f32, unit: W, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.reactive_power_l1, label: Reactive Power L1, table: holding, address: 1341, type: f32, unit: var, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.reactive_power_l2, label: Reactive Power L2, table: holding, address: 1343, type: f32, unit: var, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.reactive_power_l3, label: Reactive Power L3, table: holding, address: 1345, type: f32, unit: var, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.active_power, label: Active Power, table: holding, address: 1369, type: f32, unit: W, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.reactive_power_1371, label: Reactive Power, table: holding, address: 1371, type: f32, unit: var, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.frequency_1439, label: Frequency, table: holding, address: 1439, type: f32, unit: Hz, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.rotation_field_1449, label: Rotation Field, table: holding, address: 1449, type: f32, models: [openems_umg104], note: OpenEMS multiplies the raw value by 1000 although its channel has no milli unit; the scale is unclear., verified: false, sources: [openems]}
+  - {key: x.internal_temperature, label: Internal Temperature, table: holding, address: 1461, type: f32, models: [openems_umg104], note: OpenEMS multiplies the raw value by 1000 although its channel has no milli unit; the scale is unclear., verified: false, sources: [openems]}
+  - {key: x.voltage_l1_3845, label: Voltage L1, table: holding, address: 3845, type: f32, unit: V, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.voltage_l2_3847, label: Voltage L2, table: holding, address: 3847, type: f32, unit: V, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.voltage_l3_3849, label: Voltage L3, table: holding, address: 3849, type: f32, unit: V, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.current_l1_3853, label: Current L1, table: holding, address: 3853, type: f32, unit: A, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.current_l2_3855, label: Current L2, table: holding, address: 3855, type: f32, unit: A, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.current_l3_3857, label: Current L3, table: holding, address: 3857, type: f32, unit: A, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.active_power_l1_3861, label: Active Power L1, table: holding, address: 3861, type: f32, unit: W, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.active_power_l2_3863, label: Active Power L2, table: holding, address: 3863, type: f32, unit: W, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.active_power_l3_3865, label: Active Power L3, table: holding, address: 3865, type: f32, unit: W, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.reactive_power_l1_3869, label: Reactive Power L1, table: holding, address: 3869, type: f32, unit: var, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.reactive_power_l2_3871, label: Reactive Power L2, table: holding, address: 3871, type: f32, unit: var, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.reactive_power_l3_3873, label: Reactive Power L3, table: holding, address: 3873, type: f32, unit: var, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.active_power_3925, label: Active Power, table: holding, address: 3925, type: f32, unit: W, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.reactive_power_3927, label: Reactive Power, table: holding, address: 3927, type: f32, unit: var, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.frequency_3995, label: Frequency, table: holding, address: 3995, type: f32, unit: Hz, models: [openems_umg511], verified: false, sources: [openems]}
+  - {key: x.active_production_energy, label: Active Production Energy, table: holding, address: 9851, type: f32, unit: kWh, scale: 0.001, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+  - {key: x.active_consumption_energy, label: Active Consumption Energy, table: holding, address: 9863, type: f32, unit: kWh, scale: 0.001, models: [openems_umg604, openems_umg104], verified: false, sources: [openems]}
+
+enums:
+  rotation_field: {'1': Right, '0': None, '-1': Left}
+  module: {'0': No module, '1': Profibus, '2': CBM, '3': Ethernet}
+
+notes:
+- The lists name function 03 and 04 as slave functions. Addresses are used as listed; the lists don't say outright whether
+  they are 0-based; they are assumed to be protocol addresses (unverified).
+- The listed addresses deliver big-endian data (high byte and, for floats, high word first); the same values little-endian
+  are at address + 32768. Floats already include the transformer ratios.
+- The block 19000–19120 holds the frequently needed readings in all three lists.
+- 'Telling the models apart: a printable device name at 10072 means a 604-PRO; otherwise a module number 0–3 at 761 means
+  a 96RM, with module 1 / 2 / 3 meaning -P / -CBM / -E (inferred from the module names, unverified). On the 604-PRO, 761 is
+  the high word of an FFT power float and can read 0–3, hence the order. A 604-PRO with an empty device name can''t be recognised.'
+- The UMG 604-PRO's RS485 runs 8 data bits, no parity, 2 stop bits. The lists give no default Modbus address; 1 is assumed.
+- No daily counters.
+- Models openems_umg96pql, openems_umg801, openems_umg806, openems_umg604, openems_umg104, openems_umg511 come from projects
+  and are listed after a model without a match, so detection never reaches them; their points apply only when a reader selects
+  such a model by hand.
+- mbmd reads this register map from Janitza's B-series meters (the B23 variant with Modbus); it is the same 19000-range float
+  block as the UMG analysers.
+- mbmd (type code JANITZA) detects the meter by reading L1 Voltage (holding register 19000, f32); its bus scan accepts a value
+  within 10% of 110 or 230 V.
+- 'UMG 801: current, power, frequency and energy addresses are for measurement 1 (the driver''s default); measurement 2 and
+  up start at 19200 + (n − 2) × 100 instead of 19012.'
+- The driver's default meter type is PRODUCTION; OpenEMS doesn't say which way the device's own power value is positive, so
+  no direction is given.
+- OpenEMS has an 'Invert' option that negates the power values and swaps the two energy counters; the points here are the
+  reading with it off.
+- Identification as mbmd recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Mean Well DRS series MODBus register description (undated summary from the DRS-240/480 datasheet).
+
+modbusspec: 0
+id: meanwell-drs
+manufacturer: Mean Well
+name: DRS series DIN-rail UPS / charger power supplies
+kind: ups
+
+sources:
+- title: Description of MODBus registers, power supplies MEAN WELL series DRS
+  version: undated
+  url: https://files.meanwell.sk/text/MODBus_DRS.pdf
+  sha256: fca1bb63a0ef01295ba0e5f03a381f8fe2ac9dbedeebf87d825b0fe672da7935
+  archive_url: https://web.archive.org/web/20251012165936/https://files.meanwell.sk/text/MODBus_DRS.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  limits:
+    min_interval_ms: 50
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 148
+    type: str
+    length: 6
+
+points:
+  # Measurements (function 04)
+  - {key: x.input_voltage, label: Input voltage read value, table: input, address: 80, type: u16, unit: V, scale: 0.1, poll: fast}
+  - {key: x.output_voltage, label: Output voltage, table: input, address: 96, type: u16, unit: V, scale: 0.01, poll: fast}
+  - {key: x.output_current, label: Output current, table: input, address: 97, type: u16, unit: A, scale: 0.01, poll: fast}
+  - {key: temperature, label: Internal ambient temperature, table: input, address: 98, type: s16, unit: °C, scale: 0.1, verified: false, note: Signedness not stated; signed assumed.}
+  - {key: battery_voltage, label: Voltage of battery, table: input, address: 211, type: u16, unit: V, scale: 0.01, poll: fast}
+  - {key: x.battery_current, label: Charging or discharging current of battery, table: input, address: 212, type: s16, unit: A, scale: 0.01, poll: fast, verified: false, note: 'Neither the type nor the direction is stated; signed assumed, sign unknown.'}
+  - {key: battery_temperature, label: Temperature of battery, table: input, address: 213, type: s16, unit: °C, scale: 0.1, verified: false, note: Signedness not stated; signed assumed.}
+
+  # Status (function 03)
+  - {key: x.fault_status, label: FAULT_STATUS (abnormal status), table: holding, address: 64, type: u16, note: The bit meanings are not in this document.}
+  - {key: x.charge_status, label: CHG_STATUS (charging status), table: holding, address: 184, type: u16, note: Charger models only; the bit meanings are not in this document.}
+  - {key: x.system_status, label: SYSTEM_STATUS, table: holding, address: 195, type: u16, note: The bit meanings are not in this document.}
+
+  # Settings (function 03 / 06)
+  - {key: x.operation, label: OPERATION (remote on/off), table: holding, address: 0, type: u16, enum: operation, writable: true, poll: slow}
+  - {key: x.vout_set, label: Output voltage set, table: holding, address: 32, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.curve_cc, label: Constant current setting, table: holding, address: 176, type: u16, unit: A, scale: 0.01, writable: true, poll: slow, note: Charger models only.}
+  - {key: x.curve_cv, label: Constant voltage setting, table: holding, address: 177, type: u16, unit: V, scale: 0.01, writable: true, poll: slow, note: Charger models only.}
+  - {key: x.curve_fv, label: Floating voltage setting, table: holding, address: 178, type: u16, unit: V, scale: 0.01, writable: true, poll: slow, note: Charger models only.}
+  - {key: x.curve_tc, label: Taper current setting, table: holding, address: 179, type: u16, unit: A, scale: 0.01, writable: true, poll: slow, note: Charger models only.}
+  - {key: x.curve_config, label: CURVE_CONFIG, table: holding, address: 180, type: u16, writable: true, poll: slow, note: Charger models only; layout not in this document.}
+  - {key: x.curve_cc_timeout, label: CC charge timeout setting, table: holding, address: 181, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.curve_cv_timeout, label: CV charge timeout setting, table: holding, address: 182, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.curve_fv_timeout, label: FV charge timeout setting, table: holding, address: 183, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.system_config, label: SYSTEM_CONFIG, table: holding, address: 196, type: u16, writable: true, poll: slow, note: Layout not in this document.}
+  - {key: x.bat_uvp_set, label: BAT_LOW protect setting, table: holding, address: 208, type: u16, unit: V, scale: 0.01, writable: true, poll: slow, verified: false, note: Scale not stated; 0.01 assumed like the other battery voltages.}
+  - {key: x.force_bat_uvp_set, label: Force BAT_LOW protect setting, table: holding, address: 209, type: u16, unit: V, scale: 0.01, writable: true, poll: slow, verified: false, note: Scale not stated; 0.01 assumed.}
+  - {key: x.ups_config, label: UPS config setting, table: holding, address: 210, type: u16, writable: true, poll: slow, note: Layout not in this document.}
+  - {key: x.ac_fail_ll_set, label: AC fail low line point setting, table: holding, address: 224, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, verified: false, note: Scale not stated; 0.1 assumed like the input voltage.}
+  - {key: x.ac_fail_hl_set, label: AC fail high line point setting, table: holding, address: 225, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, verified: false, note: Scale not stated; 0.1 assumed.}
+  - {key: x.ac_ok_ll_set, label: AC OK low line point setting, table: holding, address: 226, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, verified: false, note: Scale not stated; 0.1 assumed. The register table names it AC_Fail_HL_SET by mistake.}
+  - {key: x.ac_ok_hl_set, label: AC OK high line point setting, table: holding, address: 227, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, verified: false, note: Scale not stated; 0.1 assumed.}
+  - {key: x.time_buffering, label: Buffering time setting, table: holding, address: 228, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.ups_delay_time, label: UPS shutdown delay time setting, table: holding, address: 232, type: u16, unit: s, writable: true, poll: slow}
+  - {key: x.ups_shutdown_time, label: UPS shutdown time setting, table: holding, address: 233, type: u16, unit: s, writable: true, poll: slow}
+
+  # Identity (function 03)
+  - {key: x.manufacturer, label: Manufacturer's name, table: holding, address: 128, type: str, length: 6, poll: slow}
+  - {key: x.model, label: Manufacturer model name, table: holding, address: 134, type: str, length: 6, poll: slow}
+  - {key: x.firmware_raw, label: Firmware version, table: holding, address: 140, type: str, length: 3, poll: slow, note: 'Binary, not text; encoding not in this document.'}
+  - {key: x.manufacture_location, label: Manufacture place, table: holding, address: 143, type: str, length: 2, poll: slow, note: TWN or CHN.}
+  - {key: x.manufacture_date, label: Manufacture date, table: holding, address: 145, type: str, length: 3, poll: slow}
+  - {key: serial, label: Manufacture serial number, table: holding, address: 148, type: str, length: 6, poll: slow}
+
+enums:
+  operation: {'0': 'Off', '1': 'On'}
+
+problems:
+  - {when: {key: x.fault_status, not: 0}, kind: fault, text: 'Power supply abnormal status (0x{value:X})'}
+
+notes:
+- Readings use function 04, status and settings function 03 (settings written with 06). Addresses are the register addresses
+  of the document's first table (0-based). Its second table lists the PMBus command codes, which differ above 0x0080 and for
+  the UPS times; they are not Modbus addresses.
+- Scales come from the command table (F = 0.1 / 0.01); the full format section it refers to is not part of this document.
+  Types are not stated; unsigned assumed except temperatures and battery current.
+- 'Not in this document and left out: the bit tables of FAULT_STATUS, CHG_STATUS, SYSTEM_STATUS and the config words, SCALING_FACTOR
+  (0x00C0 …, layout unclear), serial settings and the default unit id (1 assumed). Byte order of the text registers is not
+  stated.'
+- Treating any non-zero FAULT_STATUS as a fault is an assumption.
+- Requests at most every 50 ms; the unit answers within 12.5 ms.

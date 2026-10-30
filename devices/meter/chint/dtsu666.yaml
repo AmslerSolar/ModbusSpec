@@ -1,0 +1,158 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Chint DTSU666 DSSU666 User Manual (ZTW0.464.0104 V1, Oct. 2023).
+
+modbusspec: 0
+id: chint-dtsu666
+manufacturer: Chint
+name: DTSU666 / DSSU666 three-phase energy meter
+kind: meter
+
+sources:
+- title: DTSU666.001 / DSSU666.001 series three-phase electronic energy meter, User Manual (ZTW0.464.0104)
+  version: V1 (Oct. 2023)
+  url: https://www.chintglobal.com/content/dam/chint/global/product-center/instruments-meters/electricity-meter/din-rail-meter/dtsu666/manual/DTSU666%20DSSU666%20User%20Manual.pdf
+  sha256: a56a1bd913c11bf943c0893641a9e359ae4fd838691f6d4fde8714554887877f
+  archive_url: https://web.archive.org/web/20260213055256/https://www.chintglobal.com/content/dam/chint/global/product-center/instruments-meters/electricity-meter/din-rail-meter/dtsu666/manual/DTSU666%20DSSU666%20User%20Manual.pdf
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/dtsu666.go
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.chint/src/io/openems/edge/meter/chint/dtsu666/MeterChintDtsu666Impl.java
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/chint/chint
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - - table: holding
+      address: 8198
+      type: f32
+      range:
+      - 990.0
+      - 1210.0
+    - table: holding
+      address: 8198
+      type: f32
+      range:
+      - 2070.0
+      - 2530.0
+
+points:
+  # Settings (keyboard parameters)
+  - {key: firmware, label: Software version (REV.), table: holding, address: 0, type: s16, poll: slow}
+  - {key: x.programming_code, label: Programming code (codE), table: holding, address: 1, type: s16, writable: true, min: 1, max: 9999, poll: slow, note: The keypad default is 701.}
+  - {key: x.energy_reset, label: Energy reset (CLr.E), table: holding, address: 2, type: s16, writable: true, poll: slow, note: Writing 1 clears the energy counters.}
+  - {key: x.network, label: Network selection (net), table: holding, address: 3, type: s16, enum: network, writable: true, poll: slow}
+  - {key: x.ct_ratio, label: Current transformer rate (IrAt), table: holding, address: 6, type: s16, writable: true, min: 1, max: 9999, poll: slow}
+  - {key: x.pt_ratio, label: Voltage transformer rate (UrAt), table: holding, address: 7, type: s16, scale: 0.1, writable: true, min: 0.1, max: 999.9, poll: slow, conflicts: [{sources: [openwb], scale: 1, label: Counter urat}]}
+  - {key: x.display_time, label: Rotating display time (Disp), table: holding, address: 10, type: s16, unit: s, writable: true, min: 0, max: 30, poll: slow, note: 0 = no rotation.}
+  - {key: x.backlight_time, label: Backlight time control (B.LCD), table: holding, address: 11, type: s16, unit: min, writable: true, min: 0, max: 30, poll: slow, note: 0 = always on.}
+  - {key: x.protocol, label: Protocol switching, table: holding, address: 44, type: s16, enum: protocol, writable: true, poll: slow}
+  - {key: x.baud_rate, label: Communication baud rate (bAud), table: holding, address: 45, type: s16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.modbus_address, label: Communication address (Addr), table: holding, address: 46, type: s16, writable: true, min: 1, max: 247, poll: slow}
+  # Electricity data
+  - {key: x.l1_l2_voltage, label: Uab line voltage, table: holding, address: 8192, type: f32, unit: V, scale: 0.1}
+  - {key: x.l2_l3_voltage, label: Ubc line voltage, table: holding, address: 8194, type: f32, unit: V, scale: 0.1}
+  - {key: x.l3_l1_voltage, label: Uca line voltage, table: holding, address: 8196, type: f32, unit: V, scale: 0.1}
+  - {key: l1_voltage, label: Ua phase voltage, table: holding, address: 8198, type: f32, unit: V, scale: 0.1, note: Not valid in three-phase three-wire (DSSU666).}
+  - {key: l2_voltage, label: Ub phase voltage, table: holding, address: 8200, type: f32, unit: V, scale: 0.1, note: Not valid in three-phase three-wire (DSSU666).}
+  - {key: l3_voltage, label: Uc phase voltage, table: holding, address: 8202, type: f32, unit: V, scale: 0.1, note: Not valid in three-phase three-wire (DSSU666).}
+  - {key: l1_current, label: Ia current, table: holding, address: 8204, type: f32, unit: A, scale: 0.001}
+  - {key: l2_current, label: Ib current, table: holding, address: 8206, type: f32, unit: A, scale: 0.001}
+  - {key: l3_current, label: Ic current, table: holding, address: 8208, type: f32, unit: A, scale: 0.001}
+  - {key: grid_power, label: Combined active power (Pt), table: holding, address: 8210, type: f32, unit: W, scale: 0.1, positive: import, note: The four-quadrant diagram shows input (imported) active power as positive and output as negative.}
+  - {key: l1_power, label: A phase active power (Pa), table: holding, address: 8212, type: f32, unit: W, scale: 0.1, positive: import, note: Sign as for the combined power.}
+  - {key: l2_power, label: B phase active power (Pb), table: holding, address: 8214, type: f32, unit: W, scale: 0.1, positive: import, note: Sign as for the combined power. Not valid in three-phase three-wire.}
+  - {key: l3_power, label: C phase active power (Pc), table: holding, address: 8216, type: f32, unit: W, scale: 0.1, positive: import, note: Sign as for the combined power.}
+  - {key: reactive_power, label: Combined reactive power (Qt), table: holding, address: 8218, type: f32, unit: var, scale: 0.1}
+  - {key: x.l1_reactive_power, label: A phase reactive power (Qa), table: holding, address: 8220, type: f32, unit: var, scale: 0.1}
+  - {key: x.l2_reactive_power, label: B phase reactive power (Qb), table: holding, address: 8222, type: f32, unit: var, scale: 0.1, note: Not valid in three-phase three-wire.}
+  - {key: x.l3_reactive_power, label: C phase reactive power (Qc), table: holding, address: 8224, type: f32, unit: var, scale: 0.1}
+  - {key: power_factor, label: Combined power factor (PFt), table: holding, address: 8234, type: f32, scale: 0.001, note: 'Positive = inductive, negative = capacitive.'}
+  - {key: x.l1_power_factor, label: A phase power factor (PFa), table: holding, address: 8236, type: f32, scale: 0.001, note: 'Positive = inductive, negative = capacitive. Not valid in three-phase three-wire.'}
+  - {key: x.l2_power_factor, label: B phase power factor (PFb), table: holding, address: 8238, type: f32, scale: 0.001, note: 'Positive = inductive, negative = capacitive. Not valid in three-phase three-wire.'}
+  - {key: x.l3_power_factor, label: C phase power factor (PFc), table: holding, address: 8240, type: f32, scale: 0.001, note: 'Positive = inductive, negative = capacitive. Not valid in three-phase three-wire.'}
+  - {key: frequency, label: Frequency, table: holding, address: 8260, type: f32, unit: Hz, scale: 0.01}
+  # Energy data
+  - {key: grid_import_energy, label: Total forward active energy (ImpEp), table: holding, address: 4126, type: f32, unit: kWh, poll: slow}
+  - {key: x.l1_import_energy, label: A forward active energy (ImpEpA), table: holding, address: 4128, type: f32, unit: kWh, poll: slow}
+  - {key: x.l2_import_energy, label: B forward active energy (ImpEpB), table: holding, address: 4130, type: f32, unit: kWh, poll: slow}
+  - {key: x.l3_import_energy, label: C forward active energy (ImpEpC), table: holding, address: 4132, type: f32, unit: kWh, poll: slow}
+  - {key: x.net_import_energy, label: Net forward active energy (NetImpEp), table: holding, address: 4134, type: f32, unit: kWh, poll: slow}
+  - {key: grid_export_energy, label: Total reverse active energy (ExpEp), table: holding, address: 4136, type: f32, unit: kWh, poll: slow}
+  - {key: x.l1_export_energy, label: A reverse active energy (ExpEpA), table: holding, address: 4138, type: f32, unit: kWh, poll: slow}
+  - {key: x.l2_export_energy, label: B reverse active energy (ExpEpB), table: holding, address: 4140, type: f32, unit: kWh, poll: slow}
+  - {key: x.l3_export_energy, label: C reverse active energy (ExpEpC), table: holding, address: 4142, type: f32, unit: kWh, poll: slow}
+  - {key: x.net_export_energy, label: Net reverse active energy (NetExpEp), table: holding, address: 4144, type: f32, unit: kWh, poll: slow}
+  - {key: x.counter_imported_16414, label: Counter imported energy, table: holding, address: 16414, type: f32, note: 'openWB multiplies it by registers 6, 7 and 100 for the counter imported energy.', verified: false, sources: [openwb]}
+  - {key: x.counter_exported_16424, label: Counter exported energy, table: holding, address: 16424, type: f32, note: 'openWB multiplies it by registers 6, 7 and 100 for the counter exported energy.', verified: false, sources: [openwb]}
+  - {key: x.voltage_l1, label: Voltage L1, table: input, address: 8198, type: f32, unit: V, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.voltage_l2, label: Voltage L2, table: input, address: 8200, type: f32, unit: V, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.voltage_l3, label: Voltage L3, table: input, address: 8202, type: f32, unit: V, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.current_l1, label: Current L1, table: input, address: 8204, type: f32, unit: A, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.current_l2, label: Current L2, table: input, address: 8206, type: f32, unit: A, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.current_l3, label: Current L3, table: input, address: 8208, type: f32, unit: A, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.active_power_8210, label: Active Power, table: input, address: 8210, type: f32, unit: W, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.active_power_l1_8212, label: Active Power L1, table: input, address: 8212, type: f32, unit: W, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.active_power_l2_8214, label: Active Power L2, table: input, address: 8214, type: f32, unit: W, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.active_power_l3_8216, label: Active Power L3, table: input, address: 8216, type: f32, unit: W, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.total_power_factor, label: Total Power Factor, table: input, address: 8234, type: f32, verified: false, sources: [openems]}
+  - {key: x.frequency, label: Frequency, table: input, address: 8260, type: f32, unit: Hz, scale: 0.01, verified: false, sources: [openems]}
+  - {key: x.active_consumption_energy, label: Active Consumption Energy, table: input, address: 16384, type: f32, unit: kWh, verified: false, sources: [openems]}
+
+enums:
+  network: {'0': Three-phase four-wire, '1': Three-phase three-wire}
+  protocol: {'1': DL/T 645, '2': Modbus 8N2, '3': Modbus 8N1, '4': Modbus 8E1, '5': Modbus 8O1}
+  baud_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200'}
+
+notes:
+- Addresses are the manual's hex parameter addresses (0-based protocol addresses). Read with function 03; all registers are
+  holding registers.
+- Electricity values are IEEE 754 floats in two registers, high word and high byte first (ABCD), in units of 0.1 V, 0.001
+  A, 0.1 W / var, 0.001 (power factor) and 0.01 Hz; the scales here turn them into V, A, W, var and Hz. Energies are floats
+  in kWh. The settings are signed 16-bit integers.
+- 'The manual says the values read over Modbus are secondary-side values: with current / voltage transformers, multiply by
+  the CT ratio (0x0006) and PT ratio (0x0007). Whether this also applies to the energy registers is not stated.'
+- 'Factory defaults: Modbus RTU, 9600 Bd, no parity, 1 stop bit, address 1. Baud rate 19200 is a customer option.'
+- The DSSU666 is the three-phase three-wire variant with the same map; its phase voltages, B-phase power and per-phase power
+  factors are not valid. The model can't be read from the meter.
+- The manual lists only the common registers; it mentions a separate detailed protocol for primary-side data and further addresses.
+- 'A meter with Huawei firmware (model text HW_DTSU666-HW at input 28672, see huawei-dtsu666-h) answers these values on input
+  registers (the 8192 and 4096 blocks) and refuses them on holding registers; the identify check here then fails, which is
+  right: it is the other file''s device.'
+- Identification as mbmd recognises the device (not checked against a document).
+- mbmd (type code DTSU666) detects the meter by reading L1 Voltage (holding register 8198, f32, scale 0.1); its bus scan accepts
+  a value within 10% of 110 or 230 V.
+- The driver's default meter type is GRID, for which OpenEMS defines active power as + = purchase from the grid, − = feed-in,
+  and the production energy as the energy bought from the grid.
+- OpenEMS has an 'Invert' option that negates the power values and swaps the two energy counters; the points here are the
+  reading with it off.
+- Phase values are for the default phase rotation L1-L2-L3.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,156 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: goodwe-dt
+manufacturer: GoodWe
+name: DT / MS / D-NS / XS grid inverters
+kind: inverter
+
+sources:
+- id: goodwe
+  title: goodwe (Python library used by Home Assistant)
+  url: https://github.com/marcelblijleven/goodwe
+  license: MIT
+  commit: 66dfcdd9cd947bfd799f2bddb40b4e05ba9db6f6
+  path: goodwe/dt.py, goodwe/sensor.py, goodwe/const.py, goodwe/model.py
+
+connection:
+  default_port: 502
+  default_unit: 127
+  transports:
+  - tcp
+  - rtu_over_udp
+  ports:
+    rtu_over_udp: 8899
+  reply_prefix: AA55
+
+encoding:
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 30004
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 30004
+    type: str
+    length: 8
+    contains:
+    - DTU
+    - DTS
+    - KMT
+    - MSU
+    - MST
+    - MSC
+    - DSN
+    - DTN
+    - DST
+    - NSU
+    - SSN
+    - SST
+    - SSX
+    - SSY
+    - PSB
+    - PSC
+
+defaults:
+  verified: false
+  sources:
+  - goodwe
+
+models:
+  - {id: single_phase, name: Single-phase, match: {table: holding, address: 30004, type: str, length: 8, contains: [DSN, DST, NSU, SSN, SST, SSX, SSY, MSU, MST, PSB, PSC, MSC]}}
+  - {id: three_phase, name: Three-phase}
+
+points:
+  - {key: serial, label: serial_number, table: holding, address: 30004, type: str, length: 8}
+  - {key: x.model_name, label: model_name, table: holding, address: 30012, type: str, length: 5}
+  - {key: x.dsp1_version, label: dsp1_version, table: holding, address: 30034, type: u16}
+  - {key: x.dsp2_version, label: dsp2_version, table: holding, address: 30035, type: u16}
+  - {key: x.arm_version, label: arm_version, table: holding, address: 30036, type: u16}
+  - {key: x.dsp_svn_version, label: dsp_svn_version, table: holding, address: 30037, type: u16}
+  - {key: x.arm_svn_version, label: arm_svn_version, table: holding, address: 30038, type: u16}
+  - {key: x.meter_software_version, label: meter_software_version, table: holding, address: 30063, type: u16}
+  - {key: x.meter_serial_number, label: meter_serial_number, table: holding, address: 30075, type: str, length: 7}
+  - {key: x.timestamp, label: Timestamp, table: holding, address: 30100, type: datetime, length: 3, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}}
+  - {key: x.vpv1, label: PV1 Voltage, table: holding, address: 30103, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.ipv1, label: PV1 Current, table: holding, address: 30104, type: u16, unit: A, scale: 0.1, invalid: [65535]}
+  - {key: x.vpv2, label: PV2 Voltage, table: holding, address: 30105, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.ipv2, label: PV2 Current, table: holding, address: 30106, type: u16, unit: A, scale: 0.1, invalid: [65535]}
+  - {key: x.vpv3, label: PV3 Voltage, table: holding, address: 30107, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.ipv3, label: PV3 Current, table: holding, address: 30108, type: u16, unit: A, scale: 0.1, invalid: [65535]}
+  - {key: x.vpv4, label: PV4 Voltage, table: holding, address: 30109, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.ipv4, label: PV4 Current, table: holding, address: 30110, type: u16, unit: A, scale: 0.1, invalid: [65535]}
+  - {key: x.vline1, label: On-grid L1-L2 Voltage, table: holding, address: 30115, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.vline2, label: On-grid L2-L3 Voltage, table: holding, address: 30116, type: u16, unit: V, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: x.vline3, label: On-grid L3-L1 Voltage, table: holding, address: 30117, type: u16, unit: V, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: l1_voltage, label: On-grid L1 Voltage, table: holding, address: 30118, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: l2_voltage, label: On-grid L2 Voltage, table: holding, address: 30119, type: u16, unit: V, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: l3_voltage, label: On-grid L3 Voltage, table: holding, address: 30120, type: u16, unit: V, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: l1_current, label: On-grid L1 Current, table: holding, address: 30121, type: u16, unit: A, scale: 0.1, invalid: [65535]}
+  - {key: l2_current, label: On-grid L2 Current, table: holding, address: 30122, type: u16, unit: A, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: l3_current, label: On-grid L3 Current, table: holding, address: 30123, type: u16, unit: A, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: frequency, label: On-grid L1 Frequency, table: holding, address: 30124, type: s16, unit: Hz, scale: 0.01}
+  - {key: x.fgrid2, label: On-grid L2 Frequency, table: holding, address: 30125, type: s16, unit: Hz, scale: 0.01, models: [three_phase]}
+  - {key: x.fgrid3, label: On-grid L3 Frequency, table: holding, address: 30126, type: s16, unit: Hz, scale: 0.01, models: [three_phase]}
+  - {key: x.total_inverter_power, label: Total Power, table: holding, address: 30127, type: u32, unit: W, invalid: [4294967295]}
+  - {key: state, label: Work Mode, table: holding, address: 30129, type: u16, enum: work_modes, invalid: [65535]}
+  - {key: error_code, label: Error Codes, table: holding, address: 30130, type: u32, invalid: [4294967295]}
+  - {key: x.warning_code, label: Warning code, table: holding, address: 30132, type: u16, invalid: [65535]}
+  - {key: apparent_power, label: Apparent Power, table: holding, address: 30133, type: s32, unit: VA}
+  - {key: reactive_power, label: Reactive Power, table: holding, address: 30135, type: s32, unit: var}
+  - {key: pv_power, label: Total Input Power, table: holding, address: 30137, type: s16, unit: W}
+  - {key: power_factor, label: Power Factor, table: holding, address: 30139, type: s16, scale: 0.001}
+  - {key: temperature, label: Inverter Temperature, table: holding, address: 30141, type: s16, unit: °C, scale: 0.1, invalid: [-1, 32767]}
+  - {key: x.temperature_heatsink, label: Heatsink Temperature, table: holding, address: 30142, type: s16, unit: °C, scale: 0.1, invalid: [-1, 32767]}
+  - {key: pv_energy_today, label: Today's PV Generation, table: holding, address: 30144, type: u16, unit: kWh, scale: 0.1, invalid: [65535]}
+  - {key: pv_energy, label: Total PV Generation, table: holding, address: 30145, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295]}
+  - {key: x.h_total, label: Hours Total, table: holding, address: 30147, type: u32, unit: h, invalid: [4294967295]}
+  - {key: x.safety_country, label: Safety Country, table: holding, address: 30149, type: u16, enum: safety_countries, invalid: [65535]}
+  - {key: x.funbit, label: FunctionBit, table: holding, address: 30162, type: u16, invalid: [65535]}
+  - {key: x.vbus, label: Bus Voltage, table: holding, address: 30163, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.vnbus, label: NBus Voltage, table: holding, address: 30164, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.derating_mode, label: Derating Mode code, table: holding, address: 30165, type: u32, flags: derating_mode_codes}
+  - {key: x.rssi, label: RSSI, table: holding, address: 30172, type: u16, invalid: [65535]}
+  - {key: x.meter_active_power, label: Meter Active Power, table: holding, address: 30195, type: s32, unit: W}
+  - {key: grid_export_energy, label: Meter Total Energy (export), table: holding, address: 30197, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: grid_import_energy, label: Meter Total Energy (import), table: holding, address: 30199, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.meter_comm_status, label: Meter Communication Status, table: holding, address: 30209, type: u16, enum: meter_communication_status, invalid: [65535]}
+  - {key: x.leakage_current, label: Leakage Current, table: holding, address: 30210, type: s16, unit: A, scale: 0.0001}
+  - {key: x.model_name_40173, label: model_name, table: holding, address: 40173, type: str, length: 8}
+  - {key: x.time, label: Inverter time, table: holding, address: 40313, type: datetime, length: 3, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}, writable: true}
+  - {key: x.shadow_scan_pv1, label: Shadow Scan Status PV1, table: holding, address: 40326, type: u16, invalid: [65535], writable: true}
+  - {key: x.grid_export, label: Grid Export Limit Enabled, table: holding, address: 40327, type: u16, invalid: [65535], writable: true}
+  - {key: x.grid_export_limit, label: Grid Export Limit, table: holding, address: 40328, type: u32, unit: W, invalid: [4294967295], models: [single_phase], writable: true}
+  - {key: x.start, label: Start / Power On, table: holding, address: 40330, type: u16, invalid: [65535], writable: true}
+  - {key: x.stop, label: Stop / Power Off, table: holding, address: 40331, type: u16, invalid: [65535], writable: true}
+  - {key: x.restart, label: Restart, table: holding, address: 40332, type: u16, invalid: [65535], writable: true}
+  - {key: x.grid_export_limit, label: Grid Export Limit, table: holding, address: 40336, type: u16, unit: '%', invalid: [65535], models: [three_phase], writable: true}
+  - {key: x.grid_export_hw, label: Grid Export Limit Enabled (HW), table: holding, address: 40345, type: u16, invalid: [65535], writable: true}
+  - {key: x.shadow_scan_time, label: Shadow Scan Time, table: holding, address: 40347, type: u16, invalid: [65535], writable: true}
+  - {key: x.shadow_scan_pv2, label: Shadow Scan Status PV2, table: holding, address: 40352, type: u16, invalid: [65535], writable: true}
+  - {key: x.shadow_scan_pv3, label: Shadow Scan Status PV3, table: holding, address: 40362, type: u16, invalid: [65535], writable: true}
+
+enums:
+  work_modes: {'0': Wait Mode, '1': Normal, '2': Error, '4': Check Mode}
+  safety_countries: {'0': IT CEI 0-21, '1': CZ-A1, '2': DE LV with PV, '3': ES-A, '4': GR, '5': DK2, '6': BE, '7': RO-A, '8': GB G98, '9': Australia A, '10': FR mainland, '11': China, '12': 60Hz 230Vac Default, '13': PL LV, '14': South Africa, '16': Brazil 220Vac, '17': Thailand MEA, '18': Thailand PEA, '19': Mauritius, '20': NL-A, '21': G98/NI, '22': China Higher, '23': FR island 50Hz, '24': FR island 60Hz, '25': Australia Ergon, '26': Australia Energex, '27': NL 16/20A, '28': Korea, '29': China Utility, '30': AT-A, '31': India, '32': 50Hz 230Vac Default, '33': Warehouse, '34': Philippines, '35': IE-16/25A, '36': Taiwan, '37': BG, '38': Barbados, '39': China Highest, '40': GB G99-A, '41': SE LV, '42': Chile BT, '43': Brazil 127Vac, '44': Newzealand, '45': IEEE1547 208Vac, '46': IEEE1547 220Vac, '47': IEEE1547 240Vac, '48': 60Hz 127Vac Default, '49': 50Hz 127Vac Default, '50': Australia WAPN, '51': Australia MicroGrid, '52': JP 50Hz, '53': JP 60Hz, '54': India Higher, '55': DEWA LV, '56': DEWA MV, '57': SK, '58': NZ GreenGrid, '59': HU, '60': Sri Lanka, '61': ES island, '62': Ergon30K, '63': Energex30K, '64': IEEE1547 230/400Vac, '65': IEC61727 60Hz, '66': CH, '67': IT CEI 0-16, '68': Australia Horizon, '69': CY, '70': Australia SAPN, '71': Australia Ausgrid, '72': Australia Essential, '73': Australia Victoria, '74': Hong Kong, '75': PL MV, '76': NL-B, '77': SE MV, '78': DE MV, '79': DE LV without PV, '80': ES-D, '81': Australia Endeavour, '82': Argentina, '83': Israel LV, '84': IEC61727 50Hz, '85': Australia B, '86': Australia C, '87': Chile MT-A, '88': Chile MT-B, '89': Vietnam, '90': reserve14, '91': Israel-HV, '93': 'NewZealand:2015', '94': RO-D, '96': US 208Vac Default, '97': US 240Vac Default, '98': US CA 208Vac, '99': US CA 240Vac, '100': cUSA_208VacCA_SDGE, '101': cUSA_240VacCA_SDGE, '102': cUSA_208VacCA_PGE, '103': cUSA_240VacCA_PGE, '104': US HI 208Vac, '105': US HI 240Vac, '106': USA_208VacHECO_14HM, '107': USA_240VacHECO_14HM, '108': US 480Vac, '109': US CA 480Vac, '110': US HI 480Vac, '111': US Kauai 208Vac, '112': US Kauai 240Vac, '113': US Kauai 480Vac, '114': US ISO-NE 208Vac, '115': US ISO-NE 240Vac, '116': US ISO-NE 480Vac, '118': PR 208Vac, '119': PR 240Vac, '120': PR 480Vac, '128': Poland_B, '129': EE, '135': CZ-A2, '136': CZ-B1, '146': Brazil 208Vac, '147': Brazil 230Vac, '148': Brazil 240Vac, '149': Brazil 254Vac}
+  meter_communication_status: {'0': '', '1': Normal, '2': Disconnected}
+
+flags:
+  derating_mode_codes: {'0': Overtemperature derating, '1': Active power derating, '2': Reactive power derating(PF/QU/FixQ), '3': Power VS Frequency, '4': PU Curve, '5': Export power derating, '6': DRED derating, '7': Limited power start derating, '8': Maximum current derating, '9': Overvoltage derating (For GW), '10': Power calibration limit power (For ATS)}
+
+notes:
+- 'Family detected by a model tag in the serial number: DTU, DTS, KMT, MSU, MST, MSC, DSN, DTN, DST, NSU, SSN, SST, SSX, SSY,
+  PSB, PSC.'
+- The library reaches these registers over Modbus TCP or as RTU frames over UDP through the Wi-Fi/LAN dongle; the dongle puts
+  AA 55 before each RTU reply.
+- 'Single-phase models have one of these tags in the serial number: DSN, DST, NSU, SSN, SST, SSX, SSY, MSU, MST, PSB, PSC,
+  MSC.'
+- PV3/PV4 registers exist only on three- or four-MPPT models (by serial number tag).
+- Identification as goodwe recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

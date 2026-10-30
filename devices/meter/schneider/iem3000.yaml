@@ -1,0 +1,130 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Schneider Electric's iEM3100 / iEM3200 / iEM3300 user manual (DOCA0005EN-16), "Communications using Modbus".
+
+modbusspec: 0
+id: schneider-iem3000
+manufacturer: Schneider Electric
+name: iEM3150 / iEM3155 / iEM3250 / iEM3255 / iEM3350 / iEM3355 energy meters
+kind: meter
+
+sources:
+- title: Schneider Electric iEM3100 / iEM3200 / iEM3300 series energy meters, user manual (DOCA0005EN-16), "Communications
+    using Modbus"
+  version: DOCA0005EN-16 (05/2026)
+  url: https://download.se.com/files?p_Doc_Ref=DOCA0005EN&p_enDocType=User+guide&p_File_Name=DOCA0005EN-16.pdf
+  sha256: 43f3fc74197f97eb0a7bee08eb39c8927ff2c5b054cf10f3350c6cc2f1e1c301
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/iem3000.go
+- id: tasmota
+  title: Tasmota (energy meter drivers)
+  url: https://github.com/arendst/Tasmota
+  license: GPL-3.0
+  commit: 4df6fa1d4bf6c4e98765eb76a096a597fb5af709
+  path: tasmota/tasmota_xnrg_energy/xnrg_16_iem3000.ino
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  limits:
+    max_registers: 125
+    max_gap: 30
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 129
+    type: u32
+  checks:
+  - table: holding
+    address: 49
+    type: str
+    length: 20
+    prefix: iEM
+
+points:
+  # Measurements
+  - {key: l1_current, label: 'I1: phase 1 current', table: holding, address: 2999, type: f32, unit: A}
+  - {key: l2_current, label: 'I2: phase 2 current', table: holding, address: 3001, type: f32, unit: A}
+  - {key: l3_current, label: 'I3: phase 3 current', table: holding, address: 3003, type: f32, unit: A}
+  - {key: x.neutral_current, label: 'In: Neutral current', table: holding, address: 3005, type: f32, unit: A}
+  - {key: x.current_avg, label: Current Avg, table: holding, address: 3009, type: f32, unit: A}
+  - {key: x.l1_l2_voltage, label: Voltage L1-L2, table: holding, address: 3019, type: f32, unit: V}
+  - {key: x.l2_l3_voltage, label: Voltage L2-L3, table: holding, address: 3021, type: f32, unit: V}
+  - {key: x.l3_l1_voltage, label: Voltage L3-L1, table: holding, address: 3023, type: f32, unit: V}
+  - {key: x.voltage_ll_avg, label: Voltage L-L Avg, table: holding, address: 3025, type: f32, unit: V}
+  - {key: l1_voltage, label: Voltage L1-N, table: holding, address: 3027, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage L2-N, table: holding, address: 3029, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage L3-N, table: holding, address: 3031, type: f32, unit: V}
+  - {key: x.voltage_ln_avg, label: Voltage L-N Avg, table: holding, address: 3035, type: f32, unit: V}
+  - {key: l1_power, label: Active Power Phase 1, table: holding, address: 3053, type: f32, unit: W, scale: 1000, positive: import}
+  - {key: l2_power, label: Active Power Phase 2, table: holding, address: 3055, type: f32, unit: W, scale: 1000, positive: import}
+  - {key: l3_power, label: Active Power Phase 3, table: holding, address: 3057, type: f32, unit: W, scale: 1000, positive: import}
+  - {key: grid_power, label: Total Active Power, table: holding, address: 3059, type: f32, unit: W, scale: 1000, positive: import, note: 'The manual: energy delivered (imported) is positive real power flow (+P), energy received (exported) negative; the power factor register also has active power negative in quadrants 2 and 3.'}
+  - {key: reactive_power, label: Total Reactive Power, table: holding, address: 3067, type: f32, unit: var, scale: 1000}
+  - {key: apparent_power, label: Total Apparent Power, table: holding, address: 3075, type: f32, unit: VA, scale: 1000}
+  - {key: x.power_factor_4q, label: Total Power Factor, table: holding, address: 3083, type: f32, unit: '', note: 'Four-quadrant encoding −2…2: 0…1 quadrant 1 (P +, inductive), 1…2 quadrant 4 (P +, capacitive), −1…0 quadrant 2 (P −, capacitive), −2…−1 quadrant 3 (P −, inductive). The usual PF is 2 − v above 1 and −2 − v below −1.'}
+  - {key: frequency, label: Frequency, table: holding, address: 3109, type: f32, unit: Hz}
+
+  # Energy
+  - {key: grid_import_energy, label: Total Active Energy Import, table: holding, address: 3203, type: s64, unit: kWh, scale: 0.001}
+  - {key: grid_export_energy, label: Total Active Energy Export, table: holding, address: 3207, type: s64, unit: kWh, scale: 0.001}
+  - {key: x.import_reactive_energy, label: Total Reactive Energy Import, table: holding, address: 3219, type: s64, unit: kvarh, scale: 0.001}
+  - {key: x.export_reactive_energy, label: Total Reactive Energy Export, table: holding, address: 3223, type: s64, unit: kvarh, scale: 0.001}
+  - {key: x.energy_reset_time, label: Energy Reset Date and Time, table: holding, address: 3251, type: datetime, length: 4, datetime: {year: {register: 0, bits: [0, 6], offset: 2000}, month: {register: 1, bits: [8, 11]}, day: {register: 1, bits: [0, 4]}, hour: {register: 2, bits: [8, 12]}, minute: {register: 2, bits: [0, 5]}}, poll: slow}
+  - {key: x.partial_import_energy, label: Partial Active Energy Import, table: holding, address: 3255, type: s64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.partial_import_reactive_energy, label: Partial Reactive Energy Import, table: holding, address: 3271, type: s64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.l1_import_energy, label: Active Energy Import Phase 1, table: holding, address: 3517, type: s64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_import_energy, label: Active Energy Import Phase 2, table: holding, address: 3521, type: s64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_import_energy, label: Active Energy Import Phase 3, table: holding, address: 3525, type: s64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.active_rate, label: Multi Tariffs Energy Active Rate, table: holding, address: 4190, type: u16, enum: active_rate, poll: slow, writable: true}
+  - {key: x.rate_a_import_energy, label: Rate A Active Energy Import, table: holding, address: 4195, type: s64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.rate_b_import_energy, label: Rate B Active Energy Import, table: holding, address: 4199, type: s64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.rate_c_import_energy, label: Rate C Active Energy Import, table: holding, address: 4203, type: s64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.rate_d_import_energy, label: Rate D Active Energy Import, table: holding, address: 4207, type: s64, unit: kWh, scale: 0.001, poll: slow}
+
+  # Identification and setup
+  - {key: x.meter_name, label: Meter Name, table: holding, address: 29, type: str, length: 20, poll: slow}
+  - {key: x.meter_model, label: Meter Model, table: holding, address: 49, type: str, length: 20, poll: slow}
+  - {key: x.manufacturer, label: Manufacturer, table: holding, address: 69, type: str, length: 20, poll: slow}
+  - {key: serial, label: Serial Number, table: holding, address: 129, type: u32, poll: slow}
+  - {key: x.manufacture_date, label: Date of Manufacture, table: holding, address: 131, type: datetime, length: 4, datetime: {year: {register: 0, bits: [0, 6], offset: 2000}, month: {register: 1, bits: [8, 11]}, day: {register: 1, bits: [0, 4]}, hour: {register: 2, bits: [8, 12]}, minute: {register: 2, bits: [0, 5]}}, poll: slow}
+  - {key: x.hardware_revision, label: Hardware Revision, table: holding, address: 135, type: str, length: 5, poll: slow}
+  - {key: firmware, label: Present Firmware Version, table: holding, address: 1636, type: u16, poll: slow, note: DLF format X.Y.ZTT.}
+  - {key: x.operation_timer, label: Meter Operation Timer, table: holding, address: 2003, type: u32, unit: s, poll: slow}
+  - {key: x.number_of_phases, label: Number of Phases, table: holding, address: 2013, type: u16, poll: slow}
+  - {key: x.number_of_wires, label: Number of Wires, table: holding, address: 2014, type: u16, poll: slow}
+  - {key: x.power_system, label: Power System, table: holding, address: 2015, type: u16, enum: power_system, poll: slow, writable: true}
+  - {key: x.nominal_frequency, label: Nominal Frequency, table: holding, address: 2016, type: u16, unit: Hz, poll: slow, writable: true}
+
+enums:
+  power_system: {'0': 1PH2W L-N, '1': 1PH2W L-L, '2': 1PH3W L-L with N, '3': 3PH3W, '11': 3PH4W, '13': 1PH4W multi L with N}
+  active_rate: {'0': Multi tariff disabled, '1': Rate A, '2': Rate B, '3': Rate C, '4': Rate D}
+
+notes:
+- Holding registers, read with function 03 only. The manual lists each value with its "Address" (in the frame) and "Register"
+  (= address + 1); the addresses here are the frame addresses, e.g. I1 is register 3000, address 2999.
+- The manual doesn't state the word order of 32- and 64-bit values; most significant word first is assumed (unverified).
+- The iEM3150 / 3250 / 3350 share the map but lack reactive and apparent power, reactive energies, the operation timer and
+  the tariffs; they reject those registers, which a reader should then leave out.
+- The meter can also be recognised by "iEM" in the meter model or name, or "Schneider" in the manufacturer; the check above
+  covers only the model.
+- DATETIME values (131, 3251) span 4 registers; word 4 holds milliseconds (0–59999), which the layout leaves out. The day-of-week,
+  summer-time and validity bits are not read.
+- Energies are 64-bit Wh counters; the totals can't be reset. No daily counters.
+- 'RS485: 9600, 19200 or 38400 baud, parity even / odd / none, 1 stop bit, address 1–247.'
+- mbmd (type code IEM3000) detects the meter by reading L1 Voltage (holding register 3027, f32); its bus scan accepts a value
+  within 10% of 110 or 230 V.
+- Tasmota's iEM3000 driver (iEM3150 / 3155 / 3250 / 3255 / 3350 / 3355 / 3455 / 3555) expects the meter's parity set to none.
+- Identification as mbmd recognises the device (not checked against a document).

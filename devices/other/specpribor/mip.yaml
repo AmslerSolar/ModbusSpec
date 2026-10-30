@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Specpribor MIP fire interface module RS485 protocol description (СПР.425521.007 Д1-01, version 2.1, 2017).
+
+modbusspec: 0
+id: specpribor-mip
+manufacturer: Specpribor
+name: MIP-1I/2I/3I-(Ex) fire interface modules (linear heat detector)
+kind: other
+
+sources:
+- title: Модуль интерфейсный пожарный «МИП» – описание протокола обмена по интерфейсу RS485 (СПР.425521.007 Д1-01)
+  version: 2.1 (2017), for modules with ID 13h, 14h, 15h
+  url: http://www.specpribor.ru/data/uploads/doc/MIP/rs-485.pdf
+  sha256: 740aef691561f4783907a84fdfff68f589ad4c9d29b1001e4253d6f781b22155
+  archive_url: https://web.archive.org/web/20251203140749/http://www.specpribor.ru/data/uploads/doc/MIP/rs-485.pdf
+
+connection:
+  default_port: 502
+  default_unit: 247
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    in:
+    - 19
+    - 20
+    - 21
+  - table: holding
+    address: 1
+    type: u16
+    range:
+    - 1
+    - 247
+  - table: holding
+    address: 2
+    type: u16
+    range:
+    - 1
+    - 6
+
+models:
+  - {id: mip1, name: MIP-1I-(Ex), match: {table: holding, address: 0, type: u16, equals: 19}}
+  - {id: mip2, name: MIP-2I-(Ex), match: {table: holding, address: 0, type: u16, equals: 20}}
+  - {id: mip3, name: MIP-3I-(Ex), match: {table: holding, address: 0, type: u16, equals: 21}}
+
+points:
+  - {key: x.device_id, label: Device ID, table: holding, address: 0, type: u16, enum: module_type, poll: slow}
+  - {key: x.network_address, label: Network address, table: holding, address: 1, type: u16, poll: slow, writable: true, min: 1, max: 247}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 2, type: u16, enum: baud_rate, poll: slow, writable: true}
+  - {key: x.loop_1_status, label: Loop 1 status, table: holding, address: 3, type: u16, enum: loop_status}
+  - {key: x.loop_2_status, label: Loop 2 status, table: holding, address: 4, type: u16, enum: loop_status}
+  - {key: x.loop_3_status, label: Loop 3 status, table: holding, address: 5, type: u16, enum: loop_status}
+  - {key: x.power_input_1, label: Power input 1 status, table: holding, address: 6, type: u16, enum: power_status}
+  - {key: x.power_input_2, label: Power input 2 status, table: holding, address: 7, type: u16, enum: power_status}
+  - {key: x.loop_1_alarm_distance, label: Loop 1 cable length to alarm point, table: holding, address: 8, type: u16, unit: m, invalid: [65535], note: Only in the alarm state (0 … 9999 m); 0xFFFF otherwise.}
+  - {key: x.loop_2_alarm_distance, label: Loop 2 cable length to alarm point, table: holding, address: 9, type: u16, unit: m, invalid: [65535]}
+  - {key: x.loop_3_alarm_distance, label: Loop 3 cable length to alarm point, table: holding, address: 10, type: u16, unit: m, invalid: [65535]}
+  - {key: x.relay_outputs, label: Relay outputs NORMA / TREVOGA, table: holding, address: 11, type: u16, flags: relay_outputs}
+  - {key: x.loop_1_cable_resistance, label: Loop 1 thermal cable resistance per metre, table: holding, address: 12, type: f32, unit: Ω/m, poll: slow, writable: true, write_multiple: true, min: 0.1, max: 1}
+  - {key: x.loop_2_cable_resistance, label: Loop 2 thermal cable resistance per metre, table: holding, address: 14, type: f32, unit: Ω/m, poll: slow, writable: true, write_multiple: true, min: 0.1, max: 1}
+  - {key: x.loop_3_cable_resistance, label: Loop 3 thermal cable resistance per metre, table: holding, address: 16, type: f32, unit: Ω/m, poll: slow, writable: true, write_multiple: true, min: 0.1, max: 1}
+  - {key: x.loop_1_cable_length, label: Loop 1 thermal cable length, table: holding, address: 25, type: u16, unit: m, poll: slow, writable: true, min: 0, max: 2000}
+  - {key: x.loop_2_cable_length, label: Loop 2 thermal cable length, table: holding, address: 26, type: u16, unit: m, poll: slow, writable: true, min: 0, max: 2000}
+  - {key: x.loop_3_cable_length, label: Loop 3 thermal cable length, table: holding, address: 27, type: u16, unit: m, poll: slow, writable: true, min: 0, max: 2000}
+
+enums:
+  module_type: {'19': MIP-1I-(Ex), '20': MIP-2I-(Ex), '21': MIP-3I-(Ex)}
+  baud_rate: {'1': '1200', '2': '2400', '3': '4800', '4': '9600', '5': '14400', '6': '19200'}
+  loop_status: {'0': Undefined, '1': Short circuit, '2': Open circuit, '3': Normal, '5': Alarm}
+  power_status: {'3': Normal, '6': Fault}
+
+flags:
+  relay_outputs: {'0': NORMA 1 output closed (XT4), '1': NORMA 2 output closed (XT6), '2': NORMA 3 output closed (XT8), '8': TREVOGA 1 (alarm) output closed (XT5), '9': TREVOGA 2 (alarm) output closed (XT7), '10': TREVOGA 3 (alarm) output closed (XT9)}
+
+problems:
+  - {when: {key: x.loop_1_status, equals: 5}, kind: fault, text: Fire alarm on loop 1}
+  - {when: {key: x.loop_2_status, equals: 5}, kind: fault, text: Fire alarm on loop 2}
+  - {when: {key: x.loop_3_status, equals: 5}, kind: fault, text: Fire alarm on loop 3}
+  - {when: {key: x.loop_1_status, in: [1, 2]}, kind: fault, text: 'Loop 1 line fault ({text})'}
+  - {when: {key: x.loop_2_status, in: [1, 2]}, kind: fault, text: 'Loop 2 line fault ({text})'}
+  - {when: {key: x.loop_3_status, in: [1, 2]}, kind: fault, text: 'Loop 3 line fault ({text})'}
+  - {when: {key: x.power_input_1, equals: 6}, kind: warning, text: Power input 1 fault}
+  - {when: {key: x.power_input_2, equals: 6}, kind: warning, text: Power input 2 fault}
+
+notes:
+- Specpribor (Kazan) MIP modules monitor up to three thermal-cable fire detection loops (ШС1 … ШС3) and report the distance
+  to the alarm point. The document doesn't say which loops the 1- and 2-loop variants answer for; all are listed for every
+  model.
+- Addresses are the document's hex register addresses (0-based). Only function 03 reads (no 04); 06 writes single registers,
+  16 the floats. Requests may span at most 2 registers (group reads are allowed for 0x0000 … 0x001D, but the frame is limited
+  to 13 bytes).
+- Floats are IEEE 754, high word and high byte first. RS-485 8N1, 1200 … 19200 baud; factory default unit id 247 and 9600
+  baud (button SB1 at power-up restores them).
+- In the alarm state, the loop status may read 0 once the measured cable length changed by more than 5 m (with register 0x001D
+  = tactic 2); reading it again restores 5 (alarm).
+- 'Left out: the logging tactics (0x0012 … 0x0018, 0x001C, 0x001D), the sound-off (0x0016, write 0xA55A) and alarm reset (0x0017,
+  write 0xAA55) commands, and the calibration registers (0x0050 … 0x0056).'

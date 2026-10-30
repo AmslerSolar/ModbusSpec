@@ -1,0 +1,293 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Weishaupt Datenpunktliste Modbus TCP (WWP) (83807301, 1/2025-11).
+
+modbusspec: 0
+id: weishaupt-wbb
+manufacturer: Weishaupt
+name: Heat pumps WAB / WBB / WSB / WGB (WWP, Modbus TCP)
+kind: heat_pump
+
+sources:
+- title: Weishaupt Datenpunktliste Modbus TCP (WWP), 83807301
+  version: 1/2025-11
+  url: https://www.weishaupt.de/uploads/tx_weishaupt_documents/documents/83807301.pdf
+  sha256: 2b50366c8175a22ccddb82c8baf983b2b43c4636e71b883223ed57d6ada8ae82
+  archive_url: https://web.archive.org/web/20251222054754/https://www.weishaupt.de/uploads/tx_weishaupt_documents/documents/83807301.pdf
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/charger/weishaupt-wpm.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/consumers/weishaupt/weishaupt_wwp/consumer.py
+- id: weishaupt-modbus
+  title: weishaupt_modbus (Home Assistant integration)
+  url: https://github.com/OStrama/weishaupt_modbus
+  license: MIT
+  commit: 891bea397ae7c4dd5e4701594948914f7446600b
+  path: custom_components/weishaupt_modbus/weishaupt_modbus_api/hpconst.py, custom_components/weishaupt_modbus/translations/en.json
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 5
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # System
+  - {key: x.outdoor_temperature_1, label: Außentemperatur 1, table: input, address: 30001, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.outdoor_temperature_2, label: Außentemperatur 2, table: input, address: 30002, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: error_code, label: Fehler, table: input, address: 30003, type: u16, note: Error code from the connected unit's code table; 65535 = no error active.}
+  - {key: x.warning_code, label: Warnung, table: input, address: 30004, type: u16, note: Warning code from the connected unit's code table; 65535 = none active.}
+  - {key: x.fault_free, label: Fehlerfrei, table: input, address: 30005, type: u16, verified: false, note: 'The document gives it the error-code format (0 … 65534 code, 65535 = none) although its name suggests a fault-free flag; taken as given.'}
+  - {key: state, label: Betriebsstatusanzeige, table: input, address: 30006, type: u16, enum: operating_status}
+  - {key: x.system_mode, label: Systembetriebsart, table: holding, address: 40001, type: u16, enum: system_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.pv_setpoint, label: SollwertPV, table: holding, address: 40002, type: u16, unit: W, writable: true, persistent: false, note: Electrical power the heat pump may use; 0 ends it. Overrides SG Ready (also a utility block).}
+  # Hot water
+  - {key: x.hot_water_setpoint, label: Warmwassersolltemperatur, table: input, address: 32101, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1]}
+  - {key: x.hot_water_temperature, label: Warmwassertemperatur, table: input, address: 32102, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.hot_water_push, label: Warmwasser Push, table: holding, address: 42102, type: u16, unit: min, writable: true, min: 0, max: 240, persistent: true, note: '0 = off, 5 … 240 minutes.', conflicts: [{sources: [weishaupt-modbus], label: Hot water Push}]}
+  - {key: x.hot_water_normal, label: Warmwasser Normal, table: holding, address: 42103, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.hot_water_reduced, label: Warmwasser Absenk, table: holding, address: 42104, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  # Heat pump
+  - {key: x.hp_operation, label: Betrieb, table: input, address: 33101, type: u16, enum: operating_status}
+  - {key: x.hp_fault, label: Störmeldung, table: input, address: 33102, type: u16, enum: fault_free}
+  - {key: x.power_request, label: Leistungsanforderung, table: input, address: 33103, type: u16, unit: '%'}
+  - {key: x.flow_temperature, label: Vorlauftemperatur, table: input, address: 33104, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.return_temperature, label: Rücklauftemperatur, table: input, address: 33105, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.hydraulic_separator_temperature, label: Weiche, table: input, address: 33108, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.regenerative_temperature, label: Regenerativ, table: input, address: 33109, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.buffer_temperature, label: Puffer, table: input, address: 33110, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.common_flow_temperature, label: Summenvorlauf (B7), table: input, address: 33111, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  # Second heat generator
+  - {key: x.second_generator_status, label: Status 2ter WEZ, table: input, address: 34101, type: u16, enum: on_off}
+  - {key: x.second_generator_hours, label: Betriebsstunden 2ter WEZ, table: input, address: 34102, type: u16, unit: h, poll: slow, conflicts: [{sources: [weishaupt-modbus], label: Switching cycles E-heating 1}]}
+  - {key: x.e_heater_1_status, label: Status E-Heizung 1, table: input, address: 34104, type: u16, enum: on_off}
+  - {key: x.e_heater_2_status, label: Status E-Heizung 2, table: input, address: 34105, type: u16, enum: on_off}
+  - {key: x.e_heater_1_hours, label: Betriebsstunden E1, table: input, address: 34106, type: u16, unit: h, poll: slow, conflicts: [{sources: [weishaupt-modbus], label: Switching cycles E-heating 2}]}
+  - {key: x.e_heater_2_hours, label: Betriebsstunden E2, table: input, address: 34107, type: u16, unit: h, poll: slow}
+  # Inputs
+  - {key: x.sg_ready_1, label: SG-Ready 1, table: input, address: 35101, type: u16, enum: on_off}
+  - {key: x.sg_ready_2, label: SG-Ready 2, table: input, address: 35102, type: u16, verified: false, note: 'Digital format, but the document''s value column describes an hour counter (0 … 65535 h); likely 0 = off, 1 = on like SG-Ready 1.'}
+  - {key: x.input_h1_2, label: Eingang H1.2, table: input, address: 35103, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766], note: 'Sensor format: a temperature in tenths of °C, or raw −32758 / −32757 (read as −3275.8 / −3275.7) for a digital input off / on.', conflicts: [{sources: [weishaupt-modbus], type: u16, scale: 1, label: Output H1.2}]}
+  - {key: x.input_h1_3, label: Eingang H1.3, table: input, address: 35104, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766], conflicts: [{sources: [weishaupt-modbus], type: u16, scale: 1, label: Output H1.3}]}
+  - {key: x.input_h1_4, label: Eingang H1.4, table: input, address: 35105, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766], conflicts: [{sources: [weishaupt-modbus], type: u16, scale: 1, label: Output H1.4}]}
+  - {key: x.input_h1_5, label: Eingang H1.5, table: input, address: 35106, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766], conflicts: [{sources: [weishaupt-modbus], type: u16, scale: 1, label: Output H1.5}]}
+  - {key: x.input_de1, label: Eingang DE1, table: input, address: 35107, type: u16, verified: false, note: Digital format; the value column again describes an hour counter.}
+  - {key: x.input_de2, label: Eingang DE2, table: input, address: 35108, type: u16, verified: false}
+  # Heating circuits 1–4 (circuit n at +100 × (n − 1))
+  - {key: x.room_setpoint_hc1, label: Raumsolltemperatur HK1, table: input, address: 31101, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1]}
+  - {key: x.room_temperature_hc1, label: Raumtemperatur HK1, table: input, address: 31102, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.room_humidity_hc1, label: Raumfeuchte HK1, table: input, address: 31103, type: u16, unit: '%', invalid: [65535]}
+  - {key: x.flow_setpoint_hc1, label: Vorlaufsolltemperatur HK1, table: input, address: 31104, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1]}
+  - {key: x.flow_temperature_hc1, label: Vorlauftemperatur HK1, table: input, address: 31105, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.hc_mode_hc1, label: Betriebsart HK1, table: holding, address: 41103, type: u16, enum: hc_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.room_comfort_hc1, label: Raumsolltemperatur Komfort HK1, table: holding, address: 41105, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_normal_hc1, label: Raumsolltemperatur Normal HK1, table: holding, address: 41106, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_reduced_hc1, label: Raumsolltemperatur Absenk HK1, table: holding, address: 41107, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.heat_constant_hc1, label: Heizen Konstanttemperatur HK1, table: holding, address: 41110, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.heat_constant_reduced_hc1, label: Heizen Konstanttemperatur Absenk HK1, table: holding, address: 41111, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.cool_constant_hc1, label: Kühlen Konstanttemperatur HK1, table: holding, address: 41112, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_setpoint_hc2, label: Raumsolltemperatur HK2, table: input, address: 31201, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1]}
+  - {key: x.room_temperature_hc2, label: Raumtemperatur HK2, table: input, address: 31202, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.room_humidity_hc2, label: Raumfeuchte HK2, table: input, address: 31203, type: u16, unit: '%', invalid: [65535]}
+  - {key: x.flow_setpoint_hc2, label: Vorlaufsolltemperatur HK2, table: input, address: 31204, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1]}
+  - {key: x.flow_temperature_hc2, label: Vorlauftemperatur HK2, table: input, address: 31205, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.hc_mode_hc2, label: Betriebsart HK2, table: holding, address: 41203, type: u16, enum: hc_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.room_comfort_hc2, label: Raumsolltemperatur Komfort HK2, table: holding, address: 41205, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_normal_hc2, label: Raumsolltemperatur Normal HK2, table: holding, address: 41206, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_reduced_hc2, label: Raumsolltemperatur Absenk HK2, table: holding, address: 41207, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.heat_constant_hc2, label: Heizen Konstanttemperatur HK2, table: holding, address: 41210, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.heat_constant_reduced_hc2, label: Heizen Konstanttemperatur Absenk HK2, table: holding, address: 41211, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.cool_constant_hc2, label: Kühlen Konstanttemperatur HK2, table: holding, address: 41212, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_setpoint_hc3, label: Raumsolltemperatur HK3, table: input, address: 31301, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1]}
+  - {key: x.room_temperature_hc3, label: Raumtemperatur HK3, table: input, address: 31302, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.room_humidity_hc3, label: Raumfeuchte HK3, table: input, address: 31303, type: u16, unit: '%', invalid: [65535]}
+  - {key: x.flow_setpoint_hc3, label: Vorlaufsolltemperatur HK3, table: input, address: 31304, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1]}
+  - {key: x.flow_temperature_hc3, label: Vorlauftemperatur HK3, table: input, address: 31305, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.hc_mode_hc3, label: Betriebsart HK3, table: holding, address: 41303, type: u16, enum: hc_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.room_comfort_hc3, label: Raumsolltemperatur Komfort HK3, table: holding, address: 41305, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_normal_hc3, label: Raumsolltemperatur Normal HK3, table: holding, address: 41306, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_reduced_hc3, label: Raumsolltemperatur Absenk HK3, table: holding, address: 41307, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.heat_constant_hc3, label: Heizen Konstanttemperatur HK3, table: holding, address: 41310, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.heat_constant_reduced_hc3, label: Heizen Konstanttemperatur Absenk HK3, table: holding, address: 41311, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.cool_constant_hc3, label: Kühlen Konstanttemperatur HK3, table: holding, address: 41312, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_setpoint_hc4, label: Raumsolltemperatur HK4, table: input, address: 31401, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1]}
+  - {key: x.room_temperature_hc4, label: Raumtemperatur HK4, table: input, address: 31402, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.room_humidity_hc4, label: Raumfeuchte HK4, table: input, address: 31403, type: u16, unit: '%', invalid: [65535]}
+  - {key: x.flow_setpoint_hc4, label: Vorlaufsolltemperatur HK4, table: input, address: 31404, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1]}
+  - {key: x.flow_temperature_hc4, label: Vorlauftemperatur HK4, table: input, address: 31405, type: s16, unit: °C, scale: 0.1, invalid: [-32768, -32767, -32766, -32758, -32757]}
+  - {key: x.hc_mode_hc4, label: Betriebsart HK4, table: holding, address: 41403, type: u16, enum: hc_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.room_comfort_hc4, label: Raumsolltemperatur Komfort HK4, table: holding, address: 41405, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_normal_hc4, label: Raumsolltemperatur Normal HK4, table: holding, address: 41406, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.room_reduced_hc4, label: Raumsolltemperatur Absenk HK4, table: holding, address: 41407, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.heat_constant_hc4, label: Heizen Konstanttemperatur HK4, table: holding, address: 41410, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.heat_constant_reduced_hc4, label: Heizen Konstanttemperatur Absenk HK4, table: holding, address: 41411, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  - {key: x.cool_constant_hc4, label: Kühlen Konstanttemperatur HK4, table: holding, address: 41412, type: s16, unit: °C, scale: 0.1, invalid: [-32768, 1], writable: true, min: 5, max: 500, persistent: true, poll: slow}
+  # Statistics
+  - {key: x.total_energy_today, label: Gesamt Energie heute, table: input, address: 36101, type: u16, unit: kWh, poll: slow}
+  - {key: x.total_energy_yesterday, label: Gesamt Energie gestern, table: input, address: 36102, type: u16, unit: kWh, poll: slow}
+  - {key: x.total_energy_month, label: Gesamt Energie Monat, table: input, address: 36103, type: u16, unit: kWh, poll: slow}
+  - {key: x.total_energy_year, label: Gesamt Energie Jahr, table: input, address: 36104, type: u16, unit: kWh, poll: slow}
+  - {key: x.heating_energy_today, label: Heizen Energie heute, table: input, address: 36201, type: u16, unit: kWh, poll: slow}
+  - {key: x.heating_energy_yesterday, label: Heizen Energie gestern, table: input, address: 36202, type: u16, unit: kWh, poll: slow}
+  - {key: x.heating_energy_month, label: Heizen Energie Monat, table: input, address: 36203, type: u16, unit: kWh, poll: slow}
+  - {key: x.heating_energy_year, label: Heizen Energie Jahr, table: input, address: 36204, type: u16, unit: kWh, poll: slow}
+  - {key: x.hot_water_energy_today, label: Warmwasser Energie heute, table: input, address: 36301, type: u16, unit: kWh, poll: slow}
+  - {key: x.hot_water_energy_yesterday, label: Warmwasser Energie gestern, table: input, address: 36302, type: u16, unit: kWh, poll: slow}
+  - {key: x.hot_water_energy_month, label: Warmwasser Energie Monat, table: input, address: 36303, type: u16, unit: kWh, poll: slow}
+  - {key: x.hot_water_energy_year, label: Warmwasser Energie Jahr, table: input, address: 36304, type: u16, unit: kWh, poll: slow}
+  - {key: x.cooling_energy_today, label: Kühlen Energie heute, table: input, address: 36401, type: u16, unit: kWh, poll: slow}
+  - {key: x.cooling_energy_yesterday, label: Kühlen Energie gestern, table: input, address: 36402, type: u16, unit: kWh, poll: slow}
+  - {key: x.cooling_energy_month, label: Kühlen Energie Monat, table: input, address: 36403, type: u16, unit: kWh, poll: slow}
+  - {key: x.cooling_energy_year, label: Kühlen Energie Jahr, table: input, address: 36404, type: u16, unit: kWh, poll: slow}
+  - {key: x.hz_konf, label: Heating circuit configuration, table: holding, address: 41101, type: u16, enum: hz_konfiguration, note: 'Group: heating circuit 1.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.anf_typ, label: Request type, table: holding, address: 41102, type: u16, enum: hz_anforderung, writable: true, note: 'Group: heating circuit 1.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.party_pause, label: Pause / Party, table: holding, address: 41104, type: u16, enum: hz_party_pause, writable: true, note: 'Group: heating circuit 1.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.heizkennlinie, label: Heating curve, table: holding, address: 41108, type: u16, scale: 0.01, writable: true, note: 'Group: heating circuit 1.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.so_wi_umschalt, label: Summer winter changeover, table: holding, address: 41109, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 1.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.hz_konf2, label: Heating circuit configuration 2, table: holding, address: 41201, type: u16, enum: hz_konfiguration, note: 'Group: heating circuit 2.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.anf_typ2, label: Request type2, table: holding, address: 41202, type: u16, enum: hz_anforderung, writable: true, note: 'Group: heating circuit 2.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.party_pause2, label: Pause / Party2, table: holding, address: 41204, type: u16, enum: hz_party_pause, writable: true, note: 'Group: heating circuit 2.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.heizkennlinie2, label: Heating curve2, table: holding, address: 41208, type: u16, scale: 0.01, writable: true, note: 'Group: heating circuit 2.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.so_wi_umschalt2, label: Summer winter changeover2, table: holding, address: 41209, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 2.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.hz_konf3, label: Heating circuit configuration 3, table: holding, address: 41301, type: u16, enum: hz_konfiguration, note: 'Group: heating circuit 3.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.anf_typ3, label: Request type3, table: holding, address: 41302, type: u16, enum: hz_anforderung, writable: true, note: 'Group: heating circuit 3.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.party_pause3, label: Pause / Party3, table: holding, address: 41304, type: u16, enum: hz_party_pause, writable: true, note: 'Group: heating circuit 3.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.heizkennlinie3, label: Heating curve3, table: holding, address: 41308, type: u16, scale: 0.01, writable: true, note: 'Group: heating circuit 3.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.so_wi_umschalt3, label: Summer winter changeover3, table: holding, address: 41309, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 3.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.hz_konf4, label: Heating circuit configuration 4, table: holding, address: 41401, type: u16, enum: hz_konfiguration, note: 'Group: heating circuit 4.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.anf_typ4, label: Request type4, table: holding, address: 41402, type: u16, enum: hz_anforderung, writable: true, note: 'Group: heating circuit 4.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.party_pause4, label: Pause / Party4, table: holding, address: 41404, type: u16, enum: hz_party_pause, writable: true, note: 'Group: heating circuit 4.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.heizkennlinie4, label: Heating curve4, table: holding, address: 41408, type: u16, scale: 0.01, writable: true, note: 'Group: heating circuit 4.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.so_wi_umschalt4, label: Summer winter changeover4, table: holding, address: 41409, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 4.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.hz_konf5, label: Heating circuit configuration 5, table: holding, address: 41501, type: u16, enum: hz_konfiguration, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.anf_typ5, label: Request type5, table: holding, address: 41502, type: u16, enum: hz_anforderung, writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.hz_operationmode5, label: Operation mode5, table: holding, address: 41503, type: u16, enum: hz_betriebsart, writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.party_pause5, label: Pause / Party5, table: holding, address: 41504, type: u16, enum: hz_party_pause, writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.raum_soll_temp_komf5, label: Room setpoint temperature comfort5, table: holding, address: 41505, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.raum_soll_temp_normal5, label: Room setpoint temperature normal5, table: holding, address: 41506, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.raum_soll_temp_absenk5, label: Room setpoint temperature lowering5, table: holding, address: 41507, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.heizkennlinie5, label: Heating curve5, table: holding, address: 41508, type: u16, scale: 0.01, writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.so_wi_umschalt5, label: Summer winter changeover5, table: holding, address: 41509, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.heiz_konstanttemp5, label: Heating constant temperature 5, table: holding, address: 41510, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.heiz_konstanttemp_absenk5, label: Heating constant temp. lowering5, table: holding, address: 41511, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.kuehl_konstanttemp5, label: Cooling constant temperature 5, table: holding, address: 41512, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.ww_konf, label: HW_Configuration, table: holding, address: 42101, type: u16, enum: ww_konfiguration, note: 'Group: hot water.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.sgr_anhebung, label: SG Ready increase, table: holding, address: 42105, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: hot water.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.wp_konf, label: Configuration, table: holding, address: 43101, type: u16, enum: hp_konfiguration, note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.ruhemodus, label: Silent mode, table: holding, address: 43102, type: u16, enum: hp_ruhemodus, note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.pumpe_einschaltart, label: Pump operation mode, table: holding, address: 43103, type: u16, note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.sollwert_pumpe_leistung_heizen, label: Setpoint pump power Heating, table: holding, address: 43104, type: u16, unit: '%', invalid: [65535], note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.sollwert_pumpe_leistung_kuehlen, label: Setpoint pump power Cooling, table: holding, address: 43105, type: u16, unit: '%', invalid: [65535], note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.sollwert_pumpe_leitung_ww, label: Setpoint pump power Hot water, table: holding, address: 43106, type: u16, unit: '%', invalid: [65535], note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.sollwert_pumpe_leistung_abtau, label: Setpoint pump power defrost, table: holding, address: 43107, type: u16, unit: '%', invalid: [65535], note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.soll_volumenstrom_heizen, label: Setpoint volume flow Heating, table: holding, address: 43108, type: u16, unit: m³/h, scale: 0.01, note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.soll_volumenstrom_kuehlen, label: Setpoint volume flow Cooling, table: holding, address: 43109, type: u16, unit: m³/h, scale: 0.01, note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.soll_volumenstrom_ww, label: Setpoint volume flow Hot water, table: holding, address: 43110, type: u16, unit: m³/h, scale: 0.01, note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.w2_konf, label: W2_Configuration, table: holding, address: 44101, type: u16, enum: w2_konfig, note: 'Group: 2nd heat generator.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.adr44102, label: Configuration EP1, table: holding, address: 44102, type: u16, enum: ep1_konfig, note: 'Group: 2nd heat generator.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.adr44103, label: Configuration EP2, table: holding, address: 44103, type: u16, enum: ep2_konfig, note: 'Group: 2nd heat generator.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.grenztemp, label: Limit temperature, table: holding, address: 44104, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: 2nd heat generator.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.bivalenztemp, label: Bivalence temperature, table: holding, address: 44105, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: 2nd heat generator.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.bivalenztemp_ww, label: Bivalence temperature HW, table: holding, address: 44106, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, note: 'Group: 2nd heat generator.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.setmode_45101, label: Operating mode (write), table: holding, address: 45101, type: u16, writable: true, note: 'evcc writes setmode 2: 0; setmode 3: 1; setmode 1: 0.', verified: false, sources: [evcc, weishaupt-modbus]}
+  - {key: x.setmode_45102, label: Operating mode (write), table: holding, address: 45102, type: u16, writable: true, note: 'evcc writes setmode 2: 0; setmode 3: 0; setmode 1: 1.', verified: false, sources: [evcc, weishaupt-modbus]}
+  - {key: x.konf_ausg_h12, label: Conf. Output H1.2, table: holding, address: 45103, type: u16, enum: io_konfig, note: 'Group: inputs/outputs.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.konf_ausg_h13, label: Conf. Output  H1.3, table: holding, address: 45104, type: u16, enum: io_konfig, note: 'Group: inputs/outputs.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.konf_ausg_h14, label: Conf. Output  H1.4, table: holding, address: 45105, type: u16, enum: io_konfig, note: 'Group: inputs/outputs.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.konf_ausg_h15, label: Conf. Output  H1.5, table: holding, address: 45106, type: u16, enum: io_konfig, note: 'Group: inputs/outputs.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.konf_eing_de1, label: Conf. Input DE1, table: holding, address: 45107, type: u16, enum: io_konfig_in, note: 'Group: inputs/outputs.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.konf_eing_de2, label: Conf. Input DE2, table: holding, address: 45108, type: u16, enum: io_konfig_in, note: 'Group: inputs/outputs.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.adr31106, label: Adr. 31106, table: input, address: 31106, type: u16, note: 'Group: heating circuit 1. Meaning not known to the project; raw value.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.adr311062, label: Adr. 311062, table: input, address: 31206, type: u16, note: 'Group: heating circuit 2. Meaning not known to the project; raw value.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.adr311063, label: Adr. 311063, table: input, address: 31306, type: u16, note: 'Group: heating circuit 3. Meaning not known to the project; raw value.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.adr311064, label: Adr. 311064, table: input, address: 31406, type: u16, note: 'Group: heating circuit 4. Meaning not known to the project; raw value.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.raum_soll_temp5, label: Room setpoint temperature 5, table: input, address: 31501, type: s16, unit: °C, scale: 0.1, invalid: [-32768], note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.raum_temp5, label: Room temperature 5, table: input, address: 31502, type: s16, unit: °C, scale: 0.1, invalid: [-32768], note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.raum_feuchte5, label: Room humidity 5, table: input, address: 31503, type: u16, unit: '%', invalid: [65535], note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.hz_vl_solltemp5, label: Heat circuit feed setpoint temperature5, table: input, address: 31504, type: s16, unit: °C, scale: 0.1, invalid: [-32768], note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.hz_vl_temp5, label: Heat circuit feed temperature 5, table: input, address: 31505, type: s16, unit: °C, scale: 0.1, invalid: [-32768], note: 'Group: heating circuit 5. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.adr311065, label: Adr. 311065, table: input, address: 31506, type: u16, note: 'Group: heating circuit 5. Meaning not known to the project; raw value. Defined but not polled by weishaupt_modbus.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.verdampfungs_temp, label: Evaporation temperature, table: input, address: 33106, type: s16, unit: °C, scale: 0.1, invalid: [-32768], note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.verdichter_ansaug_gas_temp, label: Compressor suction gas temp, table: input, address: 33107, type: s16, unit: °C, scale: 0.1, invalid: [-32768], note: 'Group: heat pump.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.betriebss_e1, label: Operation hours E1, table: input, address: 34103, type: u16, unit: h, note: 'Group: 2nd heat generator.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.abtau_energie_heute, label: Defrost energy today, table: input, address: 36501, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.abtau_energie_gester, label: Defrost energy yesterday, table: input, address: 36502, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.abtau_energie_monat, label: Defrost energy month, table: input, address: 36503, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.abtau_energie_jahr, label: Defrost energy year, table: input, address: 36504, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.ges_energie_today, label: Total energy II today, table: input, address: 36601, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.ges_energie_2_yesterday, label: Total energy II yesterday, table: input, address: 36602, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.ges_energie_2_monat, label: Total energy II month, table: input, address: 36603, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.ges_energie_year, label: Gesamt Energie II Jahr, table: input, address: 36604, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.el_energie_heute, label: Electr. energy today, table: input, address: 36701, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.el_energie_gestern, label: Elektr. Energie gestern, table: input, address: 36702, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.el_energie_monat, label: Electr. energy month, table: input, address: 36703, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.el_energie_jahr, label: Electr. energy year, table: input, address: 36704, type: u16, unit: kWh, note: 'Group: statistics.', verified: false, sources: [weishaupt-modbus]}
+  - {key: x.adr36801, label: Adr. 36801, table: input, address: 36801, type: u16, note: 'Group: statistics. Meaning not known to the project; raw value.', verified: false, sources: [weishaupt-modbus]}
+
+enums:
+  operating_status: {'0': Undefiniert, '1': Relaistest, '2': Notaus, '3': Diagnose, '4': Handbetrieb, '5': Handbetrieb Heizen, '6': Handbetrieb Kühlen, '7': Manueller Abtaubetrieb, '8': Abtauen, '9': 2. Wärmeerzeuger, '10': EVU-Sperre, '11': SG Tarif, '12': SG Maximal, '13': Tarifladung, '14': Erhöhter Betrieb, '15': Standzeit, '16': Standbybetrieb, '17': Spülbetrieb, '18': Frostschutz, '19': Heizbetrieb, '20': Warmwasserbetrieb, '21': Legionellenschutz, '22': Umschaltung Heizen/Kühlen, '23': Kühlbetrieb, '24': Passive Kühlung, '25': Sommerbetrieb, '26': Schwimmbad, '27': Urlaub, '28': Estrich, '29': Gesperrt, '30': Sperre Außentemperatur, '31': Sperre Sommer, '32': Sperre Winter, '33': Einsatzgrenze, '34': Heizkreissperre, '35': Bereitschaft, '36': Regenerativ, '37': SG Ready 3 Heizen, '38': SG Ready 3 Kühlen, '39': SG Ready 3 Warmwasser, '40': SG Ready 4 Heizen, '41': SG Ready 4 Kühlen, '42': SG Ready 4 Warmwasser, '43': Ölrückführung}
+  system_mode: {'0': Automatik (bei Kühlfreigabe), '1': Heizen, '2': Kühlen (bei Kühlfreigabe), '3': Sommer, '4': Standby, '5': 2. Wärmeerzeuger}
+  hc_mode: {'0': Automatik, '1': Komfort, '2': Normal, '3': Absenkbetrieb, '4': Standby}
+  fault_free: {'0': Fehler aktiv, '1': Störungsfreier Betrieb}
+  on_off: {'0': Aus, '1': Ein}
+  hp_konfiguration: {'0': Nicht konfiguriert, '1': Heizen, '2': 'Heizen, Kühlen', '3': 'Heizen, Kühlen', '4': 'Heizen, Warmwasser'}
+  hp_ruhemodus: {'0': aus, '1': 80 %, '2': 60 %, '3': 40 %}
+  ww_konfiguration: {'0': aus, '1': Umlenkventil, '2': Pumpe}
+  hz_konfiguration: {'0': aus, '1': Pumpenkreis, '2': Mischkreis, '3': Sollwert (Pumpe M1)}
+  hz_anforderung: {'0': aus, '1': witterungsgeführt, '2': Raumregelung, '3': konstant}
+  hz_betriebsart: {'0': Automatik, '1': Komfort, '2': Normal, '3': Absenkbetrieb, '4': Standby}
+  hz_party_pause: {'1': Pause 12.0h, '2': Pause 11.5h, '3': Pause 11.0h, '4': Pause 10.5h, '5': Pause 10.0h, '6': Pause 9.5h, '7': Pause 9.0h, '8': Pause 8.5h, '9': Pause 8.0h, '10': Pause 7.5h, '11': Pause 7.0h, '12': Pause 6.5h, '13': Pause 6.0h, '14': Pause 5.5h, '15': Pause 5.0h, '16': Pause 4.5h, '17': Pause 4.0h, '18': Pause 3.5h, '19': Pause 3.0h, '20': Pause 2.5h, '21': Pause 2.0h, '22': Pause 1.5h, '23': Pause 1.0h, '24': Pause 0.5h, '25': Automatik, '26': Party 0.5h, '27': Party 1.0h, '28': Party 1.5h, '29': Party 2.0h, '30': Party 2.5h, '31': Party 3.0h, '32': Party 3.5h, '33': Party 4.0h, '34': Party 4.5h, '35': Party 5.0h, '36': Party 5.5h, '37': Party 6.0h, '38': Party 6.5h, '39': Party 7.0h, '40': Party 7.5h, '41': Party 8.0h, '42': Party 8.5h, '43': Party 9.0h, '44': Party 9.5h, '45': Party 10.0h, '46': Party 10.5h, '47': Party 11.0h, '48': Party 11.5h, '49': Party 12.0h}
+  w2_konfig: {'0': '0', '1': '1'}
+  ep1_konfig: {'5': aktiviert, '255': AUS}
+  ep2_konfig: {'6': aktiviert, '255': AUS}
+  io_konfig_in: {'0': SG Ready, '1': EVU-Sperre, '2': Erhöhter Betrieb, '3': HK-Sperre, '4': Umschaltung Hz/Kü, '5': Ruhemodus, '6': Not-Aus, '7': System Standby, '8': Erzeugersperre HZ, '9': Erzeugersperre WW, '10': Erzeugersperre HZ und WW, '11': Warmwasser Standby, '12': Warmwasser Absenk, '13': Warmwasser Normal, '14': Warmwasser PUSH, '15': Taupunktwächter, '16': Heizkreis … Standby, '17': Heizkreis … Absenk, '18': Heizkreis … Normal, '19': Heizkreis … Komfort, '20': 2.WEZ, '21': Sperre Verdichter, '65535': AUS}
+  io_konfig: {'0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '65535': '65535'}
+
+problems:
+  - {when: {key: error_code, not: 65535}, kind: fault, text: 'Heat pump error (code {value})'}
+  - {when: {key: x.warning_code, not: 65535}, kind: warning, text: 'Heat pump warning (code {value})'}
+  - {when: {key: x.hp_fault, equals: 0}, kind: fault, text: Heat pump fault active}
+  - {when: {key: state, equals: 2}, kind: fault, text: Emergency stop (Notaus)}
+
+notes:
+- The document gives register numbers (30 001 = input register, function 04; 40 001 = holding register, read 03). They are
+  used as protocol addresses unchanged, without subtracting 30001 / 40001; the document itself warns that some software needs
+  them one higher or lower. Not verified here.
+- Unit id 1 on every device; several heat pumps are told apart by their IP address. Modbus TCP must be switched on in the
+  system unit (Settings → Modbus TCP). At most 5 consecutive, all defined registers per request.
+- 'Temperatures are tenths of °C. Sensor values: −32768 no sensor, −32767 sensor open, −32766 sensor short circuit, −32758
+  / −32757 digital status off / on. Setpoints: −32768 or 1 = no setpoint request active.'
+- The document lists the holding setpoints as unsigned although they use −32768; they are read as signed here.
+- Settings are stored in EEPROM with a lifetime limit of about 100,000 writes; write them rarely. SollwertPV and the digital
+  SG Ready inputs are not stored and may change often.
+- The analog power input AE1 (4–20 mA, 20–100 %) exists on WAB, WGB and WBB only; it is not a Modbus register.
+- Registers missing from older controller software may need a software update.
+- 'evcc template `weishaupt-wpm` (single device) lists: Weishaupt WPM (SG Ready).'
+- The template has the option `tempsource` (default unset); points used only with another value say so in their note.
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- 'Addresses are the register numbers of Weishaupt''s list sent unchanged: weishaupt_modbus reads 30001 as input register
+  30001 (function 04) and 40001 as holding register 40001 (function 03); there is no 30001/40001 offset.'
+- weishaupt_modbus reads at most 5 registers per request, on unit id 1.
+- Each heating circuit n (2-5) repeats the registers of circuit 1 at +100 × (n − 1). weishaupt_modbus defines circuit 5 but
+  does not poll it.
+- weishaupt_modbus marks some settings as read-only on purpose to protect the heat pump although the device accepts writes
+  there; only the registers it writes are marked writable.
+- Temperatures read 0x8000 when no sensor value is available; weishaupt_modbus shows 0x8001 as −999 (sensor fault).
+- Status texts are in German as the project gives them; the error list (30003, 30004) uses 65535 for "no error".
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

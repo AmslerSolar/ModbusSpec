@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the openWB ModbusTCP openWB series2 / Pro register list (Rev 2.0, 16.10.2023).
+
+modbusspec: 0
+id: openwb-series2
+manufacturer: openWB
+name: series 2 / Pro wallboxes (software 2.x)
+kind: charger
+
+sources:
+- title: openWB Modbus Rev2.0 (ModbusTCP openWB series2 / Pro)
+  version: Rev 2.0 (16.10.2023)
+  url: https://openwb.de/main/wp-content/uploads/2023/10/ModbusTCP-openWB-series2-Pro-1.pdf
+  sha256: 7057fa7858e54d29d705ab5e2fc3aa498c45e056439e2bc12a879427dcb3102a
+  archive_url: https://web.archive.org/web/20240216160042/https://openwb.de/main/wp-content/uploads/2023/10/ModbusTCP-openWB-series2-Pro-1.pdf
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: charger/openwb-2.0.go
+
+connection:
+  default_port: 1502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 10150
+    type: str
+    length: 10
+
+models:
+  - {id: series2, name: series2, match: {table: input, address: 10143, type: s16, equals: 1}}
+  - {id: pro, name: Pro, match: {table: input, address: 10143, type: s16, equals: 2}}
+
+points:
+  # Charge point 1, read with function 04
+  - {key: consumer_power, label: LP 1 Actual Power, table: input, address: 10100, type: s32, unit: W, positive: consumption, verified: false, note: The document gives no direction; positive while charging assumed. On the Pro (V2G) the sign while discharging is not stated.}
+  - {key: consumer_energy, label: LP 1 Wh Imported Counter, table: input, address: 10102, type: s32, unit: kWh, scale: 0.001, invalid: [-1], poll: slow, conflicts: [{sources: [evcc], type: u32, label: Charged energy}]}
+  - {key: l1_voltage, label: LP 1 Phase 1 Voltage, table: input, address: 10104, type: s16, unit: V, scale: 0.01}
+  - {key: l2_voltage, label: LP 1 Phase 2 Voltage, table: input, address: 10105, type: s16, unit: V, scale: 0.01}
+  - {key: l3_voltage, label: LP 1 Phase 3 Voltage, table: input, address: 10106, type: s16, unit: V, scale: 0.01}
+  - {key: l1_current, label: LP 1 Phase 1 Ampere, table: input, address: 10107, type: s16, unit: A, scale: 0.01}
+  - {key: l2_current, label: LP 1 Phase 2 Ampere, table: input, address: 10108, type: s16, unit: A, scale: 0.01}
+  - {key: l3_current, label: LP 1 Phase 3 Ampere, table: input, address: 10109, type: s16, unit: A, scale: 0.01}
+  - {key: x.plugged, label: LP 1 Plugged Status, table: input, address: 10114, type: s16, enum: yes_no, conflicts: [{sources: [evcc], type: u16, label: Vehicle plugged in}]}
+  - {key: x.charging, label: LP 1 Charging Active, table: input, address: 10115, type: s16, enum: yes_no, conflicts: [{sources: [evcc], type: u16, label: Charging}]}
+  - {key: x.configured_current, label: LP 1 Actual A Configured, table: input, address: 10116, type: s16, unit: A, scale: 0.01, note: '0 = charging not allowed, otherwise 6–32 A.'}
+  - {key: x.vehicle_soc, label: LP 1 SoC, table: input, address: 10120, type: s16, unit: '%', models: [pro], note: 'If available: the vehicle''s state of charge before charging started.'}
+  - {key: x.vehicle_soc_time, label: LP 1 SoC Timestamp, table: input, address: 10121, type: s32, models: [pro], epoch: {start: '1970-01-01', unit: s}, verified: false, note: The document only says timestamp; Unix seconds assumed.}
+  - {key: l1_power, label: LP1 Phase 1 Watt, table: input, address: 10130, type: s16, unit: W, positive: consumption, verified: false, note: Direction not stated; assumed as for the total power.}
+  - {key: l2_power, label: LP1 Phase 2 Watt, table: input, address: 10131, type: s16, unit: W, positive: consumption, verified: false, note: Direction not stated; assumed as for the total power.}
+  - {key: l3_power, label: LP1 Phase 3 Watt, table: input, address: 10132, type: s16, unit: W, positive: consumption, verified: false, note: Direction not stated; assumed as for the total power.}
+  - {key: x.v2g_ready, label: LP 1 V2G Ready, table: input, address: 10140, type: s16, models: [pro], enum: v2g_ready}
+  - {key: x.exported_energy, label: LP 1 Wh Exported Counter, table: input, address: 10141, type: s32, unit: kWh, scale: 0.001, poll: slow, models: [pro], note: Energy discharged from the vehicle (V2G).}
+  - {key: x.hardware_type, label: Type of Hardware, table: input, address: 10143, type: s16, enum: hardware_type, poll: slow}
+  - {key: serial, label: Serial Number of Chargepoint, table: input, address: 10150, type: str, length: 10, poll: slow}
+  - {key: x.rfid, label: RFID Tag, table: input, address: 10160, type: str, length: 10}
+
+  # Write-only registers
+  - {key: x.set_current, label: Current LP 1, table: holding, address: 10171, type: s16, unit: A, scale: 0.01, writable: true, write_only: true, min: 0, max: 32, verified: false, note: 0 or 6–32 A. The document doesn't name the table for writes; holding assumed., conflicts: [{sources: [evcc], type: u16, label: Charging current setpoint}]}
+  - {key: x.phase_target, label: Phase Target, table: holding, address: 10180, type: s16, writable: true, write_only: true, verified: false, note: '1 = one phase, 3 = three phases. Table assumed (holding).', conflicts: [{sources: [evcc], type: u16, label: Phases to use}]}
+  - {key: x.phase_trigger, label: Trigger Phase switching, table: holding, address: 10181, type: s16, models: [series2], writable: true, write_only: true, verified: false, note: 1 starts the phase switch. Table assumed (holding)., conflicts: [{sources: [evcc], type: u16, label: Phase switch trigger}]}
+  - {key: x.heartbeat, label: Heartbeat, table: holding, address: 10190, type: s16, enum: heartbeat, writable: true, write_only: true, verified: false, note: 'With the heartbeat on, every Modbus read resets a counter; above 60 s an active charge is stopped. Table assumed (holding).'}
+  - {key: x.cp_trigger, label: Trigger CP interrupt, table: holding, address: 10198, type: s16, unit: s, models: [series2], writable: true, write_only: true, verified: false, note: Interrupts the CP signal for the given seconds. Table assumed (holding)., conflicts: [{sources: [evcc], type: u16, label: CP interruption trigger}]}
+  - {key: x.force_update, label: Force Update, table: holding, address: 10199, type: s16, models: [pro], writable: true, write_only: true, verified: false, note: 1 starts a firmware update followed by a reboot. Table assumed (holding).}
+
+enums:
+  yes_no: {'0': 'No', '1': 'Yes'}
+  v2g_ready: {'0': Vehicle can't do V2G, '1': Vehicle ready for V2G}
+  hardware_type: {'1': series2, '2': Pro}
+  heartbeat: {'0': Deactivated, '1': Activated}
+
+notes:
+- Addresses are the register numbers as listed, taken as 0-based protocol addresses; values are read with function 04 (read
+  input registers).
+- 'Registers are per charge point: charge point 2 uses 102xx in the same layout as 101xx.'
+- A read of -1 normally means openWB has no valid value. Write-only registers can't be read back.
+- If the heartbeat is on, read at least every 60 s (the document asks for a read every 80 s at most to keep it alive).
+- The document lists the exported energy counter as type "sind32"; taken as s32.
+- Points marked Pro are only on openWB Pro; points marked series2 only on series2 (the document's product column).
+- 'Registers are per charge point: add 100 to every address for the second one.'

@@ -1,0 +1,150 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Morningstar TriStar MODBUS Specification (V 04, 6 September 2012).
+
+modbusspec: 0
+id: morningstar-tristar
+manufacturer: Morningstar
+name: TriStar PWM charge / load / diversion controller (TS-45, TS-60)
+kind: inverter
+
+sources:
+- title: TriStar MODBUS Specification
+  version: V 04 (6 September 2012)
+  url: https://www.stellavolta.com/content/MSCTSModbusCommunication.pdf
+  sha256: 87cdd3e2f615a5a4922106cd9dad04aa4c2e371d12372cc6620a3222cf82ff03
+  archive_url: https://web.archive.org/web/20240626230738/https://www.stellavolta.com/content/MSCTSModbusCommunication.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 61440
+    type: str
+    length: 4
+    byte_order: little
+  checks:
+  # calibrated marker + TS-60 flag
+  - table: holding
+    address: 61451
+    type: u16
+    in:
+    - 23040
+    - 23041
+
+models:
+  - {id: ts60, name: TS-60, match: {table: holding, address: 61451, type: u16, equals: 23041}}
+  - {id: ts45, name: TS-45, match: {table: holding, address: 61451, type: u16, equals: 23040}}
+
+points:
+  # RAM, updated continuously
+  - {key: battery_voltage, label: 'Battery voltage, filtered', table: holding, address: 8, type: u16, unit: V, scale: 0.002950042724609375, note: Raw × 96.667 / 32768.}
+  - {key: x.battery_sense_voltage, label: 'Battery sense voltage, filtered', table: holding, address: 9, type: u16, unit: V, scale: 0.002950042724609375}
+  - {key: x.array_load_voltage, label: 'Array/Load voltage, filtered', table: holding, address: 10, type: u16, unit: V, scale: 0.00424652099609375, note: 'PV voltage in charge mode, load voltage in load mode. Raw × 139.15 / 32768.'}
+  - {key: x.charge_current, label: 'Charging current, filtered', table: holding, address: 11, type: u16, unit: A, scale: 0.002034515380859375, note: Raw × 66.667 / 32768.}
+  - {key: x.load_current, label: 'Load current, filtered', table: holding, address: 12, type: u16, unit: A, scale: 0.00966400146484375, note: Raw × 316.67 / 32768.}
+  - {key: x.battery_voltage_slow, label: 'Battery voltage, slow filter', table: holding, address: 13, type: u16, unit: V, scale: 0.002950042724609375}
+  - {key: temperature, label: Heatsink temperature, table: holding, address: 14, type: s16, unit: °C}
+  - {key: battery_temperature, label: Battery temperature (RTS connected), table: holding, address: 15, type: s16, unit: °C, invalid: [128], note: 0x80 when no remote temperature sensor is connected.}
+  - {key: x.regulation_voltage, label: Charge regulator reference voltage, table: holding, address: 16, type: u16, unit: V, scale: 0.002950042724609375, note: Temperature-compensated target voltage.}
+  - {key: x.ah_resettable, label: Ah resetable, table: holding, address: 17, type: u32, unit: Ah, scale: 0.1, poll: slow}
+  - {key: x.ah_total, label: Ah total, table: holding, address: 19, type: u32, unit: Ah, scale: 0.1, poll: slow}
+  - {key: x.hourmeter, label: hourmeter, table: holding, address: 21, type: u32, unit: h, poll: slow, note: 24-bit counter.}
+  - {key: x.alarms_lo, label: Alarm bitfield (LO), table: holding, address: 23, type: u16, flags: alarms_lo}
+  - {key: x.faults, label: fault bitfield, table: holding, address: 24, type: u16, flags: faults}
+  - {key: x.dip_switches, label: dip switch settings at power on, table: holding, address: 25, type: u16, flags: dip_switches, poll: slow}
+  - {key: x.control_mode, label: Control mode, table: holding, address: 26, type: u16, enum: control_mode, poll: slow}
+  - {key: state, label: Control state, table: holding, address: 27, type: u16, enum: control_state, note: 'Values for charge and diversion mode. In load and lighting mode: 0 start, 1 normal, 2 LVD warning, 3 LVD, 4 fault, 5 disconnect, 6 normal off, 7 override LVD (6 and 7 lighting only).'}
+  - {key: x.duty_cycle, label: PWM Duty Cycle, table: holding, address: 28, type: u16, note: '0 = 0 %, 230 and above = 100 %.'}
+  - {key: x.alarms_hi, label: Alarm bitfield (HI), table: holding, address: 29, type: u16, flags: alarms_hi, optional: true, note: Not readable on firmware 1.04.02 and older.}
+
+  # EEPROM
+  - {key: x.kwh_total, label: Kilowatt hours, table: holding, address: 57388, type: u16, unit: kWh, poll: slow, verified: false, note: Cumulative kWh (charged in charge mode). The register table (1.0.4) puts it at 0xE02C; the variable description still gives the pre-1.0.4 address 0xE02A. Updated once a day.}
+  - {key: x.battery_voltage_min, label: Minimum battery voltage, table: holding, address: 57389, type: u16, unit: V, scale: 0.002950042724609375, poll: slow, note: Over the last 24 hours.}
+  - {key: x.battery_voltage_max, label: Maximum battery voltage, table: holding, address: 57390, type: u16, unit: V, scale: 0.002950042724609375, poll: slow, note: Over the last 24 hours.}
+  - {key: x.regulation_voltage_setting, label: Regulation voltage @ 25 °C, table: holding, address: 57344, type: u16, unit: V, scale: 0.002950042724609375, writable: true, persistent: true, poll: slow}
+  - {key: x.float_voltage_setting, label: Float voltage @ 25 °C, table: holding, address: 57345, type: u16, unit: V, scale: 0.002950042724609375, writable: true, persistent: true, poll: slow, note: 0 disables float.}
+  - {key: x.equalize_voltage_setting, label: Equalize voltage @ 25 °C, table: holding, address: 57350, type: u16, unit: V, scale: 0.002950042724609375, writable: true, persistent: true, poll: slow, note: 0 disables equalize.}
+  - {key: x.lvd_setting, label: Low Voltage Disconnect, table: holding, address: 57359, type: u16, unit: V, scale: 0.002950042724609375, writable: true, persistent: true, poll: slow, note: Load mode.}
+  - {key: x.lvr_setting, label: Low Voltage Reconnect, table: holding, address: 57360, type: u16, unit: V, scale: 0.002950042724609375, writable: true, persistent: true, poll: slow, note: Load mode.}
+  - {key: x.modbus_id, label: Modbus TriStar server ID, table: holding, address: 57377, type: u16, writable: true, min: 1, max: 247, persistent: true, poll: slow}
+
+  # Calibration
+  - {key: serial, label: serial number, table: holding, address: 61440, type: str, length: 4, byte_order: little, poll: slow, note: 8 ASCII characters; each register holds the later character in its high byte.}
+  - {key: x.hardware_version, label: hardware version, table: holding, address: 61450, type: u16, poll: slow, note: 'High byte major, low byte minor.'}
+  - {key: x.calibration, label: 'calib_state, K_amp60', table: holding, address: 61451, type: u16, poll: slow, note: 'High byte 0x5A when calibrated; low byte 1 = TS-60, 0 = TS-45.'}
+
+  # Coils (functions 01 / 05)
+  - {key: x.equalize_triggered, label: Equalize triggered, table: coil, address: 0, type: bool, writable: true}
+  - {key: x.disconnect, label: Disconnect, table: coil, address: 1, type: bool, writable: true, note: 1 forces the controller into the disconnect state.}
+  - {key: x.clear_faults, label: Clear faults, table: coil, address: 20, type: bool, writable: true, write_only: true}
+  - {key: x.clear_alarms, label: Clear alarms, table: coil, address: 21, type: bool, writable: true, write_only: true}
+  - {key: x.reset_control, label: Reset control, table: coil, address: 255, type: bool, writable: true, note: Reboots the controller.}
+
+enums:
+  control_mode: {'0': Charge, '1': Load, '2': Diversion, '3': Lighting}
+  control_state: {'0': Start, '1': Night check, '2': Disconnect, '3': Night, '4': Fault, '5': Bulk, '6': PWM, '7': Float, '8': Equalize}
+
+flags:
+  alarms_lo: {'0': RTS open, '1': RTS shorted, '2': RTS disconnected, '3': Heatsink sensor disconnected, '4': Heatsink sensor shorted, '5': TriStar hot, '6': Current limit, '7': Current offset, '8': Battery sense, '9': Battery sense disconnected, '10': Uncalibrated, '11': RTS miswire, '12': HVD, '13': High duty cycle, '14': Miswire, '15': FET open}
+  alarms_hi: {'0': P12, '1': Load disconnect, '2': Alarm 19, '3': Alarm 20, '4': Alarm 21, '5': Alarm 22, '6': Alarm 23, '7': Alarm 24}
+  faults: {'0': External short, '1': Overcurrent, '2': FET short, '3': Software, '4': HVD, '5': TriStar hot, '6': DIP switch changed, '7': Setting edit, '8': Reset, '9': Miswire, '10': RTS shorted, '11': RTS disconnected, '12': Fault 12, '13': Fault 13, '14': Fault 14, '15': Fault 15}
+  dip_switches: {'0': Switch 1, '1': Switch 2, '2': Switch 3, '3': Switch 4, '4': Switch 5, '5': Switch 6, '6': Switch 7, '7': Switch 8}
+
+problems:
+  - {when: {key: state, equals: 4}, kind: fault, text: Controller fault (state 4)}
+  - {when: {key: x.faults, bit: 0}, kind: fault, text: External short circuit}
+  - {when: {key: x.faults, bit: 1}, kind: fault, text: Overcurrent}
+  - {when: {key: x.faults, bit: 2}, kind: fault, text: FET short}
+  - {when: {key: x.faults, bit: 3}, kind: fault, text: Software fault}
+  - {when: {key: x.faults, bit: 4}, kind: fault, text: High voltage disconnect}
+  - {when: {key: x.faults, bit: 5}, kind: fault, text: Controller overheated}
+  - {when: {key: x.faults, bit: 6}, kind: fault, text: DIP switch changed (reset needed)}
+  - {when: {key: x.faults, bit: 7}, kind: fault, text: Setting edited (reset needed)}
+  - {when: {key: x.faults, bit: 9}, kind: fault, text: Miswire}
+  - {when: {key: x.faults, bit: 10}, kind: fault, text: Remote temperature sensor shorted}
+  - {when: {key: x.faults, bit: 11}, kind: fault, text: Remote temperature sensor disconnected}
+  - {when: {key: x.alarms_lo, bit: 0}, kind: warning, text: Remote temperature sensor open}
+  - {when: {key: x.alarms_lo, bit: 1}, kind: warning, text: Remote temperature sensor shorted}
+  - {when: {key: x.alarms_lo, bit: 2}, kind: warning, text: Remote temperature sensor disconnected}
+  - {when: {key: x.alarms_lo, bit: 3}, kind: warning, text: Heatsink sensor disconnected}
+  - {when: {key: x.alarms_lo, bit: 4}, kind: warning, text: Heatsink sensor shorted}
+  - {when: {key: x.alarms_lo, bit: 5}, kind: warning, text: Controller hot}
+  - {when: {key: x.alarms_lo, bit: 6}, kind: warning, text: Current limit}
+  - {when: {key: x.alarms_lo, bit: 7}, kind: warning, text: Current offset}
+  - {when: {key: x.alarms_lo, bit: 8}, kind: warning, text: Battery sense}
+  - {when: {key: x.alarms_lo, bit: 9}, kind: warning, text: Battery sense disconnected}
+  - {when: {key: x.alarms_lo, bit: 10}, kind: warning, text: Uncalibrated}
+  - {when: {key: x.alarms_lo, bit: 11}, kind: warning, text: Remote temperature sensor miswired}
+  - {when: {key: x.alarms_lo, bit: 12}, kind: warning, text: High voltage disconnect}
+  - {when: {key: x.alarms_lo, bit: 13}, kind: warning, text: High duty cycle}
+  - {when: {key: x.alarms_lo, bit: 14}, kind: warning, text: Miswire}
+  - {when: {key: x.alarms_lo, bit: 15}, kind: warning, text: FET open}
+  - {when: {key: x.alarms_hi, bit: 0}, kind: warning, text: P12}
+  - {when: {key: x.alarms_hi, bit: 1}, kind: warning, text: Load disconnected}
+
+notes:
+- Addresses are the document's PDU addresses (0-based); its logical addresses are these + 1. Function 03 and 04 read the same
+  registers.
+- RS-232 only, RTU mode, 9600 8N2; a Modbus TCP gateway is needed for TCP (port 502 assumed).
+- Measurements are raw 16-bit values scaled by a fixed factor (e.g. battery voltage × 96.667 / 32768); temperatures are whole
+  °C.
+- The model is told apart by register 0xF00B (0x5A01 = calibrated TS-60, 0x5A00 = calibrated TS-45); an uncalibrated unit
+  doesn't match.
+- 'The alarm bitfield is split over two non-adjacent registers: bits 0–15 at 0x0017, bits 16–23 at 0x001D (bits 0–7).'
+- 'Left out: most EEPROM settings (charge timing, lighting mode, LED thresholds, battery service) and the logged daily data
+  (0x8000–0x8600).'

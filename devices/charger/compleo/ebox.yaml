@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From Compleo's quick guide "eBOX – Modbus Energiemanagement" (register specification, section 4), below.
+
+modbusspec: 0
+id: compleo-ebox
+manufacturer: Compleo
+name: eBOX professional wallbox (also sold as innogy / E.ON Drive eBox), firmware ≥ 1.3.0
+kind: charger
+
+sources:
+- title: Quickguide eBOX – Modbus Energiemanagement (German)
+  version: '20230814'
+  url: https://www.compleo-charging.com/fileadmin/Documentcenter/Modbus_eBOX/DE_Quickguide_eBOX_-_Modbus_Energiemanagement_20230814.pdf
+  sha256: a878c548eaa4fcdc6f19c8213f342be8dfe18b8fbac82df1b74c8acb2551c96d
+  archive_url: https://web.archive.org/web/20240812162136/https://www.compleo-charging.com/fileadmin/Documentcenter/Modbus_eBOX/DE_Quickguide_eBOX_-_Modbus_Energiemanagement_20230814.pdf
+
+connection:
+  default_port: 5555
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 25
+    type: str
+    length: 25
+  checks:
+  - table: holding
+    address: 175
+    type: u16
+    range:
+    - 1
+    - 100
+  - table: holding
+    address: 225
+    type: u16
+    range:
+    - 0
+    - 9
+
+points:
+  # Identity
+  - {key: x.chargebox_id, label: ChargeboxID, table: holding, address: 0, type: str, length: 25, poll: slow, note: E.g. "eBOX6867".}
+  - {key: serial, label: SerieralNumber, table: holding, address: 25, type: str, length: 25, poll: slow}
+  - {key: x.active_protocol, label: ActiveProtocol, table: holding, address: 50, type: str, length: 25, poll: slow, note: E.g. "homeBOX".}
+  - {key: x.manufacturer, label: Manufacturer, table: holding, address: 100, type: str, length: 25, poll: slow, note: E.g. "CCT GmbH".}
+  - {key: x.platform_type, label: PlatformType, table: holding, address: 125, type: str, length: 25, poll: slow}
+  - {key: x.product_type, label: ProductType, table: holding, address: 150, type: str, length: 25, poll: slow}
+  - {key: x.modbus_table_version, label: ModbusTableVersion, table: holding, address: 175, type: u16, poll: slow, note: 5 in the guide's example.}
+  - {key: firmware, label: FirmwareVersion, table: holding, address: 200, type: str, length: 25, poll: slow, note: E.g. "1.3.26".}
+  - {key: x.number_of_sockets, label: NumberOfSockets, table: holding, address: 225, type: u16, poll: slow}
+
+  # Status
+  - {key: x.ocpp_state, label: OcppState, table: holding, address: 250, type: u16, note: The guide gives no value table (example 0).}
+  - {key: x.mode3_state, label: Socket1Mode3State, table: holding, address: 275, type: str, length: 2, note: 'IEC 61851-1 Ed3 state as text: A, B1, B2, C1, C2, D1, D2, E, F. E and F are error states.'}
+  - {key: x.cable_state, label: Socket1CableState, table: holding, address: 300, type: u16, enum: cable_state}
+
+  # Currents
+  - {key: x.actual_max_current_l1, label: ActualMaxCurrentPhase1, table: holding, address: 1000, type: f32, unit: A, note: Maximum current actually applied on L1 after all limits (MaxCurrentOfNode).}
+  - {key: x.actual_max_current_l2, label: ActualMaxCurrentPhase2, table: holding, address: 1002, type: f32, unit: A}
+  - {key: x.actual_max_current_l3, label: ActualMaxCurrentPhase3, table: holding, address: 1004, type: f32, unit: A}
+  - {key: l1_current, label: CurrentPhase1, table: holding, address: 1006, type: f32, unit: A}
+  - {key: l2_current, label: CurrentPhase2, table: holding, address: 1008, type: f32, unit: A}
+  - {key: l3_current, label: CurrentPhase3, table: holding, address: 1010, type: f32, unit: A}
+
+  # Setpoints
+  - {key: x.max_current_l1, label: MaxCurrentPhase1, table: holding, address: 1012, type: f32, unit: A, writable: true, min: 6, max: 32, note: Operating current set by the energy manager. The box uses the lowest of the three phase values.}
+  - {key: x.max_current_l2, label: MaxCurrentPhase2, table: holding, address: 1014, type: f32, unit: A, writable: true, min: 6, max: 32}
+  - {key: x.max_current_l3, label: MaxCurrentPhase3, table: holding, address: 1016, type: f32, unit: A, writable: true, min: 6, max: 32}
+  - {key: x.fallback_current_l1, label: FallbackMaxCurrent1, table: holding, address: 1018, type: f32, unit: A, writable: true, min: 6, max: 32, poll: slow, note: Applied while the TCP connection to the controller is lost; lowest of the three is used.}
+  - {key: x.fallback_current_l2, label: FallbackMaxCurrent2, table: holding, address: 1020, type: f32, unit: A, writable: true, min: 6, max: 32, poll: slow}
+  - {key: x.fallback_current_l3, label: FallbackMaxCurrent3, table: holding, address: 1022, type: f32, unit: A, writable: true, min: 6, max: 32, poll: slow}
+  - {key: x.fallback_timeout, label: RemainingTimeBeforeFallback, table: holding, address: 1024, type: u16, unit: s, writable: true, min: 60, max: 3600, poll: slow, note: Time without the controller before the fallback current applies.}
+  - {key: x.phase_setup_l1, label: StationPhaseSetupL1, table: holding, address: 1025, type: u16, writable: true, min: 1, max: 3, poll: slow, note: Grid phase wired to the station's L1.}
+  - {key: x.phase_setup_l2, label: StationPhaseSetupL2, table: holding, address: 1026, type: u16, writable: true, min: 0, max: 3, poll: slow, note: Grid phase wired to the station's L2; 0 presumably = not connected.}
+  - {key: x.phase_setup_l3, label: StationPhaseSetupL3, table: holding, address: 1027, type: u16, writable: true, min: 0, max: 3, poll: slow, note: Grid phase wired to the station's L3.}
+  - {key: x.availability, label: Availability, table: holding, address: 1028, type: u16, writable: true, poll: slow, note: Operative state of the box; the guide gives no value table (example 1).}
+
+enums:
+  cable_state: {'0': No cable, '1': Cable without car, '2': 'Cable unlocked, without car', '3': 'Cable locked, with car'}
+
+problems:
+  - {when: {key: x.mode3_state, in: [E, F]}, kind: fault, text: 'Charging error (Mode 3 state {value})'}
+
+notes:
+- Holding registers, function 03; several contiguous registers may be read in one request. Multi-register values must be written
+  in one request or the write is rejected. The guide's "start address" values are used as protocol addresses (unverified).
+- Reserved or unavailable registers answer 0xFFFF (NaN), so a float of 0xFFFFFFFF means "not available".
+- Network byte order; the guide gives no word order for FLOAT32, most significant word first is assumed.
+- Modbus TCP on port 5555 via LAN2 (port 2a); one controller at a time, no UDP. Enable under LDP1 → Lastmanagement → Loadmanagement-Typ
+  = Modbus. The guide gives no unit id; 1 is an assumption.
+- Strings are two ASCII characters per register with a trailing zero.
+- The map has no power or energy registers; only per-phase currents.

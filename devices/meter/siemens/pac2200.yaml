@@ -1,0 +1,229 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Siemens' SENTRON PAC2200CLP Equipment Manual (L1V30820585B-04, 12/2022), appendix A.1, with additions
+# from the older PAC2200 Gerätehandbuch (L1V30415167A-02, 05/2018), appendix A.1.
+
+modbusspec: 0
+id: siemens-pac2200
+manufacturer: Siemens
+name: SENTRON PAC2200 power meter
+kind: meter
+
+sources:
+- title: SENTRON PAC2200CLP Power Monitoring Device, Equipment Manual (L1V30820585B-04)
+  version: 12/2022
+  url: https://cache.industry.siemens.com/dl/files/220/109783220/att_1123451/v2/MAN_L1V30820585B-04_en_en-US.pdf
+  sha256: 86be18577124fea4e6502d36a31b75f90c45d35d9ed73edb74a596b421904c66
+- title: SENTRON Messgerät 7KM PAC2200, Gerätehandbuch (L1V30415167A-02)
+  version: 05/2018
+  url: https://github.com/evcc-io/evcc/files/8588580/PAC2200.pdf
+  sha256: f58c6ea005c941cd08cc77e6b2821dc68d0a537b4ad494eac183d7220a9235a0
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/pac2200.go
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.siemens/src/io/openems/edge/meter/siemens/pac2200/MeterSiemensPac2200Impl.java
+- id: siemens-sentron
+  title: ha-siemens-sentron (Home Assistant integration)
+  url: https://github.com/powerassistant/ha-siemens-sentron
+  license: MIT
+  commit: dfb1773af007be60193f1a4ad83770d3400c057f
+  path: custom_components/siemens_sentron/pac2200.py, custom_components/siemens_sentron/gateway.py, custom_components/siemens_sentron/coordinator.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  limits:
+    max_registers: 125
+    max_gap: 0
+  input_equals_holding: true
+  blocks:
+  # I&M 0: the meter refuses partial reads
+  - table: holding
+    address: 64001
+    count: 27
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 64012
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 64001
+    type: u16
+    equals: 42
+
+points:
+  - {key: l1_voltage, label: Voltage VL1-N, table: input, address: 1, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage VL2-N, table: input, address: 3, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage VL3-N, table: input, address: 5, type: f32, unit: V}
+  - {key: x.l1_l2_voltage, label: Voltage VL1-L2, table: input, address: 7, type: f32, unit: V}
+  - {key: x.l2_l3_voltage, label: Voltage VL2-L3, table: input, address: 9, type: f32, unit: V}
+  - {key: x.l3_l1_voltage, label: Voltage VL3-L1, table: input, address: 11, type: f32, unit: V}
+  - {key: l1_current, label: Current L1, table: input, address: 13, type: f32, unit: A}
+  - {key: l2_current, label: Current L2, table: input, address: 15, type: f32, unit: A}
+  - {key: l3_current, label: Current L3, table: input, address: 17, type: f32, unit: A}
+  - {key: x.l1_apparent_power, label: Apparent power L1, table: input, address: 19, type: f32, unit: VA}
+  - {key: x.l2_apparent_power, label: Apparent power L2, table: input, address: 21, type: f32, unit: VA}
+  - {key: x.l3_apparent_power, label: Apparent power L3, table: input, address: 23, type: f32, unit: VA}
+  - {key: l1_power, label: Active power L1, table: input, address: 25, type: f32, unit: W, positive: import, note: Signed; positive = import as for the total active power.}
+  - {key: l2_power, label: Active power L2, table: input, address: 27, type: f32, unit: W, positive: import, note: Signed; positive = import as for the total active power.}
+  - {key: l3_power, label: Active power L3, table: input, address: 29, type: f32, unit: W, positive: import, note: Signed; positive = import as for the total active power.}
+  - {key: x.l1_reactive_power, label: Reactive power L1, table: input, address: 31, type: f32, unit: var}
+  - {key: x.l2_reactive_power, label: Reactive power L2, table: input, address: 33, type: f32, unit: var}
+  - {key: x.l3_reactive_power, label: Reactive power L3, table: input, address: 35, type: f32, unit: var}
+  - {key: x.l1_power_factor, label: Power factor L1, table: input, address: 37, type: f32, note: 0 … 1 (unsigned).}
+  - {key: x.l2_power_factor, label: Power factor L2, table: input, address: 39, type: f32, note: 0 … 1 (unsigned).}
+  - {key: x.l3_power_factor, label: Power factor L3, table: input, address: 41, type: f32, note: 0 … 1 (unsigned).}
+  - {key: frequency, label: Frequency, table: input, address: 55, type: f32, unit: Hz}
+  - {key: x.voltage_ln_average, label: Average voltage VL-N, table: input, address: 57, type: f32, unit: V}
+  - {key: x.voltage_ll_average, label: Average voltage VL-L, table: input, address: 59, type: f32, unit: V}
+  - {key: x.current_average, label: Average current, table: input, address: 61, type: f32, unit: A}
+  - {key: apparent_power, label: Total apparent power, table: input, address: 63, type: f32, unit: VA}
+  - {key: grid_power, label: Total active power, table: input, address: 65, type: f32, unit: W, positive: import, note: 'The register table gives no sign; the manual''s MID section defines positive active energy (+A, 1.8.0) as import and negative active energy (−A, 2.8.0) as export, so positive = drawn from the grid.'}
+  - {key: reactive_power, label: Total reactive power, table: input, address: 67, type: f32, unit: var}
+  - {key: power_factor, label: Total power factor, table: input, address: 69, type: f32}
+  - {key: x.neutral_current, label: Neutral current (calculated), table: input, address: 71, type: f32, unit: A}
+  - {key: x.device_status, label: Device diagnostics and device status, table: input, address: 205, type: u32, flags: device_status, poll: slow}
+  - {key: x.digital_outputs, label: Status of the digital outputs, table: input, address: 207, type: u32, poll: slow, note: Bit 0 = output 0.}
+  - {key: x.digital_inputs, label: Status of the digital inputs, table: input, address: 209, type: u32, poll: slow, note: Bit 0 = input 0.}
+  - {key: x.active_tariff, label: Active tariff, table: input, address: 211, type: u32, enum: tariff, poll: slow}
+  - {key: x.universal_counter, label: Universal counter, table: input, address: 215, type: u32, poll: slow, optional: true, writable: true, min: 0, max: 999999999, note: From the 05/2018 manual.}
+  - {key: x.relevant_parameter_changes, label: Counter of relevant parameter changes, table: input, address: 217, type: u32, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.all_parameter_changes, label: Counter of all parameter changes, table: input, address: 219, type: u32, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.demand_import_power, label: 'Cumulated active power demand, import', table: input, address: 501, type: f32, unit: W, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.demand_import_reactive_power, label: 'Cumulated reactive power demand, import', table: input, address: 503, type: f32, unit: var, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.demand_export_power, label: 'Cumulated active power demand, export', table: input, address: 505, type: f32, unit: W, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.demand_export_reactive_power, label: 'Cumulated reactive power demand, export', table: input, address: 507, type: f32, unit: var, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.period_max_power, label: Maximum active power in the demand period, table: input, address: 509, type: f32, unit: W, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.period_min_power, label: Minimum active power in the demand period, table: input, address: 511, type: f32, unit: W, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.period_max_reactive_power, label: Maximum reactive power in the demand period, table: input, address: 513, type: f32, unit: var, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.period_min_reactive_power, label: Minimum reactive power in the demand period, table: input, address: 515, type: f32, unit: var, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.demand_period, label: Length of the current demand period, table: input, address: 517, type: u32, unit: s, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.demand_period_elapsed, label: Time since the start of the current demand period, table: input, address: 519, type: u32, unit: s, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.energy_import_t1, label: Active energy import tariff 1, table: input, address: 801, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.energy_import_t2, label: Active energy import tariff 2, table: input, address: 805, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.energy_export_t1, label: Active energy export tariff 1, table: input, address: 809, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.energy_export_t2, label: Active energy export tariff 2, table: input, address: 813, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.energy_reactive_import_t1, label: Reactive energy import tariff 1, table: input, address: 817, type: f64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.energy_reactive_import_t2, label: Reactive energy import tariff 2, table: input, address: 821, type: f64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.energy_reactive_export_t1, label: Reactive energy export tariff 1, table: input, address: 825, type: f64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.energy_reactive_export_t2, label: Reactive energy export tariff 2, table: input, address: 829, type: f64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.apparent_energy_t1, label: Apparent energy tariff 1, table: input, address: 833, type: f64, unit: kVAh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.apparent_energy_t2, label: Apparent energy tariff 2, table: input, address: 837, type: f64, unit: kVAh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l1_energy_import_t1, label: L1 active energy import tariff 1, table: input, address: 841, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_energy_import_t2, label: L1 active energy import tariff 2, table: input, address: 845, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_energy_export_t1, label: L1 active energy export tariff 1, table: input, address: 849, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_energy_export_t2, label: L1 active energy export tariff 2, table: input, address: 853, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l1_energy_reactive_import_t1, label: L1 reactive energy import tariff 1, table: input, address: 857, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l1_energy_reactive_import_t2, label: L1 reactive energy import tariff 2, table: input, address: 861, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l1_energy_reactive_export_t1, label: L1 reactive energy export tariff 1, table: input, address: 865, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l1_energy_reactive_export_t2, label: L1 reactive energy export tariff 2, table: input, address: 869, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l1_apparent_energy_t1, label: L1 apparent energy tariff 1, table: input, address: 873, type: f64, unit: kVAh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l1_apparent_energy_t2, label: L1 apparent energy tariff 2, table: input, address: 877, type: f64, unit: kVAh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l2_energy_import_t1, label: L2 active energy import tariff 1, table: input, address: 881, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_energy_import_t2, label: L2 active energy import tariff 2, table: input, address: 885, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_energy_export_t1, label: L2 active energy export tariff 1, table: input, address: 889, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_energy_export_t2, label: L2 active energy export tariff 2, table: input, address: 893, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_energy_reactive_import_t1, label: L2 reactive energy import tariff 1, table: input, address: 897, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l2_energy_reactive_import_t2, label: L2 reactive energy import tariff 2, table: input, address: 901, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l2_energy_reactive_export_t1, label: L2 reactive energy export tariff 1, table: input, address: 905, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l2_energy_reactive_export_t2, label: L2 reactive energy export tariff 2, table: input, address: 909, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l2_apparent_energy_t1, label: L2 apparent energy tariff 1, table: input, address: 913, type: f64, unit: kVAh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l2_apparent_energy_t2, label: L2 apparent energy tariff 2, table: input, address: 917, type: f64, unit: kVAh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l3_energy_import_t1, label: L3 active energy import tariff 1, table: input, address: 921, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_energy_import_t2, label: L3 active energy import tariff 2, table: input, address: 925, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_energy_export_t1, label: L3 active energy export tariff 1, table: input, address: 929, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_energy_export_t2, label: L3 active energy export tariff 2, table: input, address: 933, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_energy_reactive_import_t1, label: L3 reactive energy import tariff 1, table: input, address: 937, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l3_energy_reactive_import_t2, label: L3 reactive energy import tariff 2, table: input, address: 941, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l3_energy_reactive_export_t1, label: L3 reactive energy export tariff 1, table: input, address: 945, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l3_energy_reactive_export_t2, label: L3 reactive energy export tariff 2, table: input, address: 949, type: f64, unit: kvarh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l3_apparent_energy_t1, label: L3 apparent energy tariff 1, table: input, address: 953, type: f64, unit: kVAh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.l3_apparent_energy_t2, label: L3 apparent energy tariff 2, table: input, address: 957, type: f64, unit: kVAh, scale: 0.001, poll: slow, optional: true, note: From the 05/2018 manual.}
+  - {key: x.secondary_import_energy, label: Secondary total active energy import (MID register), table: input, address: 961, type: f64, unit: kWh, scale: 0.001}
+  - {key: x.secondary_export_energy, label: Secondary total active energy export (MID register), table: input, address: 965, type: f64, unit: kWh, scale: 0.001}
+  - {key: grid_import_energy, label: Total active energy import (MID register), table: input, address: 969, type: f64, unit: kWh, scale: 0.001}
+  - {key: grid_export_energy, label: Total active energy export (MID register), table: input, address: 973, type: f64, unit: kWh, scale: 0.001}
+  # RS485 settings (meters with the RS485 interface only; 05/2018 manual)
+  - {key: x.rtu_address, label: Modbus RTU address, table: holding, address: 63135, type: u32, poll: slow, optional: true, writable: true, min: 1, max: 247}
+  - {key: x.rtu_baud_rate, label: Modbus RTU baud rate, table: holding, address: 63137, type: u32, enum: rtu_baud_rate, poll: slow, optional: true, writable: true}
+  - {key: x.rtu_format, label: Modbus RTU data bits / parity / stop bits, table: holding, address: 63139, type: u32, enum: rtu_format, poll: slow, optional: true, writable: true}
+  - {key: x.rtu_response_time, label: Modbus RTU response time, table: holding, address: 63141, type: u32, unit: ms, poll: slow, optional: true, writable: true, min: 1, max: 255}
+  # I&M 0 (one block of 27 registers from 64001)
+  - {key: x.manufacturer_id, label: Manufacturer's ID, table: holding, address: 64001, type: u16, poll: slow, note: 42 = Siemens AG.}
+  - {key: x.order_number, label: Order No., table: holding, address: 64002, type: str, length: 10, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 64012, type: str, length: 8, poll: slow}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 64020, type: u16, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 64021, type: u32, poll: slow, note: 'Four bytes: a letter, then major, minor and patch (e.g. V3.2.0).'}
+  - {key: x.profile_id, label: Profile ID, table: holding, address: 64024, type: u16, note: 0xF600 on a PAC2200., verified: false, sources: [siemens-sentron]}
+  - {key: x.im_version, label: I&M version, table: holding, address: 64026, type: u16, verified: false, sources: [siemens-sentron]}
+  - {key: x.im_supported, label: I&M supported, table: holding, address: 64027, type: u16, verified: false, sources: [siemens-sentron]}
+  - {key: x.frequency_46, label: Frequency, table: input, address: 46, type: f32, unit: Hz, verified: false, sources: [mbmd]}
+  - {key: x.date_time, label: Date Time, table: input, address: 799, type: u32, epoch: {start: '1970-01-01', unit: s}, verified: false, sources: [siemens-sentron]}
+
+enums:
+  tariff: {'0': Tariff 1, '1': Tariff 2}
+  rtu_baud_rate: {'0': '4800', '1': '9600', '2': '19200', '3': '38400'}
+  rtu_format: {'0': 8N2, '1': 8E1, '2': 8O1, '3': 8N1}
+
+flags:
+  device_status: {'8': 'Relevant parameter changes (stored, acknowledge)', '10': 'Maximum pulse rate was exceeded (stored, acknowledge)', '11': 'Restart of the device (stored, acknowledge)', '12': 'Energy counters reset by the user (stored, acknowledge)', '17': Maximum pulse rate exceeded, '21': Logbook full, '22': SNTP not synchronizing, '23': Wait for user interaction, '24': No synchronization pulse, '25': Device configuration menu is active, '26': Voltage out of range, '27': Current out of range, '28': Device time inaccurate, '29': Update status is active, '30': Hardware write protection is active, '31': Modbus communication is write-protected}
+
+problems:
+  - {when: {key: x.device_status, bit: 26}, kind: warning, text: Voltage out of range (status 0x04000000)}
+  - {when: {key: x.device_status, bit: 27}, kind: warning, text: Current out of range (status 0x08000000)}
+  - {when: {key: x.device_status, bit: 17}, kind: warning, text: Maximum pulse rate exceeded (status 0x00020000)}
+
+notes:
+- Function codes 03 and 04 both read every measured value (A.1.3) and the I&M 0 block; the points use input registers (04).
+- The tables give each value's "offset" without saying whether it is 0- or 1-based; the offsets are used as protocol addresses
+  (voltage L1-N = 1). A read that starts in the second register of a value is refused, so a wrong base fails instead of returning
+  shifted data. Unverified on a device.
+- Word order isn't stated for the registers (only the logbook example shows a Double big-endian); most significant word first
+  is assumed. Unverified.
+- Gaps in the map aren't documented as readable, so reads stay within consecutive values.
+- Energies are Doubles in Wh (overflow at 1.0e12). The MID registers 961 / 965 (secondary side) and 969 / 973 (primary side)
+  are the lifetime totals of tariffs 1 + 2.
+- There are no daily energy counters over Modbus; the demand period values cover the current measuring period only.
+- The default port is 502 and can be changed on the meter; the unit id isn't stated, 1 is used.
+- 'Depending on the variant the PAC2200 has an Ethernet (Modbus TCP), RS485 (Modbus RTU) or M-Bus interface (05/2018 manual).
+  RS485: address 1–247, 4800/9600/19200/38400 baud, 8N1/8N2/8E1/8O1, set on the meter; the manual gives no factory defaults.
+  The register map is the same over both.'
+- Points marked as from the 05/2018 manual (universal and parameter-change counters 215–219, demand values 501–519, apparent
+  energies 833/837 and the per-phase reactive and apparent energies 857–877, 897–917, 937–957) aren't in the 12/2022 PAC2200CLP
+  table; they are optional.
+- The 05/2018 manual lists the MID registers as a single "secondary active energy (MID register)" at offset 964 (4 registers),
+  which overlaps the 12/2022 layout (961 / 965 secondary, 969 / 973 primary); 964 looks like a misprint there. Unverified
+  on a device.
+- mbmd (type code PAC2200) detects the meter by reading L1 Voltage (input register 1, f32); its bus scan accepts a value within
+  10% of 110 or 230 V.
+- The driver's default meter type is PRODUCTION; OpenEMS doesn't say which way the device's own power value is positive, so
+  no direction is given.
+- OpenEMS has an 'Invert' option that negates the power values and swaps the two energy counters; the points here are the
+  reading with it off.
+- Measurements are read with function 04; the I&M0 identification block (holding registers 64001–64027) has to be read as
+  one block.
+- A PAC2200 answers with manufacturer ID 42 and profile ID 0xF600; its order number starts with 7KM2200.
+- The project doesn't say which way active power is positive.
+- Write-only command 65326 = localize on/off.
+- Identification as mbmd recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

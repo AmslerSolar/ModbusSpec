@@ -1,0 +1,208 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Brink Installation regulations Modbus UWA2-B/UWA2-E (614882-D).
+
+modbusspec: 0
+id: brink-hrv
+manufacturer: Brink
+name: Heat recovery appliances (UWA2-B / UWA2-E controller)
+kind: ventilation
+
+sources:
+- title: Brink Installation regulations Modbus UWA2-B/UWA2-E
+  version: 614882-D
+  url: https://www.brinkclimatesystems.nl/documenten/modbus-uwa2-b-uwa2-e-installation-regulations-614882.pdf
+  sha256: 25d8e59826a94aacbc5a6e85e28d7923c6c15d384a0c0baf7ad86fe7525efd25
+  archive_url: https://web.archive.org/web/20260926101351/https://www.brinkclimatesystems.nl/documenten/modbus-uwa2-b-uwa2-e-installation-regulations-614882.pdf
+- id: brink-hrv-modbus
+  title: brink-hrv-modbus (Home Assistant integration)
+  url: https://github.com/jarcovlieger/brink-hrv-modbus
+  license: MIT
+  commit: d5e9dc54e2d345fc4bd84e1b6909d307caa1cddd
+  path: custom_components/brink_ventilation/lib/brink.py, custom_components/brink_ventilation/coordinator.py, custom_components/brink_ventilation/sensors,
+    custom_components/brink_ventilation/fan.py
+- id: vmc-ubbink
+  title: homeassistant-vmc-ubbink (Home Assistant integration)
+  url: https://github.com/dimgen/homeassistant-vmc-ubbink
+  license: MIT
+  commit: 84206f3c43c0fddc86dac50ac5a3bd2c0173dc0d
+  path: custom_components/vmc_ubbink/vigor.py, custom_components/vmc_ubbink/direct.py, custom_components/vmc_ubbink/sensor.py
+
+connection:
+  default_port: 502
+  default_unit: 20
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 4011
+    type: bcd32
+
+points:
+  # Input registers (function 04): identity
+  - {key: x.software_version_type_major, label: Software version base module UWA2-B (type and major), table: input, address: 4000, type: u16, poll: slow, note: 'One byte an ASCII type letter, the other the major number (e.g. "S1").'}
+  - {key: x.software_version_minor_fix, label: Software version base module UWA2-B (minor and fix), table: input, address: 4001, type: u16, poll: slow, note: 'One byte each, 0–99.'}
+  - {key: x.software_build, label: Software build number base module UWA2-B, table: input, address: 4002, type: u16, poll: slow}
+  - {key: x.hardware_version, label: Hardware version base module UWA2-B, table: input, address: 4003, type: u16, poll: slow, note: 'High byte major, low byte minor.'}
+  - {key: x.appliance_type, label: Appliance type, table: input, address: 4004, type: u16, poll: slow, note: Internal number for the appliance; no published meaning.}
+  - {key: x.dipswitch_value, label: Dipswitch value, table: input, address: 4005, type: u16, poll: slow, note: Selects the type and subtype of the appliance (0–63).}
+  - {key: x.serial_number_1, label: Serial number digits 0–3, table: input, address: 4010, type: bcd16, poll: slow}
+  - {key: x.serial_number_2, label: Serial number digits 4–7, table: input, address: 4011, type: bcd16, poll: slow}
+  - {key: x.serial_number_3, label: Serial number digits 8–11, table: input, address: 4012, type: bcd16, poll: slow}
+  # Input registers: state
+  - {key: x.active_function, label: HRA active function, table: input, address: 4020, type: u16, enum: active_function}
+  - {key: x.fan_control_type, label: Fan control type, table: input, address: 4021, type: u16, enum: fan_control_type}
+  - {key: x.ventilation_mode, label: Ventilation mode, table: input, address: 4022, type: u16, enum: ventilation_mode}
+  - {key: x.supply_pressure, label: Current supply pressure, table: input, address: 4023, type: s16, unit: Pa, scale: 0.1, conflicts: [{sources: [vmc-ubbink], type: u16, scale: 1, label: Supply Pressure}]}
+  - {key: x.extract_pressure, label: Current exhaust pressure, table: input, address: 4024, type: s16, unit: Pa, scale: 0.1, conflicts: [{sources: [vmc-ubbink], type: u16, scale: 1, label: Extract Pressure}]}
+  # Supply (inlet) fan
+  - {key: x.supply_fan_status, label: Fan inlet status, table: input, address: 4030, type: u16, enum: fan_status}
+  - {key: x.supply_flow_setpoint, label: Setpoint supply air, table: input, address: 4031, type: u16, unit: m³/h}
+  - {key: x.supply_flow, label: Current value of supply air, table: input, address: 4032, type: u16, unit: m³/h}
+  - {key: x.supply_mass_flow, label: Mass flow inlet, table: input, address: 4033, type: u16, unit: kg/h}
+  - {key: x.supply_fan_speed, label: Speed supply fan, table: input, address: 4034, type: u16, unit: rpm}
+  - {key: x.supply_anemometer_speed, label: Speed inlet anemometer, table: input, address: 4035, type: u16, unit: rpm}
+  - {key: x.supply_temperature, label: Temperature sensor supply fan, table: input, address: 4036, type: s16, unit: °C, scale: 0.1, conflicts: [{sources: [brink-hrv-modbus], type: u16, label: Supply Temperature}]}
+  - {key: x.supply_humidity, label: Fan inlet sensor relative humidity, table: input, address: 4037, type: u16, unit: '%', scale: 0.1, conflicts: [{sources: [brink-hrv-modbus, vmc-ubbink], scale: 1, label: Supply Humidity}]}
+  # Exhaust fan
+  - {key: x.exhaust_fan_status, label: Fan exhaust status, table: input, address: 4040, type: u16, enum: fan_status}
+  - {key: x.exhaust_flow_setpoint, label: Setpoint flow exhaust air, table: input, address: 4041, type: u16, unit: m³/h}
+  - {key: x.exhaust_flow, label: Current value flow exhaust air, table: input, address: 4042, type: u16, unit: m³/h}
+  - {key: x.exhaust_mass_flow, label: Mass flow exhaust, table: input, address: 4043, type: u16, unit: kg/h}
+  - {key: x.exhaust_fan_speed, label: Speed exhaust fan, table: input, address: 4044, type: u16, unit: rpm}
+  - {key: x.exhaust_anemometer_speed, label: Speed exhaust anemometer, table: input, address: 4045, type: u16, unit: rpm}
+  - {key: x.exhaust_temperature, label: Temperature sensor exhaust fan, table: input, address: 4046, type: s16, unit: °C, scale: 0.1, conflicts: [{sources: [brink-hrv-modbus], type: u16, label: Exhaust Temperature}]}
+  - {key: x.exhaust_humidity, label: Fan exhaust sensor relative humidity, table: input, address: 4047, type: u16, unit: '%', scale: 0.1, conflicts: [{sources: [brink-hrv-modbus, vmc-ubbink], scale: 1, label: Exhaust Humidity}]}
+  # Bypass, preheater, frost protection
+  - {key: x.bypass_status, label: Bypass status, table: input, address: 4050, type: u16, enum: bypass_status}
+  - {key: x.bypass_position, label: Bypass step position, table: input, address: 4051, type: u16}
+  - {key: x.preheater_status, label: Status preheater, table: input, address: 4060, type: u16, enum: preheater_status}
+  - {key: x.preheater_capacity, label: Capacity of preheater, table: input, address: 4061, type: u16, unit: '%'}
+  - {key: x.frost_status, label: Frost status, table: input, address: 4070, type: u16, enum: frost_status, note: Which states occur depends on the appliance type.}
+  - {key: x.frost_heater_power, label: Frost heater power, table: input, address: 4071, type: u16, unit: '%'}
+  - {key: x.frost_fan_reduction, label: Fan frost reduction, table: input, address: 4072, type: u16, unit: '%', note: '0 % = no reduction, 100 % = maximum reduction.'}
+  # Inputs and outputs of the base module
+  - {key: x.flow_switch_position, label: Flow switch position, table: input, address: 4080, type: u16, enum: switch_position, invalid: [255]}
+  - {key: x.ntc1_temperature, label: NTC1 temperature, table: input, address: 4081, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.ntc2_temperature, label: NTC2 temperature, table: input, address: 4082, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.rht_humidity, label: RHT sensor humidity, table: input, address: 4083, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.signal_output_state, label: Signal output, table: input, address: 4090, type: u16, enum: output_voltage}
+  - {key: x.filter_status, label: Status filter, table: input, address: 4100, type: u16, enum: filter_status}
+  - {key: x.ebus_power_status, label: eBus power status, table: input, address: 4101, type: u16, enum: ebus_power_status}
+  # Counters
+  - {key: x.operating_hours, label: Operating time, table: input, address: 4113, type: u32, unit: h, poll: slow}
+  - {key: x.filter_used_in_hours, label: Filters used in hours, table: input, address: 4115, type: u16, unit: h, poll: slow, note: Hours on since the last filter reset.}
+  - {key: x.filter_used_in_m_h, label: Filters used in m³/h, table: input, address: 4116, type: u32, unit: m³/h, poll: slow, note: Flow summed in units of m³/h since the last filter reset (the document's unit).}
+  - {key: x.total_flow, label: Total flow in m³/h, table: input, address: 4118, type: u32, unit: m³/h, poll: slow, note: Flow summed in units of m³/h since commissioning (the document's unit).}
+  # Extension and CO2 sensors
+  - {key: x.geo_heat_exchanger_status, label: Geo heat exchanger status, table: input, address: 4150, type: u16, enum: geo_status, optional: true}
+  - {key: x.co2_sensor_1_status, label: CO2 sensor 1 status, table: input, address: 4200, type: u16, enum: co2_sensor_status, optional: true}
+  - {key: x.co2_sensor_1, label: Value CO2 sensor 1, table: input, address: 4201, type: u16, unit: ppm, optional: true, verified: false, note: Unit not stated in the document; assumed ppm.}
+  - {key: x.co2_sensor_2_status, label: CO2 sensor 2 status, table: input, address: 4202, type: u16, enum: co2_sensor_status, optional: true}
+  - {key: x.co2_sensor_2, label: Value CO2 sensor 2, table: input, address: 4203, type: u16, unit: ppm, optional: true, verified: false}
+  - {key: x.co2_sensor_3_status, label: CO2 sensor 3 status, table: input, address: 4204, type: u16, enum: co2_sensor_status, optional: true}
+  - {key: x.co2_sensor_3, label: Value CO2 sensor 3, table: input, address: 4205, type: u16, unit: ppm, optional: true, verified: false}
+  - {key: x.co2_sensor_4_status, label: CO2 sensor 4 status, table: input, address: 4206, type: u16, enum: co2_sensor_status, optional: true}
+  - {key: x.co2_sensor_4, label: Value CO2 sensor 4, table: input, address: 4207, type: u16, unit: ppm, optional: true, verified: false}
+  - {key: x.extension_temperature, label: Temperature NTC extension (UWA2-E), table: input, address: 4520, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.extension_contact_1, label: Extension contact 1, table: input, address: 4521, type: u16, enum: contact, optional: true}
+  - {key: x.extension_contact_2, label: Extension contact 2, table: input, address: 4522, type: u16, enum: contact, optional: true}
+  - {key: x.extension_analog_input_1, label: Extension analogue input 1, table: input, address: 4523, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.extension_analog_input_2, label: Extension analogue input 2, table: input, address: 4524, type: u16, unit: V, scale: 0.1, optional: true}
+  # Holding registers (functions 03 / 06): settings
+  - {key: x.flow_preset_0, label: Flow preset 0, table: holding, address: 6000, type: u16, unit: m³/h, writable: true, poll: slow, verified: false, note: 'Range depends on the appliance; unit not stated in the document, assumed m³/h.'}
+  - {key: x.flow_preset_1, label: Flow preset 1, table: holding, address: 6001, type: u16, unit: m³/h, writable: true, poll: slow, verified: false}
+  - {key: x.flow_preset_2, label: Flow preset 2, table: holding, address: 6002, type: u16, unit: m³/h, writable: true, poll: slow, verified: false}
+  - {key: x.flow_preset_3, label: Flow preset 3, table: holding, address: 6003, type: u16, unit: m³/h, writable: true, poll: slow, verified: false}
+  - {key: x.flow_type, label: Flow type, table: holding, address: 6030, type: u16, enum: flow_type, writable: true, poll: slow}
+  - {key: x.bypass_mode, label: Bypass mode, table: holding, address: 6100, type: u16, enum: bypass_mode, writable: true, poll: slow}
+  - {key: x.bypass_temperature_dwelling, label: Bypass temperature from dwelling, table: holding, address: 6101, type: s16, unit: °C, scale: 0.1, writable: true, min: 15, max: 35, poll: slow, note: Default 22.0.}
+  - {key: x.bypass_temperature_outside, label: Bypass temperature from outside, table: holding, address: 6102, type: s16, unit: °C, scale: 0.1, writable: true, min: 7, max: 15, poll: slow, note: Default 10.0.}
+  - {key: x.bypass_hysteresis, label: Bypass temperature hysteresis, table: holding, address: 6103, type: s16, unit: °C, scale: 0.1, writable: true, min: 0, max: 5, poll: slow}
+  - {key: x.bypass_boost, label: Bypass boost, table: holding, address: 6104, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.frost_control_temperature, label: Frost control temperature, table: holding, address: 6110, type: s16, unit: °C, scale: 0.1, writable: true, min: 0, max: 3, poll: slow}
+  - {key: x.frost_min_inlet_temperature, label: Frost control minimum inlet temperature, table: holding, address: 6111, type: s16, unit: °C, scale: 0.1, writable: true, min: 7, max: 22, poll: slow}
+  - {key: x.days_before_filter_warning, label: Days before filter warning, table: holding, address: 6120, type: u16, unit: d, writable: true, min: 1, max: 365, poll: slow, note: Default 90.}
+  - {key: x.external_heater_mode, label: External heater mode, table: holding, address: 6130, type: u16, enum: external_heater_mode, writable: true, poll: slow}
+  - {key: x.postheater_setpoint, label: Postheater setpoint, table: holding, address: 6131, type: s16, unit: °C, scale: 0.1, writable: true, min: 15, max: 30, poll: slow}
+  - {key: x.rht_sensor_mode, label: RHT (humidity) sensor mode, table: holding, address: 6140, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.co2_sensor_mode, label: CO2 sensor mode, table: holding, address: 6150, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.signal_output, label: Signal output, table: holding, address: 6170, type: u16, enum: signal_output, writable: true, poll: slow}
+  # Holding registers: remote control
+  - {key: x.modbus_control_switch_mode, label: Modbus control, table: holding, address: 8000, type: u16, enum: modbus_control, writable: true, persistent: false, note: Reads back the last accepted value. Set it again after the appliance was off the mains.}
+  - {key: x.switch_position, label: Request change in switch position, table: holding, address: 8001, type: u16, enum: switch_position, writable: true, persistent: false, note: Takes effect while 8000 is 1 (switch).}
+  - {key: x.custom_airflow_rate, label: Desired flow rate, table: holding, address: 8002, type: u16, unit: m³/h, writable: true, persistent: false, note: Takes effect while 8000 is 2 (flow rate value); 0 or the appliance's minimum to maximum flow.}
+  - {key: x.standby, label: Request standby, table: holding, address: 8003, type: u16, enum: standby, writable: true, persistent: false, note: 'Write 1 to put the appliance in standby, 2 to return to normal, 0 for no action; reads back the actual standby state, which other interfaces may change too.'}
+  - {key: x.reset_filter_warning, label: Reset filter warning, table: holding, address: 8010, type: u16, writable: true, note: 'Write 1 to reset the filter warning; reads 0xFF if the action failed, and returns to 0 once read.'}
+  - {key: x.appliance_reset, label: Appliance reset, table: holding, address: 8011, type: u16, writable: true, note: 'Write 1 to reset the appliance; reads 0xFF if the action failed, and returns to 0 once read.'}
+
+enums:
+  active_function: {'0': Standby, '1': Bootloader, '2': Non blocking error, '3': Blocking error, '4': Manual, '5': Holiday, '6': Night ventilation, '7': Party, '8': Bypass boost, '9': Normal boost, '10': Auto CO2, '11': Auto eBus, '12': Auto Modbus, '13': Auto LAN/WLAN portal, '14': Auto LAN/WLAN local}
+  fan_control_type: {'0': Initializing, '1': Constant flow, '2': Constant PWM, '3': 'Off', '4': Error, '5': Mass balance, '6': Standby}
+  ventilation_mode: {'0': Holiday, '1': Low, '2': Normal, '3': High, '4': Auto}
+  fan_status: {'2': No communication, '3': Idle, '4': Running, '5': Blocked, '6': Fan error}
+  bypass_status: {'0': Initialize, '1': Open, '2': Close, '3': Open, '4': Closed}
+  preheater_status: {'0': Initialize, '1': Inactive, '2': Active, '3': Test mode}
+  frost_status: {'0': Not initialized, '1': Power-up delay, '2': No frost, '3': No frost delay, '4': Frost control start delay, '5': Wait for icing, '6': Ice detected delay, '7': Heating, '8': Wait for free heater, '9': Fan control start delay, '10': Fan control wait delay, '11': Fan control, '12': Fan off delay, '13': Fan off, '14': Fan restarting, '15': Error, '16': Test mode}
+  switch_position: {'0': Holiday, '1': Low, '2': Normal, '3': High, '255': Invalid position}
+  output_voltage: {'0': 0 V, '1': 24 V}
+  filter_status: {'0': Not dirty, '1': Dirty}
+  ebus_power_status: {'0': Power up, '1': Initialize power, '2': Power off, '3': Power on, '4': Wait for power off, '5': Slave power off}
+  geo_status: {'0': Open low, '1': Closed, '2': Open high}
+  co2_sensor_status: {'0': Error, '1': Not initialized, '2': Idle, '3': Warming up, '4': Running, '5': Calibrating, '6': Self test}
+  contact: {'0': Open, '1': Closed}
+  flow_type: {'0': Constant PWM, '1': Constant flow, '2': Constant mass flow}
+  bypass_mode: {'0': Automatic, '1': Bypass closed, '2': Bypass open}
+  off_on: {'0': 'Off', '1': 'On'}
+  external_heater_mode: {'0': Not available, '1': Pre-heater, '2': Post-heater}
+  signal_output: {'0': 'Off', '1': Filter warning, '2': Error status, '3': Filter warning and error status}
+  modbus_control: {'0': Modbus control off, '1': Switch position, '2': Flow rate value}
+  standby: {'0': Not in standby, '1': In standby}
+
+problems:
+  - {when: {key: x.active_function, equals: 2}, kind: warning, text: Non-blocking error}
+  - {when: {key: x.active_function, equals: 3}, kind: fault, text: Blocking error}
+  - {when: {key: x.supply_fan_status, equals: 6}, kind: fault, text: Supply fan error}
+  - {when: {key: x.exhaust_fan_status, equals: 6}, kind: fault, text: Exhaust fan error}
+  - {when: {key: x.frost_status, equals: 15}, kind: warning, text: Frost protection error}
+  - {when: {key: x.filter_status, equals: 1}, kind: warning, text: Filter dirty}
+  - {when: {key: x.co2_sensor_1_status, equals: 0}, kind: warning, text: CO2 sensor 1 error}
+
+notes:
+- Addresses are the register numbers of the document (input registers 4000–4544, holding registers 6000–7992 and 8000–8011),
+  used as 0-based protocol addresses as they are.
+- 'Modbus RTU on RS485: connector X15 of the base board UWA2-B, or X06 of the Plus board UWA2-E when fitted (in a cascade,
+  on the master appliance with UWA2-E). Factory settings: address 20, 19200 baud, even parity (menu step 14); port 502 applies
+  only to a Modbus TCP gateway.'
+- The command registers 8000–8011 and the desired flow are lost when the appliance is disconnected from the mains and must
+  be written again.
+- 'Not stated in the document; assumed: the 32-bit counters (4113, 4116, 4118) are high word first, and the serial number
+  is 12 BCD digits in 4010–4012; identify.serial reads digits 4–11 (4011–4012).'
+- The bypass status table lists 1 and 3 both as open and 2 and 4 as close / closed, as the document has it.
+- 'Left out: clock and date (4110–4112, 6903–6906; the date layout is unclear), UIF and extension module versions (4400–4415,
+  4500–4505), display switch and button (4420, 4421), extension outputs (4541–4544), PWM presets (6010–6017), imbalance settings
+  (6031–6036), CO2 sensor levels (6151–6158), digital and analogue input configuration (6200–6232), geo heat exchanger settings
+  (6240–6244), language and display formats (6900–6902) and the Modbus interface settings (7990–7992).'
+- brink-hrv-modbus talks Modbus TCP (default port 502) to unit id 20, which is fixed in the integration.
+- Live values are input registers (4xxx), settings and commands holding registers (6xxx, 8xxx); writes use function 06.
+- The 32-bit counters (4113, 4116) are read high word first.
+- Modbus RTU on the unit's RS485 port, unit id 20 by default; the project uses 19200 baud 8N1. The project notes that a W400
+  may come configured with odd parity and that it changes the parity to none in the unit's menu (14. Communication, 4. Parity).
+- The project takes the register meanings from Brink's UWA2 Modbus manual (the Vigor is closely related).
+- Fan settings written to 8001 or 8002 take effect only when holding register 8000 selects that control source (1 for 8001,
+  2 for 8002); 0 hands control back to the wall unit. The bypass setting 6100 does not need 8000.
+- 'The custom airflow rate (8002) must lie within the unit''s range: W225 40-225, W325 50-325, W400 50-400, W450 75-450, W600
+  100-600 m³/h.'
+- The project notes the manual gives the pressures (4023, 4024) in tenths of a pascal but reads them as whole pascals.
+- Ubbink Ubiflux Vigor units are built by Brink and use the same register map.

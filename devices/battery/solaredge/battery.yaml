@@ -1,0 +1,191 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SolarEdge Technical Note "Power Control Protocol for SolarEdge Inverters" (1.3, Nov. 2017);
+# word order from the SunSpec logging technical note (3.2, June 2025).
+
+modbusspec: 0
+id: solaredge-battery
+manufacturer: SolarEdge
+name: Battery (StorEdge) read through a SolarEdge inverter, battery 1
+kind: battery
+
+sources:
+- title: Technical Note – Power Control Protocol for SolarEdge Inverters
+  version: 1.3 (Nov. 2017)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi/blob/2bffb6ad39897991cec037ed2240032e41fab6a3/doc/Power-Control-Open-Protocol-for-SolarEdge-Inverters.pdf
+  sha256: ef2bbde6b899f2e2b03a1e2ba9c6c56199fe5ac0eea1d8e5f1142ab3b82b0e3f
+- title: Technical Note – SolarEdge Inverters - SunSpec Logging
+  version: 3.2 (June 2025)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi/blob/2bffb6ad39897991cec037ed2240032e41fab6a3/doc/sunspec-implementation-technical-note.pdf
+  sha256: ee578cc770f381b58dc0de75a6b8696477c7827f7c5109e2ee71b98a1f57dc2d
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/solaredge-hybrid.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.solaredge
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/solaredge/solaredge
+- id: solaredge-modbus-multi
+  title: solaredge-modbus-multi (Home Assistant integration)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi
+  license: Apache-2.0
+  commit: 2bffb6ad39897991cec037ed2240032e41fab6a3
+  path: custom_components/solaredge_modbus_multi/components.py, custom_components/solaredge_modbus_multi/const.py, custom_components/solaredge_modbus_multi/scanner.py,
+    custom_components/solaredge_modbus_multi/hub.py
+- id: solaredged
+  title: solaredged (Python library used by the Home Assistant core solaredge_modbus integration)
+  url: https://github.com/frenck/python-solaredged
+  license: MIT
+  commit: c80f8a8fa3e592e6bfa689063a4a372a5dd5cbea
+  path: src/solaredged/components.py, src/solaredged/const.py
+- id: sunspec2
+  title: ha-sunspec2 (Home Assistant integration)
+  url: https://github.com/hilman2/ha-sunspec2
+  license: MIT
+  commit: 2efb4dd6e51e55a5f07d960f56a6281831eb58de
+  path: custom_components/sunspec2/vendors/__init__.py, custom_components/sunspec2/vendors/profile.py, custom_components/sunspec2/vendors/solaredge.py
+
+connection:
+  default_port: 1502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 115200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 57648
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+    word_order: big
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: SolarEdge
+  - table: holding
+    address: 57666
+    type: f32
+    range:
+    - 0
+    - 3.4e+38
+    not: 0
+
+
+points:
+  - {key: x.manufacturer, label: Battery 1 Manufacturer Name, table: holding, address: 57600, type: str, length: 16, poll: slow}
+  - {key: x.model, label: Battery 1 Model, table: holding, address: 57616, type: str, length: 16, poll: slow}
+  - {key: firmware, label: Battery 1 Firmware Version, table: holding, address: 57632, type: str, length: 16, poll: slow}
+  - {key: serial, label: Battery 1 Serial Number, table: holding, address: 57648, type: str, length: 16, poll: slow}
+  - {key: x.device_id, label: Battery 1 Device ID, table: holding, address: 57664, type: u16, poll: slow}
+  - {key: x.rated_energy, label: Battery 1 Rated Energy, table: holding, address: 57666, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.max_charge_power, label: Battery 1 Max Charge Continues Power, table: holding, address: 57668, type: f32, unit: W, poll: slow}
+  - {key: x.max_discharge_power, label: Battery 1 Max Discharge Continues Power, table: holding, address: 57670, type: f32, unit: W, poll: slow}
+  - {key: x.max_charge_peak_power, label: Battery 1 Max Charge Peak Power, table: holding, address: 57672, type: f32, unit: W, poll: slow}
+  - {key: x.max_discharge_peak_power, label: Battery 1 Max Discharge Peak Power, table: holding, address: 57674, type: f32, unit: W, poll: slow}
+  - {key: battery_temperature, label: Battery 1 Average Temperature, table: holding, address: 57708, type: f32, unit: °C}
+  - {key: x.max_temperature, label: Battery 1 Max Temperature, table: holding, address: 57710, type: f32, unit: °C}
+  - {key: battery_voltage, label: Battery 1 Instantaneous Voltage, table: holding, address: 57712, type: f32, unit: V}
+  - {key: x.battery_current, label: Battery 1 Instantaneous Current, table: holding, address: 57714, type: f32, unit: A, note: The document gives no sign; presumably as the power.}
+  - {key: battery_power, label: Battery 1 Instantaneous Power, table: holding, address: 57716, type: f32, unit: W, positive: charge, note: The document gives no sign; + = charging is assumed (open-source projects read it so)., verified: false}
+  - {key: x.export_energy, label: Battery 1 Lifetime Export Energy Counter, table: holding, address: 57718, type: u64, unit: kWh, scale: 0.001, poll: slow, note: Wh; presumably energy discharged from the battery (not stated).}
+  - {key: x.import_energy, label: Battery 1 Lifetime Import Energy Counter, table: holding, address: 57722, type: u64, unit: kWh, scale: 0.001, poll: slow, note: Wh; presumably energy charged into the battery (not stated).}
+  - {key: x.max_energy, label: Battery 1 Max Energy, table: holding, address: 57726, type: f32, unit: kWh, scale: 0.001, poll: slow, note: 'Usable capacity, updated as the battery ages.'}
+  - {key: x.available_energy, label: Battery 1 Available Energy, table: holding, address: 57728, type: f32, unit: kWh, scale: 0.001}
+  - {key: battery_soh, label: Battery 1 State of Health (SOH), table: holding, address: 57730, type: f32, unit: '%', note: Max energy ÷ rated energy. The document gives no unit; percent (0–100) is assumed., verified: false}
+  - {key: battery_soc, label: Battery 1 State of Energy (SOE), table: holding, address: 57732, type: f32, unit: '%', note: Available energy ÷ max energy. The document gives no unit; percent (0–100) is assumed., verified: false}
+  - {key: state, label: Battery 1 Status, table: holding, address: 57734, type: u32, enum: battery_status}
+  - {key: x.status_internal, label: Battery 1 Status Internal, table: holding, address: 57736, type: u32, note: Battery vendor's own status code.}
+  - {key: x.last_fault_id, label: 'Battery 1 Events Log [0]', table: holding, address: 57738, type: u16, note: The battery vendor's last fault id. The log has 8 registers; only the first is implemented.}
+  - {key: x.meter_communicate_status, label: Meter communicate status, table: holding, address: 40121, type: u16, enum: meter_communicate_status, sources: [openems], verified: false}
+  - {key: x.pv_curtail_mode, label: PV feed-in / production limit (input mode), table: holding, address: 57344, type: u16, writable: true, note: 'evcc feeds it into a script that computes the PV feed-in / production limit. evcc writes curtail 100: a computed value; curtail (other values): a computed value.', sources: [evcc, openems], verified: false}
+  - {key: x.curtail_57345, label: PV feed-in / production limit (write), table: holding, address: 57345, type: u16, writable: true, note: 'evcc writes PV feed-in / production limit: 0.', sources: [evcc, openems], verified: false}
+  - {key: x.pv_curtailed_limit, label: PV feed-in / production limit (input limit), table: holding, address: 57346, type: f32, unit: W, writable: true, note: evcc feeds it into a script that computes the PV feed-in / production limit., sources: [evcc, openems], verified: false}
+  - {key: x.storage_control_mode, label: Storage control mode, table: holding, address: 57348, type: u16, enum: se_control_mode, sources: [openems], verified: false}
+  - {key: x.storage_ac_charge_policy, label: Storage ac charge policy, table: holding, address: 57349, type: u16, enum: ac_charge_policy, sources: [openems], verified: false}
+  - {key: x.storage_ac_charge_limit, label: Storage ac charge limit, table: holding, address: 57350, type: f32, unit: '%', sources: [openems], verified: false}
+  - {key: x.storage_backup_reserved_setting, label: Storage backup reserved setting, table: holding, address: 57352, type: f32, unit: '%', sources: [openems], verified: false}
+  - {key: x.storage_charge_discharge_default_mode, label: Storage charge discharge default mode, table: holding, address: 57354, type: u16, enum: command_mode, sources: [openems], verified: false}
+  - {key: x.remote_control_command_timeout, label: Remote control command timeout, table: holding, address: 57355, type: u32, unit: s, writable: true, sources: [openems], verified: false}
+  - {key: x.batterymode_57357, label: Battery mode control (write), table: holding, address: 57357, type: u16, writable: true, note: 'evcc writes battery mode normal: 7; battery mode hold: 7; battery mode charge: 3; battery mode holdcharge: 7; battery mode discharge: 4.', sources: [evcc, openems], verified: false}
+  - {key: x.batterymode_57358, label: Battery mode control (write), table: holding, address: 57358, type: f32, unit: W, writable: true, note: 'evcc feeds it into a script that computes the battery mode control. evcc writes battery mode normal: a computed value; battery mode hold: a computed value; battery mode charge: a computed value; battery mode holdcharge: 0; battery mode discharge: a computed value.', sources: [evcc, openems], verified: false}
+  - {key: x.batterymode_57360, label: Battery mode control (write), table: holding, address: 57360, type: f32, unit: W, writable: true, note: 'evcc feeds it into a script that computes the battery mode control. evcc writes battery mode normal: a computed value; battery mode hold: 0; battery mode charge: 0; battery mode holdcharge: a computed value; battery mode discharge: a computed value.', sources: [evcc, openems], verified: false}
+  - {key: x.b_event_log2, label: B_Event_Log2, table: holding, address: 57739, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log3, label: B_Event_Log3, table: holding, address: 57740, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log4, label: B_Event_Log4, table: holding, address: 57741, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log5, label: B_Event_Log5, table: holding, address: 57742, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log6, label: B_Event_Log6, table: holding, address: 57743, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log7, label: B_Event_Log7, table: holding, address: 57744, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log8, label: B_Event_Log8, table: holding, address: 57745, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log_vendor1, label: B_Event_Log_Vendor1, table: holding, address: 57746, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log_vendor2, label: B_Event_Log_Vendor2, table: holding, address: 57747, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log_vendor3, label: B_Event_Log_Vendor3, table: holding, address: 57748, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log_vendor4, label: B_Event_Log_Vendor4, table: holding, address: 57749, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log_vendor5, label: B_Event_Log_Vendor5, table: holding, address: 57750, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log_vendor6, label: B_Event_Log_Vendor6, table: holding, address: 57751, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log_vendor7, label: B_Event_Log_Vendor7, table: holding, address: 57752, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.b_event_log_vendor8, label: B_Event_Log_Vendor8, table: holding, address: 57753, type: u16, sources: [solaredge-modbus-multi], verified: false}
+  - {key: x.bat_power_57972, label: Battery power, table: holding, address: 57972, type: f32, unit: W, sources: [openwb], verified: false}
+  - {key: x.bat_soc_57988, label: Battery state of charge, table: holding, address: 57988, type: f32, unit: '%', sources: [openwb], verified: false}
+  - {key: x.inverter_power_limit, label: Inverter power limit, table: holding, address: 61760, type: f32, unit: '%', sources: [openems], verified: false}
+  - {key: x.advanced_pwr_control_en, label: Advanced pwr control en, table: holding, address: 61762, type: s32, sources: [openems], verified: false}
+  - {key: x.inverter_max_apparent_power, label: Inverter max apparent power, table: holding, address: 62212, type: f32, unit: W, sources: [openems], verified: false}
+
+enums:
+  battery_status: {'0': 'Off', '1': Standby, '2': Init, '3': Charge, '4': Discharge, '5': Fault, '7': Idle}
+  se_control_mode: {'0': Disabled, '1': Maximize Self Consumption, '2': Time of Use (Profile programming), '3': Backup Only, '4': Remote Control}
+  ac_charge_policy: {'0': Disabled, '1': Always allowed, '2': Fixed Energy Limit, '3': Percent of Production}
+  command_mode: {'0': Stopped, '1': Only PV excess power not going to AC is used for charging the battery., '2': 'Charge from PV first, before producing power to the AC.', '3': Charge Bat, '4': Discharge Bat, '5': Discharge Bat+BalanceZero, '7': Auto}
+  meter_communicate_status: {'1': OK, '65535': NO_METER}
+
+problems:
+  - {when: {key: state, equals: 5}, kind: fault, text: Battery fault (status 5)}
+
+notes:
+- Batteries are read through the inverter, at the inverter's unit id and port (see solaredge-inverter). The block is SolarEdge-specific,
+  not SunSpec.
+- Addresses here are battery 1 (0xE100, mirrored at 0xF500). The 2017 document gives battery 2 at 0xE200 with the same layout
+  (256 registers higher) and supports up to two batteries.
+- 32- and 64-bit values in the 0xE000 and 0xF000 ranges have the low word first (stated in the SunSpec logging note, appendix
+  A of 3.2 / C of 2.x). Document 3.2 adds that a copy with the high word first sits 0x800 registers higher; it is not used
+  here.
+- Values the battery vendor doesn't supply may be missing; a battery is presumably fitted when its rated energy is above 0
+  (assumed).
+- Storage control (mode, AC charge policy, backup reserve, remote control commands) is in solaredge-control.
+- 'evcc template `solaredge-hybrid` (grid, pv, battery) lists: SolarEdge Hybrid Inverter.'
+- evcc also reads SunSpec model values for this template (not included here).
+- Only the SolarEdge storage registers (0xE000 range) are taken; OpenEMS reads the rest through SunSpec.
+- Batteries are read through the inverter, at the inverter's unit id, in a SolarEdge-specific block with the low word first.
+  The addresses here are battery 1 (0xE100); battery 2 is 256 registers higher (0xE200), battery 3 768 higher (0xE400).
+- A battery is present when its rated energy (0xE142) is a number above 0.
+- Float values read NaN (0x7FC00000) when not available.
+- The addresses here are battery 1 (0xE100); battery 2 starts at 0xE200, battery 3 at 0xE400.
+- A battery is there when its rated energy (0xE142) is above 0; firmware 4.18 shows a second battery with strings but no energy.
+- Identification as solaredge-modbus-multi recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

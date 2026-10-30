@@ -1,0 +1,718 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: eg4-offgrid
+manufacturer: EG4
+name: Off-grid inverters (SNA / XP series)
+kind: inverter
+
+sources:
+- id: eg4-web-monitor
+  title: eg4_web_monitor (Home Assistant integration)
+  url: https://github.com/joyfulhouse/eg4_web_monitor
+  license: MIT
+  commit: 77e6c8652d46042e2a919c8e461ddd2c10724c3a
+  path: custom_components/eg4_web_monitor/const/operating_state.py
+- id: pylxpweb
+  title: pylxpweb (Python library for EG4 / LuxPower inverters, used by eg4_web_monitor)
+  url: https://github.com/joyfulhouse/pylxpweb
+  license: MIT
+  commit: bce390936f2068000b7a53e2e981e9399139753f
+  path: src/pylxpweb/registers/inverter_input.py, src/pylxpweb/registers/inverter_holding.py, src/pylxpweb/registers/scheduling.py,
+    src/pylxpweb/registers/battery.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+  limits:
+    max_registers: 40
+
+encoding:
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 115
+    type: str
+    length: 5
+    byte_order: little
+  any:
+  - table: holding
+    address: 19
+    type: u16
+    equals: 54
+  - table: holding
+    address: 19
+    type: u16
+    equals: 38
+  - table: holding
+    address: 19
+    type: u16
+    equals: 2102
+
+defaults:
+  verified: false
+  sources:
+  - pylxpweb
+
+models:
+  - {id: sna, name: SNA, match: {table: holding, address: 19, type: u16, equals: 54}}
+  - {id: sna_6000xp, name: SNA 6000XP, match: {table: holding, address: 19, type: u16, equals: 38}}
+  - {id: sna_12000xp, name: SNA 12000XP, match: {table: holding, address: 19, type: u16, equals: 2102}}
+
+points:
+  - {key: x.com_protocol_version, label: Communication protocol version, table: holding, address: 9, type: u16}
+  - {key: x.controller_version, label: Controller firmware version, table: holding, address: 10, type: u16}
+  - {key: x.modbus_address, label: Modbus RTU slave address, table: holding, address: 15, type: u16, writable: true}
+  - {key: x.language, label: Display language, table: holding, address: 16, type: u16, enum: language, writable: true}
+  - {key: x.device_type_code, label: Device type identification code, table: holding, address: 19, type: u16}
+  - {key: x.pv_input_mode, label: 'PV input connection model (0-7, model-dependent)', table: holding, address: 20, type: u16, writable: true}
+  - {key: x.eps_enable, label: EPS/off-grid mode enable (Battery Backup), table: holding, address: 21, type: u16, bits: [0, 0], writable: true}
+  - {key: x.overload_derate_enable, label: Overload/overfrequency load derate enable, table: holding, address: 21, type: u16, bits: [1, 1], writable: true}
+  - {key: x.drms_enable, label: Demand Response Management System enable, table: holding, address: 21, type: u16, bits: [2, 2], writable: true}
+  - {key: x.lvrt_enable, label: Low voltage ride-through enable, table: holding, address: 21, type: u16, bits: [3, 3], writable: true}
+  - {key: x.anti_island_enable, label: Anti-islanding protection enable, table: holding, address: 21, type: u16, bits: [4, 4], writable: true}
+  - {key: x.neutral_detect_enable, label: Neutral line detection enable, table: holding, address: 21, type: u16, bits: [5, 5], writable: true}
+  - {key: x.grid_on_power_soft_start, label: Grid-on power soft start enable, table: holding, address: 21, type: u16, bits: [6, 6], writable: true}
+  - {key: x.ac_charge_enable, label: AC (grid) charging enable, table: holding, address: 21, type: u16, bits: [7, 7], writable: true}
+  - {key: x.seamless_switching_enable, label: Seamless grid/off-grid switching enable, table: holding, address: 21, type: u16, bits: [8, 8], writable: true}
+  - {key: x.power_on, label: Power on control, table: holding, address: 21, type: u16, bits: [9, 9], enum: power_on, writable: true}
+  - {key: x.forced_discharge_enable, label: Forced battery discharge enable, table: holding, address: 21, type: u16, bits: [10, 10], writable: true}
+  - {key: x.forced_charge_enable, label: Forced PV charge enable (PV Charge Priority in HA), table: holding, address: 21, type: u16, bits: [11, 11], writable: true}
+  - {key: x.isolation_detect_enable, label: PV isolation detection enable, table: holding, address: 21, type: u16, bits: [12, 12], writable: true}
+  - {key: x.gfci_enable, label: Ground fault circuit interrupter enable, table: holding, address: 21, type: u16, bits: [13, 13], writable: true}
+  - {key: x.dci_enable, label: DC injection detection enable, table: holding, address: 21, type: u16, bits: [14, 14], writable: true}
+  - {key: x.feed_in_grid_enable, label: Feed-in (export) to grid enable, table: holding, address: 21, type: u16, bits: [15, 15], writable: true}
+  - {key: x.pv_start_voltage, label: PV start-up voltage, table: holding, address: 22, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_connection_wait_time, label: Grid connection wait time after power-up, table: holding, address: 23, type: u16, unit: s, writable: true}
+  - {key: x.grid_reconnection_wait_time, label: Grid reconnection wait time after fault, table: holding, address: 24, type: u16, unit: s, writable: true}
+  - {key: x.grid_voltage_connection_low, label: Grid voltage connection low limit, table: holding, address: 25, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.lsp_whole_bypass_1_enable, label: LSP whole-day bypass period 1 enable, table: holding, address: 26, type: u16, bits: [0, 0], writable: true}
+  - {key: x.lsp_whole_bypass_2_enable, label: LSP whole-day bypass period 2 enable, table: holding, address: 26, type: u16, bits: [1, 1], writable: true}
+  - {key: x.lsp_whole_bypass_3_enable, label: LSP whole-day bypass period 3 enable, table: holding, address: 26, type: u16, bits: [2, 2], writable: true}
+  - {key: x.lsp_whole_battery_first_1_enable, label: LSP whole-day battery-first period 1 enable, table: holding, address: 26, type: u16, bits: [3, 3], writable: true}
+  - {key: x.lsp_whole_battery_first_2_enable, label: LSP whole-day battery-first period 2 enable, table: holding, address: 26, type: u16, bits: [4, 4], writable: true}
+  - {key: x.lsp_whole_battery_first_3_enable, label: LSP whole-day battery-first period 3 enable, table: holding, address: 26, type: u16, bits: [5, 5], writable: true}
+  - {key: x.lsp_whole_self_consumption_1_enable, label: LSP whole-day self-consumption period 1 enable, table: holding, address: 26, type: u16, bits: [6, 6], writable: true}
+  - {key: x.lsp_whole_self_consumption_2_enable, label: LSP whole-day self-consumption period 2 enable, table: holding, address: 26, type: u16, bits: [7, 7], writable: true}
+  - {key: x.lsp_whole_self_consumption_3_enable, label: LSP whole-day self-consumption period 3 enable, table: holding, address: 26, type: u16, bits: [8, 8], writable: true}
+  - {key: x.lsp_battery_volt_or_soc, label: LSP battery control mode, table: holding, address: 26, type: u16, bits: [9, 9], enum: lsp_battery_volt_or_soc, writable: true}
+  - {key: x.grid_frequency_connection_low, label: Grid frequency connection low limit, table: holding, address: 27, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.grid_frequency_connection_high, label: Grid frequency connection high limit, table: holding, address: 28, type: u16, unit: Hz, scale: 0.01, writable: true}
+  - {key: x.reactive_power_mode, label: Reactive power control mode (0-4), table: holding, address: 59, type: u16, writable: true}
+  - {key: x.reactive_power_pv_mode, label: PV reactive power control mode (0-4), table: holding, address: 60, type: u16, writable: true}
+  - {key: x.reactive_power_setting, label: Reactive power percentage setting, table: holding, address: 61, type: s16, unit: '%', writable: true}
+  - {key: x.reactive_power_pv_setting, label: PV reactive power percentage setting, table: holding, address: 62, type: s16, unit: '%', writable: true}
+  - {key: x.charge_power_percent, label: PV/battery charge power percentage, table: holding, address: 64, type: u16, unit: '%', writable: true}
+  - {key: x.discharge_power_percent, label: Battery discharge power percentage, table: holding, address: 65, type: u16, unit: '%', writable: true}
+  - {key: x.ac_charge_power, label: AC charge power, table: holding, address: 66, type: u16, unit: W, scale: 100, writable: true}
+  - {key: x.ac_charge_soc_limit, label: AC charge SOC limit, table: holding, address: 67, type: u16, unit: '%', writable: true}
+  - {key: x.ac_charge_start_hour_1, label: AC charge time period 1 start hour, table: holding, address: 68, type: u16, writable: true}
+  - {key: x.ac_charge_start_minute_1, label: AC charge time period 1 start minute, table: holding, address: 69, type: u16, writable: true}
+  - {key: x.ac_charge_end_hour_1, label: AC charge time period 1 end hour, table: holding, address: 70, type: u16, writable: true}
+  - {key: x.ac_charge_end_minute_1, label: AC charge time period 1 end minute, table: holding, address: 71, type: u16, writable: true}
+  - {key: x.ac_charge_enable_period_1, label: AC charge time period 1 enable, table: holding, address: 72, type: u16, enum: ac_charge_enable_period_1, writable: true}
+  - {key: x.ac_charge_enable_period_2, label: AC charge time period 2 enable, table: holding, address: 73, type: u16, enum: ac_charge_enable_period_2, writable: true}
+  - {key: x.forced_charge_power_command, label: Forced/PV charge (ChgFirst) power command, table: holding, address: 74, type: u16, unit: W, scale: 100, writable: true}
+  - {key: x.forced_charge_soc_limit, label: Forced charge SOC limit, table: holding, address: 75, type: u16, unit: '%', writable: true}
+  - {key: x.forced_charge_time_0_start, label: Forced charge period 0 start (packed hour|minute), table: holding, address: 76, type: u16, writable: true}
+  - {key: x.forced_charge_time_0_end, label: Forced charge period 0 end (packed hour|minute), table: holding, address: 77, type: u16, writable: true}
+  - {key: x.forced_charge_time_1_start, label: Forced charge period 1 start (packed hour|minute), table: holding, address: 78, type: u16, writable: true}
+  - {key: x.forced_charge_time_1_end, label: Forced charge period 1 end (packed hour|minute), table: holding, address: 79, type: u16, writable: true}
+  - {key: x.forced_charge_time_2_start, label: Forced charge period 2 start (packed hour|minute), table: holding, address: 80, type: u16, writable: true}
+  - {key: x.forced_charge_time_2_end, label: Forced charge period 2 end (packed hour|minute), table: holding, address: 81, type: u16, writable: true}
+  - {key: x.forced_discharge_power_command, label: Forced discharge power command, table: holding, address: 82, type: u16, unit: W, scale: 100, writable: true}
+  - {key: x.forced_discharge_soc_limit, label: Forced discharge SOC limit, table: holding, address: 83, type: u16, unit: '%', writable: true}
+  - {key: x.forced_discharge_time_0_start, label: Forced discharge period 0 start (packed hour|minute), table: holding, address: 84, type: u16, writable: true}
+  - {key: x.forced_discharge_time_0_end, label: Forced discharge period 0 end (packed hour|minute), table: holding, address: 85, type: u16, writable: true}
+  - {key: x.forced_discharge_time_1_start, label: Forced discharge period 1 start (packed hour|minute), table: holding, address: 86, type: u16, writable: true}
+  - {key: x.forced_discharge_time_1_end, label: Forced discharge period 1 end (packed hour|minute), table: holding, address: 87, type: u16, writable: true}
+  - {key: x.forced_discharge_time_2_start, label: Forced discharge period 2 start (packed hour|minute), table: holding, address: 88, type: u16, writable: true}
+  - {key: x.forced_discharge_time_2_end, label: Forced discharge period 2 end (packed hour|minute), table: holding, address: 89, type: u16, writable: true}
+  - {key: x.output_voltage_select, label: Inverter output voltage, table: holding, address: 90, type: u16, enum: output_voltage_select, writable: true}
+  - {key: x.output_frequency_select, label: Inverter output frequency, table: holding, address: 91, type: u16, enum: output_frequency_select, writable: true}
+  - {key: x.charge_voltage_ref, label: Battery charge voltage reference (max charge voltage), table: holding, address: 99, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.discharge_cutoff_voltage, label: Battery discharge cutoff voltage, table: holding, address: 100, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.charge_current_limit, label: Maximum battery charge current, table: holding, address: 101, type: u16, unit: A, writable: true}
+  - {key: x.discharge_current_limit, label: Maximum battery discharge current, table: holding, address: 102, type: u16, unit: A, writable: true}
+  - {key: x.max_backflow_power_percent, label: Maximum export (sell-back) power, table: holding, address: 103, type: u16, unit: W, scale: 100, writable: true}
+  - {key: x.ongrid_discharge_cutoff_soc, label: On-grid end-of-discharge SOC cutoff, table: holding, address: 105, type: u16, unit: '%', writable: true}
+  - {key: x.pv_grid_off_enable, label: PV grid-off enable (disconnect PV when grid lost), table: holding, address: 110, type: u16, bits: [0, 0], writable: true}
+  - {key: x.run_without_grid, label: Fast Zero Export, table: holding, address: 110, type: u16, bits: [1, 1], writable: true}
+  - {key: x.micro_grid_enable, label: Micro-grid mode enable, table: holding, address: 110, type: u16, bits: [2, 2], writable: true}
+  - {key: x.battery_shared, label: Battery shared mode (parallel systems), table: holding, address: 110, type: u16, bits: [3, 3], writable: true}
+  - {key: x.charge_last, label: Charge last mode, table: holding, address: 110, type: u16, bits: [4, 4], writable: true}
+  - {key: x.buzzer_enable, label: Audible buzzer enable for alarms, table: holding, address: 110, type: u16, bits: [7, 7], writable: true}
+  - {key: x.take_load_together, label: Take load together mode (parallel load sharing), table: holding, address: 110, type: u16, bits: [10, 10], writable: true}
+  - {key: x.green_mode_enable, label: Green/off-grid mode enable (independent from EPS in reg 21), table: holding, address: 110, type: u16, bits: [14, 14], writable: true}
+  - {key: x.battery_eco_enable, label: Battery eco mode, table: holding, address: 110, type: u16, bits: [15, 15], writable: true}
+  - {key: x.system_type, label: Parallel system type, table: holding, address: 112, type: u16, enum: system_type, writable: true}
+  - {key: x.ptouser_start_discharge, label: Power-to-user threshold to start battery discharge, table: holding, address: 116, type: u16, unit: W, writable: true}
+  - {key: x.voltage_start_derating, label: Voltage threshold to start power derating, table: holding, address: 118, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.power_offset_wct, label: CT power offset calibration (signed), table: holding, address: 119, type: s16, unit: W, writable: true}
+  - {key: x.half_hour_ac_charge_start_enable, label: Half-hour AC charge start enable, table: holding, address: 120, type: u16, bits: [0, 0], writable: true}
+  - {key: x.ac_charge_type, label: AC charge type selector (bits 1-3), table: holding, address: 120, type: u16, bits: [1, 3], writable: true}
+  - {key: x.discharge_control_type, label: Discharge control type selector (bits 4-5), table: holding, address: 120, type: u16, bits: [4, 5], writable: true}
+  - {key: x.ongrid_eod_type, label: On-grid end-of-discharge type, table: holding, address: 120, type: u16, bits: [6, 6], enum: ongrid_eod_type, writable: true}
+  - {key: x.generator_charge_type, label: Generator charge type selection bit, table: holding, address: 120, type: u16, bits: [7, 7], writable: true}
+  - {key: x.offgrid_discharge_cutoff_soc, label: Off-grid/EPS discharge SOC low limit, table: holding, address: 125, type: u16, unit: '%', writable: true}
+  - {key: x.float_charge_voltage, label: Float (maintenance) charge voltage, table: holding, address: 144, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.output_priority, label: Output source priority, table: holding, address: 145, type: u16, enum: output_priority, writable: true}
+  - {key: x.line_mode, label: AC input line mode, table: holding, address: 146, type: u16, enum: line_mode, writable: true}
+  - {key: x.battery_capacity, label: Battery bank total capacity, table: holding, address: 147, type: u16, unit: Ah, writable: true}
+  - {key: x.battery_nominal_voltage, label: Battery bank nominal voltage, table: holding, address: 148, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.equalization_voltage, label: Equalization charge voltage, table: holding, address: 149, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.equalization_interval, label: Equalization charge interval in days, table: holding, address: 150, type: u16, unit: d, writable: true}
+  - {key: x.equalization_time, label: Equalization charge duration in hours, table: holding, address: 151, type: u16, unit: h, writable: true}
+  - {key: x.ac_charge_start_voltage, label: Battery voltage to start AC charging, table: holding, address: 158, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.ac_charge_end_voltage, label: Battery voltage to stop AC charging, table: holding, address: 159, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.ac_charge_start_soc, label: Battery SOC to start AC charging, table: holding, address: 160, type: u16, unit: '%', writable: true}
+  - {key: x.ac_charge_end_soc, label: Battery SOC to stop AC charging, table: holding, address: 161, type: u16, unit: '%', writable: true}
+  - {key: x.battery_low_voltage, label: Battery low voltage alarm threshold, table: holding, address: 162, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.battery_low_back_voltage, label: Battery low-back (recovery) voltage, table: holding, address: 163, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.battery_low_soc, label: Battery low SOC alarm threshold, table: holding, address: 164, type: u16, unit: '%', writable: true}
+  - {key: x.battery_low_back_soc, label: Battery low-back (recovery) SOC, table: holding, address: 165, type: u16, unit: '%', writable: true}
+  - {key: x.battery_low_to_utility_voltage, label: Battery voltage to switch from battery to utility, table: holding, address: 166, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.battery_low_to_utility_soc, label: Battery SOC to switch from battery to utility, table: holding, address: 167, type: u16, unit: '%', writable: true}
+  - {key: x.ac_charge_battery_current, label: Maximum AC charge battery current, table: holding, address: 168, type: u16, unit: A, writable: true}
+  - {key: x.ongrid_eod_voltage, label: On-grid end-of-discharge voltage, table: holding, address: 169, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.max_grid_input_power, label: Maximum grid input power limit, table: holding, address: 176, type: u16, unit: W, writable: true}
+  - {key: x.generator_rated_power, label: Generator rated power for charge control, table: holding, address: 177, type: u16, unit: W, writable: true}
+  - {key: x.ac_ct_direction, label: 'AC CT direction (0=Normal, 1=Reversed)', table: holding, address: 179, type: u16, bits: [0, 0], enum: ac_ct_direction, writable: true}
+  - {key: x.pv_ct_direction, label: 'PV CT direction (0=Normal, 1=Reversed)', table: holding, address: 179, type: u16, bits: [1, 1], enum: pv_ct_direction, writable: true}
+  - {key: x.afci_alarm_clear, label: AFCI alarm clear, table: holding, address: 179, type: u16, bits: [2, 2], writable: true}
+  - {key: x.battery_wakeup_enable, label: Battery wakeup / PV sell first enable, table: holding, address: 179, type: u16, bits: [3, 3], writable: true}
+  - {key: x.volt_watt_enable, label: Volt-Watt response mode enable, table: holding, address: 179, type: u16, bits: [4, 4], writable: true}
+  - {key: x.trip_time_unit, label: Trip time unit selection, table: holding, address: 179, type: u16, bits: [5, 5], writable: true}
+  - {key: x.active_power_cmd_enable, label: Active power command enable, table: holding, address: 179, type: u16, bits: [6, 6], writable: true}
+  - {key: x.grid_peak_shaving_enable, label: Grid peak shaving enable, table: holding, address: 179, type: u16, bits: [7, 7], writable: true}
+  - {key: x.gen_peak_shaving_enable, label: Generator peak shaving enable, table: holding, address: 179, type: u16, bits: [8, 8], writable: true}
+  - {key: x.battery_charge_control, label: 'Battery charge control mode (0=SOC, 1=Voltage)', table: holding, address: 179, type: u16, bits: [9, 9], enum: battery_charge_control, writable: true}
+  - {key: x.battery_discharge_control, label: 'Battery discharge control mode (0=SOC, 1=Voltage)', table: holding, address: 179, type: u16, bits: [10, 10], enum: battery_discharge_control, writable: true}
+  - {key: x.ac_coupling_enable, label: AC coupling enable, table: holding, address: 179, type: u16, bits: [11, 11], writable: true}
+  - {key: x.pv_arc_enable, label: PV arc detection enable, table: holding, address: 179, type: u16, bits: [12, 12], writable: true}
+  - {key: x.smart_load_enable, label: 'Smart load enable (0=Generator, 1=Smart Load)', table: holding, address: 179, type: u16, bits: [13, 13], enum: smart_load_enable, writable: true}
+  - {key: x.rsd_disable, label: 'Rapid shutdown disable (0=RSD enabled, 1=RSD disabled)', table: holding, address: 179, type: u16, bits: [14, 14], enum: rsd_disable, writable: true}
+  - {key: x.ongrid_always_on, label: On-grid always on, table: holding, address: 179, type: u16, bits: [15, 15], writable: true}
+  - {key: x.hold_p2, label: Hold register P2 (purpose under investigation), table: holding, address: 190, type: u16, writable: true}
+  - {key: x.gen_charge_start_voltage, label: Generator charge start voltage, table: holding, address: 194, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.gen_charge_end_voltage, label: Generator charge end voltage, table: holding, address: 195, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.gen_charge_start_soc, label: Generator charge start SOC, table: holding, address: 196, type: u16, unit: '%', writable: true}
+  - {key: x.gen_charge_end_soc, label: Generator charge end SOC, table: holding, address: 197, type: u16, unit: '%', writable: true}
+  - {key: x.max_gen_charge_battery_current, label: Maximum generator charge battery current, table: holding, address: 198, type: u16, unit: A, writable: true}
+  - {key: x.stop_discharge_voltage, label: Forced-discharge stop voltage, table: holding, address: 202, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_peak_shaving_power, label: 'Grid peak shaving power limit, time period 1', table: holding, address: 206, type: u16, unit: W, scale: 100, writable: true}
+  - {key: x.grid_peak_shaving_soc, label: 'Grid peak shaving SOC threshold, time period 1', table: holding, address: 207, type: u16, unit: '%', writable: true}
+  - {key: x.grid_peak_shaving_volt, label: 'Grid peak shaving battery voltage threshold, time period 1', table: holding, address: 208, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_peak_shaving_soc_2, label: 'Grid peak shaving SOC threshold, time period 2', table: holding, address: 218, type: u16, unit: '%', writable: true}
+  - {key: x.grid_peak_shaving_volt_2, label: 'Grid peak shaving battery voltage threshold, time period 2', table: holding, address: 219, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.system_charge_soc_limit, label: System charge SOC limit (0-101%; 101 = top balancing / never stop), table: holding, address: 227, type: u16, unit: '%', writable: true}
+  - {key: x.system_charge_volt_limit, label: System-level charge voltage limit (stops all charging at this voltage), table: holding, address: 228, type: u16, unit: V, scale: 0.1, writable: true}
+  - {key: x.grid_peak_shaving_power_2, label: 'Grid peak shaving power limit, time period 2', table: holding, address: 232, type: u16, unit: W, scale: 100, writable: true}
+  - {key: x.quick_charge_start_enable, label: Quick charge start enable, table: holding, address: 233, type: u16, bits: [0, 0], writable: true}
+  - {key: x.battery_backup_enable, label: 'Battery backup control (distinct from EPS enable, reg 21 bit 0)', table: holding, address: 233, type: u16, bits: [1, 1], writable: true}
+  - {key: x.maintenance_enable, label: Maintenance mode enable, table: holding, address: 233, type: u16, bits: [2, 2], writable: true}
+  - {key: x.weekly_schedule_enable, label: '7-day scheduling mode (0=daily regs 68-89, 1=weekly regs 500-723)', table: holding, address: 233, type: u16, bits: [3, 3], enum: weekly_schedule_enable, writable: true}
+  - {key: x.over_freq_fast_stop, label: Over-frequency fast stop enable, table: holding, address: 233, type: u16, bits: [10, 10], writable: true}
+  - {key: x.sporadic_charge_enable, label: Sporadic charge enable, table: holding, address: 233, type: u16, bits: [12, 12], writable: true}
+  - {key: x.quick_charge_minute, label: Quick charge duration in minutes, table: holding, address: 234, type: u16, unit: min, writable: true}
+  - {key: x.ac_charge_power_cmd_1_mon, label: 'Ac charge power cmd slot 1, Mon', table: holding, address: 500, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_1_mon, label: 'Ac charge volt limit slot 1, Mon', table: holding, address: 501, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_1_mon, label: 'Ac charge time start slot 1, Mon', table: holding, address: 502, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_1_mon, label: 'Ac charge time end slot 1, Mon', table: holding, address: 503, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_2_mon, label: 'Ac charge power cmd slot 2, Mon', table: holding, address: 504, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_2_mon, label: 'Ac charge volt limit slot 2, Mon', table: holding, address: 505, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_2_mon, label: 'Ac charge time start slot 2, Mon', table: holding, address: 506, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_2_mon, label: 'Ac charge time end slot 2, Mon', table: holding, address: 507, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_1_tue, label: 'Ac charge power cmd slot 1, Tue', table: holding, address: 508, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_1_tue, label: 'Ac charge volt limit slot 1, Tue', table: holding, address: 509, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_1_tue, label: 'Ac charge time start slot 1, Tue', table: holding, address: 510, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_1_tue, label: 'Ac charge time end slot 1, Tue', table: holding, address: 511, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_2_tue, label: 'Ac charge power cmd slot 2, Tue', table: holding, address: 512, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_2_tue, label: 'Ac charge volt limit slot 2, Tue', table: holding, address: 513, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_2_tue, label: 'Ac charge time start slot 2, Tue', table: holding, address: 514, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_2_tue, label: 'Ac charge time end slot 2, Tue', table: holding, address: 515, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_1_wed, label: 'Ac charge power cmd slot 1, Wed', table: holding, address: 516, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_1_wed, label: 'Ac charge volt limit slot 1, Wed', table: holding, address: 517, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_1_wed, label: 'Ac charge time start slot 1, Wed', table: holding, address: 518, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_1_wed, label: 'Ac charge time end slot 1, Wed', table: holding, address: 519, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_2_wed, label: 'Ac charge power cmd slot 2, Wed', table: holding, address: 520, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_2_wed, label: 'Ac charge volt limit slot 2, Wed', table: holding, address: 521, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_2_wed, label: 'Ac charge time start slot 2, Wed', table: holding, address: 522, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_2_wed, label: 'Ac charge time end slot 2, Wed', table: holding, address: 523, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_1_thu, label: 'Ac charge power cmd slot 1, Thu', table: holding, address: 524, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_1_thu, label: 'Ac charge volt limit slot 1, Thu', table: holding, address: 525, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_1_thu, label: 'Ac charge time start slot 1, Thu', table: holding, address: 526, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_1_thu, label: 'Ac charge time end slot 1, Thu', table: holding, address: 527, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_2_thu, label: 'Ac charge power cmd slot 2, Thu', table: holding, address: 528, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_2_thu, label: 'Ac charge volt limit slot 2, Thu', table: holding, address: 529, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_2_thu, label: 'Ac charge time start slot 2, Thu', table: holding, address: 530, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_2_thu, label: 'Ac charge time end slot 2, Thu', table: holding, address: 531, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_1_fri, label: 'Ac charge power cmd slot 1, Fri', table: holding, address: 532, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_1_fri, label: 'Ac charge volt limit slot 1, Fri', table: holding, address: 533, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_1_fri, label: 'Ac charge time start slot 1, Fri', table: holding, address: 534, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_1_fri, label: 'Ac charge time end slot 1, Fri', table: holding, address: 535, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_2_fri, label: 'Ac charge power cmd slot 2, Fri', table: holding, address: 536, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_2_fri, label: 'Ac charge volt limit slot 2, Fri', table: holding, address: 537, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_2_fri, label: 'Ac charge time start slot 2, Fri', table: holding, address: 538, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_2_fri, label: 'Ac charge time end slot 2, Fri', table: holding, address: 539, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_1_sat, label: 'Ac charge power cmd slot 1, Sat', table: holding, address: 540, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_1_sat, label: 'Ac charge volt limit slot 1, Sat', table: holding, address: 541, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_1_sat, label: 'Ac charge time start slot 1, Sat', table: holding, address: 542, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_1_sat, label: 'Ac charge time end slot 1, Sat', table: holding, address: 543, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_2_sat, label: 'Ac charge power cmd slot 2, Sat', table: holding, address: 544, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_2_sat, label: 'Ac charge volt limit slot 2, Sat', table: holding, address: 545, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_2_sat, label: 'Ac charge time start slot 2, Sat', table: holding, address: 546, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_2_sat, label: 'Ac charge time end slot 2, Sat', table: holding, address: 547, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_1_sun, label: 'Ac charge power cmd slot 1, Sun', table: holding, address: 548, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_1_sun, label: 'Ac charge volt limit slot 1, Sun', table: holding, address: 549, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_1_sun, label: 'Ac charge time start slot 1, Sun', table: holding, address: 550, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_1_sun, label: 'Ac charge time end slot 1, Sun', table: holding, address: 551, type: u16, writable: true}
+  - {key: x.ac_charge_power_cmd_2_sun, label: 'Ac charge power cmd slot 2, Sun', table: holding, address: 552, type: u16, writable: true}
+  - {key: x.ac_charge_volt_limit_2_sun, label: 'Ac charge volt limit slot 2, Sun', table: holding, address: 553, type: u16, writable: true}
+  - {key: x.ac_charge_time_start_2_sun, label: 'Ac charge time start slot 2, Sun', table: holding, address: 554, type: u16, writable: true}
+  - {key: x.ac_charge_time_end_2_sun, label: 'Ac charge time end slot 2, Sun', table: holding, address: 555, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_1_mon, label: 'Forced charge power cmd slot 1, Mon', table: holding, address: 556, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_1_mon, label: 'Forced charge volt limit slot 1, Mon', table: holding, address: 557, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_1_mon, label: 'Forced charge time start slot 1, Mon', table: holding, address: 558, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_1_mon, label: 'Forced charge time end slot 1, Mon', table: holding, address: 559, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_2_mon, label: 'Forced charge power cmd slot 2, Mon', table: holding, address: 560, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_2_mon, label: 'Forced charge volt limit slot 2, Mon', table: holding, address: 561, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_2_mon, label: 'Forced charge time start slot 2, Mon', table: holding, address: 562, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_2_mon, label: 'Forced charge time end slot 2, Mon', table: holding, address: 563, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_1_tue, label: 'Forced charge power cmd slot 1, Tue', table: holding, address: 564, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_1_tue, label: 'Forced charge volt limit slot 1, Tue', table: holding, address: 565, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_1_tue, label: 'Forced charge time start slot 1, Tue', table: holding, address: 566, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_1_tue, label: 'Forced charge time end slot 1, Tue', table: holding, address: 567, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_2_tue, label: 'Forced charge power cmd slot 2, Tue', table: holding, address: 568, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_2_tue, label: 'Forced charge volt limit slot 2, Tue', table: holding, address: 569, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_2_tue, label: 'Forced charge time start slot 2, Tue', table: holding, address: 570, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_2_tue, label: 'Forced charge time end slot 2, Tue', table: holding, address: 571, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_1_wed, label: 'Forced charge power cmd slot 1, Wed', table: holding, address: 572, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_1_wed, label: 'Forced charge volt limit slot 1, Wed', table: holding, address: 573, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_1_wed, label: 'Forced charge time start slot 1, Wed', table: holding, address: 574, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_1_wed, label: 'Forced charge time end slot 1, Wed', table: holding, address: 575, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_2_wed, label: 'Forced charge power cmd slot 2, Wed', table: holding, address: 576, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_2_wed, label: 'Forced charge volt limit slot 2, Wed', table: holding, address: 577, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_2_wed, label: 'Forced charge time start slot 2, Wed', table: holding, address: 578, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_2_wed, label: 'Forced charge time end slot 2, Wed', table: holding, address: 579, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_1_thu, label: 'Forced charge power cmd slot 1, Thu', table: holding, address: 580, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_1_thu, label: 'Forced charge volt limit slot 1, Thu', table: holding, address: 581, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_1_thu, label: 'Forced charge time start slot 1, Thu', table: holding, address: 582, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_1_thu, label: 'Forced charge time end slot 1, Thu', table: holding, address: 583, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_2_thu, label: 'Forced charge power cmd slot 2, Thu', table: holding, address: 584, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_2_thu, label: 'Forced charge volt limit slot 2, Thu', table: holding, address: 585, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_2_thu, label: 'Forced charge time start slot 2, Thu', table: holding, address: 586, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_2_thu, label: 'Forced charge time end slot 2, Thu', table: holding, address: 587, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_1_fri, label: 'Forced charge power cmd slot 1, Fri', table: holding, address: 588, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_1_fri, label: 'Forced charge volt limit slot 1, Fri', table: holding, address: 589, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_1_fri, label: 'Forced charge time start slot 1, Fri', table: holding, address: 590, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_1_fri, label: 'Forced charge time end slot 1, Fri', table: holding, address: 591, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_2_fri, label: 'Forced charge power cmd slot 2, Fri', table: holding, address: 592, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_2_fri, label: 'Forced charge volt limit slot 2, Fri', table: holding, address: 593, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_2_fri, label: 'Forced charge time start slot 2, Fri', table: holding, address: 594, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_2_fri, label: 'Forced charge time end slot 2, Fri', table: holding, address: 595, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_1_sat, label: 'Forced charge power cmd slot 1, Sat', table: holding, address: 596, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_1_sat, label: 'Forced charge volt limit slot 1, Sat', table: holding, address: 597, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_1_sat, label: 'Forced charge time start slot 1, Sat', table: holding, address: 598, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_1_sat, label: 'Forced charge time end slot 1, Sat', table: holding, address: 599, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_2_sat, label: 'Forced charge power cmd slot 2, Sat', table: holding, address: 600, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_2_sat, label: 'Forced charge volt limit slot 2, Sat', table: holding, address: 601, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_2_sat, label: 'Forced charge time start slot 2, Sat', table: holding, address: 602, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_2_sat, label: 'Forced charge time end slot 2, Sat', table: holding, address: 603, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_1_sun, label: 'Forced charge power cmd slot 1, Sun', table: holding, address: 604, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_1_sun, label: 'Forced charge volt limit slot 1, Sun', table: holding, address: 605, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_1_sun, label: 'Forced charge time start slot 1, Sun', table: holding, address: 606, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_1_sun, label: 'Forced charge time end slot 1, Sun', table: holding, address: 607, type: u16, writable: true}
+  - {key: x.forced_charge_power_cmd_2_sun, label: 'Forced charge power cmd slot 2, Sun', table: holding, address: 608, type: u16, writable: true}
+  - {key: x.forced_charge_volt_limit_2_sun, label: 'Forced charge volt limit slot 2, Sun', table: holding, address: 609, type: u16, writable: true}
+  - {key: x.forced_charge_time_start_2_sun, label: 'Forced charge time start slot 2, Sun', table: holding, address: 610, type: u16, writable: true}
+  - {key: x.forced_charge_time_end_2_sun, label: 'Forced charge time end slot 2, Sun', table: holding, address: 611, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_1_mon, label: 'Forced discharge power cmd slot 1, Mon', table: holding, address: 612, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_1_mon, label: 'Forced discharge volt limit slot 1, Mon', table: holding, address: 613, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_1_mon, label: 'Forced discharge time start slot 1, Mon', table: holding, address: 614, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_1_mon, label: 'Forced discharge time end slot 1, Mon', table: holding, address: 615, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_2_mon, label: 'Forced discharge power cmd slot 2, Mon', table: holding, address: 616, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_2_mon, label: 'Forced discharge volt limit slot 2, Mon', table: holding, address: 617, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_2_mon, label: 'Forced discharge time start slot 2, Mon', table: holding, address: 618, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_2_mon, label: 'Forced discharge time end slot 2, Mon', table: holding, address: 619, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_1_tue, label: 'Forced discharge power cmd slot 1, Tue', table: holding, address: 620, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_1_tue, label: 'Forced discharge volt limit slot 1, Tue', table: holding, address: 621, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_1_tue, label: 'Forced discharge time start slot 1, Tue', table: holding, address: 622, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_1_tue, label: 'Forced discharge time end slot 1, Tue', table: holding, address: 623, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_2_tue, label: 'Forced discharge power cmd slot 2, Tue', table: holding, address: 624, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_2_tue, label: 'Forced discharge volt limit slot 2, Tue', table: holding, address: 625, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_2_tue, label: 'Forced discharge time start slot 2, Tue', table: holding, address: 626, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_2_tue, label: 'Forced discharge time end slot 2, Tue', table: holding, address: 627, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_1_wed, label: 'Forced discharge power cmd slot 1, Wed', table: holding, address: 628, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_1_wed, label: 'Forced discharge volt limit slot 1, Wed', table: holding, address: 629, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_1_wed, label: 'Forced discharge time start slot 1, Wed', table: holding, address: 630, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_1_wed, label: 'Forced discharge time end slot 1, Wed', table: holding, address: 631, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_2_wed, label: 'Forced discharge power cmd slot 2, Wed', table: holding, address: 632, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_2_wed, label: 'Forced discharge volt limit slot 2, Wed', table: holding, address: 633, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_2_wed, label: 'Forced discharge time start slot 2, Wed', table: holding, address: 634, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_2_wed, label: 'Forced discharge time end slot 2, Wed', table: holding, address: 635, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_1_thu, label: 'Forced discharge power cmd slot 1, Thu', table: holding, address: 636, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_1_thu, label: 'Forced discharge volt limit slot 1, Thu', table: holding, address: 637, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_1_thu, label: 'Forced discharge time start slot 1, Thu', table: holding, address: 638, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_1_thu, label: 'Forced discharge time end slot 1, Thu', table: holding, address: 639, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_2_thu, label: 'Forced discharge power cmd slot 2, Thu', table: holding, address: 640, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_2_thu, label: 'Forced discharge volt limit slot 2, Thu', table: holding, address: 641, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_2_thu, label: 'Forced discharge time start slot 2, Thu', table: holding, address: 642, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_2_thu, label: 'Forced discharge time end slot 2, Thu', table: holding, address: 643, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_1_fri, label: 'Forced discharge power cmd slot 1, Fri', table: holding, address: 644, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_1_fri, label: 'Forced discharge volt limit slot 1, Fri', table: holding, address: 645, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_1_fri, label: 'Forced discharge time start slot 1, Fri', table: holding, address: 646, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_1_fri, label: 'Forced discharge time end slot 1, Fri', table: holding, address: 647, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_2_fri, label: 'Forced discharge power cmd slot 2, Fri', table: holding, address: 648, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_2_fri, label: 'Forced discharge volt limit slot 2, Fri', table: holding, address: 649, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_2_fri, label: 'Forced discharge time start slot 2, Fri', table: holding, address: 650, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_2_fri, label: 'Forced discharge time end slot 2, Fri', table: holding, address: 651, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_1_sat, label: 'Forced discharge power cmd slot 1, Sat', table: holding, address: 652, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_1_sat, label: 'Forced discharge volt limit slot 1, Sat', table: holding, address: 653, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_1_sat, label: 'Forced discharge time start slot 1, Sat', table: holding, address: 654, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_1_sat, label: 'Forced discharge time end slot 1, Sat', table: holding, address: 655, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_2_sat, label: 'Forced discharge power cmd slot 2, Sat', table: holding, address: 656, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_2_sat, label: 'Forced discharge volt limit slot 2, Sat', table: holding, address: 657, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_2_sat, label: 'Forced discharge time start slot 2, Sat', table: holding, address: 658, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_2_sat, label: 'Forced discharge time end slot 2, Sat', table: holding, address: 659, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_1_sun, label: 'Forced discharge power cmd slot 1, Sun', table: holding, address: 660, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_1_sun, label: 'Forced discharge volt limit slot 1, Sun', table: holding, address: 661, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_1_sun, label: 'Forced discharge time start slot 1, Sun', table: holding, address: 662, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_1_sun, label: 'Forced discharge time end slot 1, Sun', table: holding, address: 663, type: u16, writable: true}
+  - {key: x.forced_discharge_power_cmd_2_sun, label: 'Forced discharge power cmd slot 2, Sun', table: holding, address: 664, type: u16, writable: true}
+  - {key: x.forced_discharge_volt_limit_2_sun, label: 'Forced discharge volt limit slot 2, Sun', table: holding, address: 665, type: u16, writable: true}
+  - {key: x.forced_discharge_time_start_2_sun, label: 'Forced discharge time start slot 2, Sun', table: holding, address: 666, type: u16, writable: true}
+  - {key: x.forced_discharge_time_end_2_sun, label: 'Forced discharge time end slot 2, Sun', table: holding, address: 667, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_1_mon, label: 'Peak shaving power cmd slot 1, Mon', table: holding, address: 668, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_1_mon, label: 'Peak shaving volt limit slot 1, Mon', table: holding, address: 669, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_1_mon, label: 'Peak shaving time start slot 1, Mon', table: holding, address: 670, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_1_mon, label: 'Peak shaving time end slot 1, Mon', table: holding, address: 671, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_2_mon, label: 'Peak shaving power cmd slot 2, Mon', table: holding, address: 672, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_2_mon, label: 'Peak shaving volt limit slot 2, Mon', table: holding, address: 673, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_2_mon, label: 'Peak shaving time start slot 2, Mon', table: holding, address: 674, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_2_mon, label: 'Peak shaving time end slot 2, Mon', table: holding, address: 675, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_1_tue, label: 'Peak shaving power cmd slot 1, Tue', table: holding, address: 676, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_1_tue, label: 'Peak shaving volt limit slot 1, Tue', table: holding, address: 677, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_1_tue, label: 'Peak shaving time start slot 1, Tue', table: holding, address: 678, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_1_tue, label: 'Peak shaving time end slot 1, Tue', table: holding, address: 679, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_2_tue, label: 'Peak shaving power cmd slot 2, Tue', table: holding, address: 680, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_2_tue, label: 'Peak shaving volt limit slot 2, Tue', table: holding, address: 681, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_2_tue, label: 'Peak shaving time start slot 2, Tue', table: holding, address: 682, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_2_tue, label: 'Peak shaving time end slot 2, Tue', table: holding, address: 683, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_1_wed, label: 'Peak shaving power cmd slot 1, Wed', table: holding, address: 684, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_1_wed, label: 'Peak shaving volt limit slot 1, Wed', table: holding, address: 685, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_1_wed, label: 'Peak shaving time start slot 1, Wed', table: holding, address: 686, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_1_wed, label: 'Peak shaving time end slot 1, Wed', table: holding, address: 687, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_2_wed, label: 'Peak shaving power cmd slot 2, Wed', table: holding, address: 688, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_2_wed, label: 'Peak shaving volt limit slot 2, Wed', table: holding, address: 689, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_2_wed, label: 'Peak shaving time start slot 2, Wed', table: holding, address: 690, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_2_wed, label: 'Peak shaving time end slot 2, Wed', table: holding, address: 691, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_1_thu, label: 'Peak shaving power cmd slot 1, Thu', table: holding, address: 692, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_1_thu, label: 'Peak shaving volt limit slot 1, Thu', table: holding, address: 693, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_1_thu, label: 'Peak shaving time start slot 1, Thu', table: holding, address: 694, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_1_thu, label: 'Peak shaving time end slot 1, Thu', table: holding, address: 695, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_2_thu, label: 'Peak shaving power cmd slot 2, Thu', table: holding, address: 696, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_2_thu, label: 'Peak shaving volt limit slot 2, Thu', table: holding, address: 697, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_2_thu, label: 'Peak shaving time start slot 2, Thu', table: holding, address: 698, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_2_thu, label: 'Peak shaving time end slot 2, Thu', table: holding, address: 699, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_1_fri, label: 'Peak shaving power cmd slot 1, Fri', table: holding, address: 700, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_1_fri, label: 'Peak shaving volt limit slot 1, Fri', table: holding, address: 701, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_1_fri, label: 'Peak shaving time start slot 1, Fri', table: holding, address: 702, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_1_fri, label: 'Peak shaving time end slot 1, Fri', table: holding, address: 703, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_2_fri, label: 'Peak shaving power cmd slot 2, Fri', table: holding, address: 704, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_2_fri, label: 'Peak shaving volt limit slot 2, Fri', table: holding, address: 705, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_2_fri, label: 'Peak shaving time start slot 2, Fri', table: holding, address: 706, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_2_fri, label: 'Peak shaving time end slot 2, Fri', table: holding, address: 707, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_1_sat, label: 'Peak shaving power cmd slot 1, Sat', table: holding, address: 708, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_1_sat, label: 'Peak shaving volt limit slot 1, Sat', table: holding, address: 709, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_1_sat, label: 'Peak shaving time start slot 1, Sat', table: holding, address: 710, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_1_sat, label: 'Peak shaving time end slot 1, Sat', table: holding, address: 711, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_2_sat, label: 'Peak shaving power cmd slot 2, Sat', table: holding, address: 712, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_2_sat, label: 'Peak shaving volt limit slot 2, Sat', table: holding, address: 713, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_2_sat, label: 'Peak shaving time start slot 2, Sat', table: holding, address: 714, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_2_sat, label: 'Peak shaving time end slot 2, Sat', table: holding, address: 715, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_1_sun, label: 'Peak shaving power cmd slot 1, Sun', table: holding, address: 716, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_1_sun, label: 'Peak shaving volt limit slot 1, Sun', table: holding, address: 717, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_1_sun, label: 'Peak shaving time start slot 1, Sun', table: holding, address: 718, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_1_sun, label: 'Peak shaving time end slot 1, Sun', table: holding, address: 719, type: u16, writable: true}
+  - {key: x.peak_shaving_power_cmd_2_sun, label: 'Peak shaving power cmd slot 2, Sun', table: holding, address: 720, type: u16, writable: true}
+  - {key: x.peak_shaving_volt_limit_2_sun, label: 'Peak shaving volt limit slot 2, Sun', table: holding, address: 721, type: u16, writable: true}
+  - {key: x.peak_shaving_time_start_2_sun, label: 'Peak shaving time start slot 2, Sun', table: holding, address: 722, type: u16, writable: true}
+  - {key: x.peak_shaving_time_end_2_sun, label: 'Peak shaving time end slot 2, Sun', table: holding, address: 723, type: u16, writable: true}
+  - {key: state, label: Operating State, table: input, address: 0, type: u16, enum: operating_state, sources: [eg4-web-monitor, pylxpweb]}
+  - {key: x.pv1_voltage, label: PV string 1 voltage, table: input, address: 1, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_voltage, label: PV string 2 voltage, table: input, address: 2, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv3_voltage, label: PV string 3 voltage, table: input, address: 3, type: u16, unit: V, scale: 0.1}
+  - {key: battery_voltage, label: Battery pack voltage, table: input, address: 4, type: u16, unit: V, scale: 0.1}
+  - {key: battery_soc, label: SOC, table: input, address: 5, type: u16, unit: '%', bits: [0, 7]}
+  - {key: battery_soh, label: SOH, table: input, address: 5, type: u16, unit: '%', bits: [8, 15]}
+  - {key: x.pv1_power, label: PV string 1 power, table: input, address: 7, type: u16, unit: W}
+  - {key: x.pv2_power, label: PV string 2 power, table: input, address: 8, type: u16, unit: W}
+  - {key: x.pv3_power, label: PV string 3 power, table: input, address: 9, type: u16, unit: W}
+  - {key: x.charge_power, label: Battery charging power (power flowing into battery), table: input, address: 10, type: u16, unit: W}
+  - {key: x.discharge_power, label: Battery discharging power (power flowing out of battery), table: input, address: 11, type: u16, unit: W}
+  - {key: x.grid_voltage_r, label: Grid R-phase voltage (L1-L2 on split-phase), table: input, address: 12, type: u16, unit: V, scale: 0.1}
+  - {key: x.grid_voltage_s, label: Grid S-phase voltage (L2-L3 on split-phase), table: input, address: 13, type: u16, unit: V, scale: 0.1}
+  - {key: x.grid_voltage_t, label: Grid T-phase voltage (L3-L1 on split-phase), table: input, address: 14, type: u16, unit: V, scale: 0.1}
+  - {key: frequency, label: Grid/mains frequency, table: input, address: 15, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.inverter_power, label: Inverter output power (Pinv), table: input, address: 16, type: u16, unit: W}
+  - {key: x.rectifier_power, label: AC charging rectifier power (Prec), table: input, address: 17, type: u16, unit: W}
+  - {key: x.inverter_rms_current_r, label: 'Inverter RMS current output, R/L1 phase', table: input, address: 18, type: u16, unit: A, scale: 0.01}
+  - {key: x.power_factor, label: Power factor, table: input, address: 19, type: u16, scale: 0.001, note: 'Raw values above 1000 mean a negative power factor: (1000 − raw) / 1000.'}
+  - {key: x.eps_voltage_r, label: EPS R-phase output voltage, table: input, address: 20, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_voltage_s, label: EPS S-phase output voltage, table: input, address: 21, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_voltage_t, label: EPS T-phase output voltage, table: input, address: 22, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_frequency, label: EPS/off-grid output frequency, table: input, address: 23, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.eps_power, label: EPS/off-grid inverter output power, table: input, address: 24, type: u16, unit: W}
+  - {key: x.eps_apparent_power, label: EPS/off-grid apparent power, table: input, address: 25, type: u16, unit: VA}
+  - {key: x.power_to_grid, label: Power exported to grid (Ptogrid), table: input, address: 26, type: u16, unit: W}
+  - {key: x.power_to_user, label: Power imported from grid (Ptouser), table: input, address: 27, type: u16, unit: W}
+  - {key: x.pv1_energy_today, label: PV1 generation today (Epv1_day), table: input, address: 28, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.pv2_energy_today, label: PV2 generation today (Epv2_day), table: input, address: 29, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.pv3_energy_today, label: PV3 generation today (Epv3_day), table: input, address: 30, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.inverter_energy_today, label: On-grid inverter output energy today (Einv_day), table: input, address: 31, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.ac_charge_energy_today, label: AC charging rectifier energy today (Erec_day), table: input, address: 32, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.charge_energy_today, label: Battery charge energy today (Echg_day), table: input, address: 33, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.discharge_energy_today, label: Battery discharge energy today (Edischg_day), table: input, address: 34, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.eps_energy_today, label: Off-grid output energy today (Eeps_day), table: input, address: 35, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.grid_export_energy_today, label: Export to grid energy today (Etogrid_day), table: input, address: 36, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.grid_import_energy_today, label: Import from grid energy today (Etouser_day), table: input, address: 37, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.bus_voltage_1, label: DC bus 1 voltage, table: input, address: 38, type: u16, unit: V, scale: 0.1}
+  - {key: x.bus_voltage_2, label: DC bus 2 voltage, table: input, address: 39, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_energy_total, label: PV1 cumulative generation (Epv1_all), table: input, address: 40, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.pv2_energy_total, label: PV2 cumulative generation (Epv2_all), table: input, address: 42, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.pv3_energy_total, label: PV3 cumulative generation (Epv3_all), table: input, address: 44, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.inverter_energy_total, label: Cumulative inverter output energy (Einv_all), table: input, address: 46, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.ac_charge_energy_total, label: Cumulative AC charging rectified energy (Erec_all), table: input, address: 48, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.charge_energy_total, label: Cumulative battery charge energy (Echg_all), table: input, address: 50, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.discharge_energy_total, label: Cumulative battery discharge energy (Edischg_all), table: input, address: 52, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.eps_energy_total, label: Cumulative off-grid output energy (Eeps_all), table: input, address: 54, type: u32, unit: kWh, scale: 0.1}
+  - {key: grid_export_energy, label: Cumulative export to grid energy (Etogrid_all), table: input, address: 56, type: u32, unit: kWh, scale: 0.1}
+  - {key: grid_import_energy, label: Cumulative import from grid energy (Etouser_all), table: input, address: 58, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.fault_code, label: Inverter fault code (32-bit bitfield), table: input, address: 60, type: u32, flags: fault_code}
+  - {key: x.warning_code, label: Inverter warning code (32-bit bitfield), table: input, address: 62, type: u32, flags: warning_code}
+  - {key: temperature, label: Internal/ring temperature, table: input, address: 64, type: s16, unit: °C}
+  - {key: x.radiator_temperature_1, label: Radiator temperature 1, table: input, address: 65, type: u16, unit: °C}
+  - {key: x.radiator_temperature_2, label: Radiator temperature 2, table: input, address: 66, type: u16, unit: °C}
+  - {key: battery_temperature, label: Battery temperature, table: input, address: 67, type: u16, unit: °C}
+  - {key: x.battery_control_temperature, label: Battery control temperature, table: input, address: 68, type: u16, unit: °C}
+  - {key: x.running_time, label: Total running time in seconds, table: input, address: 69, type: u32, unit: s}
+  - {key: x.pv1_current, label: PV string 1 current, table: input, address: 72, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv2_current, label: PV string 2 current, table: input, address: 73, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv3_current, label: PV string 3 current, table: input, address: 74, type: u16, unit: A, scale: 0.01}
+  - {key: x.battery_current_inv, label: Battery current (inverter-measured), table: input, address: 75, type: u16, unit: A, scale: 0.01}
+  - {key: x.ac_input_type, label: AC input type bitfield, table: input, address: 77, type: u16}
+  - {key: x.bms_battery_type, label: 'Battery type/brand and communication type (0=CAN, 1=RS485)', table: input, address: 80, type: u16}
+  - {key: x.bms_charge_current_limit, label: 'BMS max charging current (empirical: 0.1A scale, doc says 0.01A)', table: input, address: 81, type: u16, unit: A, scale: 0.1}
+  - {key: x.bms_discharge_current_limit, label: BMS max discharging current, table: input, address: 82, type: u16, unit: A, scale: 0.1}
+  - {key: x.bms_charge_voltage_ref, label: BMS recommended charging voltage, table: input, address: 83, type: u16, unit: V, scale: 0.1}
+  - {key: x.bms_discharge_cutoff, label: BMS recommended discharge cutoff voltage, table: input, address: 84, type: u16, unit: V, scale: 0.1}
+  - {key: x.bms_status_0, label: BMS status register 0, table: input, address: 85, type: u16}
+  - {key: x.bms_status_1, label: BMS status register 1, table: input, address: 86, type: u16}
+  - {key: x.bms_status_2, label: BMS status register 2, table: input, address: 87, type: u16}
+  - {key: x.bms_status_3, label: BMS status register 3, table: input, address: 88, type: u16}
+  - {key: x.bms_status_4, label: BMS status register 4, table: input, address: 89, type: u16}
+  - {key: x.bms_status_5, label: BMS status register 5, table: input, address: 90, type: u16}
+  - {key: x.bms_status_6, label: BMS status register 6, table: input, address: 91, type: u16}
+  - {key: x.bms_status_7, label: BMS status register 7, table: input, address: 92, type: u16}
+  - {key: x.bms_status_8, label: BMS status register 8, table: input, address: 93, type: u16}
+  - {key: x.bms_status_9, label: BMS status register 9, table: input, address: 94, type: u16}
+  - {key: x.battery_status_inv, label: Inverter-aggregated lithium battery status / BMS permission bitmap, table: input, address: 95, type: u16}
+  - {key: x.battery_parallel_count, label: Number of batteries in parallel, table: input, address: 96, type: u16}
+  - {key: x.battery_capacity_ah, label: Battery capacity, table: input, address: 97, type: u16, unit: Ah}
+  - {key: x.battery_current_bms, label: 'Battery current from BMS (signed, 0.1A resolution)', table: input, address: 98, type: s16, unit: A, scale: 0.1}
+  - {key: x.bms_fault_code, label: BMS fault code, table: input, address: 99, type: u16, enum: bms_fault_code}
+  - {key: x.bms_warning_code, label: BMS warning code, table: input, address: 100, type: u16, enum: bms_warning_code}
+  - {key: x.bms_max_cell_voltage, label: Maximum cell voltage (millivolts), table: input, address: 101, type: u16, unit: V, scale: 0.001}
+  - {key: x.bms_min_cell_voltage, label: Minimum cell voltage (millivolts), table: input, address: 102, type: u16, unit: V, scale: 0.001}
+  - {key: x.bms_max_cell_temperature, label: 'Maximum cell temperature (signed, 0.1°C)', table: input, address: 103, type: s16, unit: °C, scale: 0.1}
+  - {key: x.bms_min_cell_temperature, label: 'Minimum cell temperature (signed, 0.1°C)', table: input, address: 104, type: s16, unit: °C, scale: 0.1}
+  - {key: x.bms_fw_update_state, label: 'Bits 0-2: BMS FW update (1=upgrading, 2=ok, 3=fail)', table: input, address: 105, type: u16}
+  - {key: x.bms_cycle_count, label: Charge/discharge cycle count, table: input, address: 106, type: u16}
+  - {key: x.battery_voltage_inv_sample, label: Inverter-sampled battery voltage, table: input, address: 107, type: u16, unit: V, scale: 0.1}
+  - {key: x.temperature_t1, label: Temperature sensor T1 (BT/board temp on 12K models), table: input, address: 108, type: u16, unit: °C, scale: 0.1}
+  - {key: x.temperature_t2, label: Temperature sensor T2 (reserved), table: input, address: 109, type: u16, unit: °C, scale: 0.1}
+  - {key: x.temperature_t3, label: Temperature sensor T3 (reserved), table: input, address: 110, type: u16, unit: °C, scale: 0.1}
+  - {key: x.temperature_t4, label: Temperature sensor T4 (reserved), table: input, address: 111, type: u16, unit: °C, scale: 0.1}
+  - {key: x.temperature_t5, label: Temperature sensor T5 (reserved), table: input, address: 112, type: u16, unit: °C, scale: 0.1}
+  - {key: x.role, label: Role, table: input, address: 113, type: u16, bits: [0, 1]}
+  - {key: x.phase, label: Phase, table: input, address: 113, type: u16, bits: [2, 3]}
+  - {key: x.parallel_num, label: Parallel num, table: input, address: 113, type: u16, bits: [8, 15]}
+  - {key: x.generator_voltage, label: Generator voltage, table: input, address: 121, type: u16, unit: V, scale: 0.1}
+  - {key: x.generator_frequency, label: Generator frequency, table: input, address: 122, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.eps_l1_voltage, label: EPS L1-N voltage (~120V leg), table: input, address: 127, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_l2_voltage, label: EPS L2-N voltage (~120V leg), table: input, address: 128, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_l1_power, label: EPS L1N active power, table: input, address: 129, type: u16, unit: W}
+  - {key: x.eps_l2_power, label: EPS L2N active power, table: input, address: 130, type: u16, unit: W}
+  - {key: x.eps_l1_apparent_power, label: EPS L1N apparent power, table: input, address: 131, type: u16, unit: VA}
+  - {key: x.eps_l2_apparent_power, label: EPS L2N apparent power, table: input, address: 132, type: u16, unit: VA}
+  - {key: x.eps_l1_energy_today, label: EPS L1 energy today (daily counter), table: input, address: 133, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.eps_l2_energy_today, label: EPS L2 energy today (daily counter), table: input, address: 134, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.eps_l1_energy_total, label: EPS L1 cumulative energy (32-bit), table: input, address: 135, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.eps_l2_energy_total, label: EPS L2 cumulative energy (32-bit), table: input, address: 137, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.ac_couple_power, label: AC coupled power, table: input, address: 153, type: u16, unit: W}
+  - {key: x.output_power, label: 'Total output power (Pload, on-grid load output)', table: input, address: 170, type: s16, unit: W}
+  - {key: x.load_energy_today, label: Load energy today (Eload_day), table: input, address: 171, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.load_energy_total, label: 'Load cumulative energy (Eload_all, 32-bit)', table: input, address: 172, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.grid_l1_voltage, label: 'Grid L1-N voltage (~120V, US split-phase)', table: input, address: 193, type: u16, unit: V, scale: 0.1}
+  - {key: x.grid_l2_voltage, label: 'Grid L2-N voltage (~120V, US split-phase)', table: input, address: 194, type: u16, unit: V, scale: 0.1}
+  - {key: x.generator_l1_voltage, label: Generator L1 voltage (US split-phase), table: input, address: 195, type: u16, unit: V, scale: 0.1}
+  - {key: x.generator_l2_voltage, label: Generator L2 voltage (US split-phase), table: input, address: 196, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_power_l1, label: Inverter power L1 (US split-phase per-leg), table: input, address: 197, type: u16, unit: W}
+  - {key: x.inverter_power_l2, label: Inverter power L2 (US split-phase per-leg), table: input, address: 198, type: u16, unit: W}
+  - {key: x.rectifier_power_l1, label: Rectifier power L1 (US split-phase per-leg), table: input, address: 199, type: u16, unit: W}
+  - {key: x.rectifier_power_l2, label: Rectifier power L2 (US split-phase per-leg), table: input, address: 200, type: u16, unit: W}
+  - {key: x.grid_export_power_l1, label: Grid export power L1 (US split-phase per-leg), table: input, address: 201, type: u16, unit: W}
+  - {key: x.grid_export_power_l2, label: Grid export power L2 (US split-phase per-leg), table: input, address: 202, type: u16, unit: W}
+  - {key: x.grid_import_power_l1, label: Grid import power L1 (US split-phase per-leg), table: input, address: 203, type: u16, unit: W}
+  - {key: x.grid_import_power_l2, label: Grid import power L2 (US split-phase per-leg), table: input, address: 204, type: u16, unit: W}
+  - {key: x.quick_charge_remaining_seconds, label: Quick charge remaining time in seconds, table: input, address: 210, type: u16, unit: s}
+  - {key: x.pv4_voltage, label: PV4 voltage (V23 extended), table: input, address: 217, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv5_voltage, label: PV5 voltage (V23 extended), table: input, address: 218, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv6_voltage, label: PV6 voltage (V23 extended), table: input, address: 219, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv4_power, label: PV4 power (V23 extended), table: input, address: 220, type: u16, unit: W}
+  - {key: x.pv5_power, label: PV5 power (V23 extended), table: input, address: 221, type: u16, unit: W}
+  - {key: x.pv6_power, label: PV6 power (V23 extended), table: input, address: 222, type: u16, unit: W}
+  - {key: x.epv4_day, label: PV4 daily energy yield, table: input, address: 223, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.epv4_all, label: 'PV4 cumulative energy yield (32-bit, low word)', table: input, address: 224, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.epv5_day, label: PV5 daily energy yield, table: input, address: 226, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.epv5_all, label: 'PV5 cumulative energy yield (32-bit, low word)', table: input, address: 227, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.epv6_day, label: PV6 daily energy yield, table: input, address: 229, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.epv6_all, label: 'PV6 cumulative energy yield (32-bit, low word)', table: input, address: 230, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.smart_load_power, label: Smart load output power, table: input, address: 232, type: u16, unit: W}
+  - {key: x.battery1_status_header, label: Battery 1 status header, table: input, address: 5002, type: u16}
+  - {key: x.battery1_full_capacity, label: Battery 1 full (rated) capacity in amp-hours, table: input, address: 5003, type: u16, unit: Ah}
+  - {key: x.battery1_charge_voltage_ref, label: Battery 1 BMS recommended charge voltage reference, table: input, address: 5004, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery1_charge_current_limit, label: 'Battery 1 BMS maximum charge current limit (0.1A units, matches input reg 81)', table: input, address: 5005, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery1_discharge_current_limit, label: 'Battery 1 BMS maximum discharge current limit (0.1A units, matches input reg 82)', table: input, address: 5006, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery1_discharge_voltage_cutoff, label: Battery 1 BMS discharge cutoff voltage, table: input, address: 5007, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery1_voltage, label: Battery 1 total voltage, table: input, address: 5008, type: u16, unit: V, scale: 0.01}
+  - {key: x.battery1_current, label: Battery 1 current, table: input, address: 5009, type: s16, unit: A, scale: 0.1, note: 'Positive while the battery charges, negative while it discharges.'}
+  - {key: x.battery1_soc, label: Battery 1 state of charge (low byte of packed SOC/SOH register), table: input, address: 5010, type: u16, unit: '%', bits: [0, 7]}
+  - {key: x.battery1_soh, label: Battery 1 state of health (high byte of packed SOC/SOH register), table: input, address: 5010, type: u16, unit: '%', bits: [8, 15]}
+  - {key: x.battery1_cycle_count, label: Battery 1 charge/discharge cycle count, table: input, address: 5011, type: u16}
+  - {key: x.battery1_max_cell_temp, label: Battery 1 maximum cell temperature across all cells in this module, table: input, address: 5012, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery1_min_cell_temp, label: Battery 1 minimum cell temperature across all cells in this module, table: input, address: 5013, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery1_max_cell_voltage, label: Battery 1 maximum individual cell voltage (raw value in millivolts), table: input, address: 5014, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery1_min_cell_voltage, label: Battery 1 minimum individual cell voltage (raw value in millivolts), table: input, address: 5015, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery1_max_cell_num_temp, label: Battery 1 cell number with highest temperature (low byte), table: input, address: 5016, type: u16, bits: [0, 7]}
+  - {key: x.battery1_min_cell_num_temp, label: Battery 1 cell number with lowest temperature (high byte), table: input, address: 5016, type: u16, bits: [8, 15]}
+  - {key: x.battery1_max_cell_num_voltage, label: Battery 1 cell number with highest voltage (low byte), table: input, address: 5017, type: u16, bits: [0, 7]}
+  - {key: x.battery1_min_cell_num_voltage, label: Battery 1 cell number with lowest voltage (high byte), table: input, address: 5017, type: u16, bits: [8, 15]}
+  - {key: x.battery1_firmware_version_minor, label: Battery 1 firmware version (minor), table: input, address: 5018, type: u16, bits: [0, 7]}
+  - {key: x.battery1_firmware_version_major, label: Battery 1 firmware version (major), table: input, address: 5018, type: u16, bits: [8, 15]}
+  - {key: x.battery2_status_header, label: Battery 2 status header, table: input, address: 5032, type: u16}
+  - {key: x.battery2_full_capacity, label: Battery 2 full (rated) capacity in amp-hours, table: input, address: 5033, type: u16, unit: Ah}
+  - {key: x.battery2_charge_voltage_ref, label: Battery 2 BMS recommended charge voltage reference, table: input, address: 5034, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery2_charge_current_limit, label: 'Battery 2 BMS maximum charge current limit (0.1A units, matches input reg 81)', table: input, address: 5035, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery2_discharge_current_limit, label: 'Battery 2 BMS maximum discharge current limit (0.1A units, matches input reg 82)', table: input, address: 5036, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery2_discharge_voltage_cutoff, label: Battery 2 BMS discharge cutoff voltage, table: input, address: 5037, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery2_voltage, label: Battery 2 total voltage, table: input, address: 5038, type: u16, unit: V, scale: 0.01}
+  - {key: x.battery2_current, label: Battery 2 current, table: input, address: 5039, type: s16, unit: A, scale: 0.1, note: 'Positive while the battery charges, negative while it discharges.'}
+  - {key: x.battery2_soc, label: Battery 2 state of charge (low byte of packed SOC/SOH register), table: input, address: 5040, type: u16, unit: '%', bits: [0, 7]}
+  - {key: x.battery2_soh, label: Battery 2 state of health (high byte of packed SOC/SOH register), table: input, address: 5040, type: u16, unit: '%', bits: [8, 15]}
+  - {key: x.battery2_cycle_count, label: Battery 2 charge/discharge cycle count, table: input, address: 5041, type: u16}
+  - {key: x.battery2_max_cell_temp, label: Battery 2 maximum cell temperature across all cells in this module, table: input, address: 5042, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery2_min_cell_temp, label: Battery 2 minimum cell temperature across all cells in this module, table: input, address: 5043, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery2_max_cell_voltage, label: Battery 2 maximum individual cell voltage (raw value in millivolts), table: input, address: 5044, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery2_min_cell_voltage, label: Battery 2 minimum individual cell voltage (raw value in millivolts), table: input, address: 5045, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery2_max_cell_num_temp, label: Battery 2 cell number with highest temperature (low byte), table: input, address: 5046, type: u16, bits: [0, 7]}
+  - {key: x.battery2_min_cell_num_temp, label: Battery 2 cell number with lowest temperature (high byte), table: input, address: 5046, type: u16, bits: [8, 15]}
+  - {key: x.battery2_max_cell_num_voltage, label: Battery 2 cell number with highest voltage (low byte), table: input, address: 5047, type: u16, bits: [0, 7]}
+  - {key: x.battery2_min_cell_num_voltage, label: Battery 2 cell number with lowest voltage (high byte), table: input, address: 5047, type: u16, bits: [8, 15]}
+  - {key: x.battery2_firmware_version_minor, label: Battery 2 firmware version (minor), table: input, address: 5048, type: u16, bits: [0, 7]}
+  - {key: x.battery2_firmware_version_major, label: Battery 2 firmware version (major), table: input, address: 5048, type: u16, bits: [8, 15]}
+  - {key: x.battery3_status_header, label: Battery 3 status header, table: input, address: 5062, type: u16}
+  - {key: x.battery3_full_capacity, label: Battery 3 full (rated) capacity in amp-hours, table: input, address: 5063, type: u16, unit: Ah}
+  - {key: x.battery3_charge_voltage_ref, label: Battery 3 BMS recommended charge voltage reference, table: input, address: 5064, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery3_charge_current_limit, label: 'Battery 3 BMS maximum charge current limit (0.1A units, matches input reg 81)', table: input, address: 5065, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery3_discharge_current_limit, label: 'Battery 3 BMS maximum discharge current limit (0.1A units, matches input reg 82)', table: input, address: 5066, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery3_discharge_voltage_cutoff, label: Battery 3 BMS discharge cutoff voltage, table: input, address: 5067, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery3_voltage, label: Battery 3 total voltage, table: input, address: 5068, type: u16, unit: V, scale: 0.01}
+  - {key: x.battery3_current, label: Battery 3 current, table: input, address: 5069, type: s16, unit: A, scale: 0.1, note: 'Positive while the battery charges, negative while it discharges.'}
+  - {key: x.battery3_soc, label: Battery 3 state of charge (low byte of packed SOC/SOH register), table: input, address: 5070, type: u16, unit: '%', bits: [0, 7]}
+  - {key: x.battery3_soh, label: Battery 3 state of health (high byte of packed SOC/SOH register), table: input, address: 5070, type: u16, unit: '%', bits: [8, 15]}
+  - {key: x.battery3_cycle_count, label: Battery 3 charge/discharge cycle count, table: input, address: 5071, type: u16}
+  - {key: x.battery3_max_cell_temp, label: Battery 3 maximum cell temperature across all cells in this module, table: input, address: 5072, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery3_min_cell_temp, label: Battery 3 minimum cell temperature across all cells in this module, table: input, address: 5073, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery3_max_cell_voltage, label: Battery 3 maximum individual cell voltage (raw value in millivolts), table: input, address: 5074, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery3_min_cell_voltage, label: Battery 3 minimum individual cell voltage (raw value in millivolts), table: input, address: 5075, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery3_max_cell_num_temp, label: Battery 3 cell number with highest temperature (low byte), table: input, address: 5076, type: u16, bits: [0, 7]}
+  - {key: x.battery3_min_cell_num_temp, label: Battery 3 cell number with lowest temperature (high byte), table: input, address: 5076, type: u16, bits: [8, 15]}
+  - {key: x.battery3_max_cell_num_voltage, label: Battery 3 cell number with highest voltage (low byte), table: input, address: 5077, type: u16, bits: [0, 7]}
+  - {key: x.battery3_min_cell_num_voltage, label: Battery 3 cell number with lowest voltage (high byte), table: input, address: 5077, type: u16, bits: [8, 15]}
+  - {key: x.battery3_firmware_version_minor, label: Battery 3 firmware version (minor), table: input, address: 5078, type: u16, bits: [0, 7]}
+  - {key: x.battery3_firmware_version_major, label: Battery 3 firmware version (major), table: input, address: 5078, type: u16, bits: [8, 15]}
+  - {key: x.battery4_status_header, label: Battery 4 status header, table: input, address: 5092, type: u16}
+  - {key: x.battery4_full_capacity, label: Battery 4 full (rated) capacity in amp-hours, table: input, address: 5093, type: u16, unit: Ah}
+  - {key: x.battery4_charge_voltage_ref, label: Battery 4 BMS recommended charge voltage reference, table: input, address: 5094, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery4_charge_current_limit, label: 'Battery 4 BMS maximum charge current limit (0.1A units, matches input reg 81)', table: input, address: 5095, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery4_discharge_current_limit, label: 'Battery 4 BMS maximum discharge current limit (0.1A units, matches input reg 82)', table: input, address: 5096, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery4_discharge_voltage_cutoff, label: Battery 4 BMS discharge cutoff voltage, table: input, address: 5097, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery4_voltage, label: Battery 4 total voltage, table: input, address: 5098, type: u16, unit: V, scale: 0.01}
+  - {key: x.battery4_current, label: Battery 4 current, table: input, address: 5099, type: s16, unit: A, scale: 0.1, note: 'Positive while the battery charges, negative while it discharges.'}
+  - {key: x.battery4_soc, label: Battery 4 state of charge (low byte of packed SOC/SOH register), table: input, address: 5100, type: u16, unit: '%', bits: [0, 7]}
+  - {key: x.battery4_soh, label: Battery 4 state of health (high byte of packed SOC/SOH register), table: input, address: 5100, type: u16, unit: '%', bits: [8, 15]}
+  - {key: x.battery4_cycle_count, label: Battery 4 charge/discharge cycle count, table: input, address: 5101, type: u16}
+  - {key: x.battery4_max_cell_temp, label: Battery 4 maximum cell temperature across all cells in this module, table: input, address: 5102, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery4_min_cell_temp, label: Battery 4 minimum cell temperature across all cells in this module, table: input, address: 5103, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery4_max_cell_voltage, label: Battery 4 maximum individual cell voltage (raw value in millivolts), table: input, address: 5104, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery4_min_cell_voltage, label: Battery 4 minimum individual cell voltage (raw value in millivolts), table: input, address: 5105, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery4_max_cell_num_temp, label: Battery 4 cell number with highest temperature (low byte), table: input, address: 5106, type: u16, bits: [0, 7]}
+  - {key: x.battery4_min_cell_num_temp, label: Battery 4 cell number with lowest temperature (high byte), table: input, address: 5106, type: u16, bits: [8, 15]}
+  - {key: x.battery4_max_cell_num_voltage, label: Battery 4 cell number with highest voltage (low byte), table: input, address: 5107, type: u16, bits: [0, 7]}
+  - {key: x.battery4_min_cell_num_voltage, label: Battery 4 cell number with lowest voltage (high byte), table: input, address: 5107, type: u16, bits: [8, 15]}
+  - {key: x.battery4_firmware_version_minor, label: Battery 4 firmware version (minor), table: input, address: 5108, type: u16, bits: [0, 7]}
+  - {key: x.battery4_firmware_version_major, label: Battery 4 firmware version (major), table: input, address: 5108, type: u16, bits: [8, 15]}
+
+derived:
+  - {key: grid_power, label: Grid power, unit: W, positive: import, sum: [{key: x.power_to_user}, {key: x.power_to_grid, factor: -1}]}
+  - {key: pv_power, label: PV power, unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}, {key: x.pv3_power}, {key: x.pv4_power}, {key: x.pv5_power}, {key: x.pv6_power}], note: pylxpweb leaves out strings the inverter doesn't report (pv4…pv6 on three-string models).}
+
+enums:
+  operating_state: {'0': Standby, '1': Fault, '2': Programming, '4': PV → Grid, '8': PV → Battery, '12': PV → Battery + Grid, '16': Battery → Grid, '17': Standby, '20': PV + Battery → Grid, '32': AC → Battery, '40': PV + AC → Battery, '64': Off-Grid (Battery), '96': Off-Grid (AC-Coupled Charging), '128': 'Off-Grid (PV, unstable)', '136': Off-Grid (PV + Charging), '192': Off-Grid (PV + Battery)}
+  bms_fault_code: {'0': Normal / No Fault, '1': Cell Over-Voltage Protection (COVP), '2': Cell Under-Voltage Protection (CUVP), '3': Pack Overvoltage, '4': Pack Undervoltage, '5': Charging Over-Temperature Protection (COTP), '6': Charging Under-Temperature Protection (CUTP), '7': Discharging Over-Temperature Protection (DOTP), '8': Low Temperature Protection, '9': Charging Overcurrent, '10': Discharging Overcurrent, '11': Short Circuit, '12': MOSFET Over-Temperature, '13': Cell Unbalance, '14': Over-Capacity}
+  bms_warning_code: {'0': Normal / No Warning, '1': Cell Over-Voltage Warning, '2': Cell Under-Voltage Warning, '3': Pack Overvoltage Warning, '4': Pack Undervoltage Warning, '5': Charging Over-Temperature Warning, '6': Charging Under-Temperature Warning, '7': Discharging Over-Temperature Warning, '8': Low Temperature Warning, '9': Charging Overcurrent Warning, '10': Discharging Overcurrent Warning, '11': Short Circuit Warning, '12': MOSFET Over-Temperature Warning, '13': Cell Unbalance Warning, '14': Over-Capacity Warning}
+  language: {'0': English, '1': German/Chinese}
+  power_on: {'0': Standby, '1': Power On}
+  lsp_battery_volt_or_soc: {'0': voltage, '1': SOC}
+  ac_charge_enable_period_1: {'0': 'Off', '1': 'On'}
+  ac_charge_enable_period_2: {'0': 'Off', '1': 'On'}
+  output_voltage_select: {'0': 230V, '1': 240V, '2': 277V, '3': 208V}
+  output_frequency_select: {'0': 50Hz, '1': 60Hz}
+  system_type: {'0': Single, '1': Master, '2': Slave, '3': 3-Phase Master}
+  ongrid_eod_type: {'0': voltage, '1': SOC}
+  output_priority: {'0': Battery First, '1': PV First, '2': AC First}
+  line_mode: {'0': APL (normal), '1': UPS, '2': GEN (generator)}
+  ac_ct_direction: {'0': Normal, '1': Reversed}
+  pv_ct_direction: {'0': Normal, '1': Reversed}
+  battery_charge_control: {'0': SOC, '1': Voltage}
+  battery_discharge_control: {'0': SOC, '1': Voltage}
+  smart_load_enable: {'0': Generator, '1': Smart Load}
+  rsd_disable: {'0': RSD enabled, '1': RSD disabled}
+  weekly_schedule_enable: {'0': daily regs 68-89, '1': weekly regs 500-723}
+
+flags:
+  fault_code: {'0': Internal communication failure 1, '1': Model fault, '8': Parallel CAN communication failure, '9': The host is missing, '10': Inconsistent rated power, '11': Inconsistent AC or safety settings, '12': UPS short circuit, '13': UPS reverse current, '14': BUS short circuit, '15': Abnormal phase in three-phase system, '16': Relay failure, '17': Internal communication failure 2, '18': Internal communication failure 3, '19': BUS overvoltage, '20': EPS connection fault, '21': PV overvoltage, '22': Overcurrent protection, '23': Neutral fault, '24': PV short circuit, '25': Heatsink temperature out of range, '26': Internal failure, '27': Consistency failure, '28': Inconsistent generator connection, '29': Parallel sync signal loss, '31': Internal communication failure 4}
+  warning_code: {'0': Battery communication failed, '1': AFCI communication failure, '2': Battery low temperature, '3': Meter communication failed, '4': Battery cannot be charged/discharged, '5': Automated test failed, '6': RSD Active, '7': LCD communication failure, '8': Software version mismatch, '9': Fan is stuck, '10': Grid overload, '11': Number of parallel secondaries exceeds limit, '12': Battery reverse MOS abnormal, '13': Radiator temperature out of range, '14': Multiple primary units set in parallel system, '15': Battery reverse, '16': No grid connection, '17': Grid voltage out of range, '18': Grid frequency out of range, '20': Insulation resistance low, '21': Leakage current too high, '22': DCI exceeded standard, '23': PV short circuit, '25': Battery overvoltage, '26': Battery undervoltage, '27': Battery open circuit, '28': EPS overload, '29': EPS voltage high, '30': Meter reversed, '31': DCV exceeded standard}
+
+notes:
+- Operating states from 0x40 up are off-grid.
+- 32-bit values are two registers, low word first.
+- Text values (the inverter serial number at input 115-119 or holding 2-6, battery serial numbers) hold two ASCII characters
+  per register, low byte first; they are not listed as points.
+- The battery block repeats every 30 registers from input 5002, one block per battery slot; with more batteries than slots
+  the inverter rotates them through the slots.
+- Besides Modbus TCP / RTU, the WiFi dongle carries the same registers over its own TCP protocol on port 8000.
+- Identification as pylxpweb recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

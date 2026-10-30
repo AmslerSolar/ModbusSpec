@@ -1,0 +1,139 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the LINAK "RS485 Modbus RTU Schnittstelle – Betriebsanleitung" and the LINAK "Modbus TCP/IP
+# Schnittstelle – Betriebsanleitung" (German editions, no version stated; see sources).
+
+modbusspec: 0
+id: linak-techline
+manufacturer: LINAK
+name: TECHLINE actuators with Modbus RTU or Modbus TCP/IP interface (LA14, LA21, LA25, LA33, LA36, LA37, LA73, LA76, LA77,
+  LC3 IC)
+kind: other
+
+sources:
+- title: RS485 Modbus RTU Schnittstelle – Betriebsanleitung (TECHLINE)
+  version: not stated
+  url: https://cdn.linak.com/-/media/files/user-manual-source/de/techline-modbus-rtu-schnittstelle-betriebsanleitung-dt.pdf
+  sha256: 1e7541ac04e7969b85be34d9a725b856fd856c0d0eb0b92af208e3c261cd27db
+- title: Modbus TCP/IP Schnittstelle – Betriebsanleitung (TECHLINE)
+  version: not stated
+  url: https://cdn.linak.com/-/media/files/user-manual-source/de/techline-modbus-tcp-ip-schnittstelle-betriebsanleitung-dt.pdf
+  sha256: 714d9f9cb67909dde43c7621b5aaf898747b50f441f1b99e72d105183033fa68
+
+connection:
+  default_port: 502
+  default_unit: 247
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 16394
+    type: u32
+
+points:
+  # Feedback (function 03)
+  - {key: x.position, label: Position, table: holding, address: 8449, type: u16, unit: mm, scale: 0.1, poll: fast, invalid: [65024], note: 0…64255 = piston position (0.1 mm/bit); 65024 = position lost; other values reserved.}
+  - {key: x.current, label: Stromaufnahme (current draw), table: holding, address: 8450, type: u16, unit: A, scale: 0.25, poll: fast, invalid: [251, 252, 253, 254, 255], note: UINT8. 0 = not running; 1…250 = measured current (0.25 A/bit); 254 = fault in the current measurement; 251…253 and 255 reserved.}
+  - {key: state, label: Statuskennzeichen (status flags), table: holding, address: 8451, type: u16, flags: status_flags, poll: fast, note: 'UINT8, independent status bits. The RTU manual''s FAQ says bit 7 always reads 1, so a working link never reads 0 here (typically 0x81 = inner end stop reached).'}
+  - {key: error_code, label: Fehlercode (error code), table: holding, address: 8452, type: u16, enum: error_code, poll: fast, note: 'UINT8: the active error with the highest priority. Cleared by writing 64256 to Position (0x2002); some errors clear themselves when the cause is gone.'}
+  - {key: x.speed, label: Geschwindigkeit (speed), table: holding, address: 8453, type: u16, unit: mm/s, scale: 0.1, poll: fast, note: 0…4015 = actuator speed (0.1 mm/s per bit); higher values reserved.}
+  - {key: x.aux_input1_level, label: AUX-Eingänge – Eingang 1 Level, table: holding, address: 8454, type: u16, bits: [0, 1], unit: '%', scale: 25, note: 'Level relative to VCC IN, 25 % per bit.'}
+  - {key: x.aux_input2_level, label: AUX-Eingänge – Eingang 2 Level, table: holding, address: 8454, type: u16, bits: [2, 3], unit: '%', scale: 25}
+
+  # Parallel feedback (only with the parallel function, up to 8 actuators)
+  - {key: x.parallel_error_source, label: Parallele Fehlerquelle, table: holding, address: 8455, type: u32, optional: true, note: 0 = no error; otherwise the IP address (as a 32-bit number) of the actuator with the highest-priority error.}
+  - {key: x.parallel_error_code, label: Parallelfehlercode, table: holding, address: 8457, type: u16, enum: parallel_error_code, optional: true, note: UINT8 – the active parallel error with the highest priority.}
+  - {key: x.parallel_status, label: Parallele Statuskennzeichen, table: holding, address: 8458, type: u16, flags: parallel_status_flags, optional: true, note: Bits 3–15 reserved and always read 1.}
+
+  # Command (written with function 06 / 16)
+  - {key: x.heartbeat, label: Taktzähler (communication heartbeat), table: holding, address: 8193, type: u16, writable: true, note: 'UINT8 0…255. Must be changed at least every 2000 ms, or the actuator stops with error 5 (communication synchronisation).'}
+  - {key: x.position_command, label: Position (command), table: holding, address: 8194, type: u16, writable: true, enum: position_command, note: 0…64255 = move to this position (0.1 mm/bit); 64256…64261 are commands (see enum); 64262…65535 invalid (the actuator doesn't run). A Stop command (64259) is needed after power-up before the actuator runs.}
+  - {key: x.current_limit_command, label: Stromgrenze (current limit), table: holding, address: 8195, type: u16, writable: true, min: 0, max: 251, note: '0…250 = maximum current, 0.25 A/bit; 251 = default limit set in Actuator Connect.'}
+  - {key: x.speed_command, label: Geschwindigkeit (speed), table: holding, address: 8196, type: u16, writable: true, min: 0, max: 251, note: '0…200 = speed, 0.5 %/bit; 201…250 = 100 %; 251 = default speed set in Actuator Connect.'}
+  - {key: x.soft_start_command, label: Anfahren (soft start), table: holding, address: 8197, type: u16, writable: true, min: 0, max: 251, note: 'Start ramp time 0.05 s/bit (the register table gives 0…250, the examples 0…200); 251 = default.'}
+  - {key: x.soft_stop_command, label: Anhalten (soft stop), table: holding, address: 8198, type: u16, writable: true, min: 0, max: 251, note: 'Stop ramp time 0.05 s/bit (the register table gives 0…250, the examples 0…200); 251 = default.'}
+
+  # Configuration parameters
+  - {key: x.current_limit_out, label: Strombegrenzung – Auswärts, table: holding, address: 16385, type: u16, unit: A, scale: 0.25, writable: true, min: 0, max: 63.75, poll: slow, note: UINT8. Used when the command current limit is 251; takes effect after a restart.}
+  - {key: x.current_limit_in, label: Strombegrenzung – Einwärts, table: holding, address: 16386, type: u16, unit: A, scale: 0.25, writable: true, min: 0, max: 63.75, poll: slow, note: UINT8. Used when the command current limit is 251; takes effect after a restart.}
+  - {key: x.soft_start_out, label: Anfahren – Auswärts, table: holding, address: 16387, type: u16, unit: ms, writable: true, poll: slow, note: Used when the command soft start is 251.}
+  - {key: x.soft_start_in, label: Anfahren – Einwärts, table: holding, address: 16388, type: u16, unit: ms, writable: true, poll: slow, note: Used when the command soft start is 251.}
+  - {key: x.soft_stop_out, label: Anhalten – Auswärts, table: holding, address: 16389, type: u16, unit: ms, writable: true, poll: slow, note: Used when the command soft stop is 251.}
+  - {key: x.soft_stop_in, label: Anhalten – Einwärts, table: holding, address: 16390, type: u16, unit: ms, writable: true, poll: slow, note: Used when the command soft stop is 251.}
+  - {key: x.max_speed, label: Maximale Geschwindigkeit, table: holding, address: 16391, type: u16, writable: true, poll: slow, note: UINT8. 0…200 = 0.5 %/bit; 201…255 = 100 %. Overrides the command speed.}
+  - {key: x.virtual_end_stop_out, label: Virtueller Endstopp – Auswärts, table: holding, address: 16392, type: u16, unit: mm, scale: 0.1, writable: true, poll: slow, note: 0 = disabled; otherwise the position (0.1 mm/bit); must not be below 70 mm (values 1…699 not allowed).}
+  - {key: x.virtual_end_stop_in, label: Virtueller Endstopp – Einwärts, table: holding, address: 16393, type: u16, unit: mm, scale: 0.1, writable: true, min: 0, max: 35, poll: slow, note: 0 = disabled; otherwise the position (0.1 mm/bit).}
+
+  # Diagnostics and identity
+  - {key: serial, label: UIN (unique identification number), table: holding, address: 16394, type: u32, poll: slow, note: Unique 8-digit identification number.}
+  - {key: x.software_variant, label: Software Variante, table: holding, address: 16396, type: u32, poll: slow, note: Part of the software id SWxxxxxxxVx-x.}
+  - {key: firmware, label: Software Hauptversion, table: holding, address: 16398, type: u32, poll: slow, note: Major version of the software id SWxxxxxxxVx-x.}
+  - {key: x.software_minor_version, label: Software Nebenversion, table: holding, address: 16400, type: u32, poll: slow, note: 'The table writes the range as 0x4010-40011, read as 0x4010–0x4011.'}
+  - {key: x.configuration_order_number, label: Konfiguration Produktionsauftragsnummer, table: holding, address: 16402, type: u32, poll: slow}
+  - {key: x.production_date, label: Produktionsdatum, table: holding, address: 16404, type: u32, poll: slow, note: Decimal yyyymmdd.}
+  - {key: x.max_current, label: Max. gemessener Strom, table: holding, address: 16406, type: u16, unit: A, scale: 0.25, poll: slow}
+  - {key: x.max_fet_temperature, label: Max. gemessene FET-Temperatur, table: holding, address: 16407, type: u16, unit: °C, offset: -40, poll: slow}
+  - {key: x.max_ambient_temperature, label: Max. gemessene Umgebungstemperatur, table: holding, address: 16408, type: u16, unit: °C, offset: -40, poll: slow}
+  - {key: x.min_ambient_temperature, label: Min. gemessene Umgebungstemperatur, table: holding, address: 16409, type: u16, unit: °C, offset: -40, poll: slow}
+  - {key: x.total_charge, label: Gesamtstromverbrauch, table: holding, address: 16410, type: u32, unit: As, poll: slow, note: Lifetime current consumption in ampere-seconds.}
+  - {key: x.total_runtime, label: Gesamtlaufzeit, table: holding, address: 16412, type: u32, unit: s, poll: slow}
+  - {key: x.comm_errors, label: Anzahl von Kommunikationsfehler, table: holding, address: 16424, type: u16, poll: slow}
+  - {key: x.starts_out, label: Starts – auswärts, table: holding, address: 16429, type: u32, poll: slow}
+  - {key: x.starts_in, label: Starts – einwärts, table: holding, address: 16431, type: u32, poll: slow}
+  - {key: x.total_travel, label: Gesamtweg des Kolbens, table: holding, address: 16433, type: u32, unit: m, scale: 5, poll: slow}
+  - {key: x.last_stop_reason, label: Grund für letzten Stopp – ID 0, table: holding, address: 16435, type: u16, enum: stop_reason, poll: slow, note: 'Most recent of five stop records (ID 0…4, each 4 registers from 0x4033: reason, count, operating time).'}
+  - {key: x.last_stop_count, label: Letzter Stopp – Zählung (ID 0), table: holding, address: 16436, type: u16, poll: slow, note: Number of stops in a row for this reason.}
+  - {key: x.last_stop_time, label: Letzter Stopp – Betriebszeit (ID 0), table: holding, address: 16437, type: u32, unit: s, poll: slow, note: Operating time at the stop.}
+  - {key: temperature, label: FET Temperatur, table: holding, address: 16457, type: u16, unit: °C, offset: -40}
+  - {key: x.ambient_temperature, label: Umgebungstemperatur, table: holding, address: 16458, type: u16, unit: °C, offset: -40}
+  - {key: x.production_order_number, label: Produktionsauftragsnummer, table: holding, address: 16463, type: u32, poll: slow}
+  - {key: x.special_function, label: LINAK Sonderfunktionen, table: holding, address: 16465, type: u16, writable: true, poll: slow, note: 'UINT8: write 1 to restart the actuator; other values reserved.'}
+  - {key: x.operating_time, label: Betriebszeit, table: holding, address: 16482, type: u32, unit: s, poll: slow}
+  - {key: x.remaining_life, label: Restlebensdauer, table: holding, address: 16484, type: u16, unit: '%', poll: slow, invalid: [250], note: Countdown 0…100 %; 250 = not supported; 101…249 and 251…255 reserved.}
+
+enums:
+  error_code: {'0': No error, '1': Power-up lock (send Stop or Clear error first), '2': Position sensor, '3': Overvoltage, '4': Undervoltage, '5': Communication synchronisation (heartbeat), '6': End stop switch, '7': Temperature, '8': Motor control, '9': Internal power supply, '10': Internal current measurement, '11': Parallel arbitration, '12': Position unchanged, '13': Position initialisation not possible, '14': Alone in the parallel system, '15': Wrong number in the parallel system, '16': Hardware, '17': BLDC motor, '18': Parallel communication, '19': Parallel run, '20': Parallel set-up stopped, '254': Other internal error, '255': Other external error}
+  parallel_error_code: {'0': No error, '1': Current overload, '2': Hardware, '3': Temperature, '4': Overvoltage, '5': Undervoltage, '6': Analog input out of range, '7': Position unchanged, '8': Power-up lock / overridden by higher-priority input, '9': Position initialisation not possible, '10': Parallel set-up, '11': Parallel run, '12': BLDC motor, '13': End stop switch, '14': Parallel communication, '15': Parallel set-up stopped, '24': Other error, '25': Position lost}
+  position_command: {'64256': Clear error codes, '64257': Run out, '64258': Run in, '64259': Stop, '64260': Recovery run out, '64261': Recovery run in}
+  stop_reason: {'1': H-bridge fault, '2': Overtemperature, '4': Undervoltage, '8': Overcurrent, '16': SMPS fault (12 V / 5 V out of range), '32': End stop fault (both switches on), '64': Hall fault, '256': Overvoltage, '512': Position not changing, '1024': Hardware fault, '2048': Communication interruption, '4096': Interface change (higher-priority system took over), '4097': Parallel master saw the number of followers change, '4098': Parallel master stopped by a follower, '4099': Parallel follower lost the master, '4100': Parallel communication errors}
+
+flags:
+  status_flags: {'0': Inner end stop reached, '1': Outer end stop reached, '2': Overcurrent, '3': Running out, '4': Running in, '5': Communication heartbeat required, '6': Running outside nominal conditions}
+  parallel_status_flags: {'0': Parallel outer end stop reached, '1': Parallel inner end stop reached, '2': Parallel run outside nominal conditions}
+
+problems:
+  - {when: {key: error_code, equals: 1}, kind: warning, text: Actuator waits for a Stop or Clear error command after power-up (error 1)}
+  - {when: {key: error_code, range: [2, 255]}, kind: fault, text: 'Actuator error {value}: {text}'}
+  - {when: {key: state, bit: 2}, kind: warning, text: 'Overcurrent: actuator blocked in this direction (status bit 2)'}
+  - {when: {key: state, bit: 6}, kind: warning, text: Actuator running outside nominal conditions (status bit 6)}
+  - {when: {key: x.parallel_error_code, range: [1, 255]}, kind: fault, text: 'Parallel system error {value}: {text}'}
+  - {when: {key: x.parallel_status, bit: 2}, kind: warning, text: Parallel system running outside nominal conditions (parallel status bit 2)}
+
+notes:
+- 'Linear actuators and lifting columns, not energy devices: kind other. The RTU and the TCP/IP manual share the same register
+  map; they differ in wiring and connection settings only.'
+- Addresses are the hexadecimal register numbers of the manuals, taken as protocol addresses (the manuals don't say whether
+  they count from 0 or 1). Not stated in the document; assumed. All registers are holding registers (read with function 03,
+  written with 06 / 16).
+- Values the manuals give as UINT8 sit in one 16-bit register each; assumed to be in the low byte (upper byte 0). Two-register
+  values are most significant word first, as stated.
+- 'RTU defaults (set with the Actuator Connect tool): 19200 baud, even parity, one stop bit, slave address 247 (set 1…246
+  for use on a bus), response delay 0 ms. Selectable baud rates 300…115200. The TCP/IP manual names port 502; IP defaults
+  192.168.1.10/24, gateway 192.168.1.1, DHCP selectable. Its unit id is not stated; 247 taken from the RTU manual (assumed).'
+- To move, a master must keep incrementing the heartbeat (0x2001) at least every 2 s and send Stop (64259 to 0x2002) after
+  power-up; then a position or run command moves the actuator with the current limit, speed and ramps from 0x2003…0x2006.
+- Temperatures are 1 °C/bit with −40 °C offset.
+- 'Left out: stop counters per cause 0x401E…0x4027 (UINT8, the user-defined overload counters 0x4026/0x4027 can be reset to
+  0), end-stop counters 0x4029/0x402B (UINT32), stop records ID 1…4 (0x4037…0x4046), corrected distance 0x4047, Hall learning
+  values 0x404B/0x404D and the parallel system IP addresses 0x4052…0x4061.'

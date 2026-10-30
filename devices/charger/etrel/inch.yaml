@@ -1,0 +1,158 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From Etrel's register list "INCH and DUO SmartHome Modbus TCP Registers" V6.0 (Etrel Knowledge Centre).
+
+modbusspec: 0
+id: etrel-inch
+manufacturer: Etrel
+name: INCH / INCH Duo wallbox (also sold as sonnenCharger)
+kind: charger
+
+sources:
+- title: INCH and DUO SmartHome Modbus TCP Registers – master specifications (Excel)
+  version: V6.0 (07/2025), attached 2025-08-13
+  url: https://etrel.atlassian.net/wiki/download/attachments/3485665834/INCH%20and%20DUO%20SmartHome%20Modbus%20TCPRegisters%20master%20SPECIFICATIONS%20-%20V6.0%20-%20072025_02.xlsx?api=v2
+  sha256: 373c8466bda439a6c1e32c252505188041655f48eb7cecd3e2d8f8821931433c
+- title: Modbus Communication with INCH products (Etrel Knowledge Centre page)
+  version: '2026-01-16'
+  url: https://etrel.atlassian.net/wiki/spaces/EKC/pages/3485665834
+  sha256: 5a17f2050ad514bee06fc0f763888367b271f04f534fd784670b7946e740f0bb
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 990
+    type: str
+    length: 10
+  checks:
+  - table: input
+    address: 0
+    type: s16
+    range:
+    - 0
+    - 11
+  - table: input
+    address: 1020
+    type: s32
+    range:
+    - 1
+    - 2
+
+models:
+  - {id: duo, name: INCH Duo (two connectors), match: {table: input, address: 1020, type: s32, equals: 2}}
+  - {id: inch, name: INCH (one connector)}
+
+points:
+  # Connector 1 – real-time values
+  - {key: state, label: Connector 1 status, table: input, address: 0, type: s16, enum: connector_status}
+  - {key: x.vehicle_phases, label: Connector 1 measured vehicle number of phases, table: input, address: 1, type: s16, enum: vehicle_phases}
+  - {key: x.ev_max_phase_current, label: Connector 1 EV max phase current, table: input, address: 2, type: f32, unit: A}
+  - {key: x.target_current, label: Connector 1 target current from power management or Modbus, table: input, address: 4, type: f32, unit: A}
+  - {key: frequency, label: Connector 1 frequency, table: input, address: 6, type: f32, unit: Hz}
+  - {key: l1_voltage, label: Connector 1 L-N voltage L1, table: input, address: 8, type: f32, unit: V}
+  - {key: l2_voltage, label: Connector 1 L-N voltage L2, table: input, address: 10, type: f32, unit: V}
+  - {key: l3_voltage, label: Connector 1 L-N voltage L3, table: input, address: 12, type: f32, unit: V}
+  - {key: l1_current, label: Connector 1 current L1, table: input, address: 14, type: f32, unit: A}
+  - {key: l2_current, label: Connector 1 current L2, table: input, address: 16, type: f32, unit: A}
+  - {key: l3_current, label: Connector 1 current L3, table: input, address: 18, type: f32, unit: A}
+  - {key: l1_power, label: Connector 1 active power L1, table: input, address: 20, type: f32, unit: W, scale: 1000, positive: consumption, verified: false, note: kW in the register. The list gives no sign convention; positive = consumption assumed.}
+  - {key: l2_power, label: Connector 1 active power L2, table: input, address: 22, type: f32, unit: W, scale: 1000, positive: consumption, verified: false, note: kW in the register. The list gives no sign convention; positive = consumption assumed.}
+  - {key: l3_power, label: Connector 1 active power L3, table: input, address: 24, type: f32, unit: W, scale: 1000, positive: consumption, verified: false, note: kW in the register. The list gives no sign convention; positive = consumption assumed.}
+  - {key: consumer_power, label: Connector 1 active power total, table: input, address: 26, type: f32, unit: W, scale: 1000, positive: consumption, verified: false, note: kW in the register. The list gives no sign convention; positive = consumption assumed.}
+  - {key: power_factor, label: Connector 1 power factor, table: input, address: 28, type: f32, unit: ''}
+  - {key: session_energy, label: Connector 1 imported active energy in running session, table: input, address: 30, type: f32, unit: kWh}
+  - {key: x.session_duration, label: Connector 1 running session duration, table: input, address: 32, type: s64, unit: s}
+  - {key: x.departure_time, label: Connector 1 running session departure time, table: input, address: 36, type: s64, unit: s, poll: slow, note: Unix time (UTC).}
+  - {key: x.session_id, label: Connector 1 running session ID, table: input, address: 40, type: s64, poll: slow, note: The OCPP transaction id when a central system is connected.}
+  - {key: x.ev_max_power, label: Connector 1 EV max power, table: input, address: 44, type: f32, unit: W, scale: 1000, note: kW in the register; highest power seen in the running session.}
+  - {key: x.ev_planned_energy, label: Connector 1 EV planned energy, table: input, address: 46, type: f32, unit: kWh, poll: slow}
+  - {key: consumer_energy, label: Connector 1 meter value (active energy counter), table: input, address: 48, type: s64, unit: kWh, scale: 1.0e-06, poll: slow, note: mWh in the register; lifetime energy of the connector.}
+  - {key: x.charging_mode, label: Connector 1 selected charging mode, table: input, address: 53, type: s16, enum: charging_mode, poll: slow}
+  - {key: x.last_rfid, label: Connector 1 RFID UID of last session, table: input, address: 54, type: str, length: 10, poll: slow}
+
+  # Connector 2 – real-time values (INCH Duo)
+  - {key: x.c2_state, label: Connector 2 status, table: input, address: 100, type: s16, enum: connector_status, models: [duo]}
+  - {key: x.c2_vehicle_phases, label: Connector 2 measured vehicle number of phases, table: input, address: 101, type: s16, enum: vehicle_phases, models: [duo]}
+  - {key: x.c2_ev_max_phase_current, label: Connector 2 EV max phase current, table: input, address: 102, type: f32, unit: A, models: [duo]}
+  - {key: x.c2_target_current, label: Connector 2 target current from power management or Modbus, table: input, address: 104, type: f32, unit: A, models: [duo]}
+  - {key: x.c2_frequency, label: Connector 2 frequency, table: input, address: 106, type: f32, unit: Hz, models: [duo]}
+  - {key: x.c2_l1_voltage, label: Connector 2 L-N voltage L1, table: input, address: 108, type: f32, unit: V, models: [duo]}
+  - {key: x.c2_l2_voltage, label: Connector 2 L-N voltage L2, table: input, address: 110, type: f32, unit: V, models: [duo]}
+  - {key: x.c2_l3_voltage, label: Connector 2 L-N voltage L3, table: input, address: 112, type: f32, unit: V, models: [duo]}
+  - {key: x.c2_l1_current, label: Connector 2 current L1, table: input, address: 114, type: f32, unit: A, models: [duo]}
+  - {key: x.c2_l2_current, label: Connector 2 current L2, table: input, address: 116, type: f32, unit: A, models: [duo]}
+  - {key: x.c2_l3_current, label: Connector 2 current L3, table: input, address: 118, type: f32, unit: A, models: [duo]}
+  - {key: x.c2_l1_power, label: Connector 2 active power L1, table: input, address: 120, type: f32, unit: W, scale: 1000, models: [duo], note: kW in the register.}
+  - {key: x.c2_l2_power, label: Connector 2 active power L2, table: input, address: 122, type: f32, unit: W, scale: 1000, models: [duo], note: kW in the register.}
+  - {key: x.c2_l3_power, label: Connector 2 active power L3, table: input, address: 124, type: f32, unit: W, scale: 1000, models: [duo], note: kW in the register.}
+  - {key: x.c2_power, label: Connector 2 active power total, table: input, address: 126, type: f32, unit: W, scale: 1000, models: [duo], note: kW in the register.}
+  - {key: x.c2_power_factor, label: Connector 2 power factor, table: input, address: 128, type: f32, models: [duo]}
+  - {key: x.c2_session_energy, label: Connector 2 imported active energy in running session, table: input, address: 130, type: f32, unit: kWh, models: [duo]}
+  - {key: x.c2_session_duration, label: Connector 2 running session duration, table: input, address: 132, type: s64, unit: s, models: [duo]}
+  - {key: x.c2_departure_time, label: Connector 2 running session departure time, table: input, address: 136, type: s64, unit: s, poll: slow, models: [duo], note: Unix time (UTC).}
+  - {key: x.c2_session_id, label: Connector 2 running session ID, table: input, address: 140, type: s64, poll: slow, models: [duo]}
+  - {key: x.c2_ev_max_power, label: Connector 2 EV max power, table: input, address: 144, type: f32, unit: W, scale: 1000, models: [duo], note: kW in the register.}
+  - {key: x.c2_ev_planned_energy, label: Connector 2 EV planned energy, table: input, address: 146, type: f32, unit: kWh, poll: slow, models: [duo]}
+  - {key: x.c2_energy, label: Connector 2 meter value (active energy counter), table: input, address: 148, type: s64, unit: kWh, scale: 1.0e-06, poll: slow, models: [duo], note: mWh in the register.}
+  - {key: x.c2_charging_mode, label: Connector 2 selected charging mode, table: input, address: 153, type: s16, enum: charging_mode, poll: slow, models: [duo]}
+  - {key: x.c2_last_rfid, label: Connector 2 RFID UID of last session, table: input, address: 154, type: str, length: 10, poll: slow, models: [duo]}
+
+  # Charger settings
+  - {key: serial, label: Serial number, table: input, address: 990, type: str, length: 10, poll: slow}
+  - {key: x.model, label: Model, table: input, address: 1000, type: str, length: 10, poll: slow}
+  - {key: x.hw_version, label: HW version, table: input, address: 1010, type: str, length: 5, poll: slow}
+  - {key: firmware, label: SW version, table: input, address: 1015, type: str, length: 5, poll: slow}
+  - {key: x.connectors, label: Number of connectors, table: input, address: 1020, type: s32, poll: slow}
+  - {key: x.connector_type, label: Connector 1 connector type, table: input, address: 1022, type: s16, enum: connector_type, poll: slow}
+  - {key: x.phases, label: Connector 1 number of phases, table: input, address: 1023, type: s16, poll: slow}
+  - {key: x.l1_phase, label: Connector 1 L1 connected to phase, table: input, address: 1024, type: s16, enum: phase, poll: slow}
+  - {key: x.l2_phase, label: Connector 1 L2 connected to phase, table: input, address: 1025, type: s16, enum: phase, poll: slow}
+  - {key: x.l3_phase, label: Connector 1 L3 connected to phase, table: input, address: 1026, type: s16, enum: phase, poll: slow}
+  - {key: x.custom_max_current, label: Connector 1 custom max current, table: input, address: 1028, type: f32, unit: A, poll: slow}
+  - {key: x.c2_connector_type, label: Connector 2 connector type, table: input, address: 1122, type: s16, enum: connector_type, poll: slow, models: [duo]}
+  - {key: x.c2_phases, label: Connector 2 number of phases, table: input, address: 1123, type: s16, poll: slow, models: [duo]}
+  - {key: x.c2_l1_phase, label: Connector 2 L1 connected to phase, table: input, address: 1124, type: s16, enum: phase, poll: slow, models: [duo]}
+  - {key: x.c2_l2_phase, label: Connector 2 L2 connected to phase, table: input, address: 1125, type: s16, enum: phase, poll: slow, models: [duo]}
+  - {key: x.c2_l3_phase, label: Connector 2 L3 connected to phase, table: input, address: 1126, type: s16, enum: phase, poll: slow, models: [duo]}
+  - {key: x.c2_custom_max_current, label: Connector 2 custom max current, table: input, address: 1128, type: f32, unit: A, poll: slow, models: [duo]}
+
+  # Setpoints (write-only commands, function 16)
+  - {key: x.current_setpoint, label: Connector 1 set current setpoint, table: holding, address: 8, type: f32, unit: A, writable: true, write_only: true, poll: slow, note: The list doesn't say it can be read back. Cancel with a write to 10. Not accepted in the first 45 s after start-up; too high a value gives exception 12.}
+  - {key: x.power_setpoint, label: Connector 1 set power setpoint, table: holding, address: 11, type: f32, unit: W, scale: 1000, writable: true, write_only: true, poll: slow, note: kW in the register. Cancel with a write to 13.}
+  - {key: x.c2_current_setpoint, label: Connector 2 set current setpoint, table: holding, address: 108, type: f32, unit: A, writable: true, write_only: true, poll: slow, models: [duo], note: Cancel with a write to 110.}
+  - {key: x.c2_power_setpoint, label: Connector 2 set power setpoint, table: holding, address: 111, type: f32, unit: W, scale: 1000, writable: true, write_only: true, poll: slow, models: [duo], note: kW in the register. Cancel with a write to 113.}
+
+enums:
+  connector_status: {'0': Unknown, '1': Available, '2': Preparing (unauthorized / disconnected), '3': 'Preparing, waiting for EV', '4': Charging, '5': Charging paused by EV, '6': Charging paused by EVSE, '7': Finishing, '8': Faulted, '9': Unpausing charging, '10': Unavailable, '11': Reserved}
+  vehicle_phases: {'0': Three phases, '1': Single phase (L1), '2': Single phase (L2), '3': Single phase (L3), '4': Unknown, '5': Two phases}
+  connector_type: {'1': Type 2 socket, '2': Type 2 cable, '3': Household socket}
+  phase: {'1': L1, '2': L2, '3': L3}
+  charging_mode: {'1': Fast mode, '2': Smart mode}
+
+problems:
+  - {when: {key: state, equals: 8}, kind: fault, text: Charging station faulted (connector 1 status 8)}
+  - {when: {key: x.c2_state, equals: 8}, kind: fault, text: Charging station faulted (connector 2 status 8)}
+
+notes:
+- Read registers with function 04 (input registers). Addresses in the list are the protocol addresses sent on the bus (0-based,
+  used as printed).
+- Values are big-endian; the list says nothing about word order, most significant word first is assumed.
+- The list doesn't state the unit id or request limits; default_unit 1 is an assumption.
+- All registers of V6.0 need firmware 7.1.1 or later.
+- 'Commands without a value (the written value is ignored): stop charging 1 / 101, pause charging 2 / 102, cancel current
+  setpoint 10 / 110, cancel power setpoint 13 / 113, restart 1004. Set departure time 4 / 104 and set clock 1000 take an Int64
+  Unix time.'
+- 'Left out: the power-management server on port 503 (Building Load Guard and power-cluster values at 2000–2112 and 3000,
+  cluster limits at 2000–2004), because the format has one port per device.'

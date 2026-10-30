@@ -1,0 +1,124 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Protronix NLII-Modbus komunikace user manual (v9, 2021-04-21).
+
+modbusspec: 0
+id: protronix-nlii
+manufacturer: Protronix
+name: NLII / IL room air quality sensors (CO2, VOC, RH, T, dust …), Modbus RTU
+kind: io
+
+sources:
+- title: Protronix NLII-Modbus komunikace, user manual (Czech)
+  version: v9 (2021-04-21)
+  url: https://www.bluetrade-eshop.cz/fotky75098/fotov/_ps_199NLII-modbus-komunikace-cz-navod.pdf
+  sha256: 86424725dd1960de68ad088fee4cb96e4cd67b31d39c83adcbaea33a95a040fe
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+  limits:
+    max_registers: 13
+
+encoding:
+  byte_order: big
+  word_order: big
+
+models:
+  - {id: nlii_co2, name: NLII-CO2, match: {table: input, address: 30008, type: u16, equals: 1}}
+  - {id: nlii_co2_5, name: NLII-CO2-5, match: {table: input, address: 30008, type: u16, equals: 2}}
+  - {id: nlii_co2_rh, name: NLII-CO2+RH, match: {table: input, address: 30008, type: u16, equals: 3}}
+  - {id: nlii_co2_rh_5, name: NLII-CO2+RH-5, match: {table: input, address: 30008, type: u16, equals: 4}}
+  - {id: nlii_co2_rh_t, name: NLII-CO2+RH+T, match: {table: input, address: 30008, type: u16, equals: 5}}
+  - {id: nlii_co2_rh_t_5, name: NLII-CO2+RH+T-5, match: {table: input, address: 30008, type: u16, equals: 6}}
+  - {id: nlii_ivoc, name: NLII-IVOC, match: {table: input, address: 30008, type: u16, equals: 7}}
+  - {id: nlii_ivoc_rh, name: NLII-IVOC+RH, match: {table: input, address: 30008, type: u16, equals: 8}}
+  - {id: nlii_ivoc_rh_t, name: NLII-IVOC+RH+T, match: {table: input, address: 30008, type: u16, equals: 9}}
+  - {id: nlii_rh, name: NLII-RH, match: {table: input, address: 30008, type: u16, equals: 10}}
+  - {id: nlii_rh_t, name: NLII-RH+T, match: {table: input, address: 30008, type: u16, equals: 11}}
+  - {id: il_dps, name: IL-DPS, match: {table: input, address: 30008, type: u16, equals: 12}}
+  - {id: il_als, name: IL-ALS, match: {table: input, address: 30008, type: u16, equals: 13}}
+  - {id: il_pc1, name: IL-PC1, match: {table: input, address: 30008, type: u16, equals: 14}}
+  - {id: nlii_voc2_rh_t, name: NLII-VOC2+RH+T, match: {table: input, address: 30008, type: u16, equals: 15}}
+  - {id: nlii_smoke_rh_t, name: NLII-SMOKE+RH+T, match: {table: input, address: 30008, type: u16, equals: 16}}
+  - {id: nlii_dust, name: NLII-DUST, match: {table: input, address: 30008, type: u16, equals: 17}}
+  - {id: nlii_radon, name: NLII-RADON, match: {table: input, address: 30008, type: u16, equals: 18}}
+  - {id: nlii_co2_t, name: NLII-CO2-T, match: {table: input, address: 30008, type: u16, equals: 19}}
+  - {id: nlii_ivoc_t, name: NLII-IVOC-T, match: {table: input, address: 30008, type: u16, equals: 20}}
+  - {id: il_rg, name: IL-RG, match: {table: input, address: 30008, type: u16, equals: 22}}
+  - {id: aqs_co2_f, name: AQS-CO2-F, match: {table: input, address: 30008, type: u16, equals: 23}}
+  - {id: nlii_tvoc, name: NLII-TVOC, match: {table: input, address: 30008, type: u16, equals: 24}}
+  - {id: nlii_tvoc_rh, name: NLII-TVOC+RH, match: {table: input, address: 30008, type: u16, equals: 25}}
+  - {id: nlii_tvoc_rh_t, name: NLII-TVOC+RH+T, match: {table: input, address: 30008, type: u16, equals: 26}}
+  - {id: nlii_co2_tvoc, name: NLII-CO2+TVOC, match: {table: input, address: 30008, type: u16, equals: 27}}
+  - {id: nlii_co2_tvoc_5, name: NLII-CO2+TVOC-5, match: {table: input, address: 30008, type: u16, equals: 28}}
+
+points:
+  # Status and measurements (input registers; a sensor answers only the registers it has, others give exception 2)
+  - {key: x.status, label: Stav senzoru (sensor state), table: input, address: 30000, type: u16, flags: status_bits}
+  - {key: x.sensor_ok, label: Sensor works without error, table: input, address: 30000, type: u16, bits: [0, 0], enum: ok_bits}
+  - {key: x.co2, label: CO2, table: input, address: 30001, type: u16, unit: ppm, optional: true}
+  - {key: x.humidity, label: RH, table: input, address: 30002, type: u16, unit: '%', scale: 0.1, optional: true, note: 'Relative humidity, given in ‰.'}
+  - {key: x.air_temperature, label: T, table: input, address: 30003, type: u16, unit: °C, scale: 0.1, optional: true, note: The document gives the format as uint16; how temperatures below 0 °C are coded is not stated.}
+  - {key: x.ivoc, label: IVOC (VOC as CO2 equivalent), table: input, address: 30004, type: u16, unit: ppm, optional: true}
+  - {key: x.differential_pressure, label: DP, table: input, address: 30005, type: u16, unit: Pa, optional: true}
+  - {key: x.illuminance, label: Intenzita světla (ambient light), table: input, address: 30006, type: u16, unit: lx, optional: true, verified: false, note: Format not stated in the document; assumed uint16.}
+  - {key: x.people_count, label: Počítadlo osob (people counter), table: input, address: 30007, type: s16, optional: true, note: IL-PC people counter.}
+  - {key: x.voc2, label: VOC2, table: input, address: 30010, type: u16, unit: ppb, optional: true}
+  - {key: x.smoke, label: SMOKE, table: input, address: 30011, type: u16, unit: ppb, optional: true}
+  - {key: x.pm1, label: PM 1, table: input, address: 30012, type: u16, unit: µg/m³, scale: 0.1, optional: true}
+  - {key: x.pm2_5, label: PM 2.5, table: input, address: 30013, type: u16, unit: µg/m³, scale: 0.1, optional: true}
+  - {key: x.pm4, label: PM 4, table: input, address: 30014, type: u16, unit: µg/m³, scale: 0.1, optional: true}
+  - {key: x.pm10, label: PM 10, table: input, address: 30015, type: u16, unit: µg/m³, scale: 0.1, optional: true}
+  - {key: x.radon, label: RADON, table: input, address: 30016, type: u16, unit: Bq/m³, optional: true}
+  - {key: x.refrigerant, label: REFRIGERANT PPM, table: input, address: 30017, type: u16, unit: ppm, optional: true}
+  - {key: x.refrigerant_resistance, label: REFRIGERANT R (sensor resistance), table: input, address: 30018, type: u16, unit: Ω, optional: true}
+  - {key: x.tvoc, label: TVOC, table: input, address: 30019, type: u16, unit: µg/m³, optional: true}
+  # Identity
+  - {key: x.sensor_id, label: ID čidla (sensor id), table: input, address: 30008, type: u16, enum: sensor_id, poll: slow}
+  - {key: x.services, label: Dostupné služby čidla (available services), table: input, address: 30009, type: u16, flags: service_bits, poll: slow}
+  # Settings (holding registers; writable on the RS485 variant only)
+  - {key: x.modbus_address, label: Modbus adresa, table: holding, address: 40000, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Default 1.}
+  - {key: x.baud_rate, label: Modbus baud rate, table: holding, address: 40001, type: u16, unit: bps, writable: true, poll: slow, verified: false, note: 'Supported: 4800, 9600, 19200, 38400 and 56000; default 19200. That the register holds the rate itself is assumed (not stated).'}
+  - {key: x.relay_1_source, label: Relé 1 - KV (compared value), table: holding, address: 40002, type: u16, writable: true, poll: slow, note: Address of the input register relay 1 compares (from 0x7531).}
+  - {key: x.relay_1_mode, label: Relé 1 - MK (comparison mode), table: holding, address: 40003, type: u16, enum: relay_mode, writable: true, poll: slow}
+  - {key: x.relay_1_level, label: Relé 1 - KÚ (comparison level), table: holding, address: 40004, type: u16, writable: true, poll: slow, note: 'Default from the rotary switch; used when the mode is not 0, 1 or 2.'}
+  - {key: x.relay_2_source, label: Relé 2 - KV (compared value), table: holding, address: 40005, type: u16, writable: true, poll: slow, note: Address of the input register relay 2 compares (from 0x7531).}
+  - {key: x.relay_2_mode, label: Relé 2 - MK (comparison mode), table: holding, address: 40006, type: u16, enum: relay_mode, writable: true, poll: slow}
+  - {key: x.relay_2_level, label: Relé 2 - KÚ (comparison level), table: holding, address: 40007, type: u16, writable: true, poll: slow, note: 'Default from the rotary switch; used when the mode is not 0, 1 or 2.'}
+  # Coils
+  - {key: x.parity_none, label: Modbus parita, table: coil, address: 0, type: bool, writable: true, poll: slow, note: '0 = even parity, 1 = no parity (a second stop bit in its place). Default 0 on RS485.'}
+  - {key: x.save_config, label: Ulož konfiguraci (save configuration), table: coil, address: 2, type: bool, writable: true, poll: slow, note: Write 1 to keep the current settings after power loss; the first read clears the flag.}
+  - {key: x.gas_autocalibration, label: GAS Autokalibrace, table: coil, address: 5, type: bool, writable: true, poll: slow, optional: true, note: 1 = automatic calibration enabled (default).}
+
+enums:
+  ok_bits: {'0': Error, '1': OK}
+  relay_mode: {'0': 'Comparison off, relay open', '1': 'Comparison off, relay closed', '2': By the manual rotary switch}
+  sensor_id: {'1': NLII-CO2, '2': NLII-CO2-5, '3': NLII-CO2+RH, '4': NLII-CO2+RH-5, '5': NLII-CO2+RH+T, '6': NLII-CO2+RH+T-5, '7': NLII-IVOC, '8': NLII-IVOC+RH, '9': NLII-IVOC+RH+T, '10': NLII-RH, '11': NLII-RH+T, '12': IL-DPS, '13': IL-ALS, '14': IL-PC1, '15': NLII-VOC2+RH+T, '16': NLII-SMOKE+RH+T, '17': NLII-DUST, '18': NLII-RADON, '19': NLII-CO2-T, '20': NLII-IVOC-T, '22': IL-RG, '23': AQS-CO2-F, '24': NLII-TVOC, '25': NLII-TVOC+RH, '26': NLII-TVOC+RH+T, '27': NLII-CO2+TVOC, '28': NLII-CO2+TVOC-5}
+
+flags:
+  status_bits: {'0': Sensor works without error, '1': Relay 1 on, '2': Relay 2 on, '3': CO2 / IVOC data valid, '4': RH data valid, '5': T data valid}
+  service_bits: {'0': Relay control settable by software, '1': LED indication settable by software, '2': Analog outputs settable by software, '3': Automatic calibration can be switched by software, '4': Manual calibration can be started by software}
+
+problems:
+  - {when: {key: x.sensor_ok, equals: 0}, kind: fault, text: Sensor error (status bit 0 clear)}
+
+notes:
+- Addresses are the protocol addresses the document gives (e.g. 0x7531 for CO2, as sent in the request); input registers are
+  read with function 04, settings with 03 / 06 / 16, coils with 01 / 05 / 15.
+- The register map is shared by the whole NLII / IL sensor family; each sensor answers only the registers of the quantities
+  it measures and returns exception 2 (illegal data address) for the others. Which registers each model has is not listed
+  per model, so all measurements are optional. Register 0x7539 tells which settings a sensor supports.
+- At most 13 registers (184 coils) per request. Valid for firmware 212 and later. Variants with IQRF or CIB interfaces exist;
+  settings are writable only on the RS485 variant.
+- Settings changed over Modbus are lost on power off unless coil 2 (save configuration) is written with 1; coil 3 restores
+  the factory settings.
+- 'Left out: LED indication settings (holding 0x9C48–0x9C4B), calibration points (0x9C4C–0x9C4F), the stop-bit, factory-reset,
+  people-counter-reset and manual-calibration coils, and the vendor functions 0x42 / 0x43 (reading input registers in any
+  order).'

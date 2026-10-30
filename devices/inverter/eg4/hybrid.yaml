@@ -1,0 +1,1000 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the EG4 18KPV-12LV Modbus RTU Protocol (undated).
+
+modbusspec: 0
+id: eg4-hybrid
+manufacturer: EG4
+name: Hybrid inverters (PV series, FlexBOSS)
+kind: inverter
+
+sources:
+- title: EG4 18KPV-12LV Modbus RTU Protocol
+  version: undated
+  url: https://www.dth.net/solar/luxpower/modbus/EG4-18KPV-12LV-Modbus-Protocol.pdf
+  sha256: 21d4d2083d4fce97e43e614dbe9ce73039b83e8bb5a604debc47f62425536fb5
+  archive_url: https://web.archive.org/web/20250201080654/https://www.dth.net/solar/luxpower/modbus/EG4-18KPV-12LV-Modbus-Protocol.pdf
+- id: eg4-inverter-modbus
+  title: EG4-Inverter-Modbus (Home Assistant integration)
+  url: https://github.com/poldim/EG4-Inverter-Modbus
+  license: GPL-3.0
+  commit: a6735554e50a17f3ee7437650b9ba4d8f4eaad1a
+  path: custom_components/eg4_inverter_modbus/hub.py, custom_components/eg4_inverter_modbus/const.py
+- id: eg4-web-monitor
+  title: eg4_web_monitor (Home Assistant integration)
+  url: https://github.com/joyfulhouse/eg4_web_monitor
+  license: MIT
+  commit: 77e6c8652d46042e2a919c8e461ddd2c10724c3a
+  path: custom_components/eg4_web_monitor/const/operating_state.py
+- id: pylxpweb
+  title: pylxpweb (Python library for EG4 / LuxPower inverters, used by eg4_web_monitor)
+  url: https://github.com/joyfulhouse/pylxpweb
+  license: MIT
+  commit: bce390936f2068000b7a53e2e981e9399139753f
+  path: src/pylxpweb/registers/inverter_input.py, src/pylxpweb/registers/inverter_holding.py, src/pylxpweb/registers/scheduling.py,
+    src/pylxpweb/registers/battery.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 19200
+    format: 8N1
+  limits:
+    max_registers: 40
+    min_interval_ms: 1000
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 2
+    type: str
+    length: 5
+    byte_order: little
+  any:
+  - table: holding
+    address: 19
+    type: u16
+    equals: 2092
+  - table: holding
+    address: 19
+    type: u16
+    equals: 10284
+
+models:
+  - {id: pv_series, name: PV SERIES, match: {table: holding, address: 19, type: u16, equals: 2092}}
+  - {id: flexboss, name: FLEXBOSS, match: {table: holding, address: 19, type: u16, equals: 10284}}
+
+points:
+  # Input registers (function 04): running data
+  - {key: state, label: State, table: input, address: 0, type: u16, enum: state}
+  - {key: x.pv1_voltage, label: Vpv1, table: input, address: 1, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_voltage, label: Vpv2, table: input, address: 2, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv3_voltage, label: Vpv3, table: input, address: 3, type: u16, unit: V, scale: 0.1}
+  - {key: battery_voltage, label: Vbat, table: input, address: 4, type: u16, unit: V, scale: 0.1}
+  - {key: battery_soc, label: SOC, table: input, address: 5, type: u16, bits: [0, 7], unit: '%', note: SOC and SOH share register 5; low byte = SOC assumed from the order of the table (as for the version bytes in holding 9/10)., verified: false}
+  - {key: battery_soh, label: SOH, table: input, address: 5, type: u16, bits: [8, 15], unit: '%', verified: false}
+  - {key: x.internal_fault, label: InternalFault, table: input, address: 6, type: u16, note: Internal DTC (the code table isn't in the document).}
+  - {key: x.pv1_power, label: Ppv1, table: input, address: 7, type: u16, unit: W}
+  - {key: x.pv2_power, label: Ppv2, table: input, address: 8, type: u16, unit: W}
+  - {key: x.pv3_power, label: Ppv3, table: input, address: 9, type: u16, unit: W}
+  - {key: x.charge_power, label: Pcharge (battery charging power), table: input, address: 10, type: u16, unit: W}
+  - {key: x.discharge_power, label: Pdischarge (battery discharging power), table: input, address: 11, type: u16, unit: W}
+  - {key: l1_voltage, label: VacR (R-phase mains voltage), table: input, address: 12, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: VacS (S-phase mains voltage), table: input, address: 13, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: VacT (T-phase mains voltage), table: input, address: 14, type: u16, unit: V, scale: 0.1}
+  - {key: frequency, label: Fac (mains frequency), table: input, address: 15, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.inverter_power, label: 'Pinv (inverter output power, grid port)', table: input, address: 16, type: u16, unit: W}
+  - {key: x.rectifier_power, label: Prec (AC charging rectified power), table: input, address: 17, type: u16, unit: W}
+  - {key: x.inverter_current, label: IinvRMS, table: input, address: 18, type: u16, unit: A, scale: 0.01}
+  - {key: x.power_factor_raw, label: PF, table: input, address: 19, type: u16, note: 'Coded: x in (0, 1000] gives x / 1000; x in (1000, 2000) gives (1000 − x) / 1000. The quotient form can''t be expressed here, so the raw value is given.', conflicts: [{sources: [eg4-inverter-modbus, pylxpweb], scale: 0.001, label: Power Factor Inverter}]}
+  - {key: x.eps_voltage_r, label: VepsR (R-phase off-grid output voltage), table: input, address: 20, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_voltage_s, label: VepsS (S-phase off-grid output voltage), table: input, address: 21, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_voltage_t, label: VepsT (T-phase off-grid output voltage), table: input, address: 22, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_frequency, label: Feps (off-grid output frequency), table: input, address: 23, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.eps_power, label: Peps (off-grid inverter power), table: input, address: 24, type: u16, unit: W}
+  - {key: x.eps_apparent_power, label: Seps (off-grid apparent power), table: input, address: 25, type: u16, unit: VA}
+  - {key: x.export_power, label: Ptogrid (export power to grid), table: input, address: 26, type: u16, unit: W}
+  - {key: x.import_power, label: Ptouser (import power from grid), table: input, address: 27, type: u16, unit: W}
+  - {key: x.pv1_energy_today, label: Epv1_day, table: input, address: 28, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.pv2_energy_today, label: Epv2_day, table: input, address: 29, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.pv3_energy_today, label: Epv3_day, table: input, address: 30, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.inverter_energy_today, label: Einv_day, table: input, address: 31, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.rectifier_energy_today, label: Erec_day (AC charging), table: input, address: 32, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.charge_energy_today, label: Echg_day, table: input, address: 33, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.discharge_energy_today, label: Edischg_day, table: input, address: 34, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.eps_energy_today, label: Eeps_day, table: input, address: 35, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.export_energy_today, label: Etogrid_day, table: input, address: 36, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.import_energy_today, label: Etouser_day, table: input, address: 37, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.bus1_voltage, label: Vbus1, table: input, address: 38, type: u16, unit: V, scale: 0.1}
+  - {key: x.bus2_voltage, label: Vbus2, table: input, address: 39, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_energy, label: Epv1_all, table: input, address: 40, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv2_energy, label: Epv2_all, table: input, address: 42, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv3_energy, label: Epv3_all, table: input, address: 44, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.inverter_energy, label: Einv_all, table: input, address: 46, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.rectifier_energy, label: Erec_all (AC charging), table: input, address: 48, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.charge_energy, label: Echg_all, table: input, address: 50, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.discharge_energy, label: Edischg_all, table: input, address: 52, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.eps_energy, label: Eeps_all, table: input, address: 54, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_export_energy, label: Etogrid_all, table: input, address: 56, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_import_energy, label: Etouser_all, table: input, address: 58, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.fault_code, label: FaultCode, table: input, address: 60, type: u32, flags: fault_code}
+  - {key: x.warning_code, label: WarningCode, table: input, address: 62, type: u32, flags: warning_code}
+  - {key: temperature, label: Tinner (internal temperature), table: input, address: 64, type: s16, unit: °C}
+  - {key: x.radiator1_temperature, label: Tradiator1, table: input, address: 65, type: s16, unit: °C}
+  - {key: x.radiator2_temperature, label: Tradiator2, table: input, address: 66, type: s16, unit: °C}
+  - {key: battery_temperature, label: Tbat, table: input, address: 67, type: s16, unit: °C}
+  - {key: x.running_time, label: RunningTime, table: input, address: 69, type: u32, unit: s, poll: slow, conflicts: [{sources: [eg4-inverter-modbus], unit: d, scale: 1.157407407e-05, label: Inverter Uptime}]}
+  - {key: x.ac_input_type, label: ACInputType, table: input, address: 77, type: u16, enum: ac_input_type, poll: slow, note: Given for the 12K hybrid.}
+  - {key: x.bms_max_charge_current, label: MaxChgCurr (BMS limit), table: input, address: 81, type: u16, unit: A, scale: 0.01}
+  - {key: x.bms_max_discharge_current, label: MaxDischgCurr (BMS limit), table: input, address: 82, type: u16, unit: A, scale: 0.01}
+  - {key: x.bms_charge_voltage, label: ChargeVoltRef (BMS recommended charging voltage), table: input, address: 83, type: u16, unit: V, scale: 0.1}
+  - {key: x.bms_discharge_cutoff_voltage, label: DischgCutVolt (BMS recommended discharge cut-off), table: input, address: 84, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery_parallel_count, label: BatParallelNum, table: input, address: 96, type: u16, poll: slow}
+  - {key: x.battery_capacity, label: BatCapacity, table: input, address: 97, type: u16, unit: Ah, poll: slow}
+  - {key: battery_current, label: BatCurrent_BMS, table: input, address: 98, type: s16, unit: A, scale: 0.01, positive: charge, note: Signed; the document doesn't say which direction is positive (charging assumed)., conflicts: [{sources: [eg4-inverter-modbus, pylxpweb], scale: 0.1, label: Battery Current}], verified: false}
+  - {key: x.bms_fault_code, label: FaultCode_BMS, table: input, address: 99, type: u16, note: Codes not listed in the document.}
+  - {key: x.bms_warning_code, label: WarningCode_BMS, table: input, address: 100, type: u16, note: Codes not listed in the document.}
+  - {key: x.max_cell_voltage, label: MaxCellVolt_BMS, table: input, address: 101, type: u16, unit: V, scale: 0.001}
+  - {key: x.min_cell_voltage, label: MinCellVolt_BMS, table: input, address: 102, type: u16, unit: V, scale: 0.001}
+  - {key: x.max_cell_temperature, label: MaxCellTemp_BMS, table: input, address: 103, type: s16, unit: °C, scale: 0.1}
+  - {key: x.min_cell_temperature, label: MinCellTemp_BMS, table: input, address: 104, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery_cycles, label: CycleCnt_BMS, table: input, address: 106, type: u16, poll: slow}
+  - {key: x.battery_voltage_inverter, label: BatVoltSample_INV, table: input, address: 107, type: u16, unit: V, scale: 0.1}
+  - {key: x.master_or_slave, label: MasterOrSlave, table: input, address: 113, type: u16, bits: [0, 1], enum: master_slave, poll: slow}
+  - {key: x.parallel_phase, label: SingleOrThreePhase, table: input, address: 113, type: u16, bits: [2, 3], enum: phase, poll: slow}
+  - {key: x.parallel_count, label: ParallelNum, table: input, address: 113, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.generator_voltage, label: GenVolt, table: input, address: 121, type: u16, unit: V, scale: 0.1}
+  - {key: x.generator_frequency, label: GenFreq, table: input, address: 122, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.generator_power, label: GenPower, table: input, address: 123, type: u16, unit: W}
+  - {key: x.generator_energy_today, label: Egen_day, table: input, address: 124, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.generator_energy, label: Egen_all, table: input, address: 125, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.eps_l1n_voltage, label: EPSVoltL1N, table: input, address: 127, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_l2n_voltage, label: EPSVoltL2N, table: input, address: 128, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_l1n_power, label: Peps_L1N, table: input, address: 129, type: u16, unit: W}
+  - {key: x.eps_l2n_power, label: Peps_L2N, table: input, address: 130, type: u16, unit: W}
+  - {key: x.eps_l1n_apparent_power, label: Seps_L1N, table: input, address: 131, type: u16, unit: VA}
+  - {key: x.eps_l2n_apparent_power, label: Seps_L2N, table: input, address: 132, type: u16, unit: VA}
+  - {key: x.eps_l1n_energy_today, label: EepsL1N_day, table: input, address: 133, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.eps_l2n_energy_today, label: EepsL2N_day, table: input, address: 134, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.eps_l1n_energy, label: EepsL1N_all, table: input, address: 135, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.eps_l2n_energy, label: EepsL2N_all, table: input, address: 137, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.afci_flags, label: AFCIFlag, table: input, address: 144, type: u16, flags: afci}
+
+  # Holding registers (function 03, write 06; 10 only for serial number and time)
+  - {key: serial, label: 'SN[0]–SN[9]', table: holding, address: 2, type: str, length: 5, byte_order: little, poll: slow, note: 'Ten ASCII characters, two per register, the first of each pair in the low byte (e.g. AB12345678).'}
+  - {key: x.slave_version, label: Slave Ver (redundant CPU firmware), table: holding, address: 9, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.com_version, label: Com Ver (communication CPU firmware), table: holding, address: 9, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.control_version, label: Cntl Ver (control CPU firmware), table: holding, address: 10, type: u16, bits: [0, 7], poll: slow}
+  - {key: firmware, label: FWVer (firmware version code), table: holding, address: 10, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.clock, label: Time (year … second), table: holding, address: 12, type: datetime, length: 3, datetime: {year: {register: 0, bits: [0, 7], offset: 2000}, month: {register: 0, bits: [8, 15]}, day: {register: 1, bits: [0, 7]}, hour: {register: 1, bits: [8, 15]}, minute: {register: 2, bits: [0, 7]}, second: {register: 2, bits: [8, 15]}}, writable: true, poll: slow, note: Byte order of each pair and the year offset (17 = 2017) assumed from the table; write with function 10., verified: false}
+  - {key: x.com_address, label: Com Addr, table: holding, address: 15, type: u16, writable: true, min: 0, max: 150, poll: slow}
+  - {key: x.pv_input_model, label: PVInputModel, table: holding, address: 20, type: u16, writable: true, poll: slow, note: '0 none, 1 PV1, 2 PV2, 3 two parallel, 4 two separate (12K hybrid: 0–7, combinations of PV1–3).'}
+  - {key: x.eps_enable, label: FuncEn.EPSEn (off-grid mode), table: holding, address: 21, type: u16, bits: [0, 0], enum: disable_enable, writable: true, poll: slow}
+  - {key: x.ac_charge_enable, label: FuncEn.ACChargeEn, table: holding, address: 21, type: u16, bits: [7, 7], enum: disable_enable, writable: true, poll: slow}
+  - {key: x.power_on, label: FuncEn.SetToStandby, table: holding, address: 21, type: u16, bits: [9, 9], enum: standby, writable: true, poll: slow}
+  - {key: x.forced_discharge_enable, label: FuncEn.ForcedDischgEn, table: holding, address: 21, type: u16, bits: [10, 10], enum: disable_enable, writable: true, poll: slow}
+  - {key: x.forced_charge_enable, label: FuncEn.ForcedChgEn, table: holding, address: 21, type: u16, bits: [11, 11], enum: disable_enable, writable: true, poll: slow}
+  - {key: x.feed_in_enable, label: FuncEn.FeedInGridEn, table: holding, address: 21, type: u16, bits: [15, 15], enum: disable_enable, writable: true, poll: slow}
+  - {key: x.active_power_percent, label: ActivePowerPercentCMD, table: holding, address: 60, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, conflicts: [{sources: [pylxpweb], label: PV reactive power control mode (0-4)}]}
+  - {key: x.charge_power_percent, label: ChargePowerPercentCMD, table: holding, address: 64, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.discharge_power_percent, label: DischgPowerPercentCMD, table: holding, address: 65, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.ac_charge_power_percent, label: ACChgPowerCMD, table: holding, address: 66, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, conflicts: [{sources: [eg4-inverter-modbus, pylxpweb], unit: W, scale: 100, label: AC Charge Rate}]}
+  - {key: x.ac_charge_soc_limit, label: ACChgSOCLimit, table: holding, address: 67, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.charge_first_power_percent, label: ChgFirstPowerCMD, table: holding, address: 74, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, conflicts: [{sources: [pylxpweb], unit: W, scale: 100, label: Forced/PV charge (ChgFirst) power command}]}
+  - {key: x.charge_first_soc_limit, label: ChgFirstSOCLimit, table: holding, address: 75, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.forced_discharge_power_percent, label: ForcedDischgPowerCMD, table: holding, address: 82, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, conflicts: [{sources: [pylxpweb], unit: W, scale: 100, label: Forced discharge power command}]}
+  - {key: x.forced_discharge_soc_limit, label: ForcedDischgSOCLimit, table: holding, address: 83, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.eps_voltage_setting, label: EPSVoltageSet, table: holding, address: 90, type: u16, unit: V, writable: true, poll: slow, note: '230, 240, 277 or 208.', conflicts: [{sources: [eg4-inverter-modbus, pylxpweb], label: Inverter Voltage}]}
+  - {key: x.eps_frequency_setting, label: EPSFreqSet, table: holding, address: 91, type: u16, unit: Hz, writable: true, poll: slow, note: 50 or 60., conflicts: [{sources: [eg4-inverter-modbus, pylxpweb], label: Inverter Frequency}]}
+  - {key: x.max_feed_in, label: MaxBackFlow (feed-in grid power), table: holding, address: 103, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.eod_soc, label: EOD (discharge cut-off SOC), table: holding, address: 105, type: u16, unit: '%', writable: true, min: 10, max: 90, poll: slow}
+  - {key: x.system_type, label: SetSystemType, table: holding, address: 112, type: u16, enum: system_type, writable: true, poll: slow}
+  - {key: x.ct_power_offset, label: wCT_PowerOffset, table: holding, address: 119, type: s16, unit: W, writable: true, min: -1000, max: 1000, poll: slow, note: CT power compensation; positive in the import (Ptouser) direction., conflicts: [{sources: [eg4-inverter-modbus], scale: 0.1, label: Power Offset WCT}]}
+  - {key: x.eps_soc_low_limit, label: SOCLowLimitForEPSDischg, table: holding, address: 125, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.output_priority, label: OutputPrioConfig, table: holding, address: 145, type: u16, enum: output_priority, writable: true, poll: slow}
+  - {key: x.line_mode, label: LineMode, table: holding, address: 146, type: u16, enum: line_mode, writable: true, poll: slow}
+  - {key: x.ac_charge_start_soc, label: ACChgStartSOC, table: holding, address: 160, type: u16, unit: '%', writable: true, min: 0, max: 90, poll: slow}
+  - {key: x.ac_charge_end_soc, label: ACChgEndSOC, table: holding, address: 161, type: u16, unit: '%', writable: true, min: 20, max: 100, poll: slow}
+  - {key: x.battery_low_soc, label: BatLowSOC (battery low alarm), table: holding, address: 164, type: u16, unit: '%', writable: true, min: 0, max: 90, poll: slow}
+  - {key: x.max_grid_input_power, label: MaxGridInputPower, table: holding, address: 176, type: u16, unit: W, writable: true, poll: slow}
+  - {key: x.generator_rated_power, label: GenRatePower, table: holding, address: 177, type: u16, unit: W, writable: true, poll: slow}
+  - {key: x.com_protocol_version, label: Communication protocol version, table: holding, address: 9, type: u16, verified: false, sources: [pylxpweb]}
+  - {key: x.controller_version, label: Controller firmware version, table: holding, address: 10, type: u16, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_language, label: Language, table: holding, address: 16, type: u16, enum: setting_language, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.device_type_code, label: Device type identification code, table: holding, address: 19, type: u16, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_func_en_ovf_load_derate, label: Over Frequency Load Reduction, table: holding, address: 21, type: u16, bits: [1, 1], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_func_en_drms, label: Setting func en drms, table: holding, address: 21, type: u16, bits: [2, 2], writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_func_en_lvrt, label: Low Voltage Ride Through, table: holding, address: 21, type: u16, bits: [3, 3], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_func_en_anti_island, label: Anti-islanding, table: holding, address: 21, type: u16, bits: [4, 4], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_func_en_neutral_detect, label: Neutral Detect, table: holding, address: 21, type: u16, bits: [5, 5], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_func_en_grid_on_power_ss, label: Seamless Switching when Grid On, table: holding, address: 21, type: u16, bits: [6, 6], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_func_en_sw_seamlessly, label: Seamless Switching, table: holding, address: 21, type: u16, bits: [8, 8], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_func_en_iso, label: Insulation Resistance Monitoring and Tripping, table: holding, address: 21, type: u16, bits: [12, 12], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_func_en_gfci, label: Ground Fault Circuit Monitoring and Tripping, table: holding, address: 21, type: u16, bits: [13, 13], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_func_en_dci, label: DC Injection Monitoring and Tripping, table: holding, address: 21, type: u16, bits: [14, 14], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_pv_start, label: PV Start Voltage, table: holding, address: 22, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_time_grid_connection_wait, label: Grid Connection Wait Time, table: holding, address: 23, type: u16, unit: s, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_time_grid_reconnection_wait, label: Grid Reconnection Wait Time, table: holding, address: 24, type: u16, unit: s, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.grid_voltage_connection_low, label: Grid voltage connection low limit, table: holding, address: 25, type: u16, unit: V, scale: 0.1, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_whole_bypass_1_enable, label: LSP whole-day bypass period 1 enable, table: holding, address: 26, type: u16, bits: [0, 0], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_whole_bypass_2_enable, label: LSP whole-day bypass period 2 enable, table: holding, address: 26, type: u16, bits: [1, 1], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_whole_bypass_3_enable, label: LSP whole-day bypass period 3 enable, table: holding, address: 26, type: u16, bits: [2, 2], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_whole_battery_first_1_enable, label: LSP whole-day battery-first period 1 enable, table: holding, address: 26, type: u16, bits: [3, 3], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_whole_battery_first_2_enable, label: LSP whole-day battery-first period 2 enable, table: holding, address: 26, type: u16, bits: [4, 4], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_whole_battery_first_3_enable, label: LSP whole-day battery-first period 3 enable, table: holding, address: 26, type: u16, bits: [5, 5], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_whole_self_consumption_1_enable, label: LSP whole-day self-consumption period 1 enable, table: holding, address: 26, type: u16, bits: [6, 6], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_whole_self_consumption_2_enable, label: LSP whole-day self-consumption period 2 enable, table: holding, address: 26, type: u16, bits: [7, 7], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_whole_self_consumption_3_enable, label: LSP whole-day self-consumption period 3 enable, table: holding, address: 26, type: u16, bits: [8, 8], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.lsp_battery_volt_or_soc, label: LSP battery control mode, table: holding, address: 26, type: u16, bits: [9, 9], enum: lsp_battery_volt_or_soc, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.grid_frequency_connection_low, label: Grid frequency connection low limit, table: holding, address: 27, type: u16, unit: Hz, scale: 0.01, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.grid_frequency_connection_high, label: Grid frequency connection high limit, table: holding, address: 28, type: u16, unit: Hz, scale: 0.01, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_reactive_power_cmd_type, label: Reactive Power Command Type, table: holding, address: 59, type: u16, enum: setting_reactive_power_cmd_type, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.reactive_power_setting, label: Reactive power percentage setting, table: holding, address: 61, type: s16, unit: '%', writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.reactive_power_pv_setting, label: PV reactive power percentage setting, table: holding, address: 62, type: s16, unit: '%', writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_start_hour_1, label: AC charge time period 1 start hour, table: holding, address: 68, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_ac_charge_t1_start_hour, label: AC Charge T1 Start Time hour, table: holding, address: 68, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ac_charge_t1_start_minute, label: AC Charge T1 Start Time minute, table: holding, address: 68, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.ac_charge_start_minute_1, label: AC charge time period 1 start minute, table: holding, address: 69, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_ac_charge_t1_end_hour, label: AC Charge T1 End Time hour, table: holding, address: 69, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ac_charge_t1_end_minute, label: AC Charge T1 End Time minute, table: holding, address: 69, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.ac_charge_end_hour_1, label: AC charge time period 1 end hour, table: holding, address: 70, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_ac_charge_t2_start_hour, label: AC Charge T2 Start Time hour, table: holding, address: 70, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ac_charge_t2_start_minute, label: AC Charge T2 Start Time minute, table: holding, address: 70, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.ac_charge_end_minute_1, label: AC charge time period 1 end minute, table: holding, address: 71, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_ac_charge_t2_end_hour, label: AC Charge T2 End Time hour, table: holding, address: 71, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ac_charge_t2_end_minute, label: AC Charge T2 End Time minute, table: holding, address: 71, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.ac_charge_enable_period_1, label: AC charge time period 1 enable, table: holding, address: 72, type: u16, enum: ac_charge_enable_period_1, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_ac_charge_t3_start_hour, label: AC Charge T3 Start Time hour, table: holding, address: 72, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ac_charge_t3_start_minute, label: AC Charge T3 Start Time minute, table: holding, address: 72, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.ac_charge_enable_period_2, label: AC charge time period 2 enable, table: holding, address: 73, type: u16, enum: ac_charge_enable_period_2, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_ac_charge_t3_end_hour, label: AC Charge T3 End Time hour, table: holding, address: 73, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ac_charge_t3_end_minute, label: AC Charge T3 End Time minute, table: holding, address: 73, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.forced_charge_time_0_start, label: Forced charge period 0 start (packed hour|minute), table: holding, address: 76, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_0_end, label: Forced charge period 0 end (packed hour|minute), table: holding, address: 77, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_1_start, label: Forced charge period 1 start (packed hour|minute), table: holding, address: 78, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_1_end, label: Forced charge period 1 end (packed hour|minute), table: holding, address: 79, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_2_start, label: Forced charge period 2 start (packed hour|minute), table: holding, address: 80, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_2_end, label: Forced charge period 2 end (packed hour|minute), table: holding, address: 81, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_0_start, label: Forced discharge period 0 start (packed hour|minute), table: holding, address: 84, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_0_end, label: Forced discharge period 0 end (packed hour|minute), table: holding, address: 85, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_1_start, label: Forced discharge period 1 start (packed hour|minute), table: holding, address: 86, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_1_end, label: Forced discharge period 1 end (packed hour|minute), table: holding, address: 87, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_2_start, label: Forced discharge period 2 start (packed hour|minute), table: holding, address: 88, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_2_end, label: Forced discharge period 2 end (packed hour|minute), table: holding, address: 89, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_voltage_charge_ref, label: Charge Voltage Reference, table: holding, address: 99, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_discharge_cutoff, label: Discharge Cutoff Voltage, table: holding, address: 100, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_current_charge, label: Charge Current, table: holding, address: 101, type: u16, unit: A, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_current_discharge, label: Discharge Current, table: holding, address: 102, type: u16, unit: A, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_temp_low_limit_discharge, label: Setting temp low limit discharge, table: holding, address: 106, type: s16, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_temp_high_limit_discharge, label: Setting temp high limit discharge, table: holding, address: 107, type: s16, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_temp_low_limit_charge, label: Setting temp low limit charge, table: holding, address: 108, type: s16, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_temp_high_limit_charge, label: Setting temp high limit charge, table: holding, address: 109, type: s16, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_functionen1_ubpvgridoffen, label: PV during Loss of Grid, table: holding, address: 110, type: u16, bits: [0, 0], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_functionen1_ubfastzeroexport, label: Grid Fast Zero Export, table: holding, address: 110, type: u16, bits: [1, 1], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_functionen1_ubmicrogriden, label: Micro Grid, table: holding, address: 110, type: u16, bits: [2, 2], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_functionen1_ubbatshared, label: Battery is Shared, table: holding, address: 110, type: u16, bits: [3, 3], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_functionen1_ubchglasten, label: Charge Last, table: holding, address: 110, type: u16, bits: [4, 4], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_functionen1_ctsampleratio, label: CT Sample Ratio, table: holding, address: 110, type: u16, bits: [5, 6], enum: setting_functionen1_ctsampleratio, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_functionen1_buzzeren, label: Buzzer, table: holding, address: 110, type: u16, bits: [7, 7], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_functionen1_pvctsampletype, label: PV CT Sample Type, table: holding, address: 110, type: u16, bits: [8, 9], enum: setting_functionen1_pvctsampletype, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_functionen1_takeloadtogether, label: Take Load Together, table: holding, address: 110, type: u16, bits: [10, 10], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_functionen1_ongridworkingmode, label: On Grid Working Mode, table: holding, address: 110, type: u16, bits: [11, 11], enum: setting_functionen1_ongridworkingmode, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_functionen1_pvctsampleratio, label: PV CT Sample Ratio, table: holding, address: 110, type: u16, bits: [12, 13], enum: setting_functionen1_ctsampleratio, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_functionen1_greenmodeen, label: Off Grid Simulation Mode, table: holding, address: 110, type: u16, bits: [14, 14], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_functionen1_ecomodeen, label: Eco Mode, table: holding, address: 110, type: u16, bits: [15, 15], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_composed_phase, label: Off-grid Composed Phase, table: holding, address: 113, type: u16, bits: [0, 7], enum: setting_composed_phase, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ptouser_start_discharge, label: Ptouser Start Discharge, table: holding, address: 116, type: u16, unit: W, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_start_derating, label: Voltage Start Derating, table: holding, address: 118, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_half_hour_ac_chr_start_en, label: Setting half hour ac chr start en, table: holding, address: 120, type: u16, bits: [0, 0], writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ac_charge_type, label: AC Charge Type, table: holding, address: 120, type: u16, bits: [1, 3], enum: setting_ac_charge_type, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_discharge_control_type, label: Discharge Control Type, table: holding, address: 120, type: u16, bits: [4, 5], enum: setting_discharge_control_type, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ongrid_eod_type, label: On-Grid EOD Type, table: holding, address: 120, type: u16, bits: [6, 6], enum: setting_ongrid_eod_type, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_generator_charge_type, label: Generator Charge Type, table: holding, address: 120, type: u16, bits: [7, 7], enum: setting_generator_charge_type, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_separate_zero_export_en, label: Setting separate zero export en, table: holding, address: 120, type: u16, bits: [8, 8], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_0, label: 'Hourly Charge Discharge 00 - 0:00-0:30', table: holding, address: 126, type: u16, bits: [0, 1], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_1, label: 'Hourly Charge Discharge 01 - 0:30-1:00', table: holding, address: 126, type: u16, bits: [2, 3], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_2, label: 'Hourly Charge Discharge 02 - 1:00-1:30', table: holding, address: 126, type: u16, bits: [4, 5], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_3, label: 'Hourly Charge Discharge 03 - 1:30-2:00', table: holding, address: 126, type: u16, bits: [6, 7], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_4, label: 'Hourly Charge Discharge 04 - 2:00-2:30', table: holding, address: 126, type: u16, bits: [8, 9], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_5, label: 'Hourly Charge Discharge 05 - 2:30-3:00', table: holding, address: 126, type: u16, bits: [10, 11], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_6, label: 'Hourly Charge Discharge 06 - 3:00-3:30', table: holding, address: 126, type: u16, bits: [12, 13], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_7, label: 'Hourly Charge Discharge 07 - 3:30-4:00', table: holding, address: 126, type: u16, bits: [14, 15], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_8, label: 'Hourly Charge Discharge 08 - 4:00-4:30', table: holding, address: 127, type: u16, bits: [0, 1], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_9, label: 'Hourly Charge Discharge 09 - 4:30-5:00', table: holding, address: 127, type: u16, bits: [2, 3], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_10, label: 'Hourly Charge Discharge 10 - 5:00-5:30', table: holding, address: 127, type: u16, bits: [4, 5], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_11, label: 'Hourly Charge Discharge 11 - 5:30-6:00', table: holding, address: 127, type: u16, bits: [6, 7], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_12, label: 'Hourly Charge Discharge 12 - 6:00-6:30', table: holding, address: 127, type: u16, bits: [8, 9], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_13, label: 'Hourly Charge Discharge 13 - 6:30-7:00', table: holding, address: 127, type: u16, bits: [10, 11], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_14, label: 'Hourly Charge Discharge 14 - 7:00-7:30', table: holding, address: 127, type: u16, bits: [12, 13], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_15, label: 'Hourly Charge Discharge 15 - 7:30-8:00', table: holding, address: 127, type: u16, bits: [14, 15], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_16, label: 'Hourly Charge Discharge 16 - 8:00-8:30', table: holding, address: 128, type: u16, bits: [0, 1], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_17, label: 'Hourly Charge Discharge 17 - 8:30-9:00', table: holding, address: 128, type: u16, bits: [2, 3], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_18, label: 'Hourly Charge Discharge 18 - 9:00-9:30', table: holding, address: 128, type: u16, bits: [4, 5], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_19, label: 'Hourly Charge Discharge 19 - 9:30-10:00', table: holding, address: 128, type: u16, bits: [6, 7], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_20, label: 'Hourly Charge Discharge 20 - 10:00-10:30', table: holding, address: 128, type: u16, bits: [8, 9], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_21, label: 'Hourly Charge Discharge 21 - 10:30-11:00', table: holding, address: 128, type: u16, bits: [10, 11], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_22, label: 'Hourly Charge Discharge 22 - 11:00-11:30', table: holding, address: 128, type: u16, bits: [12, 13], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_23, label: 'Hourly Charge Discharge 23 - 11:30-12:00', table: holding, address: 128, type: u16, bits: [14, 15], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_24, label: 'Hourly Charge Discharge 24 - 12:00-12:30', table: holding, address: 129, type: u16, bits: [0, 1], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_25, label: 'Hourly Charge Discharge 25 - 12:30-13:00', table: holding, address: 129, type: u16, bits: [2, 3], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_26, label: 'Hourly Charge Discharge 26 - 13:00-13:30', table: holding, address: 129, type: u16, bits: [4, 5], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_27, label: 'Hourly Charge Discharge 27 - 13:30-14:00', table: holding, address: 129, type: u16, bits: [6, 7], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_28, label: 'Hourly Charge Discharge 28 - 14:00-14:30', table: holding, address: 129, type: u16, bits: [8, 9], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_29, label: 'Hourly Charge Discharge 29 - 14:30-15:00', table: holding, address: 129, type: u16, bits: [10, 11], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_30, label: 'Hourly Charge Discharge 30 - 15:00-15:30', table: holding, address: 129, type: u16, bits: [12, 13], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_31, label: 'Hourly Charge Discharge 31 - 15:30-16:00', table: holding, address: 129, type: u16, bits: [14, 15], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_32, label: 'Hourly Charge Discharge 32 - 16:00-16:30', table: holding, address: 130, type: u16, bits: [0, 1], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_33, label: 'Hourly Charge Discharge 33 - 16:30-17:00', table: holding, address: 130, type: u16, bits: [2, 3], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_34, label: 'Hourly Charge Discharge 34 - 17:00-17:30', table: holding, address: 130, type: u16, bits: [4, 5], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_35, label: 'Hourly Charge Discharge 35 - 17:30-18:00', table: holding, address: 130, type: u16, bits: [6, 7], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_36, label: 'Hourly Charge Discharge 36 - 18:00-18:30', table: holding, address: 130, type: u16, bits: [8, 9], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_37, label: 'Hourly Charge Discharge 37 - 18:30-19:00', table: holding, address: 130, type: u16, bits: [10, 11], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_38, label: 'Hourly Charge Discharge 38 - 19:00-19:30', table: holding, address: 130, type: u16, bits: [12, 13], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_39, label: 'Hourly Charge Discharge 39 - 19:30-20:00', table: holding, address: 130, type: u16, bits: [14, 15], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_40, label: 'Hourly Charge Discharge 40 - 20:00-20:30', table: holding, address: 131, type: u16, bits: [0, 1], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_41, label: 'Hourly Charge Discharge 41 - 20:30-21:00', table: holding, address: 131, type: u16, bits: [2, 3], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_42, label: 'Hourly Charge Discharge 42 - 21:00-21:30', table: holding, address: 131, type: u16, bits: [4, 5], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_43, label: 'Hourly Charge Discharge 43 - 21:30-22:00', table: holding, address: 131, type: u16, bits: [6, 7], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_44, label: 'Hourly Charge Discharge 44 - 22:00-22:30', table: holding, address: 131, type: u16, bits: [8, 9], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_45, label: 'Hourly Charge Discharge 45 - 22:30-23:00', table: holding, address: 131, type: u16, bits: [10, 11], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_46, label: 'Hourly Charge Discharge 46 - 23:00-23:30', table: holding, address: 131, type: u16, bits: [12, 13], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_hourly_charge_discharge_time_47, label: 'Hourly Charge Discharge 47 - 23:30-0:00', table: holding, address: 131, type: u16, bits: [14, 15], enum: no_action_charging_discharging, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_voltage_float_charge, label: Float Charge Voltage, table: holding, address: 144, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_battery_capacity_unmatched_override, label: Battery Capacity Unmatched Override, table: holding, address: 147, type: u16, unit: Ah, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_battery_nominal_voltage, label: Battery Nominal Voltage, table: holding, address: 148, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_equalization, label: Equalization Voltage, table: holding, address: 149, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_equalization_interval, label: Equalization Interval, table: holding, address: 150, type: u16, unit: d, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_equalization_time, label: Equalization Time, table: holding, address: 151, type: u16, unit: h, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_ac_charge_start, label: AC Charge Start Voltage, table: holding, address: 158, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_ac_charge_end, label: AC Charge End Voltage, table: holding, address: 159, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_battery_low, label: Battery Low Voltage, table: holding, address: 162, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_battery_low_back, label: Battery Low Back Voltage, table: holding, address: 163, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_soc_battery_low_back, label: Battery Low Back SOC, table: holding, address: 165, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_battery_low_to_utility, label: Battery Low to Utility Voltage, table: holding, address: 166, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_soc_battery_low_to_utility, label: Battery Low to Utility SOC, table: holding, address: 167, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_current_ac_charge_battery, label: AC Charge Battery Current, table: holding, address: 168, type: u16, unit: A, scale: 0.1, writable: true, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], scale: 1, label: Maximum AC charge battery current}], verified: false}
+  - {key: x.setting_voltage_ongrid_eod, label: Ongrid EOD Voltage, table: holding, address: 169, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.ac_ct_direction, label: 'AC CT direction (0=Normal, 1=Reversed)', table: holding, address: 179, type: u16, bits: [0, 0], enum: ac_ct_direction, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.pv_ct_direction, label: 'PV CT direction (0=Normal, 1=Reversed)', table: holding, address: 179, type: u16, bits: [1, 1], enum: pv_ct_direction, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.afci_alarm_clear, label: AFCI alarm clear, table: holding, address: 179, type: u16, bits: [2, 2], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.battery_wakeup_enable, label: Battery wakeup / PV sell first enable, table: holding, address: 179, type: u16, bits: [3, 3], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.volt_watt_enable, label: Volt-Watt response mode enable, table: holding, address: 179, type: u16, bits: [4, 4], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.trip_time_unit, label: Trip time unit selection, table: holding, address: 179, type: u16, bits: [5, 5], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.active_power_cmd_enable, label: Active power command enable, table: holding, address: 179, type: u16, bits: [6, 6], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_ufunctionen2_grid_peak_shaving, label: Grid Peak Shaving, table: holding, address: 179, type: u16, bits: [7, 7], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ufunctionen2_gen_peak_shaving, label: Gen Peak Shaving, table: holding, address: 179, type: u16, bits: [8, 8], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ufunctionen2_bat_chg_control, label: Battery Charge Control, table: holding, address: 179, type: u16, bits: [9, 9], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ufunctionen2_bat_dischg_control, label: Battery Discharge Control, table: holding, address: 179, type: u16, bits: [10, 10], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ufunctionen2_ac_coupling, label: AC Coupling, table: holding, address: 179, type: u16, bits: [11, 11], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ufunctionen2_pv_arc_en, label: PV Arc Detection, table: holding, address: 179, type: u16, bits: [12, 12], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ufunctionen2_smart_load_en, label: Aux Port Use, table: holding, address: 179, type: u16, bits: [13, 13], enum: setting_ufunctionen2_smart_load_en, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ufunctionen2_rsd_disable, label: RSD, table: holding, address: 179, type: u16, bits: [14, 14], enum: setting_ufunctionen2_rsd_disable, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ufunctionen2_ongrid_always_on, label: Smart Load Ongrid Always On, table: holding, address: 179, type: u16, bits: [15, 15], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.hold_p2, label: Hold register P2 (purpose under investigation), table: holding, address: 190, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_voltage_gen_charge_start, label: Gen Charge Start Voltage, table: holding, address: 194, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_voltage_gen_charge_end, label: Gen Charge End Voltage, table: holding, address: 195, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_soc_gen_charge_start, label: Gen Charge Start SOC, table: holding, address: 196, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_soc_gen_charge_end, label: Gen Charge End SOC, table: holding, address: 197, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_current_max_gen_charge_battery, label: Max Gen Charge Battery Current, table: holding, address: 198, type: u16, unit: A, scale: 0.1, writable: true, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], scale: 1, label: Maximum generator charge battery current}], verified: false}
+  - {key: x.setting_over_temp_derate_point, label: Over Temp Derate Point, table: holding, address: 199, type: s16, unit: °C, scale: 0.1, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_chg_first_end_volt, label: Charge Priority Voltage Limit, table: holding, address: 201, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_force_dischg_end_volt, label: Forced Discharge Voltage Limit, table: holding, address: 202, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_grid_regulation, label: Setting grid regulation, table: holding, address: 203, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_lead_capacity, label: Lead Capacity, table: holding, address: 204, type: u16, unit: Ah, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_grid_type, label: Grid Type, table: holding, address: 205, type: u16, enum: setting_grid_type, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_peak_shaving_power, label: Peak Shaving Power, table: holding, address: 206, type: u16, unit: W, scale: 100, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_peak_shaving_a_soc, label: Peak Shaving A SOC, table: holding, address: 207, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_peak_shaving_a_volt, label: Peak Shaving A Voltage, table: holding, address: 208, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_peak_shaving_a_start_hour, label: Peak Shaving A Start Time hour, table: holding, address: 209, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_peak_shaving_a_start_minute, label: Peak Shaving A Start Time minute, table: holding, address: 209, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_peak_shaving_a_end_hour, label: Peak Shaving A End Time hour, table: holding, address: 210, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_peak_shaving_a_end_minute, label: Peak Shaving A End Time minute, table: holding, address: 210, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_peak_shaving_b_start_hour1, label: Peak Shaving B Start Time hour, table: holding, address: 211, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_peak_shaving_b_start_minute1, label: Peak Shaving B Start Time minute, table: holding, address: 211, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_peak_shaving_b_end_hour1, label: Peak Shaving B End Time hour, table: holding, address: 212, type: u16, bits: [0, 7], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_peak_shaving_b_end_minute1, label: Peak Shaving B End Time minute, table: holding, address: 212, type: u16, bits: [8, 15], writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_smart_load_on_volt, label: Smart Load On Voltage, table: holding, address: 213, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_smart_load_off_volt, label: Smart Load Off Voltage, table: holding, address: 214, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_smart_load_on_soc, label: Smart Load On SOC, table: holding, address: 215, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_smart_load_off_soc, label: Smart Load Off SOC, table: holding, address: 216, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_start_pv_power, label: Start PV Power, table: holding, address: 217, type: u16, unit: W, scale: 100, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_peak_shaving_b_soc, label: Peak Shaving B SOC, table: holding, address: 218, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_peak_shaving_b_volt, label: Peak Shaving B Voltage, table: holding, address: 219, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_ac_couple_start_soc, label: AC Couple Start SOC, table: holding, address: 220, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ac_couple_end_soc, label: AC Couple End SOC (255 = Disabled), table: holding, address: 221, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ac_couple_start_volt, label: AC Couple Start Voltage, table: holding, address: 222, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_ac_couple_end_volt, label: AC Couple End Voltage, table: holding, address: 223, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.hardware_lcd_version, label: Hardware Display Version, table: holding, address: 224, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.hardware_lcd_screen_type, label: Hardware Display Type, table: holding, address: 224, type: u16, bits: [8, 9], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.hardware_lcd_model_code, label: Hardware Display Model Code, table: holding, address: 224, type: u16, bits: [10, 15], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_func3_exct_en, label: External CT, table: holding, address: 226, type: u16, bits: [2, 2], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_func3_runwithoutgrid, label: Run Without Grid, table: holding, address: 226, type: u16, bits: [3, 3], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_func3_nperlyen, label: Neutral to Ground Relay, table: holding, address: 226, type: u16, bits: [4, 4], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.setting_bat_stop_charge_soc, label: Battery Stop Charge SOC, table: holding, address: 227, type: u16, unit: '%', writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.setting_bat_stop_charge_volt, label: Battery Stop Charge Voltage, table: holding, address: 228, type: u16, unit: V, scale: 0.1, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.grid_peak_shaving_power_2, label: 'Grid peak shaving power limit, time period 2', table: holding, address: 232, type: u16, unit: W, scale: 100, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.setting_ac_charge_sporadic_charge, label: AC Charge Sporadic Charge, table: holding, address: 233, type: u16, bits: [0, 0], enum: disabled_enabled, writable: true, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery_backup_enable, label: 'Battery backup control (distinct from EPS enable, reg 21 bit 0)', table: holding, address: 233, type: u16, bits: [1, 1], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.maintenance_enable, label: Maintenance mode enable, table: holding, address: 233, type: u16, bits: [2, 2], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.weekly_schedule_enable, label: '7-day scheduling mode (0=daily regs 68-89, 1=weekly regs 500-723)', table: holding, address: 233, type: u16, bits: [3, 3], enum: weekly_schedule_enable, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.over_freq_fast_stop, label: Over-frequency fast stop enable, table: holding, address: 233, type: u16, bits: [10, 10], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.sporadic_charge_enable, label: Sporadic charge enable, table: holding, address: 233, type: u16, bits: [12, 12], writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.quick_charge_minute, label: Quick charge duration in minutes, table: holding, address: 234, type: u16, unit: min, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_1_mon, label: 'Ac charge power cmd slot 1, Mon', table: holding, address: 500, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_1_mon, label: 'Ac charge volt limit slot 1, Mon', table: holding, address: 501, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_1_mon, label: 'Ac charge time start slot 1, Mon', table: holding, address: 502, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_1_mon, label: 'Ac charge time end slot 1, Mon', table: holding, address: 503, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_2_mon, label: 'Ac charge power cmd slot 2, Mon', table: holding, address: 504, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_2_mon, label: 'Ac charge volt limit slot 2, Mon', table: holding, address: 505, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_2_mon, label: 'Ac charge time start slot 2, Mon', table: holding, address: 506, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_2_mon, label: 'Ac charge time end slot 2, Mon', table: holding, address: 507, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_1_tue, label: 'Ac charge power cmd slot 1, Tue', table: holding, address: 508, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_1_tue, label: 'Ac charge volt limit slot 1, Tue', table: holding, address: 509, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_1_tue, label: 'Ac charge time start slot 1, Tue', table: holding, address: 510, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_1_tue, label: 'Ac charge time end slot 1, Tue', table: holding, address: 511, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_2_tue, label: 'Ac charge power cmd slot 2, Tue', table: holding, address: 512, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_2_tue, label: 'Ac charge volt limit slot 2, Tue', table: holding, address: 513, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_2_tue, label: 'Ac charge time start slot 2, Tue', table: holding, address: 514, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_2_tue, label: 'Ac charge time end slot 2, Tue', table: holding, address: 515, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_1_wed, label: 'Ac charge power cmd slot 1, Wed', table: holding, address: 516, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_1_wed, label: 'Ac charge volt limit slot 1, Wed', table: holding, address: 517, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_1_wed, label: 'Ac charge time start slot 1, Wed', table: holding, address: 518, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_1_wed, label: 'Ac charge time end slot 1, Wed', table: holding, address: 519, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_2_wed, label: 'Ac charge power cmd slot 2, Wed', table: holding, address: 520, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_2_wed, label: 'Ac charge volt limit slot 2, Wed', table: holding, address: 521, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_2_wed, label: 'Ac charge time start slot 2, Wed', table: holding, address: 522, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_2_wed, label: 'Ac charge time end slot 2, Wed', table: holding, address: 523, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_1_thu, label: 'Ac charge power cmd slot 1, Thu', table: holding, address: 524, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_1_thu, label: 'Ac charge volt limit slot 1, Thu', table: holding, address: 525, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_1_thu, label: 'Ac charge time start slot 1, Thu', table: holding, address: 526, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_1_thu, label: 'Ac charge time end slot 1, Thu', table: holding, address: 527, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_2_thu, label: 'Ac charge power cmd slot 2, Thu', table: holding, address: 528, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_2_thu, label: 'Ac charge volt limit slot 2, Thu', table: holding, address: 529, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_2_thu, label: 'Ac charge time start slot 2, Thu', table: holding, address: 530, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_2_thu, label: 'Ac charge time end slot 2, Thu', table: holding, address: 531, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_1_fri, label: 'Ac charge power cmd slot 1, Fri', table: holding, address: 532, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_1_fri, label: 'Ac charge volt limit slot 1, Fri', table: holding, address: 533, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_1_fri, label: 'Ac charge time start slot 1, Fri', table: holding, address: 534, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_1_fri, label: 'Ac charge time end slot 1, Fri', table: holding, address: 535, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_2_fri, label: 'Ac charge power cmd slot 2, Fri', table: holding, address: 536, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_2_fri, label: 'Ac charge volt limit slot 2, Fri', table: holding, address: 537, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_2_fri, label: 'Ac charge time start slot 2, Fri', table: holding, address: 538, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_2_fri, label: 'Ac charge time end slot 2, Fri', table: holding, address: 539, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_1_sat, label: 'Ac charge power cmd slot 1, Sat', table: holding, address: 540, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_1_sat, label: 'Ac charge volt limit slot 1, Sat', table: holding, address: 541, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_1_sat, label: 'Ac charge time start slot 1, Sat', table: holding, address: 542, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_1_sat, label: 'Ac charge time end slot 1, Sat', table: holding, address: 543, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_2_sat, label: 'Ac charge power cmd slot 2, Sat', table: holding, address: 544, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_2_sat, label: 'Ac charge volt limit slot 2, Sat', table: holding, address: 545, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_2_sat, label: 'Ac charge time start slot 2, Sat', table: holding, address: 546, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_2_sat, label: 'Ac charge time end slot 2, Sat', table: holding, address: 547, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_1_sun, label: 'Ac charge power cmd slot 1, Sun', table: holding, address: 548, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_1_sun, label: 'Ac charge volt limit slot 1, Sun', table: holding, address: 549, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_1_sun, label: 'Ac charge time start slot 1, Sun', table: holding, address: 550, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_1_sun, label: 'Ac charge time end slot 1, Sun', table: holding, address: 551, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_power_cmd_2_sun, label: 'Ac charge power cmd slot 2, Sun', table: holding, address: 552, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_volt_limit_2_sun, label: 'Ac charge volt limit slot 2, Sun', table: holding, address: 553, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_start_2_sun, label: 'Ac charge time start slot 2, Sun', table: holding, address: 554, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_charge_time_end_2_sun, label: 'Ac charge time end slot 2, Sun', table: holding, address: 555, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_1_mon, label: 'Forced charge power cmd slot 1, Mon', table: holding, address: 556, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_1_mon, label: 'Forced charge volt limit slot 1, Mon', table: holding, address: 557, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_1_mon, label: 'Forced charge time start slot 1, Mon', table: holding, address: 558, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_1_mon, label: 'Forced charge time end slot 1, Mon', table: holding, address: 559, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_2_mon, label: 'Forced charge power cmd slot 2, Mon', table: holding, address: 560, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_2_mon, label: 'Forced charge volt limit slot 2, Mon', table: holding, address: 561, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_2_mon, label: 'Forced charge time start slot 2, Mon', table: holding, address: 562, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_2_mon, label: 'Forced charge time end slot 2, Mon', table: holding, address: 563, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_1_tue, label: 'Forced charge power cmd slot 1, Tue', table: holding, address: 564, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_1_tue, label: 'Forced charge volt limit slot 1, Tue', table: holding, address: 565, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_1_tue, label: 'Forced charge time start slot 1, Tue', table: holding, address: 566, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_1_tue, label: 'Forced charge time end slot 1, Tue', table: holding, address: 567, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_2_tue, label: 'Forced charge power cmd slot 2, Tue', table: holding, address: 568, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_2_tue, label: 'Forced charge volt limit slot 2, Tue', table: holding, address: 569, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_2_tue, label: 'Forced charge time start slot 2, Tue', table: holding, address: 570, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_2_tue, label: 'Forced charge time end slot 2, Tue', table: holding, address: 571, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_1_wed, label: 'Forced charge power cmd slot 1, Wed', table: holding, address: 572, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_1_wed, label: 'Forced charge volt limit slot 1, Wed', table: holding, address: 573, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_1_wed, label: 'Forced charge time start slot 1, Wed', table: holding, address: 574, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_1_wed, label: 'Forced charge time end slot 1, Wed', table: holding, address: 575, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_2_wed, label: 'Forced charge power cmd slot 2, Wed', table: holding, address: 576, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_2_wed, label: 'Forced charge volt limit slot 2, Wed', table: holding, address: 577, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_2_wed, label: 'Forced charge time start slot 2, Wed', table: holding, address: 578, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_2_wed, label: 'Forced charge time end slot 2, Wed', table: holding, address: 579, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_1_thu, label: 'Forced charge power cmd slot 1, Thu', table: holding, address: 580, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_1_thu, label: 'Forced charge volt limit slot 1, Thu', table: holding, address: 581, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_1_thu, label: 'Forced charge time start slot 1, Thu', table: holding, address: 582, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_1_thu, label: 'Forced charge time end slot 1, Thu', table: holding, address: 583, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_2_thu, label: 'Forced charge power cmd slot 2, Thu', table: holding, address: 584, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_2_thu, label: 'Forced charge volt limit slot 2, Thu', table: holding, address: 585, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_2_thu, label: 'Forced charge time start slot 2, Thu', table: holding, address: 586, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_2_thu, label: 'Forced charge time end slot 2, Thu', table: holding, address: 587, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_1_fri, label: 'Forced charge power cmd slot 1, Fri', table: holding, address: 588, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_1_fri, label: 'Forced charge volt limit slot 1, Fri', table: holding, address: 589, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_1_fri, label: 'Forced charge time start slot 1, Fri', table: holding, address: 590, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_1_fri, label: 'Forced charge time end slot 1, Fri', table: holding, address: 591, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_2_fri, label: 'Forced charge power cmd slot 2, Fri', table: holding, address: 592, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_2_fri, label: 'Forced charge volt limit slot 2, Fri', table: holding, address: 593, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_2_fri, label: 'Forced charge time start slot 2, Fri', table: holding, address: 594, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_2_fri, label: 'Forced charge time end slot 2, Fri', table: holding, address: 595, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_1_sat, label: 'Forced charge power cmd slot 1, Sat', table: holding, address: 596, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_1_sat, label: 'Forced charge volt limit slot 1, Sat', table: holding, address: 597, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_1_sat, label: 'Forced charge time start slot 1, Sat', table: holding, address: 598, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_1_sat, label: 'Forced charge time end slot 1, Sat', table: holding, address: 599, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_2_sat, label: 'Forced charge power cmd slot 2, Sat', table: holding, address: 600, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_2_sat, label: 'Forced charge volt limit slot 2, Sat', table: holding, address: 601, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_2_sat, label: 'Forced charge time start slot 2, Sat', table: holding, address: 602, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_2_sat, label: 'Forced charge time end slot 2, Sat', table: holding, address: 603, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_1_sun, label: 'Forced charge power cmd slot 1, Sun', table: holding, address: 604, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_1_sun, label: 'Forced charge volt limit slot 1, Sun', table: holding, address: 605, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_1_sun, label: 'Forced charge time start slot 1, Sun', table: holding, address: 606, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_1_sun, label: 'Forced charge time end slot 1, Sun', table: holding, address: 607, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_power_cmd_2_sun, label: 'Forced charge power cmd slot 2, Sun', table: holding, address: 608, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_volt_limit_2_sun, label: 'Forced charge volt limit slot 2, Sun', table: holding, address: 609, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_start_2_sun, label: 'Forced charge time start slot 2, Sun', table: holding, address: 610, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_charge_time_end_2_sun, label: 'Forced charge time end slot 2, Sun', table: holding, address: 611, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_1_mon, label: 'Forced discharge power cmd slot 1, Mon', table: holding, address: 612, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_1_mon, label: 'Forced discharge volt limit slot 1, Mon', table: holding, address: 613, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_1_mon, label: 'Forced discharge time start slot 1, Mon', table: holding, address: 614, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_1_mon, label: 'Forced discharge time end slot 1, Mon', table: holding, address: 615, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_2_mon, label: 'Forced discharge power cmd slot 2, Mon', table: holding, address: 616, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_2_mon, label: 'Forced discharge volt limit slot 2, Mon', table: holding, address: 617, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_2_mon, label: 'Forced discharge time start slot 2, Mon', table: holding, address: 618, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_2_mon, label: 'Forced discharge time end slot 2, Mon', table: holding, address: 619, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_1_tue, label: 'Forced discharge power cmd slot 1, Tue', table: holding, address: 620, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_1_tue, label: 'Forced discharge volt limit slot 1, Tue', table: holding, address: 621, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_1_tue, label: 'Forced discharge time start slot 1, Tue', table: holding, address: 622, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_1_tue, label: 'Forced discharge time end slot 1, Tue', table: holding, address: 623, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_2_tue, label: 'Forced discharge power cmd slot 2, Tue', table: holding, address: 624, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_2_tue, label: 'Forced discharge volt limit slot 2, Tue', table: holding, address: 625, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_2_tue, label: 'Forced discharge time start slot 2, Tue', table: holding, address: 626, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_2_tue, label: 'Forced discharge time end slot 2, Tue', table: holding, address: 627, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_1_wed, label: 'Forced discharge power cmd slot 1, Wed', table: holding, address: 628, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_1_wed, label: 'Forced discharge volt limit slot 1, Wed', table: holding, address: 629, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_1_wed, label: 'Forced discharge time start slot 1, Wed', table: holding, address: 630, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_1_wed, label: 'Forced discharge time end slot 1, Wed', table: holding, address: 631, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_2_wed, label: 'Forced discharge power cmd slot 2, Wed', table: holding, address: 632, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_2_wed, label: 'Forced discharge volt limit slot 2, Wed', table: holding, address: 633, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_2_wed, label: 'Forced discharge time start slot 2, Wed', table: holding, address: 634, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_2_wed, label: 'Forced discharge time end slot 2, Wed', table: holding, address: 635, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_1_thu, label: 'Forced discharge power cmd slot 1, Thu', table: holding, address: 636, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_1_thu, label: 'Forced discharge volt limit slot 1, Thu', table: holding, address: 637, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_1_thu, label: 'Forced discharge time start slot 1, Thu', table: holding, address: 638, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_1_thu, label: 'Forced discharge time end slot 1, Thu', table: holding, address: 639, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_2_thu, label: 'Forced discharge power cmd slot 2, Thu', table: holding, address: 640, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_2_thu, label: 'Forced discharge volt limit slot 2, Thu', table: holding, address: 641, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_2_thu, label: 'Forced discharge time start slot 2, Thu', table: holding, address: 642, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_2_thu, label: 'Forced discharge time end slot 2, Thu', table: holding, address: 643, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_1_fri, label: 'Forced discharge power cmd slot 1, Fri', table: holding, address: 644, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_1_fri, label: 'Forced discharge volt limit slot 1, Fri', table: holding, address: 645, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_1_fri, label: 'Forced discharge time start slot 1, Fri', table: holding, address: 646, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_1_fri, label: 'Forced discharge time end slot 1, Fri', table: holding, address: 647, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_2_fri, label: 'Forced discharge power cmd slot 2, Fri', table: holding, address: 648, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_2_fri, label: 'Forced discharge volt limit slot 2, Fri', table: holding, address: 649, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_2_fri, label: 'Forced discharge time start slot 2, Fri', table: holding, address: 650, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_2_fri, label: 'Forced discharge time end slot 2, Fri', table: holding, address: 651, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_1_sat, label: 'Forced discharge power cmd slot 1, Sat', table: holding, address: 652, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_1_sat, label: 'Forced discharge volt limit slot 1, Sat', table: holding, address: 653, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_1_sat, label: 'Forced discharge time start slot 1, Sat', table: holding, address: 654, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_1_sat, label: 'Forced discharge time end slot 1, Sat', table: holding, address: 655, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_2_sat, label: 'Forced discharge power cmd slot 2, Sat', table: holding, address: 656, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_2_sat, label: 'Forced discharge volt limit slot 2, Sat', table: holding, address: 657, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_2_sat, label: 'Forced discharge time start slot 2, Sat', table: holding, address: 658, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_2_sat, label: 'Forced discharge time end slot 2, Sat', table: holding, address: 659, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_1_sun, label: 'Forced discharge power cmd slot 1, Sun', table: holding, address: 660, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_1_sun, label: 'Forced discharge volt limit slot 1, Sun', table: holding, address: 661, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_1_sun, label: 'Forced discharge time start slot 1, Sun', table: holding, address: 662, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_1_sun, label: 'Forced discharge time end slot 1, Sun', table: holding, address: 663, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_power_cmd_2_sun, label: 'Forced discharge power cmd slot 2, Sun', table: holding, address: 664, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_volt_limit_2_sun, label: 'Forced discharge volt limit slot 2, Sun', table: holding, address: 665, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_start_2_sun, label: 'Forced discharge time start slot 2, Sun', table: holding, address: 666, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.forced_discharge_time_end_2_sun, label: 'Forced discharge time end slot 2, Sun', table: holding, address: 667, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_1_mon, label: 'Peak shaving power cmd slot 1, Mon', table: holding, address: 668, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_1_mon, label: 'Peak shaving volt limit slot 1, Mon', table: holding, address: 669, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_1_mon, label: 'Peak shaving time start slot 1, Mon', table: holding, address: 670, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_1_mon, label: 'Peak shaving time end slot 1, Mon', table: holding, address: 671, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_2_mon, label: 'Peak shaving power cmd slot 2, Mon', table: holding, address: 672, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_2_mon, label: 'Peak shaving volt limit slot 2, Mon', table: holding, address: 673, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_2_mon, label: 'Peak shaving time start slot 2, Mon', table: holding, address: 674, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_2_mon, label: 'Peak shaving time end slot 2, Mon', table: holding, address: 675, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_1_tue, label: 'Peak shaving power cmd slot 1, Tue', table: holding, address: 676, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_1_tue, label: 'Peak shaving volt limit slot 1, Tue', table: holding, address: 677, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_1_tue, label: 'Peak shaving time start slot 1, Tue', table: holding, address: 678, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_1_tue, label: 'Peak shaving time end slot 1, Tue', table: holding, address: 679, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_2_tue, label: 'Peak shaving power cmd slot 2, Tue', table: holding, address: 680, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_2_tue, label: 'Peak shaving volt limit slot 2, Tue', table: holding, address: 681, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_2_tue, label: 'Peak shaving time start slot 2, Tue', table: holding, address: 682, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_2_tue, label: 'Peak shaving time end slot 2, Tue', table: holding, address: 683, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_1_wed, label: 'Peak shaving power cmd slot 1, Wed', table: holding, address: 684, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_1_wed, label: 'Peak shaving volt limit slot 1, Wed', table: holding, address: 685, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_1_wed, label: 'Peak shaving time start slot 1, Wed', table: holding, address: 686, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_1_wed, label: 'Peak shaving time end slot 1, Wed', table: holding, address: 687, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_2_wed, label: 'Peak shaving power cmd slot 2, Wed', table: holding, address: 688, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_2_wed, label: 'Peak shaving volt limit slot 2, Wed', table: holding, address: 689, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_2_wed, label: 'Peak shaving time start slot 2, Wed', table: holding, address: 690, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_2_wed, label: 'Peak shaving time end slot 2, Wed', table: holding, address: 691, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_1_thu, label: 'Peak shaving power cmd slot 1, Thu', table: holding, address: 692, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_1_thu, label: 'Peak shaving volt limit slot 1, Thu', table: holding, address: 693, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_1_thu, label: 'Peak shaving time start slot 1, Thu', table: holding, address: 694, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_1_thu, label: 'Peak shaving time end slot 1, Thu', table: holding, address: 695, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_2_thu, label: 'Peak shaving power cmd slot 2, Thu', table: holding, address: 696, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_2_thu, label: 'Peak shaving volt limit slot 2, Thu', table: holding, address: 697, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_2_thu, label: 'Peak shaving time start slot 2, Thu', table: holding, address: 698, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_2_thu, label: 'Peak shaving time end slot 2, Thu', table: holding, address: 699, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_1_fri, label: 'Peak shaving power cmd slot 1, Fri', table: holding, address: 700, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_1_fri, label: 'Peak shaving volt limit slot 1, Fri', table: holding, address: 701, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_1_fri, label: 'Peak shaving time start slot 1, Fri', table: holding, address: 702, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_1_fri, label: 'Peak shaving time end slot 1, Fri', table: holding, address: 703, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_2_fri, label: 'Peak shaving power cmd slot 2, Fri', table: holding, address: 704, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_2_fri, label: 'Peak shaving volt limit slot 2, Fri', table: holding, address: 705, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_2_fri, label: 'Peak shaving time start slot 2, Fri', table: holding, address: 706, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_2_fri, label: 'Peak shaving time end slot 2, Fri', table: holding, address: 707, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_1_sat, label: 'Peak shaving power cmd slot 1, Sat', table: holding, address: 708, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_1_sat, label: 'Peak shaving volt limit slot 1, Sat', table: holding, address: 709, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_1_sat, label: 'Peak shaving time start slot 1, Sat', table: holding, address: 710, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_1_sat, label: 'Peak shaving time end slot 1, Sat', table: holding, address: 711, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_2_sat, label: 'Peak shaving power cmd slot 2, Sat', table: holding, address: 712, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_2_sat, label: 'Peak shaving volt limit slot 2, Sat', table: holding, address: 713, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_2_sat, label: 'Peak shaving time start slot 2, Sat', table: holding, address: 714, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_2_sat, label: 'Peak shaving time end slot 2, Sat', table: holding, address: 715, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_1_sun, label: 'Peak shaving power cmd slot 1, Sun', table: holding, address: 716, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_1_sun, label: 'Peak shaving volt limit slot 1, Sun', table: holding, address: 717, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_1_sun, label: 'Peak shaving time start slot 1, Sun', table: holding, address: 718, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_1_sun, label: 'Peak shaving time end slot 1, Sun', table: holding, address: 719, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_power_cmd_2_sun, label: 'Peak shaving power cmd slot 2, Sun', table: holding, address: 720, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_volt_limit_2_sun, label: 'Peak shaving volt limit slot 2, Sun', table: holding, address: 721, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_start_2_sun, label: 'Peak shaving time start slot 2, Sun', table: holding, address: 722, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.peak_shaving_time_end_2_sun, label: 'Peak shaving time end slot 2, Sun', table: holding, address: 723, type: u16, writable: true, verified: false, sources: [pylxpweb]}
+  - {key: x.battery_control_temperature, label: Battery control temperature, table: input, address: 68, type: u16, unit: °C, verified: false, sources: [pylxpweb]}
+  - {key: x.auto_test_status, label: Auto Test Status, table: input, address: 71, type: u16, bits: [4, 7], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.pv1_current, label: PV string 1 current, table: input, address: 72, type: u16, unit: A, scale: 0.01, verified: false, sources: [pylxpweb]}
+  - {key: x.pv2_current, label: PV string 2 current, table: input, address: 73, type: u16, unit: A, scale: 0.01, verified: false, sources: [pylxpweb]}
+  - {key: x.pv3_current, label: PV string 3 current, table: input, address: 74, type: u16, unit: A, scale: 0.01, verified: false, sources: [pylxpweb]}
+  - {key: x.battery_current_inv, label: Battery current (inverter-measured), table: input, address: 75, type: u16, unit: A, scale: 0.01, verified: false, sources: [pylxpweb]}
+  - {key: x.ac_input_type_77_0, label: AC Input Type, table: input, address: 77, type: u16, bits: [0, 0], enum: ac_input_type_codes, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.bms_battery_type, label: 'Battery type/brand and communication type (0=CAN, 1=RS485)', table: input, address: 80, type: u16, verified: false, sources: [pylxpweb]}
+  - {key: x.bms_status_0, label: BMS Status 0, table: input, address: 85, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_1, label: BMS Status 1, table: input, address: 86, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_2, label: BMS Status 2, table: input, address: 87, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_3, label: BMS Status 3, table: input, address: 88, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_4, label: BMS Status 4, table: input, address: 89, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_5, label: BMS Status 5, table: input, address: 90, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_6, label: BMS Status 6, table: input, address: 91, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_7, label: BMS Status 7, table: input, address: 92, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_8, label: BMS Status 8, table: input, address: 93, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_9, label: BMS Status 9, table: input, address: 94, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_status_inv, label: BMS Status Inverter Summary, table: input, address: 95, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.bms_fw_update_state, label: BMS FW Update State, table: input, address: 105, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.temperature_t1, label: Temperature T1, table: input, address: 108, type: s16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: u16, label: Temperature sensor T1 (BT/board temp on 12K models)}], verified: false}
+  - {key: x.temperature_t2, label: Temperature T2, table: input, address: 109, type: s16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: u16, label: Temperature sensor T2 (reserved)}], verified: false}
+  - {key: x.temperature_t3, label: Temperature T3, table: input, address: 110, type: s16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: u16, label: Temperature sensor T3 (reserved)}], verified: false}
+  - {key: x.temperature_t4, label: Temperature T4, table: input, address: 111, type: s16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: u16, label: Temperature sensor T4 (reserved)}], verified: false}
+  - {key: x.temperature_t5, label: Temperature T5, table: input, address: 112, type: s16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: u16, label: Temperature sensor T5 (reserved)}], verified: false}
+  - {key: x.power_load_on_grid, label: Power Load On Grid, table: input, address: 114, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.voltage_bus_p, label: Voltage Bus P, table: input, address: 120, type: u16, unit: V, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_current_ch1, label: AFCI Current CH1, table: input, address: 140, type: u16, unit: A, scale: 0.0001, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_current_ch2, label: AFCI Current CH2, table: input, address: 141, type: u16, unit: A, scale: 0.0001, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_current_ch3, label: AFCI Current CH3, table: input, address: 142, type: u16, unit: A, scale: 0.0001, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_current_ch4, label: AFCI Current CH4, table: input, address: 143, type: u16, unit: A, scale: 0.0001, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_alarm_ch1, label: AFCI Alarm CH1, table: input, address: 144, type: u16, bits: [0, 0], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_alarm_ch2, label: AFCI Alarm CH2, table: input, address: 144, type: u16, bits: [1, 1], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_alarm_ch3, label: AFCI Alarm CH3, table: input, address: 144, type: u16, bits: [2, 2], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_alarm_ch4, label: AFCI Alarm CH4, table: input, address: 144, type: u16, bits: [3, 3], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_selftest_ch1, label: AFCI Self-Test CH1, table: input, address: 144, type: u16, bits: [4, 4], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_selftest_ch2, label: AFCI Self-Test CH2, table: input, address: 144, type: u16, bits: [5, 5], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_selftest_ch3, label: AFCI Self-Test CH3, table: input, address: 144, type: u16, bits: [6, 6], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_selftest_ch4, label: AFCI Self-Test CH4, table: input, address: 144, type: u16, bits: [7, 7], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_arc_ch1, label: AFCI Arc CH1, table: input, address: 145, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_arc_ch2, label: AFCI Arc CH2, table: input, address: 146, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_arc_ch3, label: AFCI Arc CH3, table: input, address: 147, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_arc_ch4, label: AFCI Arc CH4, table: input, address: 148, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_max_arc_ch1, label: AFCI Max Arc CH1, table: input, address: 149, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_max_arc_ch2, label: AFCI Max Arc CH2, table: input, address: 150, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_max_arc_ch3, label: AFCI Max Arc CH3, table: input, address: 151, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.afci_max_arc_ch4, label: AFCI Max Arc CH4, table: input, address: 152, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_inverter_ac_coupled, label: Power Inverter AC Coupled, table: input, address: 153, type: u16, unit: W, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.power_load, label: Power Load, table: input, address: 170, type: u16, unit: W, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: s16, label: 'Total output power (Pload, on-grid load output)'}], verified: false}
+  - {key: x.energy_daily_load, label: Energy Daily Load, table: input, address: 171, type: u16, unit: kWh, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.energy_cumulative_load, label: Energy Cumulative Load, table: input, address: 172, type: u32, unit: kWh, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.power_inverter_on_grid_l2, label: Power Inverter On Grid L2, table: input, address: 180, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_inverter_on_grid_l3, label: Power Inverter On Grid L3, table: input, address: 181, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_charging_rectification_l2, label: Power Charging Rectification L2, table: input, address: 182, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_charging_rectification_l3, label: Power Charging Rectification L3, table: input, address: 183, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_grid_output_load_terminal_l2, label: Power Output Grid Terminal L2, table: input, address: 184, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_grid_output_load_terminal_l3, label: Power Output Grid Terminal L3, table: input, address: 185, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_grid_power_supply_l2, label: Power Grid Supply L2, table: input, address: 186, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_grid_power_supply_l3, label: Power Grid Supply L3, table: input, address: 187, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_gen_terminal_l2, label: Power Gen Terminal L2, table: input, address: 188, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_gen_terminal_l3, label: Power Gen Terminal L3, table: input, address: 189, type: u16, unit: W, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.current_inverter_rms_l2, label: Current Inverter RMS L2, table: input, address: 190, type: u16, unit: A, scale: 0.01, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.current_inverter_rms_l3, label: Current Inverter RMS L3, table: input, address: 191, type: u16, unit: A, scale: 0.01, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_factor_inverter_l2, label: Power Factor Inverter L2, table: input, address: 192, type: u16, scale: 0.001, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.power_factor_inverter_l3, label: Power Factor Inverter L3, table: input, address: 193, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], scale: 0.1, label: 'Grid L1-N voltage (~120V, US split-phase)'}], verified: false}
+  - {key: x.grid_l2_voltage, label: 'Grid L2-N voltage (~120V, US split-phase)', table: input, address: 194, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.generator_l1_voltage, label: Generator L1 voltage (US split-phase), table: input, address: 195, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.generator_l2_voltage, label: Generator L2 voltage (US split-phase), table: input, address: 196, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.inverter_power_l1, label: Inverter power L1 (US split-phase per-leg), table: input, address: 197, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.inverter_power_l2, label: Inverter power L2 (US split-phase per-leg), table: input, address: 198, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.rectifier_power_l1, label: Rectifier power L1 (US split-phase per-leg), table: input, address: 199, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.rectifier_power_l2, label: Rectifier power L2 (US split-phase per-leg), table: input, address: 200, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.grid_export_power_l1, label: Grid export power L1 (US split-phase per-leg), table: input, address: 201, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.grid_export_power_l2, label: Grid export power L2 (US split-phase per-leg), table: input, address: 202, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.grid_import_power_l1, label: Grid import power L1 (US split-phase per-leg), table: input, address: 203, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.grid_import_power_l2, label: Grid import power L2 (US split-phase per-leg), table: input, address: 204, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.quick_charge_remaining_seconds, label: Quick charge remaining time in seconds, table: input, address: 210, type: u16, unit: s, verified: false, sources: [pylxpweb]}
+  - {key: x.pv4_voltage, label: PV4 voltage (V23 extended), table: input, address: 217, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.pv5_voltage, label: PV5 voltage (V23 extended), table: input, address: 218, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.pv6_voltage, label: PV6 voltage (V23 extended), table: input, address: 219, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.pv4_power, label: PV4 power (V23 extended), table: input, address: 220, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.pv5_power, label: PV5 power (V23 extended), table: input, address: 221, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.pv6_power, label: PV6 power (V23 extended), table: input, address: 222, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.epv4_day, label: PV4 daily energy yield, table: input, address: 223, type: u16, unit: kWh, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.epv4_all, label: 'PV4 cumulative energy yield (32-bit, low word)', table: input, address: 224, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.epv5_day, label: PV5 daily energy yield, table: input, address: 226, type: u16, unit: kWh, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.epv5_all, label: 'PV5 cumulative energy yield (32-bit, low word)', table: input, address: 227, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.epv6_day, label: PV6 daily energy yield, table: input, address: 229, type: u16, unit: kWh, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.epv6_all, label: 'PV6 cumulative energy yield (32-bit, low word)', table: input, address: 230, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.smart_load_power, label: Smart load output power, table: input, address: 232, type: u16, unit: W, verified: false, sources: [pylxpweb]}
+  - {key: x.battery1_status_header, label: Battery 1 status header, table: input, address: 5002, type: u16, verified: false, sources: [pylxpweb]}
+  - {key: x.battery01_capacity_pack, label: Battery 1 Capacity, table: input, address: 5003, type: u16, unit: Ah, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_capacity_system, label: Battery 1 Capacity system, table: input, address: 5004, type: u16, unit: V, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], scale: 0.1, label: Battery 1 BMS recommended charge voltage reference}], verified: false}
+  - {key: x.battery01_current_max_charge, label: Battery 1 Current Charge Max, table: input, address: 5005, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_current_max_discharge, label: Battery 1 Current Discharge Max, table: input, address: 5006, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery1_discharge_voltage_cutoff, label: Battery 1 BMS discharge cutoff voltage, table: input, address: 5007, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.battery01_voltage, label: Battery 1 Pack Voltage, table: input, address: 5008, type: u16, unit: V, scale: 0.01, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_current, label: Battery 1 Current, table: input, address: 5009, type: s16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_soc, label: Battery 1 SOC, table: input, address: 5010, type: u16, unit: '%', bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_soh, label: Battery 1 SOH, table: input, address: 5010, type: u16, unit: '%', bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_cycle_count, label: Battery 1 Cycle Count, table: input, address: 5011, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_max_cell_temp, label: Battery 1 Cell Temperature Max, table: input, address: 5012, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: s16, label: Battery 1 maximum cell temperature across all cells in this module}], verified: false}
+  - {key: x.battery01_min_cell_temp, label: Battery 1 Cell Temperature Min, table: input, address: 5013, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: s16, label: Battery 1 minimum cell temperature across all cells in this module}], verified: false}
+  - {key: x.battery01_max_cell_voltage, label: Battery 1 Cell Voltage Max, table: input, address: 5014, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_min_cell_voltage, label: Battery 1 Cell Voltage Min, table: input, address: 5015, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_cell_temp_max, label: Battery 1 Cell with Max Temperature, table: input, address: 5016, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_cell_temp_min, label: Battery 1 Cell with Min Temperature, table: input, address: 5016, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_cell_voltage_max, label: Battery 1 Cell with Max Voltage, table: input, address: 5017, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery01_cell_voltage_min, label: Battery 1 Cell with Min Voltage, table: input, address: 5017, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery1_firmware_version_minor, label: Battery 1 firmware version (minor), table: input, address: 5018, type: u16, bits: [0, 7], verified: false, sources: [pylxpweb]}
+  - {key: x.battery1_firmware_version_major, label: Battery 1 firmware version (major), table: input, address: 5018, type: u16, bits: [8, 15], verified: false, sources: [pylxpweb]}
+  - {key: x.battery2_status_header, label: Battery 2 status header, table: input, address: 5032, type: u16, verified: false, sources: [pylxpweb]}
+  - {key: x.battery02_capacity_pack, label: Battery 2 Capacity, table: input, address: 5033, type: u16, unit: Ah, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_capacity_system, label: Battery 2 Capacity system, table: input, address: 5034, type: u16, unit: V, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], scale: 0.1, label: Battery 2 BMS recommended charge voltage reference}], verified: false}
+  - {key: x.battery02_current_max_charge, label: Battery 2 Current Charge Max, table: input, address: 5035, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_current_max_discharge, label: Battery 2 Current Discharge Max, table: input, address: 5036, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery2_discharge_voltage_cutoff, label: Battery 2 BMS discharge cutoff voltage, table: input, address: 5037, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.battery02_voltage, label: Battery 2 Pack Voltage, table: input, address: 5038, type: u16, unit: V, scale: 0.01, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_current, label: Battery 2 Current, table: input, address: 5039, type: s16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_soc, label: Battery 2 SOC, table: input, address: 5040, type: u16, unit: '%', bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_soh, label: Battery 2 SOH, table: input, address: 5040, type: u16, unit: '%', bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_cycle_count, label: Battery 2 Cycle Count, table: input, address: 5041, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_max_cell_temp, label: Battery 2 Cell Temperature Max, table: input, address: 5042, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: s16, label: Battery 2 maximum cell temperature across all cells in this module}], verified: false}
+  - {key: x.battery02_min_cell_temp, label: Battery 2 Cell Temperature Min, table: input, address: 5043, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: s16, label: Battery 2 minimum cell temperature across all cells in this module}], verified: false}
+  - {key: x.battery02_max_cell_voltage, label: Battery 2 Cell Voltage Max, table: input, address: 5044, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_min_cell_voltage, label: Battery 2 Cell Voltage Min, table: input, address: 5045, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_cell_temp_max, label: Battery 2 Cell with Max Temperature, table: input, address: 5046, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_cell_temp_min, label: Battery 2 Cell with Min Temperature, table: input, address: 5046, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_cell_voltage_max, label: Battery 2 Cell with Max Voltage, table: input, address: 5047, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery02_cell_voltage_min, label: Battery 2 Cell with Min Voltage, table: input, address: 5047, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery2_firmware_version_minor, label: Battery 2 firmware version (minor), table: input, address: 5048, type: u16, bits: [0, 7], verified: false, sources: [pylxpweb]}
+  - {key: x.battery2_firmware_version_major, label: Battery 2 firmware version (major), table: input, address: 5048, type: u16, bits: [8, 15], verified: false, sources: [pylxpweb]}
+  - {key: x.battery3_status_header, label: Battery 3 status header, table: input, address: 5062, type: u16, verified: false, sources: [pylxpweb]}
+  - {key: x.battery03_capacity_pack, label: Battery 3 Capacity, table: input, address: 5063, type: u16, unit: Ah, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_capacity_system, label: Battery 3 Capacity system, table: input, address: 5064, type: u16, unit: V, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], scale: 0.1, label: Battery 3 BMS recommended charge voltage reference}], verified: false}
+  - {key: x.battery03_current_max_charge, label: Battery 3 Current Charge Max, table: input, address: 5065, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_current_max_discharge, label: Battery 3 Current Discharge Max, table: input, address: 5066, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery3_discharge_voltage_cutoff, label: Battery 3 BMS discharge cutoff voltage, table: input, address: 5067, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.battery03_voltage, label: Battery 3 Pack Voltage, table: input, address: 5068, type: u16, unit: V, scale: 0.01, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_current, label: Battery 3 Current, table: input, address: 5069, type: s16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_soc, label: Battery 3 SOC, table: input, address: 5070, type: u16, unit: '%', bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_soh, label: Battery 3 SOH, table: input, address: 5070, type: u16, unit: '%', bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_cycle_count, label: Battery 3 Cycle Count, table: input, address: 5071, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_max_cell_temp, label: Battery 3 Cell Temperature Max, table: input, address: 5072, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: s16, label: Battery 3 maximum cell temperature across all cells in this module}], verified: false}
+  - {key: x.battery03_min_cell_temp, label: Battery 3 Cell Temperature Min, table: input, address: 5073, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: s16, label: Battery 3 minimum cell temperature across all cells in this module}], verified: false}
+  - {key: x.battery03_max_cell_voltage, label: Battery 3 Cell Voltage Max, table: input, address: 5074, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_min_cell_voltage, label: Battery 3 Cell Voltage Min, table: input, address: 5075, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_cell_temp_max, label: Battery 3 Cell with Max Temperature, table: input, address: 5076, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_cell_temp_min, label: Battery 3 Cell with Min Temperature, table: input, address: 5076, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_cell_voltage_max, label: Battery 3 Cell with Max Voltage, table: input, address: 5077, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery03_cell_voltage_min, label: Battery 3 Cell with Min Voltage, table: input, address: 5077, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery3_firmware_version_minor, label: Battery 3 firmware version (minor), table: input, address: 5078, type: u16, bits: [0, 7], verified: false, sources: [pylxpweb]}
+  - {key: x.battery3_firmware_version_major, label: Battery 3 firmware version (major), table: input, address: 5078, type: u16, bits: [8, 15], verified: false, sources: [pylxpweb]}
+  - {key: x.battery4_status_header, label: Battery 4 status header, table: input, address: 5092, type: u16, verified: false, sources: [pylxpweb]}
+  - {key: x.battery04_capacity_pack, label: Battery 4 Capacity, table: input, address: 5093, type: u16, unit: Ah, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_capacity_system, label: Battery 4 Capacity system, table: input, address: 5094, type: u16, unit: V, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], scale: 0.1, label: Battery 4 BMS recommended charge voltage reference}], verified: false}
+  - {key: x.battery04_current_max_charge, label: Battery 4 Current Charge Max, table: input, address: 5095, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_current_max_discharge, label: Battery 4 Current Discharge Max, table: input, address: 5096, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery4_discharge_voltage_cutoff, label: Battery 4 BMS discharge cutoff voltage, table: input, address: 5097, type: u16, unit: V, scale: 0.1, verified: false, sources: [pylxpweb]}
+  - {key: x.battery04_voltage, label: Battery 4 Pack Voltage, table: input, address: 5098, type: u16, unit: V, scale: 0.01, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_current, label: Battery 4 Current, table: input, address: 5099, type: s16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_soc, label: Battery 4 SOC, table: input, address: 5100, type: u16, unit: '%', bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_soh, label: Battery 4 SOH, table: input, address: 5100, type: u16, unit: '%', bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_cycle_count, label: Battery 4 Cycle Count, table: input, address: 5101, type: u16, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_max_cell_temp, label: Battery 4 Cell Temperature Max, table: input, address: 5102, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: s16, label: Battery 4 maximum cell temperature across all cells in this module}], verified: false}
+  - {key: x.battery04_min_cell_temp, label: Battery 4 Cell Temperature Min, table: input, address: 5103, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], conflicts: [{sources: [pylxpweb], type: s16, label: Battery 4 minimum cell temperature across all cells in this module}], verified: false}
+  - {key: x.battery04_max_cell_voltage, label: Battery 4 Cell Voltage Max, table: input, address: 5104, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_min_cell_voltage, label: Battery 4 Cell Voltage Min, table: input, address: 5105, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_cell_temp_max, label: Battery 4 Cell with Max Temperature, table: input, address: 5106, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_cell_temp_min, label: Battery 4 Cell with Min Temperature, table: input, address: 5106, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_cell_voltage_max, label: Battery 4 Cell with Max Voltage, table: input, address: 5107, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery04_cell_voltage_min, label: Battery 4 Cell with Min Voltage, table: input, address: 5107, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus, pylxpweb], verified: false}
+  - {key: x.battery4_firmware_version_minor, label: Battery 4 firmware version (minor), table: input, address: 5108, type: u16, bits: [0, 7], verified: false, sources: [pylxpweb]}
+  - {key: x.battery4_firmware_version_major, label: Battery 4 firmware version (major), table: input, address: 5108, type: u16, bits: [8, 15], verified: false, sources: [pylxpweb]}
+  - {key: x.battery05_capacity_pack, label: Battery 5 Capacity, table: input, address: 5123, type: u16, unit: Ah, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_capacity_system, label: Battery 5 Capacity system, table: input, address: 5124, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_current_max_charge, label: Battery 5 Current Charge Max, table: input, address: 5125, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_current_max_discharge, label: Battery 5 Current Discharge Max, table: input, address: 5126, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_voltage, label: Battery 5 Pack Voltage, table: input, address: 5128, type: u16, unit: V, scale: 0.01, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_current, label: Battery 5 Current, table: input, address: 5129, type: s16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_soc, label: Battery 5 SOC, table: input, address: 5130, type: u16, unit: '%', bits: [0, 7], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_soh, label: Battery 5 SOH, table: input, address: 5130, type: u16, unit: '%', bits: [8, 15], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_cycle_count, label: Battery 5 Cycle Count, table: input, address: 5131, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_max_cell_temp, label: Battery 5 Cell Temperature Max, table: input, address: 5132, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_min_cell_temp, label: Battery 5 Cell Temperature Min, table: input, address: 5133, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_max_cell_voltage, label: Battery 5 Cell Voltage Max, table: input, address: 5134, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_min_cell_voltage, label: Battery 5 Cell Voltage Min, table: input, address: 5135, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_cell_temp_max, label: Battery 5 Cell with Max Temperature, table: input, address: 5136, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_cell_temp_min, label: Battery 5 Cell with Min Temperature, table: input, address: 5136, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_cell_voltage_max, label: Battery 5 Cell with Max Voltage, table: input, address: 5137, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery05_cell_voltage_min, label: Battery 5 Cell with Min Voltage, table: input, address: 5137, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_capacity_pack, label: Battery 6 Capacity, table: input, address: 5153, type: u16, unit: Ah, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_capacity_system, label: Battery 6 Capacity system, table: input, address: 5154, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_current_max_charge, label: Battery 6 Current Charge Max, table: input, address: 5155, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_current_max_discharge, label: Battery 6 Current Discharge Max, table: input, address: 5156, type: u16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_voltage, label: Battery 6 Pack Voltage, table: input, address: 5158, type: u16, unit: V, scale: 0.01, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_current, label: Battery 6 Current, table: input, address: 5159, type: s16, unit: A, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_soc, label: Battery 6 SOC, table: input, address: 5160, type: u16, unit: '%', bits: [0, 7], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_soh, label: Battery 6 SOH, table: input, address: 5160, type: u16, unit: '%', bits: [8, 15], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_cycle_count, label: Battery 6 Cycle Count, table: input, address: 5161, type: u16, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_max_cell_temp, label: Battery 6 Cell Temperature Max, table: input, address: 5162, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_min_cell_temp, label: Battery 6 Cell Temperature Min, table: input, address: 5163, type: u16, unit: °C, scale: 0.1, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_max_cell_voltage, label: Battery 6 Cell Voltage Max, table: input, address: 5164, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_min_cell_voltage, label: Battery 6 Cell Voltage Min, table: input, address: 5165, type: u16, unit: V, scale: 0.001, sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_cell_temp_max, label: Battery 6 Cell with Max Temperature, table: input, address: 5166, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_cell_temp_min, label: Battery 6 Cell with Min Temperature, table: input, address: 5166, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_cell_voltage_max, label: Battery 6 Cell with Max Voltage, table: input, address: 5167, type: u16, bits: [0, 7], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.battery06_cell_voltage_min, label: Battery 6 Cell with Min Voltage, table: input, address: 5167, type: u16, bits: [8, 15], sources: [eg4-inverter-modbus], verified: false}
+
+derived:
+  - {key: pv_power, label: PV power (Ppv1 + Ppv2 + Ppv3), unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}, {key: x.pv3_power}]}
+  - {key: battery_power, label: Battery power (Pdischarge − Pcharge), unit: W, positive: discharge, sum: [{key: x.discharge_power}, {key: x.charge_power, factor: -1}]}
+  - {key: grid_power, label: Grid power (Ptogrid − Ptouser), unit: W, positive: export, sum: [{key: x.export_power}, {key: x.import_power, factor: -1}]}
+  - {key: pv_energy, label: PV energy (Epv1_all + Epv2_all + Epv3_all), unit: kWh, sum: [{key: x.pv1_energy}, {key: x.pv2_energy}, {key: x.pv3_energy}]}
+  - {key: pv_energy_today, label: PV energy today (Epv1_day + Epv2_day + Epv3_day), unit: kWh, sum: [{key: x.pv1_energy_today}, {key: x.pv2_energy_today}, {key: x.pv3_energy_today}]}
+  - {key: x.energy_daily_grid_net, label: Energy Daily Grid Net, unit: kWh, sum: [{key: x.import_energy_today}, {key: x.export_energy_today, factor: -1}], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.energy_cumulative_grid_net, label: Energy Cumulative Grid Net, unit: kWh, sum: [{key: grid_import_energy}, {key: grid_export_energy, factor: -1}], sources: [eg4-inverter-modbus], verified: false}
+  - {key: x.pv_total_power, label: PV power, unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}, {key: x.pv3_power}, {key: x.pv4_power}, {key: x.pv5_power}, {key: x.pv6_power}], note: pylxpweb leaves out strings the inverter doesn't report (pv4…pv6 on three-string models)., verified: false, sources: [pylxpweb]}
+
+enums:
+  state: {'0': Standby, '1': Fault, '2': Programming (firmware update), '4': PV on-grid, '8': PV charge, '12': PV charge + on-grid, '16': Battery on-grid, '20': PV + battery on-grid, '32': AC charge, '40': PV + AC charge, '64': Battery off-grid, '128': PV off-grid, '136': PV charge + off-grid, '192': PV + battery off-grid}
+  ac_input_type: {'0': Grid, '1': Generator}
+  master_slave: {'1': Master, '2': Slave}
+  phase: {'1': R, '2': S, '3': T}
+  disable_enable: {'0': Disabled, '1': Enabled}
+  standby: {'0': Standby, '1': Power on}
+  system_type: {'0': No parallel, '1': Single-phase parallel (master), '2': Slave, '3': Three-phase parallel (master)}
+  output_priority: {'0': Battery first, '1': PV first, '2': AC first}
+  line_mode: {'0': 'APL (90–280 V, 20 ms)', '1': 'UPS (170–280 V, 10 ms)', '2': 'GEN (90–280 V, 20 ms)'}
+  ac_input_type_codes: {'0': Grid, '1': Generator}
+  setting_language: {'0': Chinese, '1': English, '2': Spanish, '3': German}
+  setting_reactive_power_cmd_type: {'0': Unit power factor, '1': Fixed PF, '2': Default PF curve (Q(P)), '3': Custom PF curve, '4': Capacitive reactive power percentage, '5': Inductive reactive power percentage, '6': Q(V) curve, '7': Q(V) Dynamic}
+  setting_functionen1_ctsampleratio: {'0': 1/1000, '1': 1/3000}
+  setting_functionen1_pvctsampletype: {'0': PV power, '1': SpecLoad}
+  setting_functionen1_ongridworkingmode: {'0': Self consumption, '1': Charge First}
+  setting_composed_phase: {'1': R Phase, '2': S Phase, '3': T Phase}
+  setting_ac_charge_type: {'0': Disable, '1': According to Time, '2': According to Voltage, '3': According to SOC, '4': According to Voltage and Time, '5': According to SOC and Time}
+  setting_discharge_control_type: {'0': According to Voltage, '1': According to SOC, '2': According to Both}
+  setting_ongrid_eod_type: {'0': According to Voltage, '1': According to SOC}
+  setting_generator_charge_type: {'0': According to Battery Voltage, '1': According to Battery SOC}
+  setting_ufunctionen2_smart_load_en: {'0': Generator, '1': Smart Load}
+  setting_ufunctionen2_rsd_disable: {'0': Enabled, '1': Disabled}
+  setting_grid_type: {'0': Split 240V, '1': Split 208V, '2': Single 240V, '3': Single 230V, '4': Split 200V}
+  disabled_enabled: {'0': Disabled, '1': Enabled}
+  no_action_charging_discharging: {'0': No action, '1': Charging, '2': Discharging}
+  lsp_battery_volt_or_soc: {'0': voltage, '1': SOC}
+  ac_charge_enable_period_1: {'0': 'Off', '1': 'On'}
+  ac_charge_enable_period_2: {'0': 'Off', '1': 'On'}
+  ac_ct_direction: {'0': Normal, '1': Reversed}
+  pv_ct_direction: {'0': Normal, '1': Reversed}
+  weekly_schedule_enable: {'0': daily regs 68-89, '1': weekly regs 500-723}
+
+flags:
+  fault_code: {'0': E000 Internal communication fault 1, '1': E001 Model fault, '8': E008 Parallel CAN communication lost, '9': E009 Master unit lost in parallel system, '10': E010 Several master units in parallel system, '11': E011 AC input inconsistent in parallel system, '12': E012 UPS (backup output) short circuit, '13': E013 Reverse current on UPS output, '14': E014 Bus short circuit, '15': E015 Grid phases inconsistent in three-phase parallel system, '16': E016 Relay check fault, '17': E017 Internal communication fault 2, '18': E018 Internal communication fault 3, '19': E019 Bus voltage high, '20': E020 EPS connection fault, '21': E021 PV voltage high, '22': E022 Overcurrent protection, '23': E023 Neutral fault, '24': E024 PV short circuit, '25': E025 Radiator temperature out of range, '26': E026 Internal fault, '27': E027 Sample inconsistent between main and redundant CPU, '31': E031 Internal communication fault 4}
+  warning_code: {'0': W000 Battery communication failure, '1': W001 AFCI communication failure, '2': W002 AFCI high, '3': W003 Meter communication failure, '4': W004 Charge and discharge both forbidden by the battery, '5': W005 Auto test failed, '7': W007 LCD communication failure, '8': W008 Firmware version mismatch, '9': W009 Fan stuck, '11': W011 Parallel number out of range, '15': W015 Battery reverse connection, '16': W016 Grid power outage, '17': W017 Grid voltage out of range, '18': W018 Grid frequency out of range, '20': W020 PV insulation low, '21': W021 Leakage current high, '22': W022 DCI high, '23': W023 PV short circuit, '25': W025 Battery voltage high, '26': W026 Battery voltage low, '27': W027 Battery open circuit, '28': W028 EPS overload, '29': W029 EPS voltage high, '30': W030 Meter reverse connection, '31': W031 DCV high}
+  afci: {'0': Arc alarm CH1, '1': Arc alarm CH2, '2': Arc alarm CH3, '3': Arc alarm CH4, '4': Self-test failed CH1, '5': Self-test failed CH2, '6': Self-test failed CH3, '7': Self-test failed CH4}
+
+problems:
+  - {when: {key: state, equals: 1}, kind: fault, text: Inverter fault (state 1)}
+  - {when: {key: state, in: [64, 128, 136, 192]}, kind: backup_mode, text: 'Running off-grid (state {value})'}
+  - {when: {key: x.fault_code, bit: 0}, kind: fault, text: E000 Internal communication fault 1}
+  - {when: {key: x.fault_code, bit: 1}, kind: fault, text: E001 Model fault}
+  - {when: {key: x.fault_code, bit: 8}, kind: fault, text: E008 Parallel CAN communication lost}
+  - {when: {key: x.fault_code, bit: 9}, kind: fault, text: E009 Master unit lost in parallel system}
+  - {when: {key: x.fault_code, bit: 10}, kind: fault, text: E010 Several master units in parallel system}
+  - {when: {key: x.fault_code, bit: 11}, kind: fault, text: E011 AC input inconsistent in parallel system}
+  - {when: {key: x.fault_code, bit: 12}, kind: fault, text: E012 UPS (backup output) short circuit}
+  - {when: {key: x.fault_code, bit: 13}, kind: fault, text: E013 Reverse current on UPS output}
+  - {when: {key: x.fault_code, bit: 14}, kind: fault, text: E014 Bus short circuit}
+  - {when: {key: x.fault_code, bit: 15}, kind: fault, text: E015 Grid phases inconsistent in three-phase parallel system}
+  - {when: {key: x.fault_code, bit: 16}, kind: fault, text: E016 Relay check fault}
+  - {when: {key: x.fault_code, bit: 17}, kind: fault, text: E017 Internal communication fault 2}
+  - {when: {key: x.fault_code, bit: 18}, kind: fault, text: E018 Internal communication fault 3}
+  - {when: {key: x.fault_code, bit: 19}, kind: fault, text: E019 Bus voltage high}
+  - {when: {key: x.fault_code, bit: 20}, kind: fault, text: E020 EPS connection fault}
+  - {when: {key: x.fault_code, bit: 21}, kind: fault, text: E021 PV voltage high}
+  - {when: {key: x.fault_code, bit: 22}, kind: fault, text: E022 Overcurrent protection}
+  - {when: {key: x.fault_code, bit: 23}, kind: fault, text: E023 Neutral fault}
+  - {when: {key: x.fault_code, bit: 24}, kind: fault, text: E024 PV short circuit}
+  - {when: {key: x.fault_code, bit: 25}, kind: fault, text: E025 Radiator temperature out of range}
+  - {when: {key: x.fault_code, bit: 26}, kind: fault, text: E026 Internal fault}
+  - {when: {key: x.fault_code, bit: 27}, kind: fault, text: E027 Sample inconsistent between main and redundant CPU}
+  - {when: {key: x.fault_code, bit: 31}, kind: fault, text: E031 Internal communication fault 4}
+  - {when: {key: x.warning_code, bit: 0}, kind: warning, text: W000 Battery communication failure}
+  - {when: {key: x.warning_code, bit: 1}, kind: warning, text: W001 AFCI communication failure}
+  - {when: {key: x.warning_code, bit: 2}, kind: warning, text: W002 AFCI high}
+  - {when: {key: x.warning_code, bit: 3}, kind: warning, text: W003 Meter communication failure}
+  - {when: {key: x.warning_code, bit: 4}, kind: warning, text: W004 Charge and discharge both forbidden by the battery}
+  - {when: {key: x.warning_code, bit: 5}, kind: warning, text: W005 Auto test failed}
+  - {when: {key: x.warning_code, bit: 7}, kind: warning, text: W007 LCD communication failure}
+  - {when: {key: x.warning_code, bit: 8}, kind: warning, text: W008 Firmware version mismatch}
+  - {when: {key: x.warning_code, bit: 9}, kind: warning, text: W009 Fan stuck}
+  - {when: {key: x.warning_code, bit: 11}, kind: warning, text: W011 Parallel number out of range}
+  - {when: {key: x.warning_code, bit: 15}, kind: warning, text: W015 Battery reverse connection}
+  - {when: {key: x.warning_code, bit: 16}, kind: mains_lost, text: W016 Grid power outage}
+  - {when: {key: x.warning_code, bit: 17}, kind: warning, text: W017 Grid voltage out of range}
+  - {when: {key: x.warning_code, bit: 18}, kind: warning, text: W018 Grid frequency out of range}
+  - {when: {key: x.warning_code, bit: 20}, kind: warning, text: W020 PV insulation low}
+  - {when: {key: x.warning_code, bit: 21}, kind: warning, text: W021 Leakage current high}
+  - {when: {key: x.warning_code, bit: 22}, kind: warning, text: W022 DCI high}
+  - {when: {key: x.warning_code, bit: 23}, kind: warning, text: W023 PV short circuit}
+  - {when: {key: x.warning_code, bit: 25}, kind: warning, text: W025 Battery voltage high}
+  - {when: {key: x.warning_code, bit: 26}, kind: warning, text: W026 Battery voltage low}
+  - {when: {key: x.warning_code, bit: 27}, kind: warning, text: W027 Battery open circuit}
+  - {when: {key: x.warning_code, bit: 28}, kind: warning, text: W028 EPS overload}
+  - {when: {key: x.warning_code, bit: 29}, kind: warning, text: W029 EPS voltage high}
+  - {when: {key: x.warning_code, bit: 30}, kind: warning, text: W030 Meter reverse connection}
+  - {when: {key: x.warning_code, bit: 31}, kind: warning, text: W031 DCV high}
+  - {when: {key: x.afci_flags, bit: 0}, kind: fault, text: AFCI arc alarm CH1}
+  - {when: {key: x.afci_flags, bit: 1}, kind: fault, text: AFCI arc alarm CH2}
+  - {when: {key: x.afci_flags, bit: 2}, kind: fault, text: AFCI arc alarm CH3}
+  - {when: {key: x.afci_flags, bit: 3}, kind: fault, text: AFCI arc alarm CH4}
+
+notes:
+- RS-485, 19200 baud 8N1, minimum polling period 1 s. Function codes 03, 04, 06 and 10 (10 only for the serial number and
+  the clock). Port 502 only applies behind an RS485-to-TCP gateway; unit 1 is not stated (assumed).
+- 'At most 40 registers per request, and a request must stay inside one group of 40 (0–39, 40–79, 80–119 …): registers 38–40
+  take two requests.'
+- The document's own frame puts a 10-byte serial number after the function code and sends every 16-bit field (addresses, counts,
+  values) low byte first. This file describes the registers for standard Modbus framing, with register values high byte first;
+  that byte order is assumed, not stated. 32-bit values are low word first, as the document states (pairs given as L / H registers).
+- Register numbers are the document's addresses, used as 0-based protocol addresses.
+- 'Values the document marks as signed (green): PF (19), temperatures 64–67; also the BMS current (98), cell temperatures
+  (103/104) and the CT offset (holding 119). All others are unsigned.'
+- Where two 8-bit fields share a register, the first listed is taken as the low byte (holding 9/10, input 5, holding 12–14);
+  the document doesn't say so.
+- Battery and grid power come as separate unsigned charge/discharge and export/import registers; the derived values combine
+  them.
+- 'Left out: auto-test (71–75), BMS status words (85–95), AFCI currents and arc values (140–143, 145–152), reserved temperatures
+  (108–112), the reset command bits (holding 11), grid-code protection settings (holding 22–59, 92–97, 115–136 and similar),
+  time-of-use schedules (holding 68–89, 126–131, 152–157), lead-acid settings and the remaining battery / generator charging
+  settings.'
+- Identification as pylxpweb recognises the device (not checked against a document).
+- Read through an RS485-to-Ethernet gateway on the inverter's Modbus port.
+- The battery block repeats every 30 input registers from 5000, read for up to 6 batteries; a slot counts as present when
+  its register at offset 2 reads 0xC002 or its capacity (offset 3) is between 1 and 1999.
+- 32-bit values are two registers, low word first.
+- Operating states from 0x40 up are off-grid.
+- Text values (the inverter serial number at input 115-119 or holding 2-6, battery serial numbers) hold two ASCII characters
+  per register, low byte first; they are not listed as points.
+- The battery block repeats every 30 registers from input 5002, one block per battery slot; with more batteries than slots
+  the inverter rotates them through the slots.
+- Besides Modbus TCP / RTU, the WiFi dongle carries the same registers over its own TCP protocol on port 8000.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

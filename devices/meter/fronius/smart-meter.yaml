@@ -1,0 +1,168 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Fronius GEN24 Modbus document (42,0410,2649), Fronius' Smart Meter register map workbook (float)
+# and the SunSpec models workbook.
+
+modbusspec: 0
+id: fronius-smart-meter
+manufacturer: Fronius
+name: Smart Meter behind a GEN24 (SunSpec meter, float or int + SF)
+kind: meter
+
+sources:
+- title: Fronius GEN24 / GEN24 Plus Modbus TCP & RTU (operating instructions)
+  version: 42,0410,2649
+  url: http://www.fronius.com/QR-link/0024
+  sha256: dc4c5d49362ee0c9721f21886f17fa18497e54c4d92bb5cc2c50472deb266b55
+- title: Smart Meter Register Map with Float AC-Meter Model (Fronius workbook)
+  url: https://github.com/user-attachments/files/16647659/Smart_Meter_Register_Map_Float.xlsx
+  sha256: 033eedee427526527ad9027f0d40d4d095c2c7df2766cc132e01ef3fb6d935ff
+- title: SunSpec Information Models (models workbook)
+  version: models_workbook.xlsx, master 2026-10-21
+  url: https://github.com/sunspec/models/raw/master/models_workbook.xlsx
+- id: fronius-modbus
+  title: fronius_modbus (Home Assistant integration)
+  url: https://github.com/redpomodoro/fronius_modbus
+  license: Apache-2.0
+  commit: eafca35aa5f5caf01f9952d4f29dbdb9648a7a18
+  path: custom_components/fronius_modbus/froniusmodbusclient.py, custom_components/fronius_modbus/froniusmodbusclient_const.py,
+    custom_components/fronius_modbus/const.py
+
+connection:
+  default_port: 502
+  default_unit: 200
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40052
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+  - table: holding
+    address: 40002
+    type: u16
+    equals: 1
+  # a meter model
+  - table: holding
+    address: 40069
+    type: u16
+    in:
+    - 201
+    - 202
+    - 203
+    - 204
+    - 211
+    - 212
+    - 213
+    - 214
+
+sunspec: true
+
+models:
+  - {id: int_sf, name: SunSpec model type "int + SF" (meter model 201-204), match: {table: holding, address: 40069, type: u16, in: [201, 202, 203, 204]}}
+  - {id: float, name: SunSpec model type "float" (meter model 211-214), match: {table: holding, address: 40069, type: u16, in: [211, 212, 213, 214]}}
+
+points:
+  # Common model (both model types)
+  - {key: x.manufacturer, label: Mn (meter manufacturer), table: holding, address: 40004, type: str, length: 16, poll: slow}
+  - {key: x.model, label: Md (meter model), table: holding, address: 40020, type: str, length: 16, poll: slow}
+  - {key: x.meter_name, label: Opt (meter name), table: holding, address: 40036, type: str, length: 8, poll: slow}
+  - {key: firmware, label: Vr (meter software version), table: holding, address: 40044, type: str, length: 8, poll: slow}
+  - {key: serial, label: SN (meter serial number), table: holding, address: 40052, type: str, length: 16, poll: slow}
+  - {key: x.device_address, label: DA (Modbus device address), table: holding, address: 40068, type: u16, poll: slow}
+
+  # Meter model 201-204 (int + SF)
+  - {key: l1_current, label: AphA, table: holding, address: 40072, type: s16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, models: [int_sf]}
+  - {key: l2_current, label: AphB, table: holding, address: 40073, type: s16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, models: [int_sf]}
+  - {key: l3_current, label: AphC, table: holding, address: 40074, type: s16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, models: [int_sf]}
+  - {key: l1_voltage, label: PhVphA, table: holding, address: 40077, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40084, type: s16}, models: [int_sf]}
+  - {key: l2_voltage, label: PhVphB, table: holding, address: 40078, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40084, type: s16}, models: [int_sf]}
+  - {key: l3_voltage, label: PhVphC, table: holding, address: 40079, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40084, type: s16}, models: [int_sf]}
+  - {key: frequency, label: Hz, table: holding, address: 40085, type: s16, unit: Hz, scale_exponent_from: {table: holding, address: 40086, type: s16}, models: [int_sf]}
+  - {key: grid_power, label: W (total real power), table: holding, address: 40087, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40091, type: s16}, positive: import, models: [int_sf], note: 'Fronius, meter location 0 (grid): + = consuming from the grid, − = feeding in.'}
+  - {key: l1_power, label: WphA, table: holding, address: 40088, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40091, type: s16}, positive: import, models: [int_sf], note: Fronius gives the sign for the total; assumed the same per phase., verified: false}
+  - {key: l2_power, label: WphB, table: holding, address: 40089, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40091, type: s16}, positive: import, models: [int_sf], note: Fronius gives the sign for the total; assumed the same per phase., verified: false}
+  - {key: l3_power, label: WphC, table: holding, address: 40090, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40091, type: s16}, positive: import, models: [int_sf], note: Fronius gives the sign for the total; assumed the same per phase., verified: false}
+  - {key: apparent_power, label: VA, table: holding, address: 40092, type: s16, unit: VA, scale_exponent_from: {table: holding, address: 40096, type: s16}, models: [int_sf]}
+  - {key: reactive_power, label: VAR, table: holding, address: 40097, type: s16, unit: var, scale_exponent_from: {table: holding, address: 40101, type: s16}, models: [int_sf]}
+  - {key: x.power_factor_pct, label: PF, table: holding, address: 40102, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40106, type: s16}, models: [int_sf]}
+  - {key: grid_export_energy, label: TotWhExp, table: holding, address: 40107, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40123, type: s16}, models: [int_sf], poll: slow}
+  - {key: grid_import_energy, label: TotWhImp, table: holding, address: 40115, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40123, type: s16}, models: [int_sf], poll: slow}
+
+  # Meter model 211-214 (float)
+  - {key: x.current_total, label: A (total AC current), table: holding, address: 40071, type: f32, unit: A, models: [float]}
+  - {key: l1_current, label: AphA, table: holding, address: 40073, type: f32, unit: A, models: [float]}
+  - {key: l2_current, label: AphB, table: holding, address: 40075, type: f32, unit: A, models: [float]}
+  - {key: l3_current, label: AphC, table: holding, address: 40077, type: f32, unit: A, models: [float]}
+  - {key: x.voltage_ln_avg, label: 'PhV (line to neutral, average of active phases)', table: holding, address: 40079, type: f32, unit: V, models: [float]}
+  - {key: l1_voltage, label: PhVphA, table: holding, address: 40081, type: f32, unit: V, models: [float]}
+  - {key: l2_voltage, label: PhVphB, table: holding, address: 40083, type: f32, unit: V, models: [float]}
+  - {key: l3_voltage, label: PhVphC, table: holding, address: 40085, type: f32, unit: V, models: [float]}
+  - {key: x.voltage_ll_avg, label: 'PPV (line to line, average of active phases)', table: holding, address: 40087, type: f32, unit: V, models: [float]}
+  - {key: x.voltage_l1_l2, label: PPVphAB, table: holding, address: 40089, type: f32, unit: V, models: [float]}
+  - {key: x.voltage_l2_l3, label: PPVphBC, table: holding, address: 40091, type: f32, unit: V, models: [float]}
+  - {key: x.voltage_l3_l1, label: PPVphCA, table: holding, address: 40093, type: f32, unit: V, models: [float]}
+  - {key: frequency, label: Hz, table: holding, address: 40095, type: f32, unit: Hz, models: [float]}
+  - {key: grid_power, label: W (total real power), table: holding, address: 40097, type: f32, unit: W, positive: import, models: [float], note: 'Fronius, meter location 0 (grid): + = consuming from the grid, − = feeding in.'}
+  - {key: l1_power, label: WphA, table: holding, address: 40099, type: f32, unit: W, positive: import, models: [float], note: Fronius gives the sign for the total; assumed the same per phase., verified: false}
+  - {key: l2_power, label: WphB, table: holding, address: 40101, type: f32, unit: W, positive: import, models: [float], note: Fronius gives the sign for the total; assumed the same per phase., verified: false}
+  - {key: l3_power, label: WphC, table: holding, address: 40103, type: f32, unit: W, positive: import, models: [float], note: Fronius gives the sign for the total; assumed the same per phase., verified: false}
+  - {key: apparent_power, label: VA, table: holding, address: 40105, type: f32, unit: VA, models: [float]}
+  - {key: x.l1_apparent_power, label: VAphA, table: holding, address: 40107, type: f32, unit: VA, models: [float]}
+  - {key: x.l2_apparent_power, label: VAphB, table: holding, address: 40109, type: f32, unit: VA, models: [float]}
+  - {key: x.l3_apparent_power, label: VAphC, table: holding, address: 40111, type: f32, unit: VA, models: [float]}
+  - {key: reactive_power, label: VAR, table: holding, address: 40113, type: f32, unit: var, models: [float]}
+  - {key: x.l1_reactive_power, label: VARphA, table: holding, address: 40115, type: f32, unit: var, models: [float]}
+  - {key: x.l2_reactive_power, label: VARphB, table: holding, address: 40117, type: f32, unit: var, models: [float]}
+  - {key: x.l3_reactive_power, label: VARphC, table: holding, address: 40119, type: f32, unit: var, models: [float]}
+  - {key: power_factor, label: PF, table: holding, address: 40121, type: f32, unit: '', models: [float], note: cos φ (−1…1) in the float model; the int + SF model gives percent.}
+  - {key: x.l1_power_factor, label: PFphA, table: holding, address: 40123, type: f32, unit: '', models: [float]}
+  - {key: x.l2_power_factor, label: PFphB, table: holding, address: 40125, type: f32, unit: '', models: [float]}
+  - {key: x.l3_power_factor, label: PFphC, table: holding, address: 40127, type: f32, unit: '', models: [float]}
+  - {key: grid_export_energy, label: TotWhExp, table: holding, address: 40129, type: f32, unit: kWh, scale: 0.001, models: [float], poll: slow}
+  - {key: x.l1_export_energy, label: TotWhExpPhA, table: holding, address: 40131, type: f32, unit: kWh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l2_export_energy, label: TotWhExpPhB, table: holding, address: 40133, type: f32, unit: kWh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l3_export_energy, label: TotWhExpPhC, table: holding, address: 40135, type: f32, unit: kWh, models: [float], scale: 0.001, poll: slow}
+  - {key: grid_import_energy, label: TotWhImp, table: holding, address: 40137, type: f32, unit: kWh, scale: 0.001, models: [float], poll: slow}
+  - {key: x.l1_import_energy, label: TotWhImpPhA, table: holding, address: 40139, type: f32, unit: kWh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l2_import_energy, label: TotWhImpPhB, table: holding, address: 40141, type: f32, unit: kWh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l3_import_energy, label: TotWhImpPhC, table: holding, address: 40143, type: f32, unit: kWh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.apparent_export_energy, label: TotVAhExp, table: holding, address: 40145, type: f32, unit: kVAh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l1_apparent_export_energy, label: TotVAhExpPhA, table: holding, address: 40147, type: f32, unit: kVAh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l2_apparent_export_energy, label: TotVAhExpPhB, table: holding, address: 40149, type: f32, unit: kVAh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l3_apparent_export_energy, label: TotVAhExpPhC, table: holding, address: 40151, type: f32, unit: kVAh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.apparent_import_energy, label: TotVAhImp, table: holding, address: 40153, type: f32, unit: kVAh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l1_apparent_import_energy, label: TotVAhImpPhA, table: holding, address: 40155, type: f32, unit: kVAh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l2_apparent_import_energy, label: TotVAhImpPhB, table: holding, address: 40157, type: f32, unit: kVAh, models: [float], scale: 0.001, poll: slow}
+  - {key: x.l3_apparent_import_energy, label: TotVAhImpPhC, table: holding, address: 40159, type: f32, unit: kVAh, models: [float], scale: 0.001, poll: slow}
+
+notes:
+- 'The Smart Meter is read through the GEN24''s Modbus TCP server: unit id 200 for the first meter (Fronius default, settable
+  1-247; meters 2-5 on 201-204).'
+- 'Only the grid location (0) is described here. Fronius'' sign table: at the grid, + = consuming from the grid, − = feeding
+  in; the ''plus'' energy counter is the import. At other locations (load, generator, sub-load) the signs mean other things.'
+- Addresses are chain start + SunSpec offsets with a 65-register Common model (meter model at 40069); Fronius says to find
+  the model by walking the chain. The 'SunSpec Model Type' setting of the inverter picks float or int + SF for the meter too.
+- 'Fronius: scale factors can change at runtime; read them with every poll.'
+- 'Fronius'' float workbook: phase B and C values (and the line-to-line voltages) exist only on meters with those phases;
+  they read NaN otherwise. The reactive energy counters (varh, quadrants 1-4) are listed as not supported and the event flags
+  as always 0, so they are left out.'
+- 'SunSpec ''not implemented'' values: 0x8000 (s16), NaN (float); acc32 counters read 0 when not accumulated.'
+- 'Left out: AC voltage Line to Line (holding 40080, s16) from fronius-modbus overlaps x.voltage_ln_avg from the documents.'
+- The smart meter answers at its own unit id behind the inverter (project default 200; up to five meters).
+- The project adds meter power to the inverter's AC power to get the house load, so meter power is positive when importing
+  from the grid.

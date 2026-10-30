@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the PRECIZ User manual for CloudScale Neutron Modbus (1.0, 2026-06).
+
+modbusspec: 0
+id: preciz-neutron
+manufacturer: PRECIZ d.o.o.
+name: CloudScale Neutron NS / NT weighing indicator
+kind: io
+
+sources:
+- title: User manual for CloudScale Neutron Modbus (CS-NEUTRON EN Modbus)
+  version: 1.0 (2026-06)
+  url: https://apps.scale-monitor.com/files/Neutron/CS-NEUTRON_EN_Modbus_latest.pdf
+  sha256: 1defa3ad5eacadbaac9789a8c064699eab372365d885148dc9c083e6d1344380
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Extended process registers (40101 ff.)
+  - {key: x.gross_weight, label: Gross weight, table: holding, address: 100, type: s32, scale_exponent_from: {table: holding, address: 107, type: u16, negate: true, bits: [13, 14]}, verified: false, note: In the unit of register 112. Decimals from bits 13–14 of register 107; the manual's example (field = 2 → 12345 means 123.45) reads the field as the number of decimals.}
+  - {key: x.net_weight, label: Net weight, table: holding, address: 102, type: s32, scale_exponent_from: {table: holding, address: 107, type: u16, negate: true, bits: [13, 14]}, verified: false, note: As gross weight.}
+  - {key: x.tare_weight, label: Tare weight, table: holding, address: 104, type: s32, scale_exponent_from: {table: holding, address: 107, type: u16, negate: true, bits: [13, 14]}, verified: false, note: As gross weight.}
+  - {key: x.scale_status, label: Scale status, table: holding, address: 106, type: u16, flags: scale_status}
+  - {key: x.output_status, label: Output / status configuration, table: holding, address: 107, type: u16, flags: output_status}
+  - {key: x.active_unit, label: Active unit code, table: holding, address: 107, type: u16, bits: [6, 7], enum: weight_unit}
+  - {key: x.decimal_position, label: Decimal-position code, table: holding, address: 107, type: u16, bits: [13, 14], note: Number of decimals of the standard weight values (the manual calls it a code but its example uses it as the count).}
+  - {key: x.gross_weight_hires, label: Gross high-resolution, table: holding, address: 108, type: s32, note: 'One extra decimal (up to two) compared with the standard value, where available.'}
+  - {key: x.net_weight_hires, label: Net high-resolution, table: holding, address: 110, type: s32, note: As gross high-resolution.}
+  - {key: x.weight_unit, label: Unit, table: holding, address: 112, type: u16, enum: weight_unit, poll: slow}
+  - {key: x.digital_inputs, label: Digital input mask, table: holding, address: 113, type: u16, flags: di_mask}
+  - {key: x.digital_outputs, label: Digital output mask, table: holding, address: 114, type: u16, flags: do_mask}
+  - {key: x.output_function_mask, label: Output function mask, table: holding, address: 115, type: u16, poll: slow, note: A set bit (0–5 = DO1–DO6) means the output is controlled by a function and can't be written over Modbus.}
+  - {key: x.command_status, label: Command status, table: holding, address: 230, type: u16}
+  # Digital outputs (coils 1–6 = DO1–DO6)
+  - {key: x.do1, label: DO1, table: coil, address: 0, type: bool, writable: true}
+  - {key: x.do2, label: DO2, table: coil, address: 1, type: bool, writable: true}
+  - {key: x.do3, label: DO3, table: coil, address: 2, type: bool, writable: true}
+  - {key: x.do4, label: DO4, table: coil, address: 3, type: bool, writable: true}
+  - {key: x.do5, label: DO5, table: coil, address: 4, type: bool, writable: true}
+  - {key: x.do6, label: DO6, table: coil, address: 5, type: bool, writable: true}
+
+enums:
+  weight_unit: {'0': g, '1': kg, '2': t, '3': lb}
+
+flags:
+  scale_status: {'0': Net weight negative, '1': Gross weight negative, '2': Weight stable, '3': Underload, '4': Overload, '5': Tare active, '6': Preset / manual tare active, '7': Gross weight zero, '8': Digital input 1 active, '9': Digital input 2 active, '10': Scale / ADC error}
+  output_status: {'0': DO1, '1': DO2, '2': DO3, '3': DO4, '4': DO5, '5': DO6, '8': Scale / load-cell error}
+  di_mask: {'0': DI1, '1': DI2, '2': DI3, '3': DI4, '4': DI5, '5': DI6}
+  do_mask: {'0': DO1, '1': DO2, '2': DO3, '3': DO4, '4': DO5, '5': DO6}
+
+problems:
+  - {when: {key: x.scale_status, bit: 10}, kind: fault, text: Scale / ADC error (status bit 10)}
+  - {when: {key: x.scale_status, bit: 4}, kind: warning, text: Scale overload (status bit 4)}
+  - {when: {key: x.scale_status, bit: 3}, kind: warning, text: Scale underload (status bit 3)}
+
+notes:
+- 'Addresses: the manual uses 3xxxx / 4xxxx reference numbers; protocol address = reference − 40001 (or − 30001), e.g. 40101
+  = holding 100. Coils 1–6 are taken as protocol addresses 0–5 by the same rule (not stated for coils).'
+- Weights are signed 32-bit, high word first. Gross, net and tare are scaled by the decimals in register 107 (bits 13–14);
+  their unit (register 112, also bits 6–7 of 107) varies and isn't applied. The high-resolution values carry up to two decimals
+  more only where available, which can't be told from the registers, so they stay raw.
+- 'The same data in a short block: gross 30001/40001 (s32), net 30003/40003 (s32), scale status 30005/40005, command status
+  30006/40006, output / status configuration 30007/40007 (input or holding addresses 0–6). Writing a command code to 40001
+  also runs it.'
+- Modbus TCP on port 502 (Ethernet or Wi-Fi) or Modbus RTU on RS-232 / RS-485; the interface is chosen with parameter SCI
+  and the unit id with MBA (default 1). The serial settings are configured on the device; no defaults are stated.
+- 'Not taken: ADC points (40117) and load-cell millivolts (40119), whose types aren''t stated; the command registers 40232–40233
+  (zero, tare, clear tare, set outputs); the calibration area 40300–40387.'
+- 'No identify: the manual names no model or serial register.'

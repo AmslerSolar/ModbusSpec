@@ -1,0 +1,147 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Belimo ModBus Interface Description xBALL 4.0 (edition 2026-09).
+
+modbusspec: 0
+id: belimo-xball
+manufacturer: Belimo
+name: xBALL 4.0 electronic expansion valve controller (X80..M...A4)
+kind: hvac
+
+sources:
+- title: ModBus Interface Description xBALL 4.0
+  version: 4.0 (edition 2026-09)
+  url: https://www.belimo.com/mam/general-documents/system_integration/Modbus/belimo_Modbus-Register_xBALL_V4_0_en-gb.pdf
+  sha256: 63e99d2f741fcda89bd111c1cab665d04b0a9577f7593e25b2f60155240c1f3d
+
+connection:
+  default_port: 502
+  default_unit: 19
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # device type
+  - table: holding
+    address: 110
+    type: u16
+    in:
+    - 0
+    - 2
+    - 3
+    - 4
+  # measurement system
+  - table: holding
+    address: 300
+    type: u16
+    in:
+    - 1
+    - 2
+  # refrigerant
+  - table: holding
+    address: 301
+    type: u16
+    range:
+    - 1
+    - 26
+
+points:
+  # Operation (0–12)
+  - {key: x.valve_position_steps, label: Absolute valve position, table: holding, address: 0, type: s16, note: 'In points (steps), 0–10000.'}
+  - {key: x.valve_position, label: Percentage valve position, table: holding, address: 1, type: s16, unit: '%'}
+  - {key: x.feedback_signal, label: Feedback signal, table: holding, address: 2, type: s16, unit: V, scale: 0.01}
+  - {key: x.feedback_signal_percent, label: Percentage feedback signal, table: holding, address: 3, type: s16, unit: '%'}
+  - {key: state, label: Regulation state, table: holding, address: 4, type: s16, enum: regulation_state}
+  - {key: x.evaporation_pressure, label: Evaporation pressure probe measurement, table: holding, address: 5, type: s16, unit: bar, scale: 0.1, note: Gauge pressure (barg).}
+  - {key: x.suction_temperature, label: Suction temperature probe measurement, table: holding, address: 7, type: s16, unit: °C, scale: 0.1}
+  - {key: x.evaporation_temperature, label: Evaporation temperature, table: holding, address: 9, type: s16, unit: °C, scale: 0.1}
+  - {key: x.superheat, label: Superheat, table: holding, address: 11, type: s16, unit: K, scale: 0.1}
+
+  # Device information (100–115, unsigned)
+  - {key: x.serial_high, label: Serial number (4 most significant digits), table: holding, address: 101, type: u16, poll: slow}
+  - {key: x.serial_low, label: Serial number (4 least significant digits), table: holding, address: 102, type: u16, poll: slow}
+  - {key: x.hardware_release, label: Hardware release, table: holding, address: 107, type: u16, poll: slow, note: 'Packed version; the document''s example and format string disagree on the byte layout, so it is left raw.'}
+  - {key: firmware, label: Firmware release, table: holding, address: 108, type: u16, poll: slow, note: 'Packed version, one part per byte; the document''s examples don''t fit in 16 bits, so it is left raw.'}
+  - {key: x.device_type, label: Device type, table: holding, address: 110, type: u16, enum: device_type, poll: slow}
+  - {key: x.operating_days, label: Operating days, table: holding, address: 111, type: u16, unit: d, poll: slow}
+  - {key: x.operating_hours, label: Operating hours, table: holding, address: 112, type: u16, unit: h, poll: slow, note: 'Hours of the current day (0–24), on top of the operating days.'}
+  - {key: x.completed_cycles, label: Number of completed cycles, table: holding, address: 113, type: u32, poll: slow, verified: false, note: 'High part in 113, low part in 114; combining them as high × 65536 + low is not stated in the document; assumed.'}
+  - {key: frequency, label: Supply voltage frequency, table: holding, address: 115, type: u16, unit: Hz}
+
+  # Control (200–201)
+  - {key: x.manual_position, label: Manual positioner position, table: holding, address: 200, type: s16, writable: true, min: 0, max: 10000, note: Points; used when manual positioner enabling (coil 104) is on.}
+  - {key: x.cooling_capacity, label: Machine cooling capacity, table: holding, address: 201, type: s16, unit: '%', writable: true, min: 0, max: 100}
+
+  # Settings (300 ff.)
+  - {key: x.measurement_system, label: Measurement system, table: holding, address: 300, type: s16, enum: measurement_system, writable: true, persistent: true, poll: slow}
+  - {key: x.refrigerant, label: Refrigerant, table: holding, address: 301, type: s16, enum: refrigerant, writable: true, persistent: true, poll: slow}
+  - {key: x.control_mode, label: Control mode, table: holding, address: 305, type: s16, enum: control_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.opening_at_start, label: Percent valve opening at start, table: holding, address: 308, type: s16, unit: '%', writable: true, min: 0, max: 100, persistent: true, poll: slow}
+  - {key: x.standby_opening, label: Standby opening percentage position, table: holding, address: 310, type: s16, unit: '%', writable: true, min: 0, max: 100, persistent: true, poll: slow}
+  - {key: x.valve_model, label: Valve model optimisation, table: holding, address: 321, type: s16, enum: valve_model, writable: true, persistent: true, poll: slow}
+  - {key: x.superheat_setpoint, label: Superheat setpoint, table: holding, address: 400, type: s16, unit: K, scale: 0.1, writable: true, min: -40, max: 180, persistent: true, poll: slow}
+  - {key: x.lsh_threshold, label: LSH (low superheat) protection threshold, table: holding, address: 409, type: s16, unit: K, scale: 0.1, writable: true, min: -85, max: 200, persistent: true, poll: slow, verified: false, note: The document gives °C for this superheat threshold; K assumed.}
+  - {key: x.lop_threshold, label: LOP (low evaporation temperature) protection threshold, table: holding, address: 411, type: s16, unit: °C, scale: 0.1, writable: true, min: -85, max: 200, persistent: true, poll: slow}
+  - {key: x.mop_threshold, label: MOP (high evaporation temperature) protection threshold, table: holding, address: 412, type: s16, unit: °C, scale: 0.1, writable: true, min: -85, max: 200, persistent: true, poll: slow}
+
+  # Coils: alarms and notifications (read only)
+  - {key: x.hardware_alarm, label: Hardware alarm, table: coil, address: 0, type: bool}
+  - {key: x.gearbox_alarm, label: Gearbox alarm, table: coil, address: 1, type: bool}
+  - {key: x.bus_alarm, label: Bus communication alarm, table: coil, address: 2, type: bool}
+  - {key: x.pressure_probe_alarm, label: Evaporation pressure probe alarm, table: coil, address: 3, type: bool}
+  - {key: x.temperature_probe_alarm, label: Suction temperature probe alarm, table: coil, address: 4, type: bool}
+  - {key: x.lsh_alarm, label: LSH (low superheat) alarm, table: coil, address: 5, type: bool}
+  - {key: x.lsu_alarm, label: LSU (low suction temperature) alarm, table: coil, address: 6, type: bool}
+  - {key: x.lop_alarm, label: LOP (low evaporation temperature) alarm, table: coil, address: 7, type: bool}
+  - {key: x.mop_alarm, label: MOP (high evaporation temperature) alarm, table: coil, address: 8, type: bool}
+  - {key: x.lsh_protection_active, label: LSH protection activation notification, table: coil, address: 9, type: bool}
+  - {key: x.lop_protection_active, label: LOP protection activation notification, table: coil, address: 10, type: bool}
+  - {key: x.mop_protection_active, label: MOP protection activation notification, table: coil, address: 11, type: bool}
+  - {key: x.digital_input_active, label: Digital input activation notification, table: coil, address: 12, type: bool}
+
+  # Coils: settings
+  - {key: x.regulation_enabled, label: Regulation enabling, table: coil, address: 100, type: bool, writable: true, persistent: true, poll: slow}
+  - {key: x.manual_positioner_enabled, label: Manual positioner enabling, table: coil, address: 104, type: bool, writable: true, poll: slow}
+  - {key: x.termination_enabled, label: Termination resistor enabling, table: coil, address: 105, type: bool, writable: true, persistent: true, poll: slow}
+
+derived:
+  - {key: serial, label: Serial number, sum: [{key: x.serial_high, factor: 10000}, {key: x.serial_low}], note: Two groups of four decimal digits (101 and 102).}
+
+enums:
+  regulation_state: {'0': Disabled, '10': Stop regulation, '40': Closed valve, '50': Stand-by, '60': Moving, '70': Moving, '80': Moving, '90': Wait, '100': Regulation}
+  device_type: {'0': xBALL replacement (Silab module), '2': xBALL replacement (EspIF module), '3': xBALL controller, '4': xBALL controller big}
+  measurement_system: {'1': International (SI), '2': British Imperial}
+  refrigerant: {'1': R1233zd(E), '2': R1234yf, '3': R1234ze, '4': R1270, '5': R134a, '6': R290, '7': R32, '8': R404A, '9': R407A, '11': R410A, '12': R449A, '13': R449C, '14': R452A, '15': R452B, '16': R454A, '17': R454B, '18': R454C, '19': R463A, '20': R507A, '21': R513A, '22': R514A, '23': R515B, '24': R600, '25': R600a, '26': R744}
+  control_mode: {'1': A/D mode, '2': Bus mode}
+  valve_model: {'0': Generic, '10': EX*10, '20': EX*20, '50': EX*50, '75': EX*75, '100': EX*100, '200': EX*200}
+
+problems:
+  - {when: {key: x.hardware_alarm, equals: 1}, kind: fault, text: Hardware alarm}
+  - {when: {key: x.gearbox_alarm, equals: 1}, kind: fault, text: Gearbox alarm}
+  - {when: {key: x.bus_alarm, equals: 1}, kind: warning, text: Bus communication alarm}
+  - {when: {key: x.pressure_probe_alarm, equals: 1}, kind: fault, text: Evaporation pressure probe alarm}
+  - {when: {key: x.temperature_probe_alarm, equals: 1}, kind: fault, text: Suction temperature probe alarm}
+  - {when: {key: x.lsh_alarm, equals: 1}, kind: warning, text: Low superheat (LSH) alarm}
+  - {when: {key: x.lsu_alarm, equals: 1}, kind: warning, text: Low suction temperature (LSU) alarm}
+  - {when: {key: x.lop_alarm, equals: 1}, kind: warning, text: Low evaporation temperature (LOP) alarm}
+  - {when: {key: x.mop_alarm, equals: 1}, kind: warning, text: High evaporation temperature (MOP) alarm}
+
+notes:
+- Addresses are the document's 0-based addresses (register R1 / coil C1 = address 0). Registers are holding registers (function
+  03); the coils are read with function 01.
+- Registers are signed unless the document marks them unsigned (the device information 100–115 and the PIN entry).
+- After power-up the controller needs up to 10 s to initialise; until then all values read 0.
+- 'Modbus RTU only: 1200…38400 Bd (default 19200), default 8N2 (8N1, 8E1, 8O1, 8E2, 8O2 possible), address 1–247 (default
+  19). Configured with the xBALL Syncra tool. Port 502 is for a Modbus TCP gateway in front of it.'
+- The °F / psig duplicates (6, 8, 10, 12, 500–513) are left out, as are the PIN registers (100, 204), gearbox serial fields
+  (103–106), HMI release (109), service registers (202, 203, 322), probe configuration, recovery actions, RS-485 settings
+  (325–328), PID and protection timing parameters (331–340) and the probe limit and offset settings (401–408, 410, 413).

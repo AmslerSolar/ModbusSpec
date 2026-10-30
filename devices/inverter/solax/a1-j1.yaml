@@ -1,0 +1,141 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: solax-a1-j1
+manufacturer: SolaX
+name: A1 / J1 hybrid inverters
+kind: inverter
+
+sources:
+- id: solax-modbus
+  title: homeassistant-solax-modbus (Home Assistant integration)
+  url: https://github.com/wills106/homeassistant-solax-modbus
+  license: Apache-2.0
+  commit: d644181940210c4a00a6b4637888495c7a7d6217
+  path: custom_components/solax_modbus/plugin_solax_a1j1.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+
+encoding:
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 0
+    type: str
+    length: 7
+  any:
+  - table: holding
+    address: 0
+    type: str
+    length: 7
+    prefix: J1
+  - table: holding
+    address: 0
+    type: str
+    length: 7
+    prefix: A1
+
+defaults:
+  verified: false
+  sources:
+  - solax-modbus
+
+models:
+  - {id: j1_hybrid, name: J1 | HYBRID (prefix J1*), match: {table: holding, address: 0, type: str, length: 7, prefix: J1}}
+  - {id: a1_hybrid, name: A1 | HYBRID (prefix A1*), match: {table: holding, address: 0, type: str, length: 7, prefix: A1}}
+
+points:
+  - {key: x.seriesnumber, label: Series Number, table: holding, address: 0, type: str, length: 7, note: The project decodes this text with little word order (registers in reverse order).}
+  - {key: x.firmware_version_inverter_master, label: Firmware Version Inverter Master, table: holding, address: 35, type: u16, models: [j1_hybrid]}
+  - {key: x.firmware_version_manager, label: Firmware Version Manager, table: holding, address: 36, type: u16, models: [j1_hybrid]}
+  - {key: x.firmware_version_manager_bootloader, label: Firmware Version Manager Bootloader, table: holding, address: 37, type: u16, models: [j1_hybrid]}
+  - {key: x.firmware_version_modbustcp, label: Firmware Version Modbus, table: holding, address: 38, type: u16, models: [j1_hybrid]}
+  - {key: x.rtc, label: RTC, table: holding, address: 39, type: datetime, length: 6, datetime: {second: {register: 0}, minute: {register: 1}, hour: {register: 2}, day: {register: 3}, month: {register: 4}, year: {register: 5, offset: 2000}}, models: [j1_hybrid]}
+  - {key: x.charger_use_mode, label: Charger Use Mode, table: holding, address: 45, type: u16, enum: charger_use_mode, models: [j1_hybrid]}
+  - {key: x.charger_start_time_1, label: Charger Start Time 1, table: holding, address: 46, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [j1_hybrid]}
+  - {key: x.charger_stop_time_1, label: Charger Stop Time 1, table: holding, address: 47, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [j1_hybrid]}
+  - {key: x.charger_start_time_2, label: Charger Start Time 2, table: holding, address: 48, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [j1_hybrid]}
+  - {key: x.charger_stop_time_2, label: Charger Stop Time 2, table: holding, address: 49, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [j1_hybrid]}
+  - {key: x.forcharge_soc_economic, label: ForceCharge SOC - Economic, table: holding, address: 51, type: u16, unit: '%', models: [j1_hybrid], conflicts: [{sources: [solax-modbus], label: ForceCharge SOC - Green}]}
+  - {key: x.discharger_start_time_1, label: Discharger Start Time 1, table: holding, address: 52, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [j1_hybrid]}
+  - {key: x.discharger_stop_time_1, label: Discharger Stop Time 1, table: holding, address: 53, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [j1_hybrid]}
+  - {key: x.discharger_start_time_2, label: Discharger Start Time 2, table: holding, address: 54, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [j1_hybrid]}
+  - {key: x.discharger_stop_time_2, label: Discharger Stop Time 2, table: holding, address: 55, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [j1_hybrid]}
+  - {key: x.eps_mute, label: EPS Mute, table: holding, address: 82, type: u16, enum: eps_mute, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.language, label: Language, table: holding, address: 83, type: u16, enum: language, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.manual_mode, label: Manual Mode, table: holding, address: 90, type: u16, enum: manual_mode, models: [j1_hybrid]}
+  - {key: x.power_factor_mode, label: Power Factor Mode, table: holding, address: 91, type: u16, enum: power_factor_mode, models: [j1_hybrid]}
+  - {key: x.eps_set_frequency, label: EPS Set Frequency, table: holding, address: 103, type: u16, enum: eps_set_frequency, models: [j1_hybrid]}
+  - {key: x.inverter_voltage_l1, label: Inverter Voltage L1, table: input, address: 0, type: u16, unit: V, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.inverter_current_l1, label: Inverter Current L1, table: input, address: 1, type: s16, unit: A, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.inverter_power_l1, label: Inverter Power L1, table: input, address: 2, type: s16, unit: W, models: [j1_hybrid]}
+  - {key: x.inverter_voltage_l2, label: Inverter Voltage L2, table: input, address: 3, type: u16, unit: V, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.inverter_current_l2, label: Inverter Current L2, table: input, address: 4, type: s16, unit: A, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.inverter_power_l2, label: Inverter Power L2, table: input, address: 5, type: s16, unit: W, models: [j1_hybrid]}
+  - {key: x.inverter_frequency_l1, label: Inverter Frequency L1, table: input, address: 6, type: u16, unit: Hz, scale: 0.01, models: [j1_hybrid]}
+  - {key: x.measured_power_l1, label: Measured Power L1, table: input, address: 7, type: s16, unit: W, models: [j1_hybrid]}
+  - {key: x.measured_power_l2, label: Measured Power L2, table: input, address: 8, type: s16, unit: W, models: [j1_hybrid]}
+  - {key: x.pv_voltage_1, label: PV Voltage 1, table: input, address: 9, type: u16, unit: V, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.pv_current_1, label: PV Current 1, table: input, address: 10, type: u16, unit: A, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.pv_power_1, label: PV Power 1, table: input, address: 11, type: u16, unit: W, models: [j1_hybrid]}
+  - {key: x.pv_voltage_2, label: PV Voltage 2, table: input, address: 12, type: u16, unit: V, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.pv_current_2, label: PV Current 2, table: input, address: 13, type: u16, unit: A, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.pv_power_2, label: PV Power 2, table: input, address: 14, type: u16, unit: W, models: [j1_hybrid]}
+  - {key: x.pv_voltage_3, label: PV Voltage 3, table: input, address: 15, type: u16, unit: V, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.pv_current_3, label: PV Current 3, table: input, address: 16, type: u16, unit: A, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.pv_power_3, label: PV Power 3, table: input, address: 17, type: u16, unit: W, models: [j1_hybrid]}
+  - {key: battery_voltage, label: Battery Voltage, table: input, address: 18, type: u16, unit: V, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.battery_current, label: Battery Current, table: input, address: 19, type: s16, unit: A, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.battery_power, label: Battery Power, table: input, address: 20, type: s16, unit: W, models: [j1_hybrid]}
+  - {key: battery_temperature, label: Battery Temperature, table: input, address: 22, type: s16, unit: °C, models: [j1_hybrid]}
+  - {key: x.battery_capacity_charge, label: Battery Capacity, table: input, address: 23, type: u16, unit: '%', models: [j1_hybrid]}
+  - {key: temperature, label: Inverter Temperature, table: input, address: 26, type: u16, unit: °C, models: [j1_hybrid]}
+  - {key: x.eps_voltage_l1, label: EPS Voltage L1, table: input, address: 29, type: u16, unit: V, scale: 0.1, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.eps_current_l1, label: EPS Current L1, table: input, address: 30, type: s16, unit: A, scale: 0.1, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.eps_power_active_l1, label: EPS Power Active L1, table: input, address: 31, type: s16, unit: W, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.eps_power_l1, label: EPS Power L1, table: input, address: 32, type: u16, unit: VA, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.eps_voltage_l2, label: EPS Voltage L2, table: input, address: 33, type: u16, unit: V, scale: 0.1, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.eps_current_l2, label: EPS Current L2, table: input, address: 34, type: s16, unit: A, scale: 0.1, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.eps_power_active_l2, label: EPS Power Active L2, table: input, address: 35, type: s16, unit: W, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.eps_power_l2, label: EPS Power L2, table: input, address: 36, type: u16, unit: VA, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.eps_frequency_l1, label: EPS Frequency L1, table: input, address: 37, type: u16, unit: Hz, scale: 0.01, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.today_yield, label: Today's Yield, table: input, address: 43, type: u16, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.total_yield, label: Total Yield, table: input, address: 44, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.total_e_charge, label: Total E Charge, table: input, address: 46, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.today_e_charge, label: Today's E Charge, table: input, address: 48, type: u16, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.today_battery_output_energy, label: Today's Battery Output Energy, table: input, address: 49, type: u16, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.total_battery_output_energy, label: Total Battery Output Energy, table: input, address: 50, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.total_battery_input_energy, label: Total Battery Input Energy, table: input, address: 52, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.today_battery_inpput_energy, label: Today's Battery Input Energy, table: input, address: 54, type: u16, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.today_eps_yield, label: Today's EPS Yield, table: input, address: 55, type: u16, unit: kWh, scale: 0.1, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.total_eps_yield, label: Total EPS Yield, table: input, address: 56, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+  - {key: x.total_solar_energy, label: Total Solar Energy, table: input, address: 58, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.today_solar_energy, label: Today's Solar Energy, table: input, address: 60, type: u16, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.today_grid_export, label: Today's Grid Export, table: input, address: 62, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.total_grid_export, label: Total Grid Export, table: input, address: 64, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.today_grid_import, label: Today's Grid Import, table: input, address: 66, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.total_grid_import, label: Total Grid Import, table: input, address: 68, type: u32, unit: kWh, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.grid_mode_runtime, label: Grid Mode Runtime, table: input, address: 70, type: u32, unit: h, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.eps_mode_runtime, label: EPS Mode Runtime, table: input, address: 72, type: u32, unit: h, scale: 0.1, models: [j1_hybrid]}
+  - {key: x.inverter_frequency_l2, label: Inverter Frequency L2, table: input, address: 126, type: u16, unit: Hz, scale: 0.01, models: [j1_hybrid]}
+  - {key: x.eps_frequency_l2, label: EPS Frequency L2, table: input, address: 127, type: u16, unit: Hz, scale: 0.01, models: [j1_hybrid], note: Only when the integration option read_eps is on.}
+
+enums:
+  charger_use_mode: {'0': Economic Mode, '1': Green Mode, '2': Ease Use Mode, '3': Manual Mode}
+  eps_mute: {'0': 'Off', '1': 'On'}
+  language: {'0': Nihongo, '1': Chūgokugo}
+  manual_mode: {'0': Stop Charge and Discharge, '1': Force Charge, '2': Force Discharge}
+  power_factor_mode: {'0': 'Off', '1': Over Excited, '2': Under Excited, '3': Fix Q}
+  eps_set_frequency: {'0': '50', '1': '60'}
+
+notes:
+- If the serial number can't be read there, the project tries other addresses as well; model matches only use the first.
+- The sources don't state the default unit id; 1 is a guess.
+- Identification as solax-modbus recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

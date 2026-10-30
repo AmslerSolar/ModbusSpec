@@ -1,0 +1,117 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: solax-lv
+manufacturer: SolaX
+name: X1-Hybrid-LV / X1-Lite-LV inverters
+kind: inverter
+
+sources:
+- id: solax-modbus
+  title: homeassistant-solax-modbus (Home Assistant integration)
+  url: https://github.com/wills106/homeassistant-solax-modbus
+  license: Apache-2.0
+  commit: d644181940210c4a00a6b4637888495c7a7d6217
+  path: custom_components/solax_modbus/plugin_solax_lv.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+
+encoding:
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 50
+    type: str
+    length: 7
+  any:
+  - table: input
+    address: 50
+    type: str
+    length: 7
+    prefix: HL1060
+  - table: input
+    address: 50
+    type: str
+    length: 7
+    prefix: 10J080
+
+defaults:
+  verified: false
+  sources:
+  - solax-modbus
+
+models:
+  - {id: gen_x1_hybrid, name: GEN | X1 | HYBRID (prefix HL1060*), match: {table: input, address: 50, type: str, length: 7, prefix: HL1060}}
+  - {id: gen2_x1_hybrid, name: GEN2 | X1 | HYBRID (prefix 10J080*), match: {table: input, address: 50, type: str, length: 7, prefix: 10J080}}
+
+points:
+  - {key: x.charge_1_start, label: charge_1_start, table: holding, address: 9600, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [gen2_x1_hybrid], writable: true, conflicts: [{sources: [solax-modbus], label: Charge 3 Start}]}
+  - {key: x.charge_1_stop, label: Charge 1 Stop, table: holding, address: 9601, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [gen2_x1_hybrid], writable: true, conflicts: [{sources: [solax-modbus], label: Charge 3 Stop}]}
+  - {key: x.discharge_1_start, label: Discharge 1 Start, table: holding, address: 9602, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [gen2_x1_hybrid], writable: true, conflicts: [{sources: [solax-modbus], label: Discharge 3 Start}]}
+  - {key: x.discharge_1_stop, label: Discharge 1 Stop, table: holding, address: 9603, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [gen2_x1_hybrid], writable: true, conflicts: [{sources: [solax-modbus], label: Discharge 3 Stop}]}
+  - {key: x.charge_2_start, label: Charge 2 Start, table: holding, address: 9604, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [gen2_x1_hybrid], writable: true}
+  - {key: x.charge_2_stop, label: Charge 2 Stop, table: holding, address: 9605, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [gen2_x1_hybrid], writable: true}
+  - {key: x.discharge_2_start, label: Discharge 2 Start, table: holding, address: 9606, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [gen2_x1_hybrid], writable: true}
+  - {key: x.discharge_2_stop, label: Discharge 2 Stop, table: holding, address: 9607, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, models: [gen2_x1_hybrid], writable: true}
+  - {key: x.inverter_power, label: Inverter Power, table: input, address: 2, type: s32, unit: W, models: [gen_x1_hybrid], note: Word order little.}
+  - {key: x.grid_voltage, label: Grid Voltage, table: input, address: 256, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_voltage, label: Inverter Voltage, table: input, address: 259, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_frequency, label: Inverter Frequency, table: input, address: 262, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.powerfactor, label: PowerFactor, table: input, address: 301, type: s16, scale: 0.001, models: [gen_x1_hybrid]}
+  - {key: x.inverter_current, label: Inverter Current, table: input, address: 384, type: s16, unit: A, scale: 0.1}
+  - {key: x.inverter_power, label: Inverter Power, table: input, address: 387, type: s32, unit: W, models: [gen2_x1_hybrid]}
+  - {key: x.powerfactor, label: PowerFactor, table: input, address: 399, type: s16, unit: '%', scale: 0.1, models: [gen2_x1_hybrid]}
+  - {key: x.run_mode, label: Run Mode, table: input, address: 512, type: u16, enum: run_mode, models: [gen2_x1_hybrid]}
+  - {key: x.inverter_internal_temp, label: Inverter Internal Temp, table: input, address: 514, type: s16, unit: °C, scale: 0.1}
+  - {key: temperature, label: Inverter Temperature, table: input, address: 515, type: s16, unit: °C, scale: 0.1}
+  - {key: x.pv_temperature, label: PV Temperature, table: input, address: 516, type: s16, unit: °C, scale: 0.1}
+  - {key: battery_temperature, label: Battery Temperature, table: input, address: 578, type: s16, unit: °C, models: [gen2_x1_hybrid]}
+  - {key: x.pv_voltage_1, label: PV Voltage 1, table: input, address: 651, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv_current_1, label: PV Current 1, table: input, address: 652, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv_power_1, label: PV Power 1, table: input, address: 653, type: u16, unit: W, models: [gen_x1_hybrid]}
+  - {key: x.pv_power_1, label: PV Power 1, table: input, address: 653, type: s32, unit: W, models: [gen2_x1_hybrid]}
+  - {key: x.pv_voltage_2, label: PV Voltage 2, table: input, address: 658, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv_current_2, label: PV Current 2, table: input, address: 659, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv_power_2, label: PV Power 2, table: input, address: 660, type: u16, unit: W, models: [gen_x1_hybrid]}
+  - {key: x.pv_power_2, label: PV Power 2, table: input, address: 660, type: s32, unit: W, models: [gen2_x1_hybrid]}
+  - {key: x.pv_voltage_3, label: PV Voltage 3, table: input, address: 665, type: u16, unit: V, scale: 0.1, models: [gen2_x1_hybrid]}
+  - {key: x.pv_current_3, label: PV Current 3, table: input, address: 666, type: u16, unit: A, scale: 0.1, models: [gen2_x1_hybrid]}
+  - {key: x.pv_power_3, label: PV Power 3, table: input, address: 667, type: s32, unit: W, models: [gen2_x1_hybrid]}
+  - {key: x.eps_voltage, label: EPS Voltage, table: input, address: 1024, type: u16, unit: V, scale: 0.1, note: Only when the integration option read_eps is on.}
+  - {key: x.eps_current, label: EPS Current, table: input, address: 1025, type: u16, unit: A, scale: 0.1, note: Only when the integration option read_eps is on.}
+  - {key: x.eps_power, label: EPS Power, table: input, address: 1026, type: s32, unit: VA, note: Only when the integration option read_eps is on. Word order little.}
+  - {key: x.eps_frequency, label: EPS Frequency, table: input, address: 1028, type: u16, unit: Hz, scale: 0.01, note: Only when the integration option read_eps is on.}
+  - {key: x.generator_voltage, label: Generator Voltage, table: input, address: 1088, type: u16, unit: V, scale: 0.1}
+  - {key: x.generator_current, label: Generator Current, table: input, address: 1089, type: u16, unit: A, scale: 0.1}
+  - {key: x.generator_power, label: Generator Power, table: input, address: 1090, type: u16, unit: W}
+  - {key: x.generator_frequency, label: Generator Frequency, table: input, address: 1092, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.battery_voltage_charge, label: Battery Voltage Charge, table: input, address: 1152, type: s16, unit: V, scale: 0.1}
+  - {key: x.battery_power_charge, label: Battery Power Charge, table: input, address: 1154, type: s32, unit: W, scale: 0.1, models: [gen2_x1_hybrid, gen_x1_hybrid], note: Word order little.}
+  - {key: battery_temperature, label: Battery Temperature, table: input, address: 1156, type: s16, unit: °C, models: [gen_x1_hybrid]}
+  - {key: battery_soc, label: Battery Capacity, table: input, address: 1159, type: u16, unit: '%', scale: 0.1}
+  - {key: x.battery_input_energy_today, label: Battery Input Energy Today, table: input, address: 1160, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.battery_input_energy_total, label: Battery Input Energy Total, table: input, address: 1161, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.battery_output_energy_today, label: Battery Output Energy Today, table: input, address: 1163, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.battery_output_energy_total, label: Battery Output Energy Total, table: input, address: 1164, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.battery, label: Battery, table: input, address: 3072, type: u16, enum: battery}
+  - {key: x.cell_voltage_high, label: Cell Voltage High, table: input, address: 3077, type: u16, unit: V, scale: 0.1}
+  - {key: x.cell_voltage_low, label: Cell Voltage Low, table: input, address: 3078, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery_temp_high, label: Battery Temp High, table: input, address: 3079, type: u16, unit: °C, scale: 0.1}
+  - {key: x.battery_temp_low, label: Battery Temp Low, table: input, address: 3080, type: s16, unit: °C, scale: 0.1}
+
+enums:
+  run_mode: {'0': Waiting, '1': Checking, '2': Normal Mode, '3': Fault Mode, '4': Permanent Fault Mode, '5': Update Mode, '6': EPS Check Mode, '7': EPS Mode, '8': Self Test, '9': Idle Mode, '10': Standby, '33': Normal(GEN)}
+  battery: {'0': Not Connected, '1': TLR25/36, '2': GSL Lithium}
+
+notes:
+- The plugin's 32-bit word order setting is little, but most of its 32-bit readings use big (set per description, which wins
+  when reading); writes of 32-bit values use little.
+- The sources don't state the default unit id; 1 is a guess.
+- Identification as solax-modbus recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

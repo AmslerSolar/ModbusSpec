@@ -1,0 +1,89 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from ABB's "TAC Modbus Communication" document v1.11 (see sources).
+
+modbusspec: 0
+id: abb-terra-ac
+manufacturer: ABB
+name: Terra AC wallbox (firmware 1.8 and later)
+kind: charger
+
+sources:
+- title: Terra AC Wallbox – TAC Modbus Communication (Modbus RTU – RS485 and TCP/IP)
+  version: 1.11 (March 2025)
+  url: https://library.e.abb.com/public/982c2befa2734d259e66d76fa4a7ba77/ABB_Terra_AC_Charger_ModbusCommunication_v1.11.pdf
+  sha256: fccc75c8393b7ed3de39a2f999a32601158b570ca29b2ae7ac3373fbe8b81ee7
+  date: 2025-03
+  language: en
+  devices:
+  - Terra AC
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 16384
+    type: u64
+
+points:
+  # Read-only registers (function 03)
+  - {key: serial, label: Serial Number, table: holding, address: 16384, type: u64, poll: slow, note: 'Encoded serial, one field per byte (byte 7 = most significant): 7 connector type (0x47 G = Type 2 cable, 0x50 P = Type 1 cable, 0x53 S = Type 2 socket with shutter, 0x54 T = Type 2 socket), 6 rated power (0x07 / 0x11 / 0x22 = 7 / 11 / 22 kW), 5 plant id, 4 spare, 3 production week, 2 production year (two digits), 1–0 unique number (two BCD digits each). The "TACW" prefix of the printed serial isn''t included.'}
+  - {key: firmware, label: Firmware version, table: holding, address: 16388, type: u32, poll: slow, note: 'One byte each, most significant first: major, minor, patch, reserved; the document''s example 0x01 0x02 0x13 0x00 reads v1.2.13 (patch shown as the hex digits).'}
+  - {key: x.user_max_current, label: User Settable Max Current, table: holding, address: 16390, type: u32, unit: A, scale: 0.001, poll: slow, note: Hardware maximum as set with the Terra Config app.}
+  - {key: error_code, label: Error Code, table: holding, address: 16392, type: u32, note: 0 = no error; other codes are listed in the Terra AC user manual (troubleshooting).}
+  - {key: x.socket_lock_state, label: Socket Lock State, table: holding, address: 16394, type: u32, enum: socket_lock_state, note: Locking only exists on socket versions (see the connector type in the serial number).}
+  - {key: state, label: Charging State, table: holding, address: 16396, type: u32, bits: [8, 14], enum: charging_state, note: 'Byte 1, bits 6–0; IEC 61851-1 states, not all of them.'}
+  - {key: x.below_commanded_current, label: Charging State (byte 1 bit 7), table: holding, address: 16396, type: u32, bits: [15, 15], enum: current_reduced}
+  - {key: x.charging_current_limit, label: Charging Current Limit, table: holding, address: 16398, type: u32, unit: A, scale: 0.001, note: The limit the charger chose from all load-management inputs (including 0x4100).}
+  - {key: l1_current, label: Charging Current L1, table: holding, address: 16400, type: u32, unit: A, scale: 0.001}
+  - {key: l2_current, label: Charging Current L2, table: holding, address: 16402, type: u32, unit: A, scale: 0.001}
+  - {key: l3_current, label: Charging Current L3, table: holding, address: 16404, type: u32, unit: A, scale: 0.001}
+  - {key: l1_voltage, label: Voltage L1, table: holding, address: 16406, type: u32, unit: V, scale: 0.1, note: Line-to-neutral or line-to-line depending on the grid type configured in Terra Config.}
+  - {key: l2_voltage, label: Voltage L2, table: holding, address: 16408, type: u32, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Voltage L3, table: holding, address: 16410, type: u32, unit: V, scale: 0.1}
+  - {key: consumer_power, label: Active Power, table: holding, address: 16412, type: u32, unit: W, positive: consumption, verified: false, note: 'Unsigned, so positive = consumption (derived; the document gives no direction).'}
+  - {key: session_energy, label: Energy Delivered, table: holding, address: 16414, type: u32, unit: kWh, scale: 0.001, note: Wh of the current charging session.}
+  - {key: x.comm_timeout, label: Communication timeout (readback of 0x4106), table: holding, address: 16416, type: u16, unit: s, poll: slow}
+  - {key: x.modbus_current_limit, label: Charging current limit set by Modbus (readback of 0x4100), table: holding, address: 16418, type: u32, unit: A, scale: 0.001, note: 'Document 1.8 and later. Section 5.12 names 0x4020, the register table 0x4022 (0x4020 is the timeout readback).'}
+  - {key: x.fallback_limit, label: Fallback limit (readback of 0x4109), table: holding, address: 16420, type: u16, unit: A, poll: slow, note: Document 1.9 and later.}
+
+  # Write-only registers (function 06 or 16); the document doesn't allow reading them
+  - {key: x.set_current_limit, label: Set Charging Current Limit, table: holding, address: 16640, type: u32, unit: A, scale: 0.001, writable: true, write_only: true, note: Below 6 A the session pauses; it resumes when the limit is set to 6 A or more. The charger's own load management may still choose a lower limit.}
+  - {key: x.lock_command, label: Lock/Unlock Socket Cable, table: holding, address: 16643, type: u16, enum: lock_command, writable: true, write_only: true, note: Socket versions only. A lock holds until unlocked or power-cycled; unlock only without a running session.}
+  - {key: x.session_command, label: Start/Stop Charging Session, table: holding, address: 16645, type: u16, enum: session_command, writable: true, write_only: true}
+  - {key: x.set_comm_timeout, label: Communication timeout, table: holding, address: 16646, type: u16, unit: s, writable: true, write_only: true, min: 10, max: 65535, note: 'Default 60 s: without a request in this time the charger counts the Modbus link as lost.'}
+  - {key: x.set_fallback_limit, label: Set fallback limit, table: holding, address: 16649, type: u16, unit: A, writable: true, write_only: true, note: 'Current used after the communication timeout; with it set, the charger keeps charging instead of going into error. Default 0xFF. Document 1.9 and later.'}
+
+enums:
+  socket_lock_state: {'0': No cable plugged, '1': 'Cable at station, unlocked', '17': 'Cable at station, locked', '257': 'Cable at station and car, unlocked', '273': 'Cable at station and car, locked'}
+  charging_state: {'0': A – idle, '1': 'B1 – car plugged in, waiting for authorisation', '2': 'B2 – car plugged in, ready for charging (PWM)', '3': 'C1 – car ready, no PWM', '4': C2 – charging, '5': Other}
+  current_reduced: {'0': Charging at rated current, '1': Below the value commanded in 0x4100}
+  lock_command: {'0': Unlock, '1': Lock}
+  session_command: {'0': Start charging session, '1': Stop charging session}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charger error (code {value})'}
+
+notes:
+- The charger answers function 03 (read holding registers), 06 and 16 only. 32-bit values span two registers, most significant
+  word first (the document says big-endian throughout).
+- Every register in the document's table is 2 registers wide except the timeout, fallback, lock and start/stop registers (1
+  register). Hex addresses are the protocol addresses as given (0-based).
+- RS485 address 1–247 and serial settings (4800–115200 Bd, 8 data bits, no/odd/even parity, 1 or 2 stop bits) are set in the
+  Terra Config app; the document gives no defaults, so unit 1 and port 502 here are assumptions.
+- Some Terra AC models have no Modbus TCP (e.g. CE versions without display). In TCP mode the app asks to turn off LAN for
+  Charger Link.
+- ABB recommends polling every 30–90 s. If the charger sees no request within the communication timeout (0x4106), it may go
+  into error and stop charging unless a fallback limit (0x4109) is set.
+- Left out the firmware-upgrade registers 0x410A–0x4118.

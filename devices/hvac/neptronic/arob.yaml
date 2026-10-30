@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Neptronic ARO Modbus Guide 170824 (2017-08-24).
+
+modbusspec: 0
+id: neptronic-arob
+manufacturer: Neptronic
+name: AROB series universal room controller (AROB24T, AROB24TH, AROB24TGH, AROB24TGVH)
+kind: hvac
+
+sources:
+- title: AROB Series Universal Room Controller, Modbus Communication Module User Guide (ARO Modbus Guide_170824)
+  version: '2017-08-24'
+  url: http://neptronic.com/Controls/IAQController/PDF/ARO%20Modbus%20Guide_170824.pdf
+  sha256: 84552e76d9395b80f12166cde8f950c03322a0892486ee75bcedd60e723e959f
+  archive_url: https://web.archive.org/web/20201026045604/https://neptronic.com/Controls/IAQController/PDF/ARO%20Modbus%20Guide_170824.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    range:
+    - 4608
+    - 4863
+
+points:
+  # Device (40000–40010)
+  - {key: x.modbus_address, label: Address - Neptronic ID and Modbus address, table: holding, address: 0, type: u16, bits: [0, 7], writable: true, poll: slow, min: 1, max: 246}
+  - {key: x.product_id, label: Neptronic product id, table: holding, address: 0, type: u16, bits: [8, 15], poll: slow, note: 18 for the AROB series; not writable.}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 1, type: u16, scale: 100, writable: true, poll: slow, note: 0 = automatic baud rate detection (default).}
+  - {key: x.comport_config, label: Communication port configuration, table: holding, address: 2, type: u16, enum: comport_config, writable: true, poll: slow}
+  - {key: x.product_name, label: Product name, table: holding, address: 3, type: str, length: 4, poll: slow, note: '8 ASCII characters, the first in the high byte of 40003. Writable.'}
+  - {key: firmware, label: Actual firmware version, table: holding, address: 7, type: u16, poll: slow}
+  - {key: x.rom_version, label: Actual ROM version, table: holding, address: 8, type: u16, poll: slow}
+
+  # Sensors (40011–40020)
+  - {key: x.co2, label: CO2 level, table: holding, address: 11, type: u16, unit: ppm, optional: true, note: '0–2000 ppm; models with a CO2 sensor (AROB24TGH, AROB24TGVH).'}
+  - {key: x.voc, label: VOC level, table: holding, address: 12, type: u16, unit: ppb, optional: true, note: 0–1000 ppb; models with a VOC sensor (AROB24TGVH).}
+  - {key: x.room_temperature, label: Temperature level, table: holding, address: 13, type: s16, unit: °C, scale: 0.1, verified: false, note: °C or °F per register 40034 (units over the network); °C assumed.}
+  - {key: x.room_humidity, label: Humidity level, table: holding, address: 14, type: u16, unit: '%', scale: 0.1, optional: true, note: Relative humidity; models with a humidity sensor.}
+  - {key: x.enthalpy, label: Enthalpy, table: holding, address: 16, type: s16, unit: kJ/kg, scale: 0.01, optional: true, verified: false, note: kJ/kg or BTU/lb per register 40034; metric assumed. Needs the humidity sensor.}
+  - {key: x.dew_point, label: Dew point, table: holding, address: 17, type: s16, unit: °C, scale: 0.1, optional: true, verified: false, note: °C or °F per register 40034; °C assumed. Needs the humidity sensor.}
+  - {key: x.outdoor_temperature, label: External temperature level, table: holding, address: 18, type: s16, unit: °C, scale: 0.1, optional: true, verified: false, note: Only when analog input 1 (42000) is set to OAT sensor. °C or °F per register 40034; °C assumed.}
+  - {key: x.binary_input1, label: Binary input 1 reading, table: holding, address: 20, type: u16, enum: open_closed}
+
+  # Outputs (40027–40030)
+  - {key: x.analog_output1, label: Analog output 1 value, table: holding, address: 27, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100}
+  - {key: x.analog_output2, label: Analog output 2 value, table: holding, address: 28, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100}
+  - {key: x.binary_output1, label: Binary output 1 value, table: holding, address: 29, type: u16, enum: open_closed, writable: true}
+  - {key: x.binary_output2, label: Binary output 1 value (second), table: holding, address: 30, type: u16, enum: open_closed, writable: true, note: The document names 40030 'Binary Output 1 value' as well; presumably binary output 2.}
+  - {key: x.network_units, label: Units of display over the network, table: holding, address: 34, type: u16, enum: units, writable: true, poll: slow}
+
+  # Demands and setpoints (42000–42123)
+  - {key: x.analog_input1_mode, label: Analog input 1 mode, table: holding, address: 2000, type: u16, enum: ai1_mode, writable: true, poll: slow}
+  - {key: x.binary_input1_mode, label: Binary input 1 mode, table: holding, address: 2001, type: u16, enum: bi1_mode, writable: true, poll: slow}
+  - {key: x.analog_output1_demand, label: Analog output 1 demand, table: holding, address: 2002, type: u16, unit: '%', scale: 0.1}
+  - {key: x.analog_output2_demand, label: Analog output 2 demand, table: holding, address: 2016, type: u16, unit: '%', scale: 0.1, note: Only with an application profile (42123 not 0).}
+  - {key: x.binary_output1_demand, label: Binary output 1 demand, table: holding, address: 2030, type: u16, unit: '%', scale: 0.1}
+  - {key: x.binary_output1_state, label: Binary output 1 (relay state), table: holding, address: 2031, type: u16, enum: relay_state}
+  - {key: x.binary_output2_demand, label: Binary output 2 demand, table: holding, address: 2046, type: u16, unit: '%', scale: 0.1, note: Only with an application profile (42123 not 0).}
+  - {key: x.binary_output2_state, label: Binary output 2 (relay state), table: holding, address: 2047, type: u16, enum: relay_state, note: Only with an application profile (42123 not 0).}
+  - {key: x.cooling_demand, label: Cooling demand, table: holding, address: 2074, type: u16, unit: '%', scale: 0.1}
+  - {key: x.cooling_setpoint, label: Cooling setpoint, table: holding, address: 2075, type: u16, unit: °C, scale: 0.1, writable: true, verified: false, note: °C or °F per register 40034; °C assumed.}
+  - {key: x.heating_demand, label: Heating demand, table: holding, address: 2083, type: u16, unit: '%', scale: 0.1}
+  - {key: x.heating_setpoint, label: Heating setpoint, table: holding, address: 2084, type: u16, unit: °C, scale: 0.1, writable: true, verified: false, note: °C or °F per register 40034; °C assumed.}
+  - {key: x.dehumidification_demand, label: Dehumidification demand, table: holding, address: 2092, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.dehumidification_setpoint, label: Dehumidification setpoint, table: holding, address: 2093, type: u16, unit: '%', scale: 0.1, writable: true, optional: true}
+  - {key: x.humidification_demand, label: Humidification demand, table: holding, address: 2098, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.humidification_setpoint, label: Humidification setpoint, table: holding, address: 2099, type: u16, unit: '%', scale: 0.1, writable: true, optional: true}
+  - {key: x.co2_demand, label: CO2 demand, table: holding, address: 2102, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.co2_setpoint, label: CO2 setpoint, table: holding, address: 2103, type: u16, unit: ppm, writable: true, optional: true}
+  - {key: x.voc_demand, label: VOC demand, table: holding, address: 2108, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.voc_setpoint, label: VOC setpoint, table: holding, address: 2109, type: u16, unit: ppb, writable: true, optional: true}
+  - {key: x.main_mode, label: Main system mode, table: holding, address: 2116, type: u16, enum: off_on, writable: true}
+  - {key: x.temperature_mode, label: Temperature system mode, table: holding, address: 2117, type: u16, enum: temperature_mode, writable: true}
+  - {key: x.humidity_mode, label: Humidity system mode, table: holding, address: 2118, type: u16, enum: humidity_mode, writable: true, optional: true}
+  - {key: x.co2_mode, label: CO2 system mode, table: holding, address: 2119, type: u16, enum: off_on, writable: true, optional: true}
+  - {key: x.voc_mode, label: VOC system mode, table: holding, address: 2120, type: u16, enum: off_on, writable: true, optional: true}
+  - {key: x.fan_mode, label: Fan system mode, table: holding, address: 2121, type: u16, enum: fan_mode, writable: true}
+  - {key: x.fan_on_speed, label: Fan ON speed, table: holding, address: 2122, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100}
+  - {key: x.app_profile, label: App profile, table: holding, address: 2123, type: u16, enum: app_profile, writable: true, poll: slow}
+
+  # Input states (43000–43003)
+  - {key: x.occupied, label: Occupancy status, table: holding, address: 3000, type: u16, enum: no_yes, note: Only when an input (42000 / 42001) is set to occupancy or night setback.}
+  - {key: x.dirty_filter, label: Dirty filter status, table: holding, address: 3001, type: u16, enum: no_yes, note: Only when an input is set to dirty filter and with an application profile.}
+  - {key: x.airflow_switch, label: Airflow switch status, table: holding, address: 3002, type: u16, enum: no_yes, note: Only when an input is set to air flow switch and with an application profile.}
+  - {key: x.airflow_lockout, label: Airflow lockout protection status, table: holding, address: 3003, type: u16, enum: no_yes, note: Only when an input is set to air flow lockout and with an application profile.}
+
+enums:
+  comport_config: {'0': 'No parity, 2 stop bits', '1': 'Even parity, 1 stop bit', '2': 'Odd parity, 1 stop bit'}
+  open_closed: {'0': Open, '1': Closed}
+  units: {'0': Metric, '1': Imperial}
+  ai1_mode: {'0': 'Off', '1': OAT sensor, '2': Occupancy, '3': Night setback, '4': Dirty filter, '5': Air flow switch, '6': Air flow lockout}
+  bi1_mode: {'0': 'Off', '1': Occupancy, '2': Night setback, '3': Dirty filter, '4': Air flow switch, '5': Air flow lockout}
+  relay_state: {'0': 'Off', '1': Set, '2': Reset}
+  off_on: {'0': 'Off', '1': 'On'}
+  no_yes: {'0': 'No', '1': 'Yes'}
+  temperature_mode: {'0': 'Off', '1': Cool, '2': Auto, '3': Heat}
+  humidity_mode: {'0': 'Off', '1': Dehumidification, '2': Auto, '3': Humidification}
+  fan_mode: {'0': 'Off', '1': Auto, '2': 'On'}
+  app_profile: {'0': No profile (manual configuration), '1': Temperature only, '2': 'Temperature, RH and CO2'}
+
+problems:
+  - {when: {key: x.dirty_filter, equals: 1}, kind: warning, text: Dirty filter}
+  - {when: {key: x.airflow_switch, equals: 1}, kind: warning, text: Airflow switch active}
+  - {when: {key: x.airflow_lockout, equals: 1}, kind: fault, text: Airflow lockout protection active}
+
+notes:
+- 'Addresses: the document numbers holding registers from 40000 and calls 40000 ''holding register index 0''; so 4xxxx → holding
+  xxxx (no −1).'
+- Holding registers only (functions 03, 06, 16). RS485 Modbus RTU, unit id 1–246 set on the device menu or in 40000.
+- 'Serial: automatic baud rate detection by default (9600–76800); parity and stop bits set in 40002. Default framing not stated;
+  9600 8N2 assumed.'
+- Default unit id not stated; 1 assumed.
+- Temperatures, setpoints, enthalpy and dew point are in metric or imperial units per register 40034 (units over the network);
+  metric assumed here.
+- Alarm status registers 40009 / 40010 exist but all their bits are reserved in this version, so they are left out.
+- 'Left out: sensor calibrations (40021–40026), display and lock options, output configuration (42003–42015, 42017–42029,
+  42032–42045, 42048–42061), outdoor-air lockouts (42062–42073), setpoint limits, proportional bands, integral times and deadbands.'
+- 'Identification: the high byte of 40000 is the Neptronic product id, 18 for this series.'

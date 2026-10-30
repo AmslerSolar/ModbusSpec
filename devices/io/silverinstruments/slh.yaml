@@ -1,0 +1,118 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Silver Instruments SLH Series ultrasonic flow meter communication protocols (modbus-rs485-setting, undated).
+
+modbusspec: 0
+id: silverinstruments-slh
+manufacturer: Silver Instruments
+name: SLH Series ultrasonic flow / energy meter
+kind: io
+
+sources:
+- title: SLH Series communication protocols, MODBUS registers table (modbus-rs485-setting)
+  version: undated (published 2025-06)
+  url: https://th.silverinstruments.com/uploads/file/20250627/12/modbus-rs485-setting.pdf
+  sha256: fb25591e41949b760621096699afcda33dd2bc6c0d6bd66c288e56e6aa1df8b3
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - ascii
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 1528
+    type: bcd32
+    word_order: big
+
+points:
+  - {key: x.flow_rate, label: Flow Rate, table: holding, address: 0, type: f32, unit: m³/h, verified: false, note: Presumably negative for reverse flow; not stated.}
+  - {key: x.energy_flow_rate, label: Energy Flow Rate, table: holding, address: 2, type: f32, unit: GJ/h}
+  - {key: x.velocity, label: Velocity, table: holding, address: 4, type: f32, unit: m/s}
+  - {key: x.sound_speed, label: Fluid sound speed, table: holding, address: 6, type: f32, unit: m/s}
+  - {key: x.temperature_inlet, label: 'Temperature #1/inlet', table: holding, address: 32, type: f32, unit: °C}
+  - {key: x.temperature_outlet, label: 'Temperature #2/outlet', table: holding, address: 34, type: f32, unit: °C}
+  - {key: x.analog_input_3, label: Analog input AI3, table: holding, address: 36, type: f32, optional: true}
+  - {key: x.analog_input_4, label: Analog input AI4, table: holding, address: 38, type: f32, optional: true}
+  - {key: x.analog_input_5, label: Analog input AI5, table: holding, address: 40, type: f32, optional: true}
+  - {key: error_code, label: Error Code, table: holding, address: 71, type: u16, flags: errors}
+  - {key: x.output_current, label: Output current, table: holding, address: 88, type: f32, unit: mA}
+  - {key: x.signal_quality, label: Signal Quality, table: holding, address: 91, type: u16, bits: [0, 7], note: '00 … 99, higher is better.'}
+  - {key: x.working_step, label: Working step, table: holding, address: 91, type: u16, bits: [8, 15]}
+  - {key: x.upstream_strength, label: Upstream strength, table: holding, address: 92, type: u16, note: 0 … 2047.}
+  - {key: x.downstream_strength, label: Downstream strength, table: holding, address: 93, type: u16, note: 0 … 2047.}
+  - {key: x.working_timer, label: Working Timer, table: holding, address: 102, type: u32, unit: s, poll: slow}
+  - {key: x.total_working_time, label: Total working time, table: holding, address: 104, type: u32, unit: s, poll: slow}
+  - {key: x.net_volume, label: Net accumulator, table: holding, address: 112, type: f32, unit: m³, poll: slow}
+  - {key: x.positive_volume, label: Positive accumulator, table: holding, address: 114, type: f32, unit: m³, poll: slow}
+  - {key: x.negative_volume, label: Negative accumulator, table: holding, address: 116, type: f32, unit: m³, poll: slow}
+  - {key: x.net_energy, label: Net energy accumulator, table: holding, address: 118, type: f32, unit: GJ, poll: slow}
+  - {key: x.positive_energy, label: Positive energy accumulator, table: holding, address: 120, type: f32, unit: GJ, poll: slow}
+  - {key: x.negative_energy, label: Negative energy accumulator, table: holding, address: 122, type: f32, unit: GJ, poll: slow}
+  - {key: x.volume_today, label: Flow for today, table: holding, address: 124, type: f32, unit: m³, poll: slow}
+  - {key: x.volume_month, label: Flow for this month, table: holding, address: 126, type: f32, unit: m³, poll: slow}
+  - {key: x.temperature_difference, label: Temperature difference, table: holding, address: 180, type: f32, unit: °C}
+  - {key: x.pipe_diameter, label: Inner pipe diameter, table: holding, address: 220, type: f32, unit: mm, poll: slow}
+  - {key: x.flow_rate_unit, label: Unit for flow rate, table: holding, address: 1436, type: u16, enum: flow_rate_unit, poll: slow}
+  - {key: x.totalizer_unit, label: Unit for flow totalizer, table: holding, address: 1437, type: u16, enum: totalizer_unit, poll: slow}
+  - {key: x.totalizer_multiplier, label: Multiplier for totalizer, table: holding, address: 1438, type: u16, poll: slow, note: 'n = 0 … 7: the LONG totalizers count in 10^(n−3) of the totalizer unit.'}
+  - {key: x.energy_multiplier, label: Multiplier for energy accumulator, table: holding, address: 1439, type: u16, poll: slow, note: 'n = 0 … 10: the LONG energy totalizers count in 10^(n−4) of the energy unit.'}
+  - {key: x.energy_unit, label: Unit for energy rate, table: holding, address: 1440, type: u16, enum: energy_unit, poll: slow}
+  - {key: x.device_address, label: Device address, table: holding, address: 1441, type: u16, poll: slow}
+  - {key: serial, label: Electronic serial number, table: holding, address: 1528, type: bcd32, word_order: big, poll: slow, note: High byte first.}
+
+enums:
+  totalizer_unit: {'0': m³, '1': L, '2': US gallon, '3': imperial gallon, '4': US million gallon, '5': cubic feet, '6': US oil barrel, '7': imperial oil barrel}
+  energy_unit: {'0': GJ, '1': kcal, '2': kWh, '3': BTU}
+  flow_rate_unit: {'0': m³/s, '1': m³/min, '2': m³/h, '3': m³/d, '4': L/s, '5': L/min, '6': L/h, '7': L/d, '8': US gal/s, '9': US gal/min, '10': US gal/h, '11': US gal/d, '12': imp gal/s, '13': imp gal/min, '14': imp gal/h, '15': imp gal/d, '16': US Mgal/s, '17': US Mgal/min, '18': US Mgal/h, '19': US Mgal/d, '20': ft³/s, '21': ft³/min, '22': ft³/h, '23': ft³/d, '24': US oil barrel/s, '25': US oil barrel/min, '26': US oil barrel/h, '27': US oil barrel/d}
+
+flags:
+  errors: {'0': No received signal, '1': Low received signal, '2': Poor received signal, '3': Pipe empty, '4': Hardware failure, '5': Receiving circuit gain adjusting, '6': Frequency output overflow, '7': 4-20 mA output overflow, '8': RAM checksum error, '9': Main clock or timer clock error, '10': Parameter checksum error, '11': ROM checksum error, '12': Temperature circuit error, '14': Internal timer overflow, '15': Analog input over range}
+
+problems:
+  - {when: {key: error_code, bit: 0}, kind: fault, text: No received signal (error bit 0)}
+  - {when: {key: error_code, bit: 1}, kind: warning, text: Low received signal (error bit 1)}
+  - {when: {key: error_code, bit: 2}, kind: warning, text: Poor received signal (error bit 2)}
+  - {when: {key: error_code, bit: 3}, kind: warning, text: Pipe empty (error bit 3)}
+  - {when: {key: error_code, bit: 4}, kind: fault, text: Hardware failure (error bit 4)}
+  - {when: {key: error_code, bit: 6}, kind: warning, text: Frequency output overflow (error bit 6)}
+  - {when: {key: error_code, bit: 7}, kind: warning, text: 4-20 mA output overflow (error bit 7)}
+  - {when: {key: error_code, bit: 8}, kind: fault, text: RAM checksum error (error bit 8)}
+  - {when: {key: error_code, bit: 9}, kind: fault, text: Clock or timer error (error bit 9)}
+  - {when: {key: error_code, bit: 10}, kind: fault, text: Parameter checksum error (error bit 10)}
+  - {when: {key: error_code, bit: 11}, kind: fault, text: ROM checksum error (error bit 11)}
+  - {when: {key: error_code, bit: 12}, kind: warning, text: Temperature circuit error (error bit 12)}
+  - {when: {key: error_code, bit: 14}, kind: warning, text: Internal timer overflow (error bit 14)}
+  - {when: {key: error_code, bit: 15}, kind: warning, text: Analog input over range (error bit 15)}
+
+notes:
+- The document numbers registers from 1 (REG0001 is read with start address 0, as its example shows); addresses here are that
+  number minus 1. Only function 03 (read) and 06 (write one register) are supported.
+- The document says LONG values are signed 32-bit integers with the lower part first; low word first is taken for all two-register
+  values (floats included), high byte first within each register. The float word order isn't stated; unverified. The serial
+  number (BCD) is high first, as the document states.
+- Default protocol is MODBUS-ASCII; MODBUS-RTU is chosen in menu 63. 9600 baud, 8N1 by default (other rates and parity in
+  menu 62). The device address is set in menu 46, keypad only; its default isn't stated (1 assumed).
+- 'Volumes and energies are taken from the float registers (113 … 128 in the document''s numbering: m³ and GJ). The document
+  also has each totalizer as a LONG integer part plus a float fraction (registers 9 … 32, 129 … 148), scaled by the totalizer
+  unit and multiplier: value = (N + fraction) × 10^(n−3); those are left out. Energy unit of the float registers is GJ; the
+  rate unit setting may differ.'
+- Many registers only matter for energy (heat) measurement; on flow-only meters the document advises ignoring the energy-related
+  error bits.
+- Which error bits stop the measurement isn't stated; the fault / warning split here is assumed. Bit 5 (gain adjusting) is
+  a normal state and reports no problem.
+- 'Left out: travel times, Reynolds numbers, PT100 resistances, current inputs (AI3 currents), password, calendar, key and
+  display registers, the 64-day and 32-month history (2817 … 3584) and the power on/off log (3585 …).'
+- The document's flow-rate unit table repeats codes 25 … 27 for imperial oil barrels after 28; only 0 … 27 are listed here
+  as given for the other units.

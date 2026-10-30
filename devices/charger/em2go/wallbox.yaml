@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the EM2GO "Program EV Chargers – ModBus TCP" register specification (V5, 01/2023).
+
+modbusspec: 0
+id: em2go-wallbox
+manufacturer: EM2GO
+name: EV wallboxes (Home / Pro Power series)
+kind: charger
+
+sources:
+- title: Program EV Chargers – ModBus TCP (register specification, German and English)
+  version: V5 012023
+  url: https://media.elv.com/file/252210_modbus_tcp_register.pdf
+  sha256: 0e6c294c2fe7a63d271bbb1dfd00602fe906dc1d39e20ed1c5208fffb4668f34
+  archive_url: https://web.archive.org/web/20240904031314/https://media.elv.com/file/252210_modbus_tcp_register.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 3
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 38
+    type: str
+    length: 32
+
+points:
+  - {key: serial, label: Serial number, table: holding, address: 38, type: str, length: 32, poll: slow, verified: false, note: '15 digits, two ASCII characters per register; read in parts of 3 registers.'}
+  - {key: state, label: EVSE state, table: holding, address: 0, type: u16, enum: evse_state}
+  - {key: x.cable_state, label: Cable state, table: holding, address: 2, type: u16, enum: cable_state}
+  - {key: error_code, label: Error code, table: holding, address: 4, type: u16, enum: error_code}
+  - {key: l1_current, label: Charging current L1, table: holding, address: 6, type: u16, unit: A, scale: 0.1}
+  - {key: l2_current, label: Charging current L2, table: holding, address: 8, type: u16, unit: A, scale: 0.1}
+  - {key: l3_current, label: Charging current L3, table: holding, address: 10, type: u16, unit: A, scale: 0.1}
+  - {key: consumer_power, label: Active power, table: holding, address: 12, type: u32, unit: W, positive: consumption, verified: false, note: 'Unsigned, so positive = consumption (derived; the document gives no direction). 0 when not charging.'}
+  - {key: l1_power, label: Active power L1, table: holding, address: 16, type: u32, unit: W, positive: consumption, verified: false}
+  - {key: l2_power, label: Active power L2, table: holding, address: 20, type: u32, unit: W, positive: consumption, verified: false}
+  - {key: l3_power, label: Active power L3, table: holding, address: 24, type: u32, unit: W, positive: consumption, verified: false}
+  - {key: consumer_energy, label: Meter value, table: holding, address: 28, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.evse_max_current, label: EVSE max current, table: holding, address: 32, type: u16, unit: A, scale: 0.1, poll: slow}
+  - {key: x.evse_min_current, label: EVSE min current, table: holding, address: 34, type: u16, unit: A, scale: 0.1, poll: slow}
+  - {key: x.cable_max_current, label: Cable max current, table: holding, address: 36, type: u16, unit: A, scale: 0.1}
+  - {key: session_energy, label: Charging energy, table: holding, address: 72, type: u16, unit: kWh, scale: 0.1, note: 0 when not charging.}
+  - {key: x.session_duration, label: Charging duration, table: holding, address: 78, type: u32, unit: s, note: 0 when not charging.}
+  - {key: x.fallback_current, label: Fallback current, table: holding, address: 87, type: u16, unit: A, scale: 0.1, writable: true, poll: slow, note: Current allowed after the Modbus communication timeout.}
+  - {key: x.comm_timeout, label: Comm timeout, table: holding, address: 89, type: u16, unit: s, writable: true, poll: slow}
+  - {key: x.current_limit, label: Current limit, table: holding, address: 91, type: u16, unit: A, scale: 0.1, writable: true, note: Charging current limit; not set by default.}
+  - {key: x.charge_mode, label: Charge mode, table: holding, address: 93, type: u16, enum: charge_mode, writable: true, poll: slow}
+  - {key: x.charge_command, label: Charge command, table: holding, address: 95, type: u16, enum: charge_command, writable: true, note: Only with charge mode 1.}
+  - {key: l1_voltage, label: Voltage L1, table: holding, address: 109, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Voltage L2, table: holding, address: 111, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Voltage L3, table: holding, address: 113, type: u16, unit: V, scale: 0.1}
+
+enums:
+  evse_state: {'0': Unknown, '1': Standby, '2': Connected, '3': Starting, '4': Charging, '5': Start failed, '6': Charging ended, '7': System fault, '8': Transaction scheduled, '9': Firmware update, '10': Power on}
+  cable_state: {'0': Not connected, '1': Connected}
+  error_code: {'0': No error, '11': CP fault, '12': Emergency stop pressed, '13': Undervoltage, '14': Overvoltage, '15': Overtemperature, '16': Meter fault, '17': Leakage current fault, '18': Output short circuit, '19': Overcurrent, '21': Vehicle fault, '22': Vehicle communication timeout, '23': Relay (contactor) fault, '24': RCD (RCMU) fault, '25': PE fault, '26': Charging start-up fault}
+  charge_mode: {'0': Plug and charge, '1': Charge on command (RFID authorisation)}
+  charge_command: {'1': Start charging, '2': Stop charging}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charger error: {text} (code {value})'}
+  - {when: {key: state, equals: 7}, kind: fault, text: Charger system fault (state 7)}
+  - {when: {key: state, equals: 5}, kind: warning, text: Charging failed to start (state 5)}
+
+notes:
+- Applies to the article numbers EM011AC1OCPP, EM011AC1ONC, EM011AS0ONC, EM022AC1OCPP, EM022AC1ONC, EM022AS0OCPP, EM022AS0ONC
+  and all "Pro Power" models.
+- Modbus TCP on port 502 over the Ethernet port; the IP address comes from DHCP (static addresses only on Pro Power models).
+  The hostname starts with "lwip".
+- Reads with function 03. At most 3 registers per request; more returns exception 0xFF. Multi-register values must be written
+  in one request.
+- 'Addresses are the decimal start addresses as given (0-based). Most 16-bit values sit at even addresses with a gap of one
+  register. The unit id isn''t stated: 1 is assumed.'
+- Byte order big-endian (stated); 32-bit values are two registers, word order assumed most significant first (not stated).
+- 'The serial number (32 registers) is longer than the 3 registers a request may read: it is read in parts; that the wallbox
+  serves it in parts is not stated in the document.'
+- The German and English status tables agree except that the English one lists code 5 twice; 6 = charging ended per the German
+  table.

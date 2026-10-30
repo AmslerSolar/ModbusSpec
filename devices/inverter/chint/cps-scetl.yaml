@@ -1,0 +1,319 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Hybrid Modbus Protocol (V4.25), a hybrid inverter Modbus protocol attached to a GitHub discussion.
+
+modbusspec: 0
+id: chint-cps-scetl
+manufacturer: CHINT
+name: CPS-SCETL hybrid inverters
+kind: inverter
+
+sources:
+- title: Modbus Protocol (hybrid inverters, "Hybrid Modbus Protocol per inverter ibridi")
+  version: V4.25 (2024-10-07)
+  url: https://github.com/user-attachments/files/17295986/Hybrid.Modbus.Protocol.per.inverter.ibridi.pdf
+  sha256: 7d43b45551f31af69d34be43f022c8a1ce3db360d12207975610b94cd2015e1c
+- id: solarman
+  title: ha-solarman (Home Assistant integration)
+  url: https://github.com/davidrapan/ha-solarman
+  license: MIT
+  commit: ac1d88b83268beeb0511b8a1b7fc8e17deddc044
+  path: custom_components/solarman/inverter_definitions/chint_cps-scetl.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 124
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 6672
+    type: str
+    length: 8
+  checks:
+  # rated frequency
+  - table: holding
+    address: 6725
+    type: u16
+    in:
+    - 5000
+    - 6000
+  # grid phase number
+  - table: holding
+    address: 6728
+    type: u16
+    in:
+    - 1
+    - 3
+
+points:
+  # Device information (0x1A00 ff.)
+  - {key: x.device, label: Device model, table: holding, address: 6656, type: str, length: 8, poll: slow, note: 'ASCII, e.g. "PV 30KTL".', conflicts: [{sources: [solarman], length: 16, label: Device}]}
+  - {key: serial, label: Device serial number, table: holding, address: 6672, type: str, length: 8, poll: slow, note: 'ASCII, e.g. "1234-123456789".'}
+  - {key: x.device_protocol_version, label: Modbus protocol version, table: holding, address: 6680, type: u16, poll: slow, note: 'Hex digits: 0x1234 = V12.34.'}
+  - {key: firmware, label: Master software version, table: holding, address: 6684, type: str, length: 3, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Device Protocol Version}]}
+  - {key: x.master_software_build_date, label: Master software build date, table: holding, address: 6691, type: str, length: 3, poll: slow}
+  - {key: x.slave_firmware_version, label: Slave firmware version, table: holding, address: 6694, type: str, length: 3, poll: slow}
+  - {key: x.slave_firmware_build_date, label: Slave firmware build date, table: holding, address: 6701, type: str, length: 3, poll: slow}
+  - {key: x.device_mppts, label: MPPT number, table: holding, address: 6715, type: u16, poll: slow}
+  - {key: x.device_rated_voltage, label: Rated voltage, table: holding, address: 6724, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.device_rated_frequency, label: Rated frequency, table: holding, address: 6725, type: u16, unit: Hz, scale: 0.01, poll: slow}
+  - {key: x.device_rated_power, label: Rated power, table: holding, address: 6726, type: u16, unit: W, poll: slow}
+  - {key: x.device_phases, label: Grid phase number, table: holding, address: 6728, type: u16, poll: slow, note: '1 = single phase, 3 = three phase.'}
+  - {key: x.production_type, label: Production type, table: holding, address: 6746, type: u16, enum: production_type, poll: slow}
+  - {key: x.ems_firmware_version, label: EMS firmware version, table: holding, address: 6752, type: str, length: 3, poll: slow}
+  - {key: x.ems_firmware_build_date, label: EMS firmware build date, table: holding, address: 6759, type: str, length: 7, poll: slow, note: ASCII YYYYMMDDhhmmss.}
+  - {key: x.dcdc_firmware_version, label: DCDC firmware version, table: holding, address: 6767, type: str, length: 3, poll: slow}
+  - {key: x.dcdc_firmware_build_date, label: DCDC firmware build date, table: holding, address: 6774, type: str, length: 3, poll: slow}
+  # Real-time data: inverter output (0x1001 ff.)
+  - {key: x.output_l1_voltage, label: Phase A voltage, table: holding, address: 4097, type: u16, unit: V, scale: 0.1}
+  - {key: x.output_l1_current, label: Phase A current, table: holding, address: 4098, type: u16, unit: A, scale: 0.01}
+  - {key: x.output_l1_power, label: Phase A power, table: holding, address: 4099, type: s32, unit: W, scale: 0.1, verified: false, note: Sign not stated in the document.}
+  - {key: x.output_l1_frequency, label: Phase A frequency, table: holding, address: 4101, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.output_l2_voltage, label: Phase B voltage, table: holding, address: 4102, type: u16, unit: V, scale: 0.1}
+  - {key: x.output_l2_current, label: Phase B current, table: holding, address: 4103, type: u16, unit: A, scale: 0.01}
+  - {key: x.output_l2_power, label: Phase B power, table: holding, address: 4104, type: s32, unit: W, scale: 0.1, verified: false}
+  - {key: x.output_l2_frequency, label: Phase B frequency, table: holding, address: 4106, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.output_l3_voltage, label: Phase C voltage, table: holding, address: 4107, type: u16, unit: V, scale: 0.1}
+  - {key: x.output_l3_current, label: Phase C current, table: holding, address: 4108, type: u16, unit: A, scale: 0.01}
+  - {key: x.output_l3_power, label: Phase C power, table: holding, address: 4109, type: s32, unit: W, scale: 0.1, verified: false}
+  - {key: x.output_l3_frequency, label: Phase C frequency, table: holding, address: 4111, type: u16, unit: Hz, scale: 0.01}
+  # PV inputs
+  - {key: x.pv1_voltage, label: PV1 voltage, table: holding, address: 4112, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: PV1 current, table: holding, address: 4113, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv1_power, label: MPPT1 power, table: holding, address: 4114, type: u32, unit: W, scale: 0.1}
+  - {key: x.pv2_voltage, label: PV2 voltage, table: holding, address: 4116, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: PV2 current, table: holding, address: 4117, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv2_power, label: MPPT2 power, table: holding, address: 4118, type: u32, unit: W, scale: 0.1}
+  - {key: x.pv3_voltage, label: PV3 voltage, table: holding, address: 4120, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv3_current, label: PV3 current, table: holding, address: 4121, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv3_power, label: MPPT3 power, table: holding, address: 4122, type: u32, unit: W, scale: 0.1}
+  - {key: x.pv4_voltage, label: PV4 voltage, table: holding, address: 4158, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv4_current, label: PV4 current, table: holding, address: 4159, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv4_power, label: MPPT4 power, table: holding, address: 4160, type: u32, unit: W, scale: 0.1}
+  - {key: pv_power, label: PV total input power, table: holding, address: 4168, type: u32, unit: W, scale: 0.1}
+  # State, faults, totals
+  - {key: temperature, label: Inner temperature, table: holding, address: 4124, type: s16, unit: °C}
+  - {key: state, label: Inverter mode, table: holding, address: 4125, type: u16, enum: inverter_mode}
+  - {key: x.inverter_fault, label: Error code 1, table: holding, address: 4126, type: u16, flags: inverter_fault, note: Error code table 2 (inverter faults).}
+  - {key: x.inverter_fault_2, label: Error code 2, table: holding, address: 4127, type: u16, flags: inverter_fault_2, note: Error code table 1 (input / output notices).}
+  - {key: x.inverter_fault_3, label: Error code 3, table: holding, address: 4128, type: u16, flags: inverter_fault_3}
+  - {key: x.total_production_1, label: Total energy, table: holding, address: 4129, type: u32, unit: kWh, poll: slow, note: Whole kWh; 0x104C adds the Wh.}
+  - {key: x.generator_operating_time, label: Total generation time, table: holding, address: 4131, type: u32, unit: h, poll: slow}
+  - {key: pv_energy_today, label: Today energy, table: holding, address: 4135, type: u32, unit: kWh, scale: 0.001, verified: false, note: Inverter yield today (the document's unit is Wh). For a hybrid inverter it isn't stated whether this is PV or AC output energy.}
+  - {key: x.power, label: Active power, table: holding, address: 4151, type: s32, unit: W, scale: 0.1, verified: false, note: Sign not stated in the document.}
+  - {key: reactive_power, label: Reactive power, table: holding, address: 4153, type: s32, unit: var, scale: 0.1, conflicts: [{sources: [solarman], type: s16, label: Reactive Power (high word)}]}
+  - {key: x.today_peak_power, label: Today peak power, table: holding, address: 4155, type: s32, unit: W, scale: 0.1, poll: slow}
+  - {key: power_factor, label: Power factor, table: holding, address: 4157, type: s16, scale: 0.001, conflicts: [{sources: [solarman], unit: '%', label: Power Factor}]}
+  - {key: x.total_production_2, label: Decimals of total energy, table: holding, address: 4172, type: u16, unit: kWh, scale: 0.001, poll: slow, note: 'The Wh below the whole kWh of 0x1021 (220.836 kWh: 0x1021 = 220, 0x104C = 836).'}
+  - {key: x.pv5_voltage, label: PV5 voltage, table: holding, address: 4224, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv5_current, label: PV5 current, table: holding, address: 4225, type: u16, unit: A, scale: 0.01, optional: true}
+  - {key: x.pv5_power, label: MPPT5 power, table: holding, address: 4226, type: u32, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv6_voltage, label: PV6 voltage, table: holding, address: 4228, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv6_current, label: PV6 current, table: holding, address: 4229, type: u16, unit: A, scale: 0.01, optional: true}
+  - {key: x.pv6_power, label: MPPT6 power, table: holding, address: 4230, type: u32, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv7_voltage, label: PV7 voltage, table: holding, address: 4232, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv7_current, label: PV7 current, table: holding, address: 4233, type: u16, unit: A, scale: 0.01, optional: true}
+  - {key: x.pv7_power, label: MPPT7 power, table: holding, address: 4234, type: u32, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv8_voltage, label: PV8 voltage, table: holding, address: 4236, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv8_current, label: PV8 current, table: holding, address: 4237, type: u16, unit: A, scale: 0.01, optional: true}
+  - {key: x.pv8_power, label: MPPT8 power, table: holding, address: 4238, type: u32, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv9_voltage, label: PV9 voltage, table: holding, address: 4240, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv9_current, label: PV9 current, table: holding, address: 4241, type: u16, unit: A, scale: 0.01, optional: true}
+  - {key: x.pv9_power, label: MPPT9 power, table: holding, address: 4242, type: u32, unit: W, scale: 0.1, optional: true}
+  # Grid meter / CT (0x1300 ff.)
+  - {key: x.internal_ct1_power, label: Phase R watt of grid, table: holding, address: 4864, type: s32, unit: W, scale: 0.1, verified: false, note: 'Sign not stated in the document (the meter power direction is a setting, 0x30B2).'}
+  - {key: x.internal_ct2_power, label: Phase S watt of grid, table: holding, address: 4866, type: s32, unit: W, scale: 0.1, verified: false}
+  - {key: x.internal_ct3_power, label: Phase T watt of grid, table: holding, address: 4868, type: s32, unit: W, scale: 0.1, verified: false}
+  - {key: x.grid_positive_energy, label: Accumulated energy of positive, table: holding, address: 4870, type: u32, unit: kWh, scale: 0.01, poll: slow, verified: false, note: Not stated in the document which direction is positive (import or export).}
+  - {key: x.grid_negative_energy, label: Accumulated energy of negative, table: holding, address: 4872, type: u32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.load_l1_power, label: Phase R watt of load, table: holding, address: 4874, type: s32, unit: W, scale: 0.1}
+  - {key: x.load_l2_power, label: Phase S watt of load, table: holding, address: 4876, type: s32, unit: W, scale: 0.1}
+  - {key: x.load_l3_power, label: Phase T watt of load, table: holding, address: 4878, type: s32, unit: W, scale: 0.1}
+  - {key: x.total_load_consumption, label: Accumulated energy of load, table: holding, address: 4880, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: l1_voltage, label: L1-N phase voltage of grid, table: holding, address: 4890, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: L2-N phase voltage of grid, table: holding, address: 4891, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: L3-N phase voltage of grid, table: holding, address: 4892, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: L1 current of grid, table: holding, address: 4893, type: s32, unit: A, scale: 0.01}
+  - {key: l2_current, label: L2 current of grid, table: holding, address: 4895, type: s32, unit: A, scale: 0.01}
+  - {key: l3_current, label: L3 current of grid, table: holding, address: 4897, type: s32, unit: A, scale: 0.01}
+  - {key: x.load_l1_voltage, label: L1-N phase voltage of load, table: holding, address: 4899, type: u16, unit: V, scale: 0.1}
+  - {key: x.load_l2_voltage, label: L2-N phase voltage of load, table: holding, address: 4900, type: u16, unit: V, scale: 0.1}
+  - {key: x.load_l3_voltage, label: L3-N phase voltage of load, table: holding, address: 4901, type: u16, unit: V, scale: 0.1}
+  - {key: x.load_l1_current, label: L1 current of load, table: holding, address: 4902, type: s32, unit: A, scale: 0.01}
+  - {key: x.load_l2_current, label: L2 current of load, table: holding, address: 4904, type: s32, unit: A, scale: 0.01}
+  - {key: x.load_l3_current, label: L3 current of load, table: holding, address: 4906, type: s32, unit: A, scale: 0.01}
+  - {key: x.today_energy_import, label: Today import energy, table: holding, address: 4914, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.today_energy_export, label: Today export energy, table: holding, address: 4916, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.today_load_consumption, label: Today load energy, table: holding, address: 4918, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: frequency, label: Frequency of grid, table: holding, address: 4920, type: u16, unit: Hz, scale: 0.01}
+  # EPS (backup output)
+  - {key: x.eps_l1_voltage, label: Phase R voltage of EPS, table: holding, address: 4944, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_l1_current, label: Phase R current of EPS, table: holding, address: 4945, type: s32, unit: A, scale: 0.01}
+  - {key: x.eps_l1_power, label: Phase R watt of EPS, table: holding, address: 4947, type: s32, unit: W, scale: 0.1}
+  - {key: x.eps_frequency, label: Frequency of EPS, table: holding, address: 4949, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.eps_l2_voltage, label: Phase S voltage of EPS, table: holding, address: 4950, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_l2_current, label: Phase S current of EPS, table: holding, address: 4951, type: s32, unit: A, scale: 0.01}
+  - {key: x.phase_s_watt_of_eps, label: Phase S watt of EPS, table: holding, address: 4953, type: s32, unit: W, scale: 0.1}
+  - {key: x.eps_l3_voltage, label: Phase T voltage of EPS, table: holding, address: 4955, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_l3_current, label: Phase T current of EPS, table: holding, address: 4956, type: s32, unit: A, scale: 0.01}
+  - {key: x.eps_l3_power, label: Phase T watt of EPS, table: holding, address: 4958, type: s32, unit: W, scale: 0.1}
+  - {key: x.eps_today_energy, label: Daily energy to EPS, table: holding, address: 4960, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.eps_total_energy, label: Accumulated energy to EPS, table: holding, address: 4962, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  # Battery (0x2000 ff.)
+  - {key: battery_soc, label: Battery SOC, table: holding, address: 8192, type: u16, unit: '%'}
+  - {key: battery_temperature, label: Battery temperature, table: holding, address: 8193, type: s16, unit: °C}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 8198, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery_current, label: Battery current, table: holding, address: 8199, type: s32, unit: A, scale: 0.01, verified: false, note: Signed; the direction isn't stated in the document.}
+  - {key: x.battery_power, label: Battery power, table: holding, address: 8201, type: u32, unit: W, scale: 0.1, note: 'Unsigned: the amount only, not the direction (see the battery current).'}
+  - {key: x.today_battery_charge, label: Battery daily charge energy, table: holding, address: 8203, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.total_battery_charge, label: Battery accumulated charge energy, table: holding, address: 8205, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.today_battery_discharge, label: Battery daily discharge energy, table: holding, address: 8207, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.total_battery_discharge, label: Battery accumulated discharge energy, table: holding, address: 8209, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.battery_fault, label: Error message 4, table: holding, address: 8211, type: u16, flags: battery_fault}
+  # Hybrid settings (0x2100 ff.)
+  - {key: x.hybrid_work_mode, label: Hybrid work mode, table: holding, address: 8448, type: u16, enum: hybrid_work_mode, writable: true, poll: slow}
+  - {key: x.time_control_repeat, label: Time-based control once / everyday, table: holding, address: 8449, type: u16, enum: once_everyday, writable: true, poll: slow}
+  - {key: x.charge_start_time, label: Time-based control charge start time 1, table: holding, address: 8450, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, poll: slow}
+  - {key: x.charge_end_time, label: Time-based control charge end time 1, table: holding, address: 8451, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, poll: slow}
+  - {key: x.discharge_start_time, label: Time-based control discharge start time 1, table: holding, address: 8452, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, poll: slow}
+  - {key: x.discharge_end_time, label: Time-based control discharge end time 1, table: holding, address: 8453, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, poll: slow}
+  - {key: x.battery_type, label: Battery type selection, table: holding, address: 8464, type: u16, enum: battery_type, writable: true, poll: slow}
+  - {key: x.battery_capacity, label: Battery Ah (lead-acid), table: holding, address: 8466, type: u16, unit: Ah, writable: true, poll: slow}
+  - {key: x.grid_charge, label: Grid charge, table: holding, address: 8469, type: u16, enum: disable_enable, writable: true, poll: slow}
+  - {key: x.max_grid_charge_power, label: Maximum grid charger power, table: holding, address: 8470, type: u16, unit: W, writable: true, poll: slow}
+  - {key: x.grid_charge_end_soc, label: Capacity of grid charger end, table: holding, address: 8471, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.max_charge_power, label: Maximum charger power, table: holding, address: 8472, type: u16, unit: W, writable: true, poll: slow}
+  - {key: x.charge_end_soc, label: Capacity of charger end (SOC), table: holding, address: 8473, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.max_discharge_power, label: Maximum discharger power, table: holding, address: 8474, type: u16, unit: W, writable: true, poll: slow}
+  - {key: x.discharge_end_soc, label: Capacity of discharger end (EOD), table: holding, address: 8475, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.off_grid_mode, label: Off-grid mode, table: holding, address: 8476, type: u16, enum: disable_enable, writable: true, poll: slow}
+  - {key: x.off_grid_start_soc, label: Off-grid start-up battery capacity, table: holding, address: 8479, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.max_discharge_current, label: Maximum discharge current, table: holding, address: 8480, type: u16, unit: A, scale: 0.01, writable: true, poll: slow}
+  - {key: x.max_charge_current, label: Maximum charger current, table: holding, address: 8481, type: u16, unit: A, scale: 0.01, writable: true, poll: slow}
+  - {key: x.force_charge_start_soc, label: Force charge start SOC, table: holding, address: 8516, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.force_charge_end_soc, label: Force charge end SOC, table: holding, address: 8517, type: u16, unit: '%', writable: true, poll: slow}
+  # Parameters 2 (0x3000 ff.)
+  - {key: x.clock, label: Date and time, table: holding, address: 12288, type: datetime, length: 4, datetime: {year: {register: 0}, month: {register: 1, bits: [8, 15]}, day: {register: 1, bits: [0, 7]}, hour: {register: 2, bits: [8, 15]}, minute: {register: 2, bits: [0, 7]}, second: {register: 3, bits: [8, 15]}}, writable: true, poll: slow}
+  - {key: x.meter_type, label: Digital meter type, table: holding, address: 12465, type: u16, enum: meter_type, writable: true, poll: slow}
+  - {key: x.meter_power_direction, label: Digital meter power direction, table: holding, address: 12466, type: u16, enum: meter_direction, writable: true, poll: slow}
+  - {key: x.power_limit_function, label: Power limit function, table: holding, address: 12467, type: u16, enum: power_limit_function, writable: true, poll: slow}
+  - {key: x.power_limit_mode, label: Power limit mode, table: holding, address: 12469, type: u16, enum: power_limit_mode, writable: true, poll: slow}
+  - {key: x.max_feed_in_power, label: Maximum feed in grid power, table: holding, address: 12473, type: u32, unit: W, writable: true, poll: slow}
+  - {key: x.regulation_code, label: Regulation code, table: holding, address: 20737, type: u16, writable: true, poll: slow, note: 'Grid code; the document has a table of about 66 country codes (0x0001 AU AS/NZS 4777.2/.3 … 0x0042 DK2, 0xFFFF not defined).'}
+  - {key: x.derating_percent, label: Derating watt percent, table: holding, address: 20740, type: u16, unit: '%', writable: true, min: 10, max: 100, poll: slow}
+  - {key: x.inverter_control, label: Inverter control, table: holding, address: 24577, type: u16, enum: inverter_control, writable: true, poll: slow}
+
+derived:
+  - {key: pv_energy, label: Total energy, unit: kWh, sum: [{key: x.total_production_1}, {key: x.total_production_2}], verified: false, note: Inverter lifetime yield; for a hybrid inverter it isn't stated whether this is PV or AC output energy.}
+  - {key: load_power, label: Load power, unit: W, sum: [{key: x.load_l1_power}, {key: x.load_l2_power}, {key: x.load_l3_power}], verified: false, note: Sum of the three load phases; their sign isn't stated in the document.}
+
+enums:
+  production_type: {'0': On grid, '1': AC couple without smart load, '2': Hybrid without smart load, '3': Hybrid with smart load, '4': AC couple with smart load}
+  inverter_mode: {'0': Initial, '1': Standby, '3': On-grid, '4': Off-grid, '5': Fault, '9': Shutdown}
+  hybrid_work_mode: {'0': Self-use, '1': Feed-in priority, '2': Time-based control, '3': Backup}
+  once_everyday: {'0': Once, '1': Everyday}
+  battery_type: {'0': Unavailable, '1': Lead-acid, '2': PYLON lithium-ion, '3': Dyness lithium-ion, '4': Aobo lithium-ion, '5': UZ lithium-ion, '6': VestMoods lithium-ion, '7': XinYi lithium-ion}
+  disable_enable: {'0': Disable, '1': Enable}
+  meter_type: {'0': Unknown, '1': Gavazzi EM340DINAV23XS1X, '2': CHINT DTSU666, '3': Acrel DTSF1352-C, '4': Lovato DMG210, '5': G2000, '6': Gavazzi ET112, '7': KSEM, '8': CHINT DDSU666}
+  meter_direction: {'0': Positive, '1': Negative}
+  power_limit_function: {'0': Disable, '1': External device (G2000), '2': External CT sensor, '3': Digital meter}
+  power_limit_mode: {'0': CT / meter on grid, '1': CT / meter on load}
+  inverter_control: {'0': Power on, '1': Shut down}
+
+flags:
+  inverter_fault: {'0': Inverter over DC-bias current, '1': Inverter relay abnormal, '2': Remote off, '3': Inverter over temperature, '4': GFCI abnormal, '5': PV string reverse, '6': System type error, '7': Fan abnormal, '8': Unbalanced DC-link voltage, '9': DC-link over voltage, '10': Internal communication error, '11': Software incompatibility, '12': Internal storage error, '13': Data inconsistency, '14': Inverter abnormal, '15': Boost abnormal}
+  inverter_fault_2: {'0': Grid over voltage, '1': Grid under voltage, '2': Grid absent, '3': Grid over frequency, '4': Grid under frequency, '5': PV over voltage, '6': PV insulation abnormal, '7': Leakage current abnormal, '8': Inverter in power limit state, '9': Internal power supply abnormal, '10': PV string abnormal, '11': PV under voltage, '12': PV irradiation weak, '13': Grid abnormal, '14': Arc fault detection, '15': Grid over mean voltage}
+  inverter_fault_3: {'0': Reserved, '1': Logger / E-display EEPROM fail, '2': Arc fault detection, '3': Single tracker detect warning (PID device abnormal), '4': AFCI lost, '5': Data logger lost, '6': Meter lost, '7': Inverter lost, '8': Grid N abnormal, '9': Surge protection device (SPD) defective, '10': Parallel ID warning, '11': Parallel SYN signal warning, '12': Parallel battery abnormal, '13': Parallel grid abnormal, '14': GEN voltage abnormal, '15': Reserved}
+  battery_fault: {'0': Battery absent, '1': Battery over voltage, '2': Battery under voltage, '3': Battery discharge over current, '4': Battery over temperature, '5': Battery under temperature, '6': Neutral and live wire reversed, '7': Backup output voltage abnormal, '8': Communication error (inverter-BMS), '9': Internal communication loss (E-M), '10': Internal communication loss (M-D), '11': DC-DC abnormal, '12': Backup over DC-bias voltage, '13': Backup short circuit, '14': Backup over load, '15': Reserved}
+
+problems:
+  - {when: {key: state, equals: 5}, kind: fault, text: Inverter in fault mode}
+  - {when: {key: state, equals: 4}, kind: backup_mode, text: Inverter running off-grid}
+  - {when: {key: x.inverter_fault, bit: 0}, kind: fault, text: Inverter over DC-bias current (error code 1 bit 0)}
+  - {when: {key: x.inverter_fault, bit: 1}, kind: fault, text: Inverter relay abnormal (error code 1 bit 1)}
+  - {when: {key: x.inverter_fault, bit: 2}, kind: warning, text: Remote off (error code 1 bit 2)}
+  - {when: {key: x.inverter_fault, bit: 3}, kind: fault, text: Inverter over temperature (error code 1 bit 3)}
+  - {when: {key: x.inverter_fault, bit: 4}, kind: fault, text: GFCI abnormal (error code 1 bit 4)}
+  - {when: {key: x.inverter_fault, bit: 5}, kind: fault, text: PV string reverse (error code 1 bit 5)}
+  - {when: {key: x.inverter_fault, bit: 6}, kind: fault, text: System type error (error code 1 bit 6)}
+  - {when: {key: x.inverter_fault, bit: 7}, kind: fault, text: Fan abnormal (error code 1 bit 7)}
+  - {when: {key: x.inverter_fault, bit: 8}, kind: fault, text: Unbalanced DC-link voltage (error code 1 bit 8)}
+  - {when: {key: x.inverter_fault, bit: 9}, kind: fault, text: DC-link over voltage (error code 1 bit 9)}
+  - {when: {key: x.inverter_fault, bit: 10}, kind: fault, text: Internal communication error (error code 1 bit 10)}
+  - {when: {key: x.inverter_fault, bit: 11}, kind: fault, text: Software incompatibility (error code 1 bit 11)}
+  - {when: {key: x.inverter_fault, bit: 12}, kind: fault, text: Internal storage error (error code 1 bit 12)}
+  - {when: {key: x.inverter_fault, bit: 13}, kind: fault, text: Data inconsistency (error code 1 bit 13)}
+  - {when: {key: x.inverter_fault, bit: 14}, kind: fault, text: Inverter abnormal (error code 1 bit 14)}
+  - {when: {key: x.inverter_fault, bit: 15}, kind: fault, text: Boost abnormal (error code 1 bit 15)}
+  - {when: {key: x.inverter_fault_2, bit: 0}, kind: warning, text: Grid over voltage (error code 2 bit 0)}
+  - {when: {key: x.inverter_fault_2, bit: 1}, kind: warning, text: Grid under voltage (error code 2 bit 1)}
+  - {when: {key: x.inverter_fault_2, bit: 2}, kind: mains_lost, text: Grid absent (error code 2 bit 2)}
+  - {when: {key: x.inverter_fault_2, bit: 3}, kind: warning, text: Grid over frequency (error code 2 bit 3)}
+  - {when: {key: x.inverter_fault_2, bit: 4}, kind: warning, text: Grid under frequency (error code 2 bit 4)}
+  - {when: {key: x.inverter_fault_2, bit: 5}, kind: warning, text: PV over voltage (error code 2 bit 5)}
+  - {when: {key: x.inverter_fault_2, bit: 6}, kind: warning, text: PV insulation abnormal (error code 2 bit 6)}
+  - {when: {key: x.inverter_fault_2, bit: 7}, kind: warning, text: Leakage current abnormal (error code 2 bit 7)}
+  - {when: {key: x.inverter_fault_2, bit: 9}, kind: warning, text: Internal power supply abnormal (error code 2 bit 9)}
+  - {when: {key: x.inverter_fault_2, bit: 10}, kind: warning, text: PV string abnormal (error code 2 bit 10)}
+  - {when: {key: x.inverter_fault_2, bit: 11}, kind: warning, text: PV under voltage (error code 2 bit 11)}
+  - {when: {key: x.inverter_fault_2, bit: 13}, kind: warning, text: Grid abnormal (error code 2 bit 13)}
+  - {when: {key: x.inverter_fault_2, bit: 14}, kind: warning, text: Arc fault detection (error code 2 bit 14)}
+  - {when: {key: x.inverter_fault_2, bit: 15}, kind: warning, text: Grid over mean voltage (error code 2 bit 15)}
+  - {when: {key: x.inverter_fault_3, bit: 1}, kind: warning, text: Logger / E-display EEPROM fail (error code 3 bit 1)}
+  - {when: {key: x.inverter_fault_3, bit: 2}, kind: warning, text: Arc fault detection (error code 3 bit 2)}
+  - {when: {key: x.inverter_fault_3, bit: 3}, kind: warning, text: Single tracker detect warning (PID device abnormal) (error code 3 bit 3)}
+  - {when: {key: x.inverter_fault_3, bit: 4}, kind: warning, text: AFCI lost (error code 3 bit 4)}
+  - {when: {key: x.inverter_fault_3, bit: 5}, kind: warning, text: Data logger lost (error code 3 bit 5)}
+  - {when: {key: x.inverter_fault_3, bit: 6}, kind: warning, text: Meter lost (error code 3 bit 6)}
+  - {when: {key: x.inverter_fault_3, bit: 7}, kind: warning, text: Inverter lost (error code 3 bit 7)}
+  - {when: {key: x.inverter_fault_3, bit: 8}, kind: warning, text: Grid N abnormal (error code 3 bit 8)}
+  - {when: {key: x.inverter_fault_3, bit: 9}, kind: warning, text: Surge protection device (SPD) defective (error code 3 bit 9)}
+  - {when: {key: x.inverter_fault_3, bit: 10}, kind: warning, text: Parallel ID warning (error code 3 bit 10)}
+  - {when: {key: x.inverter_fault_3, bit: 11}, kind: warning, text: Parallel SYN signal warning (error code 3 bit 11)}
+  - {when: {key: x.inverter_fault_3, bit: 12}, kind: warning, text: Parallel battery abnormal (error code 3 bit 12)}
+  - {when: {key: x.inverter_fault_3, bit: 13}, kind: warning, text: Parallel grid abnormal (error code 3 bit 13)}
+  - {when: {key: x.inverter_fault_3, bit: 14}, kind: warning, text: GEN voltage abnormal (error code 3 bit 14)}
+  - {when: {key: x.battery_fault, bit: 0}, kind: warning, text: Battery absent (error message 4 bit 0)}
+  - {when: {key: x.battery_fault, bit: 1}, kind: warning, text: Battery over voltage (error message 4 bit 1)}
+  - {when: {key: x.battery_fault, bit: 2}, kind: warning, text: Battery under voltage (error message 4 bit 2)}
+  - {when: {key: x.battery_fault, bit: 3}, kind: fault, text: Battery discharge over current (error message 4 bit 3)}
+  - {when: {key: x.battery_fault, bit: 4}, kind: warning, text: Battery over temperature (error message 4 bit 4)}
+  - {when: {key: x.battery_fault, bit: 5}, kind: warning, text: Battery under temperature (error message 4 bit 5)}
+  - {when: {key: x.battery_fault, bit: 6}, kind: fault, text: Neutral and live wire reversed (error message 4 bit 6)}
+  - {when: {key: x.battery_fault, bit: 7}, kind: fault, text: Backup output voltage abnormal (error message 4 bit 7)}
+  - {when: {key: x.battery_fault, bit: 8}, kind: fault, text: Communication error (inverter-BMS) (error message 4 bit 8)}
+  - {when: {key: x.battery_fault, bit: 9}, kind: fault, text: Internal communication loss (E-M) (error message 4 bit 9)}
+  - {when: {key: x.battery_fault, bit: 10}, kind: fault, text: Internal communication loss (M-D) (error message 4 bit 10)}
+  - {when: {key: x.battery_fault, bit: 11}, kind: fault, text: DC-DC abnormal (error message 4 bit 11)}
+  - {when: {key: x.battery_fault, bit: 12}, kind: fault, text: Backup over DC-bias voltage (error message 4 bit 12)}
+  - {when: {key: x.battery_fault, bit: 13}, kind: fault, text: Backup short circuit (error message 4 bit 13)}
+  - {when: {key: x.battery_fault, bit: 14}, kind: fault, text: Backup over load (error message 4 bit 14)}
+
+notes:
+- The document names no manufacturer. It was attached to a GitHub discussion; its register map is the one of the CHINT CPS-SCETL
+  file built from projects, so it is filed here.
+- Addresses are the document's hex register addresses, used as 0-based protocol addresses. All registers are read with function
+  03 (also the device information and real-time data); 06 and 10 write. Up to 124 registers per read, 122 per write.
+- Modbus RTU on RS-485, 9600 baud 8N1, default address 1 (1–247). Port 502 applies only to a Modbus TCP gateway.
+- 'Not stated in the document; assumed: 32-bit values are high word first.'
+- The document doesn't state the sign of the per-phase, active, grid and load powers or of the battery current; they are kept
+  as x. points. The meter's power direction is a setting (0x30B2).
+- Parameters marked 'Notice 1' (0x510F–0x5115) apply to three-phase models only (0x1A48 = 3).
+- 'Left out: lithium BMS address and lead-acid voltages (0x2111, 0x2113, 0x2114), off-grid output voltage / frequency (0x211D,
+  0x211E), Modbus address and baud rate (0x303E, 0x304C), export de-rating words (0x3085, 0x3086), meter address and CT ratio
+  (0x30B0, 0x30B4), and the grid-protection and reactive-power parameters 0x5000–0x5061 and 0x510E–0x511D.'
+- The project reaches the device through a Solarman Wi-Fi / LAN data logger (its own V5 protocol on TCP 8899) or over plain
+  Modbus TCP / RTU; the register map is the same.

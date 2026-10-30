@@ -1,0 +1,57 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the RS485 Communication Protocol (English Version) of an unbranded AC/DC current / voltage transmitter (no version).
+
+modbusspec: 0
+id: generic-current-transmitter
+manufacturer: Generic
+name: AC/DC current / voltage transmitter, RS485 (JXK series)
+kind: io
+
+sources:
+- title: AC-DC current, voltage type intelligent power transmitter — RS485 Communication Protocol (English Version)
+  version: no version (copy in github.com/SeByDocKy/pvbrain2, commit 39e895fe7c6597ed51515ce7e8c1effa19a69054)
+  url: https://github.com/SeByDocKy/pvbrain2/blob/39e895fe7c6597ed51515ce7e8c1effa19a69054/pvbrain2/miscellaneous/ac_leakage/HD-T101/RS485%20Communication%20Protocol%20%28English%20Version%29%20%281%29.pdf
+  sha256: a2e9236a85c2c16bb6e3bf2a89771600527299bd19ad2cff775cd79f80ad3420
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+model_choice: user
+
+models:
+  - {id: current_low, name: 'Current input, range up to 300 A'}
+  - {id: current_high, name: 'Current input, range above 300 A'}
+  - {id: voltage_low, name: 'Voltage input, range up to 300 V'}
+  - {id: voltage_high, name: 'Voltage input, range above 300 V'}
+
+points:
+  - {key: x.current, label: Single road power, table: holding, address: 14, type: s16, unit: A, scale: 0.01, models: [current_low], note: 'Measured value of the single input, two decimals for ranges up to 300 (e.g. 1500 = 15.00 A).'}
+  - {key: x.current, label: Single road power, table: holding, address: 14, type: s16, unit: A, scale: 0.1, models: [current_high], note: One decimal for ranges above 300.}
+  - {key: x.voltage, label: Single road power, table: holding, address: 14, type: s16, unit: V, scale: 0.01, models: [voltage_low], verified: false, note: Voltage versions use the same register; that the value is in V with the same decimals as the current version is assumed.}
+  - {key: x.voltage, label: Single road power, table: holding, address: 14, type: s16, unit: V, scale: 0.1, models: [voltage_high], verified: false, note: 'As above, one decimal for ranges above 300; assumed.'}
+  # Settings
+  - {key: x.modbus_address, label: address, table: holding, address: 4, type: u16, writable: true, min: 0, max: 254, poll: slow, note: Takes effect after a power cycle.}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 5, type: u16, enum: baud_rate, writable: true, poll: slow, note: Takes effect after a power cycle.}
+
+enums:
+  baud_rate: {'12': 1200 bps, '24': 2400 bps, '48': 4800 bps, '96': 9600 bps, '192': 19200 bps, '384': 38400 bps, '576': 57600 bps, '1152': 115200 bps}
+
+notes:
+- The document is unbranded; its example names a 'JXK series' transmitter (AC 0–20 A input, 24 V supply). It was found next
+  to an AC leakage current sensor (HD-T101), which may use the same protocol. The maker is not stated.
+- Addresses are the start addresses of the document's request frames (0-based protocol addresses). Function 03 to read, 06
+  to write; the register table names the value 'single road power', but it is the measured current or voltage of the single
+  input.
+- The number of decimals depends on the ordered range (two up to 300, one above; the document writes '≤3300', read here as
+  300); the device can't report it, so the user picks the model.
+- Baud rate codes are the baud rate divided by 100 (0x60 = 9600). The document's last page writes 1 into the baud register
+  as an example, which doesn't match the code table.
+- Sign convention of negative values is not described beyond the range −32767…+32767.

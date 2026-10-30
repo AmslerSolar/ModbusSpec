@@ -1,0 +1,121 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DAB Pumps 60193305 MCE-C MODBUS (07/19).
+
+modbusspec: 0
+id: dab-mcec
+manufacturer: DAB Pumps
+name: MCE/C pump inverter
+kind: other
+
+sources:
+- title: Instructions for use of the Modbus protocol with MCE/C inverter systems (60193305 MCE-C MODBUS)
+  version: 07/19 (cod. 60193305)
+  url: https://www.dabpumps.com.au/sites/dabpumps.com.au/files/2020-06/60193305_MCE-C_MODBUS.pdf
+  sha256: 99bd3eee50a19d9a3691c060a5f111a992674050c90ca63719379fa88d6fed19
+  archive_url: https://web.archive.org/web/20250325181202/https://www.dabpumps.com.au/sites/dabpumps.com.au/files/2020-06/60193305_MCE-C_MODBUS.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Modbus settings (type P registers need 179 written to 132 first)
+  - {key: x.min_reply_delay, label: SlaveMinimumReplyDelay, table: holding, address: 0, type: u16, unit: ms, writable: true, poll: slow}
+  - {key: x.modbus_address, label: SetModbusAddress, table: holding, address: 1, type: u16, writable: true, min: 1, max: 247, poll: slow, note: 'Type P (write-protected, see 132).'}
+  - {key: x.modbus_baud, label: ModbusBaudRate, table: holding, address: 2, type: u16, enum: baud, writable: true, poll: slow, note: Type P.}
+  - {key: x.modbus_parity, label: ModbusParityBits, table: holding, address: 3, type: u16, enum: parity, writable: true, poll: slow, note: Type P.}
+  - {key: x.modbus_stop_bits, label: ModbusStopBits, table: holding, address: 4, type: u16, writable: true, min: 1, max: 2, poll: slow, note: Type P.}
+  - {key: x.auto_ack, label: AutoAckControlBits, table: holding, address: 5, type: u16, enum: auto_ack, writable: true, poll: slow}
+
+  # Configuration
+  - {key: x.reset_alarm, label: SystemResetAlarm, table: holding, address: 100, type: u16, writable: true, poll: slow, note: Write 1 while the register holds 0 to reset the system alarms.}
+  - {key: x.clear_history, label: System ClearHistory, table: holding, address: 101, type: u16, writable: true, poll: slow, note: Write 1 while the register holds 0 to clear the alarm history.}
+  - {key: x.regulation_mode, label: RegulationMode, table: holding, address: 102, type: u16, enum: regulation_mode, writable: true, poll: slow}
+  - {key: x.setpoint_head, label: RegulationSetPoint (m), table: holding, address: 103, type: u16, unit: m, scale: 0.1, writable: true, poll: slow}
+  - {key: x.auto_economy, label: RegulationAutoEconomy, table: holding, address: 105, type: u16, enum: auto_economy, writable: true, verified: false, poll: slow, note: The access column is empty for this register; writable assumed.}
+  - {key: x.economy_reduction, label: SetPointPerCentReduction, table: holding, address: 106, type: u16, unit: '%', writable: true, min: 50, max: 90, poll: slow, note: Set point reduction in economy mode.}
+  - {key: x.twin_mode, label: TwinPumpSystemMode, table: holding, address: 108, type: u16, enum: twin_mode, writable: true, poll: slow}
+  - {key: x.setpoint_frequency, label: RegulationSetPoint (Hz), table: holding, address: 109, type: u16, unit: Hz, writable: true, poll: slow, note: 30–100 % of the rated frequency.}
+  - {key: x.on_off, label: OnOffExt, table: holding, address: 110, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.setpoint_t, label: SetPoint T, table: holding, address: 111, type: s16, unit: °C, scale: 0.1, writable: true, min: -20, max: 120, verified: false, poll: slow, note: Set point for temperature T or T1 regulation. The document calls only 208–212 signed; signed assumed from the negative range.}
+  - {key: x.setpoint_dt1, label: SetPoint DT1, table: holding, address: 112, type: u16, unit: °C, scale: 0.1, writable: true, min: 1, max: 140, poll: slow}
+  - {key: x.setpoint_dt2, label: SetPoint DT2, table: holding, address: 113, type: u16, unit: °C, scale: 0.1, writable: true, min: 1, max: 140, poll: slow}
+  - {key: x.nominal_frequency, label: NominalFrequency, table: holding, address: 121, type: u16, unit: Hz, writable: true, min: 50, max: 200, verified: false, poll: slow, note: Type P. Unit not stated; Hz assumed.}
+  - {key: x.nominal_current, label: NominalCurrent, table: holding, address: 122, type: u16, unit: A, scale: 0.1, writable: true, poll: slow, note: Motor rated current; type P.}
+  - {key: x.pressure_sensor, label: PressureSensor, table: holding, address: 127, type: u16, enum: pressure_sensor, writable: true, poll: slow, note: Type P. Values 0–7 aren't listed.}
+  - {key: x.max_pressure, label: MaxPressure, table: holding, address: 128, type: u16, unit: m, scale: 0.1, writable: true, poll: slow, note: Maximum head of the pump.}
+  - {key: x.dry_run_power, label: DryRunPower, table: holding, address: 130, type: u16, unit: W, scale: 10, writable: true, poll: slow, note: Power at maximum frequency below which the drive detects dry running.}
+  - {key: x.param_protection, label: EnableParamProtection, table: holding, address: 132, type: u16, writable: true, poll: slow, note: 'Write 179 to allow writing the type P registers, anything else to lock them. Reads 1 when writing is allowed, 0 when not.'}
+
+  # Status
+  - {key: state, label: PumpStatus, table: holding, address: 201, type: u16, enum: pump_status, poll: fast}
+  - {key: x.pump_fault, label: Pump1Fault, table: holding, address: 202, type: u16, enum: fault, poll: fast}
+  - {key: x.capacitor_temperature, label: CapacitorTemperature, table: holding, address: 207, type: s16, unit: °C, poll: fast, invalid: [32767]}
+  - {key: x.switching_temperature, label: SwitchingTemperature, table: holding, address: 208, type: s16, unit: °C, poll: fast, invalid: [32767]}
+  - {key: x.brake_temperature, label: BrakeTemperature, table: holding, address: 209, type: s16, unit: °C, poll: fast, invalid: [32767]}
+  - {key: x.board_temperature, label: Pump1ElectronicBoardTemperature, table: holding, address: 210, type: s16, unit: °C, poll: fast, invalid: [32767]}
+  - {key: temperature, label: Pump1ElectronicHeatsinkTemperature, table: holding, address: 211, type: s16, unit: °C, poll: fast, invalid: [32767]}
+  - {key: x.output_current, label: Pump1OutCurrent, table: holding, address: 213, type: u16, unit: A, scale: 0.1, verified: false, poll: fast, invalid: [32767], note: 'Phase current to the motor. The Italian table gives 0.1 A, the English one 1 mA; the Italian scale is taken.'}
+  - {key: x.motor_power_factor, label: PowerFactor, table: holding, address: 214, type: u16, scale: 0.001, verified: false, poll: fast, invalid: [32767], note: 'Only the Italian table names this register (range 0–1000, no scale); the English one marks it reserved. Scale 0.001 assumed.'}
+  - {key: x.speed, label: Pump1RPM, table: holding, address: 215, type: u16, unit: rpm, poll: fast, invalid: [32767]}
+  - {key: x.motor_power, label: Pump1Power, table: holding, address: 216, type: u16, unit: W, poll: fast, invalid: [32767], note: Power the drive delivers to the motor (not its own input power).}
+  - {key: x.operating_hours, label: Pump1OperatingTime, table: holding, address: 217, type: u32, unit: h, poll: slow, note: 'HI word in 217, LO word in 218. The 0x7FFF rule doesn''t apply to it.'}
+  - {key: x.head, label: Pump1Head, table: holding, address: 219, type: u16, unit: m, scale: 0.1, poll: fast, invalid: [32767]}
+  - {key: x.flow, label: Pump1EstimatedFlow, table: holding, address: 220, type: u16, unit: m³/h, scale: 0.1, poll: fast, invalid: [32767], note: Estimated.}
+  - {key: x.fluid_temperature_t, label: Fluid Temperature T, table: holding, address: 221, type: s16, unit: °C, scale: 0.1, verified: false, poll: fast, invalid: [32767], note: 'Signed assumed (named a temperature, but outside the 208–212 range the document calls signed).'}
+  - {key: x.fluid_temperature_t1, label: Fluid Temperature T1, table: holding, address: 222, type: s16, unit: °C, scale: 0.1, verified: false, poll: fast, invalid: [32767], note: 'Signed assumed, as for T.'}
+  - {key: x.external_setpoint, label: ExternalSetpoint, table: holding, address: 224, type: u16, unit: V, scale: 0.1, poll: fast, invalid: [32767], note: Voltage at the 0–10 V input.}
+  - {key: x.fluid_dt, label: Fluid DT, table: holding, address: 225, type: u16, unit: °C, scale: 0.1, poll: fast, invalid: [32767], note: '|T − T1|.'}
+  - {key: x.current_setpoint_dt, label: Current SetPoint DT, table: holding, address: 226, type: u16, unit: °C, scale: 0.1, poll: fast, invalid: [32767]}
+  - {key: x.last_alarm, label: Pump1Alarm (most recent), table: holding, address: 230, type: u16, poll: slow, note: 'Alarm history 230–244, 230 the most recent. Alarm codes are listed in the user manual, not here.'}
+
+  # Software versions
+  - {key: x.lv_software_1, label: LV_SoftwareVersion1, table: holding, address: 250, type: u16, poll: slow}
+  - {key: x.lv_software_2, label: LV_SoftwareVersion2, table: holding, address: 251, type: u16, poll: slow}
+  - {key: x.lv_software_3, label: LV_SoftwareVersion3, table: holding, address: 252, type: u16, poll: slow}
+  - {key: x.lv_software_special, label: LV_SoftwareV_Special, table: holding, address: 253, type: u16, poll: slow}
+  - {key: x.hv_software_1, label: HV_SoftwareVersion1, table: holding, address: 254, type: u16, poll: slow}
+  - {key: x.hv_software_2, label: HV_SoftwareVersion2, table: holding, address: 255, type: u16, poll: slow}
+
+enums:
+  baud: {'0': 1200 baud, '1': 2400 baud, '2': 4800 baud, '3': 9600 baud, '4': 19200 baud, '5': 38400 baud}
+  parity: {'0': None, '1': Even, '2': Odd}
+  auto_ack: {'0': Reset and clear-history registers return to 0 by themselves, '1': Reset and clear-history registers must be set back to 0}
+  regulation_mode: {'0': Constant differential pressure, '1': 'Fixed curve, set point from the register', '2': 'Fixed curve, set point from the 0–10 V input', '3': 'Proportional differential pressure, set point from the register', '4': 'Constant temperature T, positive increment', '5': 'Constant temperature T, negative increment', '6': 'Constant temperature T1, positive increment', '7': 'Constant temperature T1, negative increment', '8': Constant differential temperature (T − T1)}
+  auto_economy: {'0': Auto, '1': Economy}
+  twin_mode: {'0': Simultaneous, '1': Alternate every 24 h, '2': Main / reserve, '3': Booster}
+  on_off: {'0': 'On', '1': 'Off', '2': External}
+  pressure_sensor: {'8': 1.6 bar, '9': 2.5 bar, '10': 4.0 bar, '11': 6.0 bar, '12': 10 bar}
+  pump_status: {'0': Pump off, '1': Starting, '2': Pump running}
+  fault: {'0': OK, '1': Fault}
+
+problems:
+  - {when: {key: x.pump_fault, equals: 1}, kind: fault, text: Inverter stopped by a fault}
+
+notes:
+- 'Addresses: the document numbers registers from 1 (00001, 00217 …) and says the protocol address is the number minus 1;
+  its own example reads pump power (register 00217) at address 216. All addresses here are converted that way.'
+- Function 03 and 04 read the same registers; writes use 06 or 16. 0x7FFF means not available (except in the operating hours).
+  Data are unsigned except the temperatures numbered 00208–00212 (addresses 207–211), as the document says.
+- 'Serial: RS485 on the RJ10 Remote Control connector; 1200–38400 baud, parity none/even/odd, 1 or 2 stop bits, set on the
+  display (Advanced menu) or over Modbus. Modbus is off by default and must be enabled on the display (parameter En). The
+  19200 baud default comes from a garbled table cell; even parity and 1 stop bit are stated.'
+- 'The Italian and English tables differ: the Italian names 215 PowerFactor, gives the motor current in 0.1 A (English: 1
+  mA) and names the software version registers LV/HV; the Italian is followed. A footnote mark on the power register has no
+  footnote in this document.'
+- 'Left out: the DT-T1…T4 fluid temperatures (114–117), DT-TFlow (118), NTC beta (119), hydraulic delay (120), rotating direction
+  (123), min/max frequency and rpm (124–126), carrier frequency (129), exchange time (131), quick start set point (133), booster
+  sensitivity (134) and the older alarm history entries (231–244).'
+- No register identifies the device, so there is no identify.

@@ -1,0 +1,102 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the AuCom Modbus TCP Card instructions (710-16501-00C, Rev C 5/2021).
+
+modbusspec: 0
+id: aucom-emx4
+manufacturer: AuCom
+name: EMX4e / EMX4i soft starter with Modbus TCP Card
+kind: other
+
+sources:
+- title: Modbus TCP Card – Instructions (for EMX4e and EMX4i soft starters, card version 2.x)
+  version: 710-16501-00C, Rev C 5/2021
+  url: https://www.et38.ru/wp-content/uploads/2026/07/710-16501-00a_modbus_tcp_card_for_emx4_en_web.pdf
+  sha256: cfc2544865f7ac5e39a97a5844d453fa0e4f997501b00de701b16a344e3c3a05
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 123
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # product type code 12 or 13
+  - table: input
+    address: 599
+    type: u16
+    range:
+    - 6144
+    - 7167
+
+models:
+  - {id: emx4e, name: EMX4e, match: {table: input, address: 599, type: u16, range: [6144, 6655]}}   # product type code 12 in bits 9–15
+  - {id: emx4i, name: EMX4i, match: {table: input, address: 599, type: u16, range: [6656, 7167]}}   # product type code 13 in bits 9–15
+
+points:
+  # Status registers (30600 ff., function 04)
+  - {key: x.protocol_version, label: Product information – binary protocol version, table: input, address: 599, type: u16, bits: [0, 5], poll: slow}
+  - {key: x.product_type, label: Product information – product type code, table: input, address: 599, type: u16, bits: [9, 15], enum: product_type, poll: slow}
+  - {key: x.model_id, label: Model number – soft starter model ID, table: input, address: 600, type: u16, bits: [8, 15], poll: slow}
+  - {key: state, label: Starter state, table: input, address: 603, type: u16, bits: [0, 4], enum: starter_state}
+  - {key: x.warning, label: Starter state – warning, table: input, address: 603, type: u16, bits: [5, 5]}
+  - {key: x.initialised, label: Starter state – initialised, table: input, address: 603, type: u16, bits: [6, 6]}
+  - {key: x.command_source, label: Starter state – command source, table: input, address: 603, type: u16, bits: [7, 7], enum: command_source}
+  - {key: x.phase_sequence, label: Starter state – phase sequence, table: input, address: 603, type: u16, bits: [9, 9], enum: phase_sequence}
+  - {key: x.current, label: Average rms current (three phases), table: input, address: 604, type: u16, bits: [0, 13], unit: A, verified: false, note: Unit not stated; amperes assumed. On models EMX4x-0064B and smaller the value is ten times the actual current; not corrected here.}
+  - {key: x.current_flc, label: Current (% motor FLC), table: input, address: 605, type: u16, bits: [0, 9], unit: '%'}
+  - {key: x.motor_temperature, label: Motor thermal model, table: input, address: 606, type: u16, bits: [0, 7], unit: '%'}
+  - {key: x.power_raw, label: Power (value), table: input, address: 607, type: u16, bits: [0, 11], note: 'Scaled by bits 12–13 (x.power_scale): 0 = × 10 W, 1 = × 100 W, 2 = kW, 3 = × 10 kW. A scale chosen by another register can''t be expressed here.'}
+  - {key: x.power_scale, label: Power scale, table: input, address: 607, type: u16, bits: [12, 13], enum: power_scale}
+  - {key: power_factor, label: '% Power factor', table: input, address: 608, type: u16, bits: [0, 7], unit: '', scale: 0.01, note: 100 % = power factor 1.}
+  - {key: x.voltage, label: Average rms voltage (three phases), table: input, address: 609, type: u16, bits: [0, 13], unit: V, verified: false, note: Unit not stated; volts assumed.}
+  - {key: l1_current, label: Phase 1 current (rms), table: input, address: 610, type: u16, bits: [0, 13], unit: A, verified: false, note: Unit not stated; amperes assumed. Ten times the actual value on models EMX4x-0064B and smaller.}
+  - {key: l2_current, label: Phase 2 current (rms), table: input, address: 611, type: u16, bits: [0, 13], unit: A, verified: false}
+  - {key: l3_current, label: Phase 3 current (rms), table: input, address: 612, type: u16, bits: [0, 13], unit: A, verified: false}
+  - {key: l1_voltage, label: Phase 1 voltage, table: input, address: 613, type: u16, bits: [0, 13], unit: V, verified: false, note: Unit not stated; volts assumed. Whether line-to-neutral or line-to-line isn't stated.}
+  - {key: l2_voltage, label: Phase 2 voltage, table: input, address: 614, type: u16, bits: [0, 13], unit: V, verified: false}
+  - {key: l3_voltage, label: Phase 3 voltage, table: input, address: 615, type: u16, bits: [0, 13], unit: V, verified: false}
+  - {key: x.parameter_list_version, label: 'Parameter list version (major in bits 8–15, minor in 0–7)', table: input, address: 616, type: u16, poll: slow}
+  - {key: x.digital_inputs, label: Digital input state, table: input, address: 617, type: u16, flags: digital_inputs, note: 1 = closed. The reset input reads inverted when parameter 7I sets it to normally open.}
+  - {key: error_code, label: Trip code, table: input, address: 618, type: u16, bits: [0, 7], enum: trip_code, note: 255 = no trip.}
+  - {key: frequency, label: Frequency, table: input, address: 620, type: u16, unit: Hz, scale: 0.1, note: The card reports ten times the frequency shown on the keypad.}
+  - {key: x.ground_current, label: Ground current, table: input, address: 621, type: u16, unit: A, note: Ground fault enabled cards only.}
+
+  # Command register (40001, function 06)
+  - {key: x.command, label: Command, table: holding, address: 0, type: u16, enum: command, writable: true, poll: slow, note: 'Bit 15 must be set in every command, e.g. 0x8001 = start; the enum lists the low byte. Accepted only with parameter 1A Command Source = Network. Clear the command afterwards: a command left in the register is sent again when fieldbus control resumes.'}
+
+enums:
+  product_type: {'12': EMX4e, '13': EMX4i}
+  starter_state: {'1': Ready, '2': Starting, '3': Running, '4': Stopping, '5': 'Not ready (restart delay, temperature check, run simulation or reset input open)', '6': Tripped, '7': Programming mode, '8': Jog forward, '9': Jog reverse}
+  command_source: {'0': 'Remote keypad, digital input or clock', '1': Network}
+  phase_sequence: {'0': Negative, '1': Positive}
+  power_scale: {'0': × 10 W, '1': × 100 W, '2': kW, '3': × 10 kW}
+  command: {'0': Stop, '1': Start, '2': Reset, '4': Quick stop (coast to stop), '8': Forced communication trip, '16': Start using parameter set 1, '32': Start using parameter set 2}
+  trip_code: {'1': Excess start time, '2': Motor overload, '3': Motor thermistor, '4': Current imbalance, '5': Frequency, '6': Phase sequence, '7': Overcurrent, '8': Power loss, '9': Undercurrent, '10': Heatsink overtemperature, '11': Motor connection, '12': Input A trip, '13': FLC too high, '14': Unsupported option (not available in inside delta), '15': Communications card fault, '16': Network communication, '18': Overvoltage, '19': Undervoltage, '20': Ground fault, '23': Parameter out of range, '24': Input B trip, '26': L1 phase loss, '27': L2 phase loss, '28': L3 phase loss, '29': L1-T1 shorted, '30': L2-T2 shorted, '31': L3-T3 shorted, '33': Time-overcurrent (bypass overload), '34': SCR overtemperature, '35': Battery / clock, '36': Thermistor circuit, '47': Overpower, '48': Underpower, '56': Keypad disconnected, '57': Zero speed detect, '58': SCR Itsm, '59': Instantaneous overcurrent, '60': Rating capacity, '70': Current read error L1, '71': Current read error L2, '72': Current read error L3, '74': Motor connection T1, '75': Motor connection T2, '76': Motor connection T3, '77': Firing fail P1, '78': Firing fail P2, '79': Firing fail P3, '80': VZC fail P1, '81': VZC fail P2, '82': VZC fail P3, '83': Low control volts, '255': No trip}
+
+flags:
+  digital_inputs: {'0': Start/Stop, '2': Reset, '3': Input A, '4': Input B}
+
+problems:
+  - {when: {key: state, equals: 6}, kind: fault, text: Soft starter tripped (state 6)}
+  - {when: {key: x.warning, equals: 1}, kind: warning, text: Soft starter warning}
+
+notes:
+- 'Register numbers 3xxxx (input, function 04) and 4xxxx (holding) in the document are 1-based: 30600 is taken as input address
+  599, 40001 as holding address 0.'
+- Port 502 and unit id 1 aren't stated; assumed (Modbus TCP defaults). The card's default IP address is 192.168.0.2. Byte
+  and word order aren't stated; big-endian assumed.
+- Trip codes 84–96 are internal faults (report the code to the supplier). The trip code is only meaningful while the state
+  is 6 (tripped).
+- Available features and parameters depend on the starter model and software. The starter's programmable parameters are read
+  and written from holding 40009 on (address 8 on); their list is in the starter manual, not in this document.
+- 'Left out: legacy mode, which mimics the older clip-on Modbus RTU module (command at 40002, status at 40003–40006 and a
+  copy of 30600 ff. at 40600 ff.); the card switches to it after a power cycle or when 40001 is cleared to 0.'

@@ -1,0 +1,103 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the ORNO Register description OR-WE-514 & OR-WE-515 (undated).
+
+modbusspec: 0
+id: orno-we514
+manufacturer: ORNO
+name: OR-WE-514 / OR-WE-515 single-phase energy meters
+kind: meter
+
+sources:
+- title: Register description OR-WE-514 & OR-WE-515
+  version: undated
+  url: https://github.com/gituser-rk/orno-modbus-mqtt/blob/master/Register%20description%20OR-WE-514%26OR-WE-515.pdf
+  sha256: 6a9d42d0ea28a40d0fe5811f544c222a054d6d907cf3c66c9075d66b9c3dab66
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/orno1p.go
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/orno/orno, packages/modules/smarthome/we514/watt.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 11
+    type: u16
+    equals: 162
+
+points:
+  # Real-time values (function 03)
+  - {key: frequency, label: Frequency F, table: holding, address: 304, type: u16, unit: Hz, scale: 0.01, note: 45.00 … 65.00 Hz.}
+  - {key: l1_voltage, label: Phase voltage V1, table: holding, address: 305, type: u16, unit: V, scale: 0.01}
+  - {key: l1_current, label: Phase current I1, table: holding, address: 313, type: u32, unit: A, scale: 0.001}
+  - {key: grid_power, label: Split phase active power P1, table: holding, address: 320, type: s32, unit: W, positive: import, verified: false, note: 0.001 kW resolution. The document calls the type LONG (signed) but gives no direction; assumed positive = import., conflicts: [{sources: [mbmd], type: u32, label: Power}]}
+  - {key: reactive_power, label: Split phase reactive power Q1, table: holding, address: 328, type: s32, unit: var, note: 0.001 kvar resolution., conflicts: [{sources: [mbmd], type: u32, label: Reactive Power}]}
+  - {key: apparent_power, label: Split phase apparent power S1, table: holding, address: 336, type: s32, unit: VA, note: 0.001 kVA resolution., conflicts: [{sources: [mbmd], type: u32, label: Apparent Power}]}
+  - {key: power_factor, label: Split phase power factor PF1, table: holding, address: 344, type: s16, scale: 0.001, conflicts: [{sources: [mbmd], type: u16, label: Cosphi}]}
+
+  # Energy (function 03)
+  - {key: x.total_active_energy, label: Current total active energy, table: holding, address: 40960, type: u32, unit: kWh, scale: 0.01, poll: slow, note: The document doesn't say whether this counts import only or import and export (see the measure mode bit in 0x0112).}
+  - {key: x.active_t1, label: (Current) active rate 1 electric energy, table: holding, address: 40962, type: u32, unit: kWh, scale: 0.01, poll: slow, verified: false, note: Address not printed; taken as the next register pair.}
+  - {key: x.active_t2, label: (Current) active rate 2 electric energy, table: holding, address: 40964, type: u32, unit: kWh, scale: 0.01, poll: slow, verified: false, note: Address not printed; taken as the next register pair.}
+  - {key: x.active_t3, label: (Current) active rate 3 electric energy, table: holding, address: 40966, type: u32, unit: kWh, scale: 0.01, poll: slow, verified: false, note: Address not printed; taken as the next register pair.}
+  - {key: x.active_t4, label: (Current) active rate 4 electric energy, table: holding, address: 40968, type: u32, unit: kWh, scale: 0.01, poll: slow, verified: false, note: Address not printed; taken as the next register pair.}
+  - {key: x.total_reactive_energy, label: Current total reactive energy, table: holding, address: 40990, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.reactive_t1, label: (Current) reactive rate 1 electric energy, table: holding, address: 40992, type: u32, unit: kvarh, scale: 0.01, poll: slow, verified: false, note: Address not printed; taken as the next register pair.}
+  - {key: x.reactive_t2, label: (Current) reactive rate 2 electric energy, table: holding, address: 40994, type: u32, unit: kvarh, scale: 0.01, poll: slow, verified: false, note: Address not printed; taken as the next register pair.}
+  - {key: x.reactive_t3, label: (Current) reactive rate 3 electric energy, table: holding, address: 40996, type: u32, unit: kvarh, scale: 0.01, poll: slow, verified: false, note: Address not printed; taken as the next register pair.}
+  - {key: x.reactive_t4, label: (Current) reactive rate 4 electric energy, table: holding, address: 40998, type: u32, unit: kvarh, scale: 0.01, poll: slow, verified: false, note: Address not printed; taken as the next register pair.}
+
+  # System parameters (read 03, write 06 / 10)
+  - {key: x.meter_type, label: Meter type, table: holding, address: 11, type: u16, poll: slow, note: 0x00A2.}
+  - {key: x.modbus_address, label: Communication address, table: holding, address: 272, type: u16, bits: [0, 7], writable: true, min: 1, max: 247, poll: slow, note: 0 = broadcast; the high byte is unused.}
+  - {key: x.baud_rate, label: Communication baud rate, table: holding, address: 273, type: u16, bits: [0, 7], enum: baud_rate, writable: true, poll: slow, note: Default 9600; the high byte is unused.}
+  - {key: x.pulse_constant, label: Constant, table: holding, address: 280, type: u16, unit: imp/kWh, writable: true, poll: slow, note: '100, 1000 or 2000; default 1000.'}
+  - {key: x.ct_ratio, label: CT ratio, table: holding, address: 284, type: u16, writable: true, poll: slow}
+
+enums:
+  baud_rate: {'1': '1200', '2': '2400', '3': '4800', '4': '9600'}
+
+notes:
+- Addresses are the hex data addresses the document lists (0-based protocol addresses). Everything is read with function 03;
+  settings are written with 06 or 10h. High byte first in each register; for two-register values the lower address is taken
+  as the high word (not stated; assumed).
+- The document lists the three-phase layout of a meter family; only the values it marks for single phase (frequency, V1, I1,
+  P1, Q1, S1, PF1) are taken. Its heading puts real-time data at 9000h … 9FFFh, but the table gives 0x0130 … 0x015B; the table
+  addresses are used.
+- Meter type 0x000B reads 0x00A2 by the document; it is used to recognise the meter.
+- The rate 1 … 4 energy registers are printed without addresses; they follow the totals in register pairs. Tariffs only count
+  on the OR-WE-515 (the WE-514 has none).
+- 'Serial line: 9600 baud, 8N1 by the document; 1200 … 9600 selectable. No serial number register is listed.'
+- 'Left out: the display setup registers (0x0112 … 0x0114, which also hold the measure mode, tariff enable and pulse output
+  type), the tariff time period tables (0x8100 … 0x8140), the clock (from 0x8120; coding not clear) and the monthly demand
+  history (0xA030 ff., no format given).'
+- Serial defaults to 9600 baud 8E1, unit id 1. The WE-515 adds tariffs; the WE-514 has none.
+- mbmd (type code ORNO1p) detects the meter by reading Voltage (holding register 305, u16, scale 0.01); its bus scan accepts
+  a value within 10% of 110 or 230 V.
+- openWB's legacy script talks RTU framing over TCP (a serial gateway) and reads one register each for power and energy.
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- Identification as mbmd recognises the device (not checked against a document).
+- 'Left out: counter_power (holding 321, s32) from openwb overlaps power (holding 320, u32); check a document.'
+- 'Left out: counter_imported (holding 40961, s32) from openwb overlaps sum (holding 40960, u32); check a document.'

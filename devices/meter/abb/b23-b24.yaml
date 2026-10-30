@@ -1,0 +1,308 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the ABB B23/B24 user manual (Revision A, 2013-06-20), the German ABB EQ B-series product manual
+# (2CDC 512 084 D0101, 05.14) and the Janitza MID energy meter manual (2.100.006.2, 04/2018).
+
+modbusspec: 0
+id: abb-b23-b24
+manufacturer: ABB
+name: B23 / B24 energy meters
+kind: meter
+
+sources:
+- title: ABB B23/B24 User Manual (2CMC485003M0201), chapter 9 "Communication with Modbus"
+  version: Revision A (2013-06-20)
+  url: https://library.e.abb.com/public/6d7783fdb45ace75c1257c3f00474022/B23_B24_User_Manual.pdf.pdf
+  sha256: 126dd50b276157c596fb9c3628c198fec40ffca01f994179e7fbb1f3839489e8
+  date: '2013-06-20'
+  number: 2CMC485003M0201
+  language: en
+  devices:
+  - B23
+  - B24
+- title: ABB EQ Energiezähler B-Serie Produkthandbuch (2CDC 512 084 D0101), chapter 4 "Kommunikation mit Modbus"
+  version: '05.14'
+  url: http://datenblatt.stark-elektronik.de/Energiezaehler_B-Serie_Handbuch.pdf
+  sha256: 63ffcad54810d7ca188d9dc676af2d7d51576b23bc3a4712ae82b4dd7ce29c9d
+  archive_url: https://web.archive.org/web/20240607054215/http://datenblatt.stark-elektronik.de/Energiezaehler_B-Serie_Handbuch.pdf
+- title: Janitza MID energy meters B21/B23/B24 product manual (2.100.006.2), chapter 4 "Communication with Modbus"
+  version: 2.5 (04/2018)
+  url: https://www.janitza.de/betriebsanleitungen.html?file=files/download/manuals/current/B-Series/janitza-bhb-b2x-en.pdf
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/abb.go
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/common/b23.py, packages/modules/internal_chargepoint_handler/clients.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  limits:
+    max_registers: 125
+    max_gap: 8
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 35072
+    type: u32
+  checks:
+  - table: holding
+    address: 35168
+    type: str
+    length: 6
+    prefix: B2
+
+models:
+  - {id: b21, name: B21, match: {table: holding, address: 35168, type: str, length: 6, prefix: B21}}
+  - {id: b23, name: B23, match: {table: holding, address: 35168, type: str, length: 6, prefix: B23}}
+  - {id: b24, name: B24, match: {table: holding, address: 35168, type: str, length: 6, prefix: B24}}
+
+points:
+  # Instantaneous values
+  - {key: l1_voltage, label: Voltage L1-N, table: holding, address: 23296, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: l2_voltage, label: Voltage L2-N, table: holding, address: 23298, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: l3_voltage, label: Voltage L3-N, table: holding, address: 23300, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: x.l1_l2_voltage, label: Voltage L1-L2, table: holding, address: 23302, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: x.l3_l2_voltage, label: Voltage L3-L2, table: holding, address: 23304, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: x.l1_l3_voltage, label: Voltage L1-L3, table: holding, address: 23306, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: l1_current, label: Current L1, table: holding, address: 23308, type: u32, unit: A, scale: 0.01, invalid: [4294967295]}
+  - {key: l2_current, label: Current L2, table: holding, address: 23310, type: u32, unit: A, scale: 0.01, invalid: [4294967295]}
+  - {key: l3_current, label: Current L3, table: holding, address: 23312, type: u32, unit: A, scale: 0.01, invalid: [4294967295]}
+  - {key: x.neutral_current, label: Current N, table: holding, address: 23314, type: u32, unit: A, scale: 0.01, invalid: [4294967295]}
+  - {key: grid_power, label: Active power total, table: holding, address: 23316, type: s32, unit: W, scale: 0.01, positive: import, invalid: [2147483647], note: The quadrant illustration marks imported active power + and exported −; the event log calls negative total power export.}
+  - {key: l1_power, label: Active power L1, table: holding, address: 23318, type: s32, unit: W, scale: 0.01, positive: import, invalid: [2147483647]}
+  - {key: l2_power, label: Active power L2, table: holding, address: 23320, type: s32, unit: W, scale: 0.01, positive: import, invalid: [2147483647]}
+  - {key: l3_power, label: Active power L3, table: holding, address: 23322, type: s32, unit: W, scale: 0.01, positive: import, invalid: [2147483647]}
+  - {key: reactive_power, label: Reactive power total, table: holding, address: 23324, type: s32, unit: var, scale: 0.01, invalid: [2147483647]}
+  - {key: x.l1_reactive_power, label: Reactive power L1, table: holding, address: 23326, type: s32, unit: var, scale: 0.01, invalid: [2147483647]}
+  - {key: x.l2_reactive_power, label: Reactive power L2, table: holding, address: 23328, type: s32, unit: var, scale: 0.01, invalid: [2147483647]}
+  - {key: x.l3_reactive_power, label: Reactive power L3, table: holding, address: 23330, type: s32, unit: var, scale: 0.01, invalid: [2147483647]}
+  - {key: apparent_power, label: Apparent power total, table: holding, address: 23332, type: s32, unit: VA, scale: 0.01, invalid: [2147483647]}
+  - {key: x.l1_apparent_power, label: Apparent power L1, table: holding, address: 23334, type: s32, unit: VA, scale: 0.01, invalid: [2147483647]}
+  - {key: x.l2_apparent_power, label: Apparent power L2, table: holding, address: 23336, type: s32, unit: VA, scale: 0.01, invalid: [2147483647]}
+  - {key: x.l3_apparent_power, label: Apparent power L3, table: holding, address: 23338, type: s32, unit: VA, scale: 0.01, invalid: [2147483647]}
+  - {key: frequency, label: Frequency, table: holding, address: 23340, type: u16, unit: Hz, scale: 0.01, invalid: [65535]}
+  - {key: x.phase_angle_power, label: Phase angle power total, table: holding, address: 23341, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: x.l1_phase_angle_power, label: Phase angle power L1, table: holding, address: 23342, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: x.l2_phase_angle_power, label: Phase angle power L2, table: holding, address: 23343, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: x.l3_phase_angle_power, label: Phase angle power L3, table: holding, address: 23344, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: x.l1_phase_angle_voltage, label: Phase angle voltage L1, table: holding, address: 23345, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: x.l2_phase_angle_voltage, label: Phase angle voltage L2, table: holding, address: 23346, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: x.l3_phase_angle_voltage, label: Phase angle voltage L3, table: holding, address: 23347, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: x.l1_phase_angle_current, label: Phase angle current L1, table: holding, address: 23351, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: x.l2_phase_angle_current, label: Phase angle current L2, table: holding, address: 23352, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: x.l3_phase_angle_current, label: Phase angle current L3, table: holding, address: 23353, type: s16, unit: °, scale: 0.1, invalid: [32767]}
+  - {key: power_factor, label: Power factor total, table: holding, address: 23354, type: s16, unit: '', scale: 0.001, invalid: [32767]}
+  - {key: x.l1_power_factor, label: Power factor L1, table: holding, address: 23355, type: s16, unit: '', scale: 0.001, invalid: [32767]}
+  - {key: x.l2_power_factor, label: Power factor L2, table: holding, address: 23356, type: s16, unit: '', scale: 0.001, invalid: [32767]}
+  - {key: x.l3_power_factor, label: Power factor L3, table: holding, address: 23357, type: s16, unit: '', scale: 0.001, invalid: [32767]}
+  - {key: x.quadrant, label: Current quadrant total, table: holding, address: 23358, type: u16, invalid: [65535], note: 1–4}
+  - {key: x.l1_quadrant, label: Current quadrant L1, table: holding, address: 23359, type: u16, invalid: [65535]}
+  - {key: x.l2_quadrant, label: Current quadrant L2, table: holding, address: 23360, type: u16, invalid: [65535]}
+  - {key: x.l3_quadrant, label: Current quadrant L3, table: holding, address: 23361, type: u16, invalid: [65535]}
+
+  # Energy accumulators
+  - {key: grid_import_energy, label: Active import, table: holding, address: 20480, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615]}
+  - {key: grid_export_energy, label: Active export, table: holding, address: 20484, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615]}
+  - {key: x.net_energy, label: Active net, table: holding, address: 20488, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.import_reactive_energy, label: Reactive import, table: holding, address: 20492, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_reactive_energy, label: Reactive export, table: holding, address: 20496, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.net_reactive_energy, label: Reactive net, table: holding, address: 20500, type: s64, unit: kvarh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.import_apparent_energy, label: Apparent import, table: holding, address: 20504, type: u64, unit: kVAh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_apparent_energy, label: Apparent export, table: holding, address: 20508, type: u64, unit: kVAh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.net_apparent_energy, label: Apparent net, table: holding, address: 20512, type: s64, unit: kVAh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.import_co2, label: Active import CO2, table: holding, address: 20516, type: u64, unit: kg, scale: 0.001, invalid: [18446744073709551615], poll: slow, note: Imported active energy times the CO2 factor set in the meter.}
+  - {key: x.import_currency, label: Active import currency, table: holding, address: 20532, type: u64, scale: 0.001, invalid: [18446744073709551615], poll: slow, note: 'Imported active energy times the price per kWh set in the meter, in the currency the user has in mind.'}
+  - {key: x.import_energy_t1, label: Active import tariff 1, table: holding, address: 20848, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.import_energy_t2, label: Active import tariff 2, table: holding, address: 20852, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.import_energy_t3, label: Active import tariff 3, table: holding, address: 20856, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.import_energy_t4, label: Active import tariff 4, table: holding, address: 20860, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_energy_t1, label: Active export tariff 1, table: holding, address: 20880, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_energy_t2, label: Active export tariff 2, table: holding, address: 20884, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_energy_t3, label: Active export tariff 3, table: holding, address: 20888, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_energy_t4, label: Active export tariff 4, table: holding, address: 20892, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.import_reactive_energy_t1, label: Reactive import tariff 1, table: holding, address: 20912, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.import_reactive_energy_t2, label: Reactive import tariff 2, table: holding, address: 20916, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.import_reactive_energy_t3, label: Reactive import tariff 3, table: holding, address: 20920, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.import_reactive_energy_t4, label: Reactive import tariff 4, table: holding, address: 20924, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_reactive_energy_t1, label: Reactive export tariff 1, table: holding, address: 20944, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_reactive_energy_t2, label: Reactive export tariff 2, table: holding, address: 20948, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_reactive_energy_t3, label: Reactive export tariff 3, table: holding, address: 20952, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.export_reactive_energy_t4, label: Reactive export tariff 4, table: holding, address: 20956, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l1_import_energy, label: Active import L1, table: holding, address: 21600, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l2_import_energy, label: Active import L2, table: holding, address: 21604, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l3_import_energy, label: Active import L3, table: holding, address: 21608, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l1_export_energy, label: Active export L1, table: holding, address: 21612, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l2_export_energy, label: Active export L2, table: holding, address: 21616, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l3_export_energy, label: Active export L3, table: holding, address: 21620, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l1_net_energy, label: Active net L1, table: holding, address: 21624, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.l2_net_energy, label: Active net L2, table: holding, address: 21628, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.l3_net_energy, label: Active net L3, table: holding, address: 21632, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.l1_import_reactive_energy, label: Reactive import L1, table: holding, address: 21636, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l2_import_reactive_energy, label: Reactive import L2, table: holding, address: 21640, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l3_import_reactive_energy, label: Reactive import L3, table: holding, address: 21644, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l1_export_reactive_energy, label: Reactive export L1, table: holding, address: 21648, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l2_export_reactive_energy, label: Reactive export L2, table: holding, address: 21652, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l3_export_reactive_energy, label: Reactive export L3, table: holding, address: 21656, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l1_net_reactive_energy, label: Reactive net L1, table: holding, address: 21660, type: s64, unit: kvarh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.l2_net_reactive_energy, label: Reactive net L2, table: holding, address: 21664, type: s64, unit: kvarh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.l3_net_reactive_energy, label: Reactive net L3, table: holding, address: 21668, type: s64, unit: kvarh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.l1_import_apparent_energy, label: Apparent import L1, table: holding, address: 21672, type: u64, unit: kVAh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l2_import_apparent_energy, label: Apparent import L2, table: holding, address: 21676, type: u64, unit: kVAh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l3_import_apparent_energy, label: Apparent import L3, table: holding, address: 21680, type: u64, unit: kVAh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l1_export_apparent_energy, label: Apparent export L1, table: holding, address: 21684, type: u64, unit: kVAh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l2_export_apparent_energy, label: Apparent export L2, table: holding, address: 21688, type: u64, unit: kVAh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l3_export_apparent_energy, label: Apparent export L3, table: holding, address: 21692, type: u64, unit: kVAh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.l1_net_apparent_energy, label: Apparent net L1, table: holding, address: 21696, type: s64, unit: kVAh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.l2_net_apparent_energy, label: Apparent net L2, table: holding, address: 21700, type: s64, unit: kVAh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.l3_net_apparent_energy, label: Apparent net L3, table: holding, address: 21704, type: s64, unit: kVAh, scale: 0.01, invalid: [9223372036854775807], poll: slow}
+  - {key: x.resettable_import_energy, label: Resettable active import, table: holding, address: 21804, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.resettable_export_energy, label: Resettable active export, table: holding, address: 21808, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], poll: slow}
+  - {key: x.resettable_import_reactive_energy, label: Resettable reactive import, table: holding, address: 21812, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow, note: The register tables print kWh as the unit; it is reactive energy.}
+  - {key: x.resettable_export_reactive_energy, label: Resettable reactive export, table: holding, address: 21816, type: u64, unit: kvarh, scale: 0.01, invalid: [18446744073709551615], poll: slow, note: The register tables print kWh as the unit; it is reactive energy.}
+
+  # Inputs and outputs
+  - {key: x.output_1, label: Output 1, table: holding, address: 25344, type: u16, enum: on_off, invalid: [65535], writable: true}
+  - {key: x.output_2, label: Output 2, table: holding, address: 25345, type: u16, enum: on_off, invalid: [65535], writable: true}
+  - {key: x.input_1_state, label: Input 1 current state, table: holding, address: 25352, type: u16, enum: on_off, invalid: [65535, 32767], note: 'Unsigned in the manual, but a real B23 212-100 (firmware B1.28.0) read 0x7FFF here (and at 630A / 630B).'}
+  - {key: x.input_2_state, label: Input 2 current state, table: holding, address: 25353, type: u16, enum: on_off, invalid: [65535, 32767], note: As 6308.}
+  - {key: x.input_1_stored_state, label: Input 1 stored state, table: holding, address: 25360, type: u16, enum: on_off, invalid: [65535], poll: slow}
+  - {key: x.input_2_stored_state, label: Input 2 stored state, table: holding, address: 25361, type: u16, enum: on_off, invalid: [65535], poll: slow}
+  - {key: x.input_1_counter, label: Input 1 counter, table: holding, address: 25368, type: u64, invalid: [18446744073709551615], poll: slow}
+  - {key: x.input_2_counter, label: Input 2 counter, table: holding, address: 25372, type: u64, invalid: [18446744073709551615], poll: slow}
+
+  # Identification, status and settings
+  - {key: serial, label: Serial number, table: holding, address: 35072, type: u32, poll: slow, invalid: [4294967295]}
+  - {key: firmware, label: Meter firmware version, table: holding, address: 35080, type: str, length: 8, poll: slow}
+  - {key: x.mapping_version, label: Modbus mapping version, table: holding, address: 35088, type: u16, poll: slow, invalid: [65535], note: 'High byte major, low byte minor.'}
+  - {key: x.type_designation, label: Type designation, table: holding, address: 35168, type: str, length: 6, poll: slow, note: E.g. "B23 312-100".}
+  - {key: x.current_tariff, label: Current tariff, table: holding, address: 35335, type: u16, poll: slow, invalid: [65535], writable: true, note: 1–4}
+  - {key: x.error_flags, label: Error flags, table: holding, address: 35347, type: u64, poll: slow, invalid: [18446744073709551615], note: 64 flags; the manual doesn't say which bit means what.}
+  - {key: x.information_flags, label: Information flags, table: holding, address: 35353, type: u64, poll: slow, invalid: [18446744073709551615]}
+  - {key: x.warning_flags, label: Warning flags, table: holding, address: 35359, type: u64, poll: slow, invalid: [18446744073709551615], note: 'Includes negative total power, which is normal export; not reported as a problem.'}
+  - {key: x.alarm_flags, label: Alarm flags, table: holding, address: 35365, type: u64, poll: slow, invalid: [18446744073709551615]}
+  - {key: x.power_fail_counter, label: Power fail counter, table: holding, address: 35375, type: u16, poll: slow, invalid: [65535]}
+  - {key: x.reset_count_import_energy, label: Reset counter for active energy import, table: holding, address: 35400, type: u64, poll: slow, invalid: [18446744073709551615], note: How often the resettable counter was reset.}
+  - {key: x.reset_count_export_energy, label: Reset counter for active energy export, table: holding, address: 35404, type: u64, poll: slow, invalid: [18446744073709551615]}
+  - {key: x.reset_count_import_reactive_energy, label: Reset counter (third), table: holding, address: 35408, type: u64, poll: slow, invalid: [18446744073709551615], note: The manuals label this one active import again; by the order of the reset commands it should belong to the resettable reactive import (unverified).}
+  - {key: x.reset_count_export_reactive_energy, label: Reset counter (fourth), table: holding, address: 35412, type: u64, poll: slow, invalid: [18446744073709551615], note: The manuals label this one active export again; by the order of the reset commands it should belong to the resettable reactive export (unverified).}
+  - {key: x.ct_ratio_numerator, label: Current transformer ratio numerator, table: holding, address: 35844, type: u32, poll: slow, invalid: [4294967295], writable: true}
+  - {key: x.ct_ratio_denominator, label: Current transformer ratio denominator, table: holding, address: 35848, type: u32, poll: slow, invalid: [4294967295], writable: true}
+  - {key: x.led_source, label: LED source, table: holding, address: 36068, type: u16, enum: led_source, poll: slow, invalid: [65535], writable: true}
+  - {key: x.number_of_elements, label: Number of elements, table: holding, address: 36069, type: u16, poll: slow, invalid: [65535], writable: true, min: 1, max: 3, note: '1-, 2- or 3-element metering.'}
+
+  # Janitza-branded meters: float block laid out like the Janitza UMG registers (decimal addresses)
+  - {key: x.umg_l1_voltage, label: Voltage L1-N, table: holding, address: 19000, type: f32, unit: V}
+  - {key: x.umg_l2_voltage, label: Voltage L2-N, table: holding, address: 19002, type: f32, unit: V}
+  - {key: x.umg_l3_voltage, label: Voltage L3-N, table: holding, address: 19004, type: f32, unit: V}
+  - {key: x.umg_l1_l2_voltage, label: Voltage L1-L2, table: holding, address: 19006, type: f32, unit: V}
+  - {key: x.umg_l2_l3_voltage, label: Voltage L2-L3, table: holding, address: 19008, type: f32, unit: V}
+  - {key: x.umg_l3_l1_voltage, label: Voltage L3-L1, table: holding, address: 19010, type: f32, unit: V}
+  - {key: x.umg_l1_current, label: Current L1, table: holding, address: 19012, type: f32, unit: A}
+  - {key: x.umg_l2_current, label: Current L2, table: holding, address: 19014, type: f32, unit: A}
+  - {key: x.umg_l3_current, label: Current L3, table: holding, address: 19016, type: f32, unit: A}
+  - {key: x.umg_l1_power, label: Real power L1, table: holding, address: 19020, type: f32, unit: W}
+  - {key: x.umg_l2_power, label: Real power L2, table: holding, address: 19022, type: f32, unit: W}
+  - {key: x.umg_l3_power, label: Real power L3, table: holding, address: 19024, type: f32, unit: W}
+  - {key: x.umg_power, label: Real power L1+L2+L3, table: holding, address: 19026, type: f32, unit: W}
+  - {key: x.umg_l1_apparent_power, label: Apparent power L1, table: holding, address: 19028, type: f32, unit: VA}
+  - {key: x.umg_l2_apparent_power, label: Apparent power L2, table: holding, address: 19030, type: f32, unit: VA}
+  - {key: x.umg_l3_apparent_power, label: Apparent power L3, table: holding, address: 19032, type: f32, unit: VA}
+  - {key: x.umg_apparent_power, label: Apparent power L1+L2+L3, table: holding, address: 19034, type: f32, unit: VA}
+  - {key: x.umg_l1_reactive_power, label: Reactive power L1, table: holding, address: 19036, type: f32, unit: var}
+  - {key: x.umg_l2_reactive_power, label: Reactive power L2, table: holding, address: 19038, type: f32, unit: var}
+  - {key: x.umg_l3_reactive_power, label: Reactive power L3, table: holding, address: 19040, type: f32, unit: var}
+  - {key: x.umg_reactive_power, label: Reactive power L1+L2+L3, table: holding, address: 19042, type: f32, unit: var}
+  - {key: x.umg_l1_power_factor, label: Power factor L1, table: holding, address: 19044, type: f32, unit: ''}
+  - {key: x.umg_l2_power_factor, label: Power factor L2, table: holding, address: 19046, type: f32, unit: ''}
+  - {key: x.umg_l3_power_factor, label: Power factor L3, table: holding, address: 19048, type: f32, unit: ''}
+  - {key: x.umg_frequency, label: Measured frequency, table: holding, address: 19050, type: f32, unit: Hz}
+  - {key: x.umg_l1_energy, label: Real energy L1, table: holding, address: 19054, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_l2_energy, label: Real energy L2, table: holding, address: 19056, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_l3_energy, label: Real energy L3, table: holding, address: 19058, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_energy, label: Real energy L1+L2+L3, table: holding, address: 19060, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_l1_import_energy, label: 'Real energy L1, consumed', table: holding, address: 19062, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_l2_import_energy, label: 'Real energy L2, consumed', table: holding, address: 19064, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_l3_import_energy, label: 'Real energy L3, consumed', table: holding, address: 19066, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_import_energy, label: 'Real energy L1+L2+L3, consumed', table: holding, address: 19068, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_l1_export_energy, label: 'Real energy L1, delivered', table: holding, address: 19070, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_l2_export_energy, label: 'Real energy L2, delivered', table: holding, address: 19072, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_l3_export_energy, label: 'Real energy L3, delivered', table: holding, address: 19074, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_export_energy, label: 'Real energy L1+L2+L3, delivered', table: holding, address: 19076, type: f32, unit: Wh, poll: slow}
+  - {key: x.umg_l1_apparent_energy, label: Apparent energy L1, table: holding, address: 19078, type: f32, unit: VAh, poll: slow}
+  - {key: x.umg_l2_apparent_energy, label: Apparent energy L2, table: holding, address: 19080, type: f32, unit: VAh, poll: slow}
+  - {key: x.umg_l3_apparent_energy, label: Apparent energy L3, table: holding, address: 19082, type: f32, unit: VAh, poll: slow}
+  - {key: x.umg_apparent_energy, label: Apparent energy L1+L2+L3, table: holding, address: 19084, type: f32, unit: VAh, poll: slow}
+  - {key: x.umg_l1_reactive_energy, label: Reactive energy L1, table: holding, address: 19086, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_l2_reactive_energy, label: Reactive energy L2, table: holding, address: 19088, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_l3_reactive_energy, label: Reactive energy L3, table: holding, address: 19090, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_reactive_energy, label: Reactive energy L1+L2+L3, table: holding, address: 19092, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_l1_inductive_energy, label: 'Reactive energy L1, inductive', table: holding, address: 19094, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_l2_inductive_energy, label: 'Reactive energy L2, inductive', table: holding, address: 19096, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_l3_inductive_energy, label: 'Reactive energy L3, inductive', table: holding, address: 19098, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_inductive_energy, label: 'Reactive energy L1+L2+L3, inductive', table: holding, address: 19100, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_l1_capacitive_energy, label: 'Reactive energy L1, capacitive', table: holding, address: 19102, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_l2_capacitive_energy, label: 'Reactive energy L2, capacitive', table: holding, address: 19104, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_l3_capacitive_energy, label: 'Reactive energy L3, capacitive', table: holding, address: 19106, type: f32, unit: varh, poll: slow}
+  - {key: x.umg_capacitive_energy, label: 'Reactive energy L1+L2+L3, capacitive', table: holding, address: 19108, type: f32, unit: varh, poll: slow}
+
+enums:
+  on_off: {'0': 'Off', '1': 'On'}
+  led_source: {'0': Active energy, '1': Reactive energy}
+
+problems:
+  - {when: {key: x.error_flags, not: 0}, kind: fault, text: 'Meter error (error flags 0x{value:X})'}
+
+notes:
+- Holding registers (FC 03); the meter also accepts 06 and 16. Addresses in the manual are sent on the bus as printed (no
+  40001 offset, no −1).
+- Registers 1000h–8EFFh can be read in any request of 1–125 registers; reads outside that range give exception 2. Unused registers
+  inside the range answer with "invalid" (FFFFh in every register for unsigned values, the highest positive value for signed
+  ones), so a reader may read across gaps.
+- Multi-register values are most significant byte and word first.
+- 'Identification: a real B23 212-100 (firmware B1.28.0, mapping version 3.0) answered Read Device Identification (function
+  43/14) with exception 1, so the meter is told by its registers: serial 8900, firmware 8908, type designation 8960. Next
+  to them it answered two registers the manuals don''t list: 8911 (0x0102) and 8966–896D, a 16-character text starting with
+  "ABB" and ending with the serial number. Function 04 gave exception 1 too.'
+- Modbus has to be selected as the meter's RS485 protocol (it can also run EQ-Bus). Address 1–247, 1200–115200 baud, parity
+  none / odd / even; the manual gives no factory defaults, so unit 1 is an assumption.
+- With 1-element metering (number of elements = 1) only the phase with a voltage is meaningful; phases whose voltage is invalid
+  or 0 can be skipped.
+- The meter has no daily counters; the resettable accumulators are reset by hand.
+- B21 is the single-phase meter (1 + N, direct up to 65 A); B23 three-phase direct up to 65 A; B24 three-phase via current
+  transformers. On a B21 the L2/L3 and line-to-line values read invalid.
+- The Janitza-branded meters (type designations ending in -10J) also have a float block at 19000–19108 (decimal) laid out
+  like the Janitza UMG registers (x.umg_* points); the ABB manuals don't list it, so on ABB-branded meters those registers
+  read invalid (NaN). In the Janitza block, 19018 and 19052 are unused; energies there are in Wh / VAh / varh.
+- 'The Janitza manual (2.100.006.2) differs from the ABB manuals: only tariffs 1–2 (registers 5170, 5174, 5190, 5194, 51B0,
+  51B4, 51D0, 51D4; current tariff 1–2), inputs and outputs numbered 1–2, and it calls the resettable counters (552C–5538)
+  and their reset counters (8A48–8A54) not available on its B21/B23/B24. In the ABB manual the resettable counters belong
+  to the Silber variants (B2x 3..-1..).'
+- 'Inputs and outputs (6300–631C): outputs are writable 0/1; the ABB German manual numbers the inputs 3 and 4, the Janitza
+  manual 1 and 2.'
+- 'Power outage time at 8A39: bytes 0–2 days (byte 0 the high byte of the first register), byte 3 hours, byte 4 minutes, byte
+  5 seconds; the table gives a size of 2 registers though the layout needs 3, so it isn''t a point here. A real B23 (firmware
+  B1.28.0) read FFFFh in all of 8A30–8A5F, the outage time and the reset counters at 8A48–8A57 included, as the Janitza manual
+  says (not available).'
+- CO2 (5024) and currency (5034) are imported active energy times factors set in the meter (kg per kWh and currency per kWh,
+  each × 0.001).
+- mbmd (type code ABB) detects the meter by reading L1 Voltage (holding register 23296, u32, scale 0.1); its bus scan accepts
+  a value within 10% of 110 or 230 V.
+- openWB reads a B23 as charge point meter at unit 201 (charge point 0 only).
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- Identification as mbmd recognises the device (not checked against a document).

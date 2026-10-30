@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: bluetti-ac200l
+manufacturer: BLUETTI
+name: AC200L
+kind: inverter
+
+sources:
+- id: bluetti-modbus
+  title: bluetti-modbus (Python library, used by Home Assistant's bluetti_modbus)
+  url: https://github.com/bluetti-community/bluetti-modbus
+  license: MIT
+  commit: f5f8401606ed4489467fe33527f72d7bdc382b3c
+  path: src/bluetti_modbus_lib/devices/ac200l.py, src/bluetti_modbus_lib/fields/custom_fields.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  limits:
+    max_registers: 50
+    max_gap: 5
+
+encoding:
+  word_order: little
+
+defaults:
+  verified: false
+  sources:
+  - bluetti-modbus
+
+points:
+  - {key: x.ac_o_p_total, label: AC output power total, table: holding, address: 50002, type: u16, unit: W}
+  - {key: pv_power, label: PV input power total, table: holding, address: 50004, type: u16, unit: W}
+  - {key: x.g_i_p_total, label: Grid input power total, table: holding, address: 50006, type: s16, unit: W}
+  - {key: x.ac_o_e_total, label: AC output energy total, table: holding, address: 50012, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.g_o_e_total, label: Grid output energy total, table: holding, address: 50018, type: u32, unit: kWh, scale: 0.1}
+  - {key: state, label: Device inverter status, table: holding, address: 50022, type: u16, enum: inverter_status}
+  - {key: x.d_inverter_warning, label: Device inverter warning, table: holding, address: 50023, type: u64, enum: inverter_warning}
+  - {key: x.d_inverter_type, label: Device inverter type, table: holding, address: 50200, type: str, length: 6}
+  - {key: serial, label: Device serial, table: holding, address: 50206, type: u64}
+  - {key: x.d_ver_arm, label: Device version ARM, table: holding, address: 50210, type: u32, note: Version packed as major·100 + minor.}
+  - {key: x.d_ver_dsp, label: Device version DSP, table: holding, address: 50212, type: u32, note: Version packed as major·100 + minor.}
+  - {key: frequency, label: Grid input frequency, table: holding, address: 50214, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.g_i_p_local, label: Grid input power local, table: holding, address: 50215, type: u16, unit: W}
+  - {key: x.ac_o_p_local, label: AC output power local, table: holding, address: 50217, type: u16, unit: W}
+  - {key: x.pv_i_p_local, label: PV input power local, table: holding, address: 50219, type: u16, unit: W}
+  - {key: x.pv_i_e_local, label: PV input energy local, table: holding, address: 50229, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.pv_dc_count, label: PV dc count, table: holding, address: 50267, type: u16, bits: [0, 3]}
+  - {key: x.pv_ac_count, label: PV AC count, table: holding, address: 50267, type: u16, bits: [4, 7]}
+  - {key: x.pv_1_i_type, label: PV 1 input type, table: holding, address: 50268, type: u16, enum: pv_type}
+  - {key: x.pv_1_i_p, label: PV 1 input power, table: holding, address: 50269, type: u16, unit: W}
+  - {key: x.pv_1_i_v, label: PV 1 input voltage, table: holding, address: 50270, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv_2_i_type, label: PV 2 input type, table: holding, address: 50272, type: u16, enum: pv_type}
+  - {key: x.pv_2_i_p, label: PV 2 input power, table: holding, address: 50273, type: u16, unit: W}
+  - {key: battery_voltage, label: Battery voltage total, table: holding, address: 51002, type: u16, unit: V, scale: 0.01}
+  - {key: x.b_c_total, label: Battery current total, table: holding, address: 51003, type: u16, unit: A, scale: 0.1}
+  - {key: battery_soc, label: Battery SOC total, table: holding, address: 51004, type: u16, unit: '%'}
+  - {key: x.ac_o_switch, label: AC output switch, table: holding, address: 57001, type: u16, writable: true}
+  - {key: x.dc_o_switch, label: Dc output switch, table: holding, address: 57005, type: u16, writable: true}
+  - {key: x.b_soc_low, label: Battery SOC low, table: holding, address: 57016, type: u16, unit: '%'}
+  - {key: x.b_soc_high, label: Battery SOC high, table: holding, address: 57017, type: u16, unit: '%'}
+
+enums:
+  inverter_status: {'0': Stop, '1': Off grid, '2': Grid connected load, '3': Grid connected operation, '4': Grid connected charging, '5': Grid connected discharging, '6': Inverter fault, '7': Abnormal off grid}
+  inverter_warning: {'0': No warning}
+  pv_type: {'0': Reserve, '1': Car, '2': Adapter, '3': Other, '100': DC PV, '101': AC PV}
+
+notes:
+- Modbus TCP is off by default; it is switched on in the device's own web interface.
+- There is no register that names the product family reliably for every model; the library is told which model it talks to.
+  Register 50200 (6 registers) holds the type string the device reports.
+- The device's Modbus TCP stack is reported to become unresponsive when polled too fast; the Home Assistant integration polls
+  every 30 s. Reads now and then answer busy / acknowledge (exception 5 or 6) or a truncated reply and succeed when retried.
+- Writes to holding registers are confirmed with a different (internal) register address in the reply; the library treats
+  such a reply as success.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

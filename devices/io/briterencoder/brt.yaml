@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Briterencoder Linear Wire Displacement Sensor RS485 & Analog Output User Manual (V202409).
+
+modbusspec: 0
+id: briterencoder-brt
+manufacturer: Briterencoder
+name: BRT27 / BRT38 / BRT38X linear wire (draw-wire) displacement sensor, RS485
+kind: io
+
+sources:
+- title: Briterencoder Linear Wire Displacement Sensor RS485 & Analog Output User Manual, Communication Protocol
+  version: V202409 (file V202601)
+  url: https://briterencoder.com/wp-content/uploads/2026/02/006-RS485Analog-Briterencoder-Linear-displacement-sensor-V202601.pdf
+  sha256: 6fbc63f4474d11385f9824b1eb024f05adfe09a55161db33a4e1ce8f579b0e5b
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.encoder_value, label: Encoder value, table: holding, address: 0, type: u32, note: 'Position in encoder steps (single-turn resolution × turns + single-turn value). Displacement in mm = (value − value at start) × winding wheel perimeter / resolution, or × the linear resolution of the model (see notes). Kept through power failure.'}
+  - {key: x.encoder_turns, label: Encoder number of turns, table: holding, address: 2, type: u16}
+  - {key: x.encoder_single_turn_value, label: Encoder single-turn value, table: holding, address: 3, type: u16}
+  - {key: x.angular_velocity, label: Encoder angular velocity value, table: holding, address: 32, type: s32, note: 'Speed in rpm = value / single-turn resolution / sampling time in minutes (0x000A, default 100 ms).'}
+  # Settings: write-only (function 06, 0x000B–0x000C with function 10)
+  - {key: x.modbus_address, label: Encoder address, table: holding, address: 4, type: u16, writable: true, write_only: true, persistent: true, optional: true, poll: slow, note: 1–127 (the parameter table says 1–255).}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 5, type: u16, enum: baud, writable: true, write_only: true, persistent: true, optional: true, poll: slow}
+  - {key: x.encoder_mode, label: Encoder mode, table: holding, address: 6, type: u16, enum: encoder_mode, writable: true, write_only: true, persistent: true, optional: true, poll: slow, note: In the automatic modes the encoder sends values on its own every 0x0007 ms.}
+  - {key: x.auto_return_time, label: Encoder automatic return time, table: holding, address: 7, type: u16, unit: ms, writable: true, write_only: true, persistent: true, optional: true, poll: slow, note: Default 50 ms. Below 20 ms other settings may fail to be written.}
+  - {key: x.reset_zero, label: Encoder reset zero position, table: holding, address: 8, type: u16, writable: true, write_only: true, optional: true, poll: slow, note: Write 1 to make the current position the zero point.}
+  - {key: x.direction, label: Encoder value increasing direction, table: holding, address: 9, type: u16, enum: direction, writable: true, write_only: true, persistent: true, optional: true, poll: slow, note: 'Default 1 (counter-clockwise), looking at the shaft.'}
+  - {key: x.velocity_sampling_time, label: Encoder angular velocity sampling time, table: holding, address: 10, type: u16, unit: ms, writable: true, write_only: true, persistent: true, optional: true, poll: slow, note: Default 100 ms.}
+  - {key: x.set_current_value, label: Set the current value of the encoder, table: holding, address: 11, type: u32, writable: true, write_only: true, optional: true, poll: slow}
+  - {key: x.set_midpoint, label: Set the encoder's midpoint, table: holding, address: 14, type: u16, writable: true, write_only: true, optional: true, poll: slow, note: Write 1 to set the current position to the middle of the range.}
+  - {key: x.set_five_turns, label: Set the current turn value to 5 turns, table: holding, address: 15, type: u16, writable: true, write_only: true, optional: true, poll: slow, note: Write 1 to set the current position to 5 × the single-turn resolution.}
+
+enums:
+  baud: {'0': '9600', '1': '19200', '2': '38400', '3': '57600', '4': '115200'}
+  encoder_mode: {'0': Query mode, '1': Automatic return of the angle value, '5': Automatic return of the angular velocity value}
+  direction: {'0': Clockwise increasing, '1': Counter-clockwise increasing}
+
+notes:
+- Addresses are the document's hex register addresses (0-based); it also gives them as Siemens PLC addresses 40001 ff. Only
+  function 03 (read), 06 and 10 (write) are supported.
+- Resolution 4096 steps per turn (default) or 1024. Winding wheel diameters per range, e.g. 60 mm for BRT27 0–650 mm, 100
+  mm for BRT38 500 / 1000 mm, up to 350 mm for 11–20 m; the document's example for a 500 mm, 4096-step sensor gives 100 /
+  4096 mm per step (0.0244 mm).
+- 'Factory settings: address 1, 9600 baud 8N1. The document says 127 addresses can be configured (parameter table: 1–255).'
+- The sensor also has a 4–20 mA, 0–5 V or 0–10 V analogue output, scaled by the function wires (min / max / midpoint); not
+  Modbus.

@@ -1,0 +1,174 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Socomec Countis E43 JBUS / Modbus table (JBUS common table 1.01, index A), a spreadsheet for the
+# Countis E43 (three-phase, 5 A current transformers). Rows the table marks as not applicable to the E43 are left out.
+
+modbusspec: 0
+id: socomec-countis-e
+manufacturer: Socomec
+name: Countis E3x / E4x energy meters
+kind: meter
+
+sources:
+- title: Socomec .MODBUS E43 (Countis E43 JBUS common table, 538461 / 53633 index A)
+  version: JBUS common table 1.01
+  url: https://github.com/user-attachments/files/30981536/Socomec_.MODBUS_E43.XLS
+  sha256: ff37054be27b7d90a99c5c055d356d7066cf3736d6a7f9028eaca0b74550e0cb
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/socomec.go
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.socomec/src/io/openems/edge/meter/socomec/threephase/MeterSocomecThreephaseImpl.java, io.openems.edge.meter.socomec/src/io/openems/edge/meter/socomec/singlephase/MeterSocomecSinglephaseImpl.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - - table: holding
+      address: 50520
+      type: u32
+      range:
+      - 9900
+      - 12100
+    - table: holding
+      address: 50520
+      type: u32
+      range:
+      - 20700
+      - 25300
+
+models:
+  - {id: e23_e24_e27_e28, name: Countis E23 / E24 / E27 / E28}
+  - {id: e14, name: Countis E14}
+
+points:
+  # Metrology (0xC550), including the CT ratio
+  - {key: x.voltage_l1_l2, label: Phase to phase voltage U12, table: holding, address: 50514, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.voltage_l2_l3, label: Phase to phase voltage U23, table: holding, address: 50516, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.voltage_l3_l1, label: Phase to phase voltage U31, table: holding, address: 50518, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l1_voltage, label: Simple voltage V1, table: holding, address: 50520, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l2_voltage, label: Simple voltage V2, table: holding, address: 50522, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l3_voltage, label: Simple voltage V3, table: holding, address: 50524, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l1_current, label: Current I1, table: holding, address: 50528, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: l2_current, label: Current I2, table: holding, address: 50530, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: l3_current, label: Current I3, table: holding, address: 50532, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: x.neutral_current, label: Neutral current In, table: holding, address: 50534, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: grid_power, label: Total active power P, table: holding, address: 50536, type: s32, unit: W, scale: 10, positive: import, invalid: [2147483647], verified: false, note: Signed; the table doesn't say which direction is positive. Positive = import (the direction of Ea+) is assumed.}
+  - {key: reactive_power, label: Total reactive power Q, table: holding, address: 50538, type: s32, unit: var, scale: 10, invalid: [2147483647]}
+  - {key: apparent_power, label: Total apparent power S, table: holding, address: 50540, type: u32, unit: VA, scale: 10, invalid: [4294967295]}
+  - {key: power_factor, label: Total power factor PF, table: holding, address: 50542, type: s32, scale: 0.001, invalid: [2147483647], note: 'Sign = leading (−) / lagging (+), not the power direction.'}
+  - {key: l1_power, label: Active power phase 1 P1, table: holding, address: 50544, type: s32, unit: W, scale: 10, positive: import, invalid: [2147483647], verified: false, note: Direction assumed as for the total power.}
+  - {key: l2_power, label: Active power phase 2 P2, table: holding, address: 50546, type: s32, unit: W, scale: 10, positive: import, invalid: [2147483647], verified: false}
+  - {key: l3_power, label: Active power phase 3 P3, table: holding, address: 50548, type: s32, unit: W, scale: 10, positive: import, invalid: [2147483647], verified: false}
+  - {key: x.reactive_power_l1, label: Reactive power phase 1 Q1, table: holding, address: 50550, type: s32, unit: var, scale: 10, invalid: [2147483647]}
+  - {key: x.reactive_power_l2, label: Reactive power phase 2 Q2, table: holding, address: 50552, type: s32, unit: var, scale: 10, invalid: [2147483647]}
+  - {key: x.reactive_power_l3, label: Reactive power phase 3 Q3, table: holding, address: 50554, type: s32, unit: var, scale: 10, invalid: [2147483647]}
+  - {key: x.apparent_power_l1, label: Apparent power phase 1 S1, table: holding, address: 50556, type: u32, unit: VA, scale: 10, invalid: [4294967295]}
+  - {key: x.apparent_power_l2, label: Apparent power phase 2 S2, table: holding, address: 50558, type: u32, unit: VA, scale: 10, invalid: [4294967295]}
+  - {key: x.apparent_power_l3, label: Apparent power phase 3 S3, table: holding, address: 50560, type: u32, unit: VA, scale: 10, invalid: [4294967295]}
+  - {key: x.power_factor_l1, label: Power factor phase 1 PF1, table: holding, address: 50562, type: s32, scale: 0.001, invalid: [2147483647]}
+  - {key: x.power_factor_l2, label: Power factor phase 2 PF2, table: holding, address: 50564, type: s32, scale: 0.001, invalid: [2147483647]}
+  - {key: x.power_factor_l3, label: Power factor phase 3 PF3, table: holding, address: 50566, type: s32, scale: 0.001, invalid: [2147483647]}
+  # Energies (0xC650)
+  - {key: grid_import_energy, label: Total positive active energy Ea+ (not resettable), table: holding, address: 50770, type: u32, unit: kWh, poll: slow, invalid: [4294967295], note: Ea+ taken as import. Rolls over at 9 999 999 kWh; the overflow count is at 36866.}
+  - {key: x.reactive_energy_positive, label: Total positive reactive energy Er+ (not resettable), table: holding, address: 50772, type: u32, unit: kvarh, poll: slow, invalid: [4294967295]}
+  - {key: grid_export_energy, label: Total negative active energy Ea- (not resettable), table: holding, address: 50776, type: u32, unit: kWh, poll: slow, invalid: [4294967295], note: Ea− taken as export.}
+  - {key: x.partial_active_energy_positive, label: Partial positive active energy Ea+, table: holding, address: 50780, type: u32, unit: kWh, poll: slow, invalid: [4294967295]}
+  - {key: x.partial_reactive_energy_positive, label: Partial positive reactive energy Er+, table: holding, address: 50782, type: u32, unit: kvarh, poll: slow, invalid: [4294967295]}
+  - {key: x.partial_active_energy_negative, label: Partial negative active energy Ea-, table: holding, address: 50786, type: u32, unit: kWh, poll: slow, invalid: [4294967295]}
+  - {key: x.last_average_time, label: Date of the last average P/Q/S record, table: holding, address: 50826, type: u32, unit: s, epoch: {start: '2000-01-01', unit: s}, poll: slow, invalid: [4294967295]}
+  - {key: x.last_average_active_power, label: Last average P+, table: holding, address: 50828, type: u16, unit: W, poll: slow, invalid: [65535], note: Without the CT / VT ratio.}
+  - {key: x.max_average_active_power, label: Max / average P+, table: holding, address: 51078, type: u32, unit: W, scale: 10, poll: slow, invalid: [4294967295]}
+  # Energies per tariff (0xC6A0)
+  - {key: x.tariff_count, label: Number of tariffs (0 to 8), table: holding, address: 50848, type: u16, poll: slow}
+  - {key: x.tariff, label: Tariff in progress (1 to 8), table: holding, address: 50849, type: u16, poll: slow}
+  - {key: x.tariff1_active_energy, label: Positive active energy tariff 1, table: holding, address: 50850, type: u32, unit: kWh, poll: slow, invalid: [4294967295], note: '50850–50865 hold the positive active energy of tariffs 1–8 (two registers each), 50866–50881 the positive reactive energy.'}
+  - {key: x.tariff2_active_energy, label: Positive active energy tariff 2, table: holding, address: 50852, type: u32, unit: kWh, poll: slow, invalid: [4294967295]}
+  - {key: x.tariff3_active_energy, label: Positive active energy tariff 3, table: holding, address: 50854, type: u32, unit: kWh, poll: slow, invalid: [4294967295]}
+  - {key: x.tariff4_active_energy, label: Positive active energy tariff 4, table: holding, address: 50856, type: u32, unit: kWh, poll: slow, invalid: [4294967295]}
+  - {key: x.set_tariff, label: Tariff to set, table: holding, address: 40481, type: u16, poll: slow, writable: true, min: 1, max: 4, note: Written with function 6.}
+  # Overflow and periodic indexes (Countis E3x / E4x specific)
+  - {key: x.overflow_value, label: Meter overflow value, table: holding, address: 36864, type: u32, unit: kWh, poll: slow, note: 9 999 999 kWh.}
+  - {key: x.overflow_count_import, label: Overflow count total Ea+, table: holding, address: 36866, type: u16, poll: slow}
+  - {key: x.overflow_count_reactive, label: Overflow count total Er+, table: holding, address: 36867, type: u16, poll: slow}
+  - {key: x.overflow_count_export, label: Overflow count total Ea-, table: holding, address: 36868, type: u16, poll: slow}
+  - {key: x.import_energy_yesterday, label: Ea+ for day n-1, table: holding, address: 36896, type: u32, unit: kWh, poll: slow}
+  - {key: x.export_energy_yesterday, label: Ea- for day n-1, table: holding, address: 36898, type: u32, unit: kWh, poll: slow}
+  - {key: x.import_energy_today, label: Ea+ for day n, table: holding, address: 36900, type: u32, unit: kWh, poll: slow, verified: false, note: 'The table gives kvarh for the day-n, week-n and month-n values, which looks like a slip for kWh; kWh assumed.'}
+  - {key: x.export_energy_today, label: Ea- for day n, table: holding, address: 36902, type: u32, unit: kWh, poll: slow, verified: false}
+  - {key: x.import_energy_last_week, label: Ea+ for week n-1, table: holding, address: 36904, type: u32, unit: kWh, poll: slow}
+  - {key: x.export_energy_last_week, label: Ea- for week n-1, table: holding, address: 36906, type: u32, unit: kWh, poll: slow}
+  - {key: x.import_energy_this_week, label: Ea+ for week n, table: holding, address: 36908, type: u32, unit: kWh, poll: slow, verified: false}
+  - {key: x.export_energy_this_week, label: Ea- for week n, table: holding, address: 36910, type: u32, unit: kWh, poll: slow, verified: false}
+  - {key: x.import_energy_last_month, label: Ea+ for month n-1, table: holding, address: 36912, type: u32, unit: kWh, poll: slow}
+  - {key: x.export_energy_last_month, label: Ea- for month n-1, table: holding, address: 36914, type: u32, unit: kWh, poll: slow}
+  - {key: x.import_energy_this_month, label: Ea+ for month n, table: holding, address: 36916, type: u32, unit: kWh, poll: slow, verified: false}
+  - {key: x.export_energy_this_month, label: Ea- for month n, table: holding, address: 36918, type: u32, unit: kWh, poll: slow, verified: false}
+  # Secondary currents (without the CT ratio)
+  - {key: x.secondary_current_l1, label: Current I1 without CT, table: holding, address: 40576, type: u32, unit: A, scale: 0.001}
+  - {key: x.secondary_current_l2, label: Current I2 without CT, table: holding, address: 40578, type: u32, unit: A, scale: 0.001}
+  - {key: x.secondary_current_l3, label: Current I3 without CT, table: holding, address: 40580, type: u32, unit: A, scale: 0.001}
+  # Network settings (0xE000)
+  - {key: x.network_type, label: Network type, table: holding, address: 57344, type: u16, enum: network_type, poll: slow, writable: true, invalid: [65535]}
+  - {key: x.ct_secondary, label: Current transformer secondary, table: holding, address: 57345, type: u16, unit: A, poll: slow, writable: true, invalid: [65535], note: 1 or 5 A.}
+  - {key: x.ct_primary, label: Current transformer primary, table: holding, address: 57346, type: u16, unit: A, poll: slow, writable: true, invalid: [65535]}
+  - {key: x.sync_period, label: Synchronisation top for P+/- and Q+/-, table: holding, address: 57355, type: u16, unit: s, poll: slow, writable: true, invalid: [65535], note: '2, 5, 8, 10, 15, 20, 30 or 60 minutes, given in seconds.'}
+  # Clock (0xE100): written as all six registers at once (function 16)
+  - {key: x.clock, label: Date and time, table: holding, address: 57600, type: datetime, length: 6, datetime: {day: {register: 0}, month: {register: 1}, year: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, poll: slow, writable: true, verified: false, note: Whether the year register holds the full year or only its last two digits isn't stated; the full year is assumed.}
+  - {key: x.socomec_marker, label: Socomec marker ('SOCO'), table: holding, address: 50000, type: str, length: 4, chars: low, verified: false, sources: [openems]}
+  - {key: x.product_name, label: Product name, table: holding, address: 50058, type: str, length: 8, verified: false, sources: [openems]}
+  - {key: frequency, label: Frequency, table: holding, address: 50526, type: u32, unit: Hz, scale: 0.01, verified: false, sources: [mbmd], conflicts: [{sources: [openems], scale: 0.001, models: [e23_e24_e27_e28, e14]}]}
+  - {key: x.current, label: Current, table: holding, address: 50568, type: u32, unit: A, scale: 0.001, verified: false, sources: [mbmd, openems]}
+  - {key: x.voltage, label: Voltage, table: holding, address: 50572, type: u32, unit: V, scale: 0.01, verified: false, sources: [mbmd, openems]}
+  - {key: x.reactive_export, label: Reactive Export, table: holding, address: 50778, type: u32, unit: kvarh, verified: false, sources: [mbmd]}
+  - {key: x.active_production_energy, label: Active Production Energy, table: holding, address: 50946, type: u32, unit: kWh, scale: 0.01, verified: false, sources: [openems]}
+  - {key: x.active_consumption_energy, label: Active Consumption Energy, table: holding, address: 50952, type: u32, unit: kWh, scale: 0.01, verified: false, sources: [openems]}
+
+enums:
+  network_type: {'0': 1BL, '1': 2BL, '2': 3BL, '3': 3NBL, '4': 4BL, '5': 4NBL}
+
+notes:
+- The table is the Socomec common JBUS / Modbus table filtered for the Countis E43 (three-phase meter on 5 A current transformers).
+  Addresses are given in decimal and hex and are used here as protocol addresses (holding registers, function 3).
+- 'Functions: 3 (read up to 125 registers), 6 and 16 (write). Values are high word first. A value not available reads as 0xFFFF
+  / 0xFFFFFFFF (unsigned) or 0x7FFF / 0x7FFFFFFF (signed).'
+- The E43 has no frequency, hour meter, apparent energy, negative reactive energy, pulse inputs or THD in this table (marked
+  not applicable).
+- 'A 16-bit copy of the main values (0xC850, 51280 ff.: voltages and currents, powers in kW / 100, energies in MWh) and the
+  average / maximum statistics (0xC750) are left out.'
+- The serial link settings, default unit id and the identification registers aren't in this table; unit 1 is assumed.
+- 'Write-only actions left out: 0xE200 (0xA1 store configuration, 0xB2 reset), 0xE220–0xE224 (erase min/max, energies, counters),
+  0x9E40 (reset max P / partial energies).'
+- Models e14 come from projects and are listed after a model without a match, so detection never reaches them; their points
+  apply only when a reader selects such a model by hand.
+- Identification as mbmd recognises the device (not checked against a document).
+- Voltages, currents and powers come from the metrology table and include the configured CT/VT ratio; total energies have
+  1 kWh resolution.
+- mbmd (type code SOCOMEC) detects the meter by reading L1 Voltage (holding register 50520, u32, scale 0.01); its bus scan
+  accepts a value within 10% of 110 or 230 V.
+- OpenEMS checks for 'SOCO' at 0xC350 and picks the model by the start of the product name at 0xC38A (8 registers, compared
+  in lower case).
+- The driver's default meter type is PRODUCTION; OpenEMS doesn't say which way the device's own power value is positive, so
+  no direction is given.
+- OpenEMS has an 'Invert' option that negates the power values and swaps the two energy counters; the points here are the
+  reading with it off.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

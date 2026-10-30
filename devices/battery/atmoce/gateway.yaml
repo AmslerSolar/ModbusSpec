@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: atmoce-gateway
+manufacturer: Atmoce
+name: Gateway with MS-7K-U battery
+kind: battery
+
+sources:
+- id: atmoce-battery-ha
+  title: Atmoce_battery_HA (Home Assistant integration)
+  url: https://github.com/pacorola/Atmoce_battery_HA
+  license: MIT
+  commit: b3316685ca540c9b7ac004e53d54d2ea565e0d54
+  path: custom_components/atmoce/const.py, custom_components/atmoce/modbus_client.py
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/atmoce.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - atmoce-battery-ha
+
+points:
+  - {key: serial, label: Serial number, table: holding, address: 60000, type: str, length: 10}
+  - {key: x.hw_version, label: Hardware version, table: holding, address: 60010, type: u16}
+  - {key: firmware, label: Firmware version, table: holding, address: 60011, type: str, length: 15}
+  - {key: x.pv_rated_power, label: Rated PV power (all MIs), table: holding, address: 60027, type: u32, unit: W}
+  - {key: x.battery_rated_power, label: Rated battery power, table: holding, address: 60029, type: u32, unit: W, note: Listed in the project's register map but not read by it., sources: [atmoce-battery-ha, evcc]}
+  - {key: x.battery_rated_energy, label: Rated battery energy, table: holding, address: 60031, type: u32, unit: kWh, scale: 0.001, sources: [atmoce-battery-ha, evcc]}
+  - {key: x.station_status, label: Power station status, table: holding, address: 60066, type: u16, enum: station_status}
+  - {key: state, label: Battery status, table: holding, address: 60067, type: u16, enum: battery_status}
+  - {key: x.battery_mode, label: Operating mode, table: holding, address: 60068, type: u16, enum: battery_mode}
+  - {key: pv_power, label: PV generation power, table: holding, address: 60069, type: u32, unit: W, sources: [atmoce-battery-ha, evcc]}
+  - {key: battery_power, label: Battery charge/discharge power, table: holding, address: 60071, type: s32, unit: W, positive: discharge, note: 'The project''s README gives negative = charging, positive = discharging; its own consumption estimate uses the opposite sign. Check on a device.', sources: [atmoce-battery-ha, evcc]}
+  - {key: grid_power, label: Grid active power, table: holding, address: 60073, type: s32, unit: W, positive: import, note: The project's README gives positive = import; its own consumption estimate treats positive as export in one place and negative as export in another. Check on a device., sources: [atmoce-battery-ha, evcc]}
+  - {key: l1_voltage, label: Grid voltage (single-phase), table: holding, address: 60089, type: u16, unit: V, scale: 0.1, sources: [atmoce-battery-ha, evcc]}
+  - {key: l1_current, label: Grid current (single-phase), table: holding, address: 60090, type: s16, unit: A, scale: 0.01, sources: [atmoce-battery-ha, evcc]}
+  - {key: l2_voltage, label: Grid L2 voltage, table: holding, address: 60091, type: u16, unit: V, scale: 0.1, sources: [evcc]}
+  - {key: l2_current, label: Grid L2 current, table: holding, address: 60092, type: s16, unit: A, scale: 0.01, sources: [evcc]}
+  - {key: l3_voltage, label: Grid L3 voltage, table: holding, address: 60093, type: u16, unit: V, scale: 0.1, sources: [evcc]}
+  - {key: l3_current, label: Grid L3 current, table: holding, address: 60094, type: s16, unit: A, scale: 0.01, sources: [evcc]}
+  - {key: battery_soc, label: Battery SOC, table: holding, address: 60095, type: u16, unit: '%', sources: [atmoce-battery-ha, evcc]}
+  - {key: pv_energy, label: Cumulative PV generation, table: holding, address: 60160, type: u64, unit: kWh, scale: 0.01, sources: [atmoce-battery-ha, evcc]}
+  - {key: pv_energy_today, label: Daily PV generation, table: holding, address: 60164, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.battery_charged_total, label: Cumulative battery charged, table: holding, address: 60166, type: u64, unit: kWh, scale: 0.01, sources: [atmoce-battery-ha, evcc]}
+  - {key: x.battery_charged_daily, label: Daily battery charged, table: holding, address: 60170, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.battery_discharged_total, label: Cumulative battery discharged, table: holding, address: 60172, type: u64, unit: kWh, scale: 0.01, sources: [atmoce-battery-ha, evcc]}
+  - {key: x.battery_discharged_daily, label: Daily battery discharged, table: holding, address: 60176, type: u32, unit: kWh, scale: 0.01}
+  - {key: grid_export_energy, label: Cumulative electricity sold, table: holding, address: 60178, type: u64, unit: kWh, scale: 0.01, sources: [atmoce-battery-ha, evcc]}
+  - {key: x.elec_sales_daily, label: Daily electricity sold, table: holding, address: 60182, type: u32, unit: kWh, scale: 0.01}
+  - {key: grid_import_energy, label: Cumulative grid purchase, table: holding, address: 60184, type: u64, unit: kWh, scale: 0.01, sources: [atmoce-battery-ha, evcc]}
+  - {key: x.grid_energy_daily, label: Daily grid purchase, table: holding, address: 60188, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.battery_max_charge, label: Max charging power limit, table: holding, address: 60200, type: u32, unit: W, scale: 10}
+  - {key: x.battery_max_discharge, label: Max discharging power limit, table: holding, address: 60202, type: u32, unit: W, scale: 10}
+  - {key: x.comm_control_mode, label: Communication control mode, table: holding, address: 60301, type: u16, enum: comm_control_mode, writable: true}
+  - {key: x.active_power_fixed, label: Active power fixed setpoint, table: holding, address: 60302, type: u32, unit: W, writable: true, note: 'Written by the project, never read back.'}
+  - {key: x.active_power_pct, label: 'Active power percentage [0,100]', table: holding, address: 60304, type: u16, unit: '%', scale: 0.1, writable: true, note: 'Written by the project, never read back.'}
+  - {key: x.forced_cmd, label: Forced charge/discharge command, table: holding, address: 60310, type: u16, enum: forced_cmd, writable: true, sources: [atmoce-battery-ha, evcc]}
+  - {key: x.forced_mode, label: Forced charge/discharge mode, table: holding, address: 60311, type: u16, enum: forced_mode, writable: true, sources: [atmoce-battery-ha, evcc]}
+  - {key: x.forced_target_soc, label: Forced charge/discharge target SOC, table: holding, address: 60312, type: u16, unit: '%', writable: true, sources: [atmoce-battery-ha, evcc]}
+  - {key: x.forced_duration, label: 'Forced charge/discharge duration [0,1440]', table: holding, address: 60313, type: u16, unit: min, writable: true}
+  - {key: x.forced_power, label: Forced charge/discharge power, table: holding, address: 60314, type: u32, unit: W, writable: true}
+  - {key: x.battery_dispatch_power, label: Battery dispatch power, table: holding, address: 60316, type: s32, unit: W, writable: true, note: 'Power setpoint: negative = charge, positive = discharge. Followed only in remote control mode (60301 = 1).'}
+  - {key: x.batterymode_60318, label: Battery mode control (write), table: holding, address: 60318, type: u32, writable: true, note: 'Used by evcc only with the template option firmware = >=01.01.00.28.15. evcc writes battery mode normal: 4294967295.', sources: [evcc]}
+  - {key: x.batterymode_60320, label: Battery mode control (write), table: holding, address: 60320, type: u32, writable: true, note: 'Used by evcc only with the template option firmware = >=01.01.00.28.15. evcc writes battery mode normal: 4294967295.', sources: [evcc]}
+  - {key: x.pv_curtailed_limit, label: PV feed-in / production limit (input limit), table: holding, address: 60322, type: u32, writable: true, note: Used by evcc only with the template option firmware = >=01.01.00.28.15. evcc feeds it into a script that computes the PV feed-in / production limit., sources: [evcc]}
+  - {key: x.battery_dimmed_limit, label: Battery dimming (input limit), table: holding, address: 60326, type: u32, writable: true, note: Used by evcc only with the template option firmware = >=01.01.00.28.15. evcc feeds it into a script that computes the battery dimming., sources: [evcc]}
+
+enums:
+  station_status: {'0': Normal, '1': Fault}
+  battery_status: {'1': Chg, '2': Dischg, '99': Idle}
+  battery_mode: {'1': SelfUse, '2': TOU, '10': Remote}
+  comm_control_mode: {'0': Local, '1': Remote}
+  forced_cmd: {'0': ForceCharge, '1': ForceDischarge, '2': Exit}
+  forced_mode: {'0': TargetSOC, '1': Duration, '2': Both}
+
+notes:
+- Modbus TCP server of the Atmoce gateway; it reports the whole station (micro-inverter PV, battery, single-phase grid point).
+- 'Registers from 60300 are control registers: the forced commands and the dispatch setpoint take effect only while 60301
+  (communication control mode) is 1 = remote.'
+- Battery SOC limits and the backup reserve are not available over Modbus.
+- 'evcc template `atmoce` (grid, pv, battery) lists: Atmoce MG100 M-gateway.'
+- The template has the option `firmware` (default <01.01.00.28.15); points used only with another value say so in their note.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

@@ -1,0 +1,52 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Silver Instruments Modbus RTU, RS485 communication for PD flow meter (undated).
+
+modbusspec: 0
+id: silverinstruments-pd
+manufacturer: Silver Instruments
+name: PD flow meter
+kind: io
+
+sources:
+- title: Modbus RTU, RS485 communication for PD flow meter (modbus-setting-for-pd-flow-meter)
+  version: undated (published 2025-11)
+  url: https://pt.silverinstruments.com/uploads/file/20251127/19/modbus-setting-for-pd-flow-meter.pdf
+  sha256: 5990afbb310c188d1130a207b1dd16b18f5e4758d6ca68bf17dc343446a51d71
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.total_volume_high, label: Total volume - high 6 digits, table: holding, address: 1, type: f32, poll: slow, note: Millions of the total volume.}
+  - {key: x.total_volume_low, label: Total volume - low 6 digits, table: holding, address: 3, type: f32, poll: slow}
+  - {key: x.total_volume_decimals, label: Total volume - 6 decimal places, table: holding, address: 5, type: f32, poll: slow, note: The six decimal places as a whole number (999000 = .999).}
+  - {key: x.flow_rate, label: Instantaneous flow rate, table: holding, address: 7, type: f32, verified: false, note: In the flow unit set on the meter; the document doesn't list the units.}
+  - {key: x.batch_total_high, label: Batch total - high 4 digits, table: holding, address: 9, type: f32, poll: slow}
+  - {key: x.batch_total_low, label: Batch total - low 6 digits, table: holding, address: 11, type: f32, poll: slow}
+  - {key: x.batch_total_decimals, label: Batch total - 6 decimal places, table: holding, address: 13, type: f32, poll: slow}
+
+derived:
+  - {key: x.total_volume, label: Total volume, unit: m³, sum: [{key: x.total_volume_high, factor: 1000000}, {key: x.total_volume_low}, {key: x.total_volume_decimals, factor: 1.0e-06}], note: 'The document gives the unit as m³/T (volume or mass, by the meter''s setting); m³ is taken.', verified: false}
+  - {key: x.batch_total, label: Batch total, unit: m³, sum: [{key: x.batch_total_high, factor: 1000000}, {key: x.batch_total_low}, {key: x.batch_total_decimals, factor: 1.0e-06}], note: Unit as for the total volume., verified: false}
+
+notes:
+- Addresses are the document's register addresses, used as protocol addresses as its read example shows (a read starting at
+  0x0001 returns the total volume first). Function 03 only; the protocol is read-only.
+- Each value is an IEEE 754 float, high byte and high word first (from the example).
+- 'The totals are split into three floats so that no digits are lost: total = high × 10⁶ + low + decimals ÷ 10⁶.'
+- RS485, 9600 baud, 8 data bits, no parity (configurable), 1 stop bit. Unit ids 0x00 … 0xFF; the default isn't stated (1 assumed).
+- The document has no identification registers, no serial number and no status or alarm registers.

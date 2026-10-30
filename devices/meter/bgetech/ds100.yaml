@@ -1,0 +1,184 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the B+G e-tech DS100 series description (January 2026), which contains the DEM4A series Modbus RTU
+# protocol.
+
+modbusspec: 0
+id: bgetech-ds100
+manufacturer: B+G E-Tech
+name: DS100 three-phase energy meter
+kind: meter
+
+sources:
+- title: B+G e-tech DS100 Serie, Beschreibung (with the DEM4A series Modbus RTU protocol)
+  version: January 2026
+  url: https://data.xn--stromzhler-v5a.eu/manuals/bg_ds100serie_de.pdf
+  sha256: 2729028542f3fa0a91a4291e24269a7c5df24125edf6d1d41d2cad6f3b808d85
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/bgetech-ds100.yaml
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/ds100.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 100
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 1077
+    type: u16
+    range:
+    - 450
+    - 650
+  - table: holding
+    address: 4111
+    type: u16
+    in:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+
+points:
+  # Instantaneous values
+  - {key: l1_voltage, label: Phase A to N voltage, table: holding, address: 1024, type: u32, unit: V, scale: 0.001, conflicts: [{sources: [evcc], type: s32, label: Grid L1 voltage}]}
+  - {key: l2_voltage, label: Phase B to N voltage, table: holding, address: 1026, type: u32, unit: V, scale: 0.001, conflicts: [{sources: [evcc], type: s32, label: Grid L2 voltage}]}
+  - {key: l3_voltage, label: Phase C to N voltage, table: holding, address: 1028, type: u32, unit: V, scale: 0.001, conflicts: [{sources: [evcc], type: s32, label: Grid L3 voltage}]}
+  - {key: x.l1_l2_voltage, label: Phase A to B voltage, table: holding, address: 1030, type: u32, unit: V, scale: 0.001}
+  - {key: x.l2_l3_voltage, label: Phase B to C voltage, table: holding, address: 1032, type: u32, unit: V, scale: 0.001}
+  - {key: x.l3_l1_voltage, label: Phase C to A voltage, table: holding, address: 1034, type: u32, unit: V, scale: 0.001}
+  - {key: x.average_ln_voltage, label: L-N voltage average, table: holding, address: 1036, type: u32, unit: V, scale: 0.001}
+  - {key: x.average_ll_voltage, label: L-L voltage average, table: holding, address: 1038, type: u32, unit: V, scale: 0.001}
+  - {key: l1_current, label: Current of phase A, table: holding, address: 1040, type: s32, unit: A, scale: 0.001, note: Negative when the phase's active power is reverse.}
+  - {key: l2_current, label: Current of phase B, table: holding, address: 1042, type: s32, unit: A, scale: 0.001}
+  - {key: l3_current, label: Current of phase C, table: holding, address: 1044, type: s32, unit: A, scale: 0.001}
+  - {key: x.neutral_current, label: Current of N, table: holding, address: 1046, type: s32, unit: A, scale: 0.001}
+  - {key: x.current_vector_sum, label: Three-phase vector sum of the currents, table: holding, address: 1048, type: s32, unit: A, scale: 0.001}
+  - {key: l1_power, label: Phase A active power, table: holding, address: 1050, type: s32, unit: W, positive: import}
+  - {key: l2_power, label: Phase B active power, table: holding, address: 1052, type: s32, unit: W, positive: import}
+  - {key: l3_power, label: Phase C active power, table: holding, address: 1054, type: s32, unit: W, positive: import}
+  - {key: grid_power, label: Combined phase active power, table: holding, address: 1056, type: s32, unit: W, positive: import, note: 'The top bit is the sign; negative = reverse. Forward is the import direction (top terminals in, bottom out; the DS100-00B-R has the terminals swapped).'}
+  - {key: x.l1_apparent_power, label: Phase A apparent power, table: holding, address: 1058, type: s32, unit: VA, conflicts: [{sources: [mbmd], type: u32, label: L1 Apparent Power}]}
+  - {key: x.l2_apparent_power, label: Phase B apparent power, table: holding, address: 1060, type: s32, unit: VA, conflicts: [{sources: [mbmd], type: u32, label: L2 Apparent Power}]}
+  - {key: x.l3_apparent_power, label: Phase C apparent power, table: holding, address: 1062, type: s32, unit: VA, conflicts: [{sources: [mbmd], type: u32, label: L3 Apparent Power}]}
+  - {key: apparent_power, label: Combined phase apparent power, table: holding, address: 1064, type: s32, unit: VA, conflicts: [{sources: [mbmd], type: u32, label: Apparent Power}]}
+  - {key: x.l1_reactive_power, label: Phase A reactive power, table: holding, address: 1066, type: s32, unit: var}
+  - {key: x.l2_reactive_power, label: Phase B reactive power, table: holding, address: 1068, type: s32, unit: var}
+  - {key: x.l3_reactive_power, label: Phase C reactive power, table: holding, address: 1070, type: s32, unit: var}
+  - {key: reactive_power, label: Combined phase reactive power, table: holding, address: 1072, type: s32, unit: var}
+  - {key: x.l1_frequency, label: Phase A frequency, table: holding, address: 1074, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.l2_frequency, label: Phase B frequency, table: holding, address: 1075, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.l3_frequency, label: Phase C frequency, table: holding, address: 1076, type: u16, unit: Hz, scale: 0.1}
+  - {key: frequency, label: Combined phase frequency, table: holding, address: 1077, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.l1_power_factor, label: Phase A power factor, table: holding, address: 1078, type: s16, unit: '', scale: 0.001}
+  - {key: x.l2_power_factor, label: Phase B power factor, table: holding, address: 1079, type: s16, unit: '', scale: 0.001}
+  - {key: x.l3_power_factor, label: Phase C power factor, table: holding, address: 1080, type: s16, unit: '', scale: 0.001}
+  - {key: power_factor, label: Combined phase power factor, table: holding, address: 1081, type: s16, unit: '', scale: 0.001}
+
+  # Demand
+  - {key: x.import_power_demand, label: Combined forward active demand, table: holding, address: 1088, type: s32, unit: W, scale: 0.1, poll: slow}
+  - {key: x.export_power_demand, label: Combined reverse active demand, table: holding, address: 1096, type: s32, unit: W, scale: 0.1, poll: slow}
+  - {key: x.max_import_power_demand, label: Combined forward active maximum demand, table: holding, address: 1136, type: s32, unit: W, scale: 0.1, poll: slow}
+  - {key: x.max_export_power_demand, label: Combined reverse active maximum demand, table: holding, address: 1144, type: s32, unit: W, scale: 0.1, poll: slow}
+
+  # Energy counters
+  - {key: grid_import_energy, label: Forward total active energy, table: holding, address: 270, type: u32, unit: kWh, scale: 0.01, poll: slow, conflicts: [{sources: [evcc], type: s32, label: Grid energy}]}
+  - {key: x.import_energy_t1, label: T1 total forward active energy, table: holding, address: 272, type: u32, unit: kWh, scale: 0.01, poll: slow, note: Tariffs only on the DS100-30B.}
+  - {key: x.import_energy_t2, label: T2 total forward active energy, table: holding, address: 274, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.import_energy_t3, label: T3 total forward active energy, table: holding, address: 276, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.import_energy_t4, label: T4 total forward active energy, table: holding, address: 278, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_export_energy, label: Total reverse active energy, table: holding, address: 280, type: u32, unit: kWh, scale: 0.01, poll: slow, conflicts: [{sources: [evcc], type: s32, label: PV energy}]}
+  - {key: x.export_energy_t1, label: T1 total reverse active energy, table: holding, address: 282, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.export_energy_t2, label: T2 total reverse active energy, table: holding, address: 284, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.export_energy_t3, label: T3 total reverse active energy, table: holding, address: 286, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.export_energy_t4, label: T4 total reverse active energy, table: holding, address: 288, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.total_active_energy, label: Active total energy, table: holding, address: 290, type: s32, unit: kWh, scale: 0.01, poll: slow, note: Follows the combination code (holding 0x100F); negative when it is import − export and more was exported., conflicts: [{sources: [mbmd], type: u32, label: Total Sum}]}
+  - {key: x.import_reactive_energy, label: Total forward reactive energy, table: holding, address: 300, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.export_reactive_energy, label: Total reverse reactive energy, table: holding, address: 310, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.total_reactive_energy, label: Total reactive energy, table: holding, address: 320, type: s32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.l1_total_active_energy, label: A phase total active energy, table: holding, address: 1280, type: s32, unit: kWh, scale: 0.01, poll: slow, conflicts: [{sources: [mbmd], type: u32, label: L1 Sum}]}
+  - {key: x.l1_import_energy, label: A phase forward active energy, table: holding, address: 1290, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l1_export_energy, label: A phase reverse active energy, table: holding, address: 1300, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l2_total_active_energy, label: B phase total active energy, table: holding, address: 1380, type: s32, unit: kWh, scale: 0.01, poll: slow, conflicts: [{sources: [mbmd], type: u32, label: L2 Sum}]}
+  - {key: x.l2_import_energy, label: B phase forward active energy, table: holding, address: 1390, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l2_export_energy, label: B phase reverse active energy, table: holding, address: 1400, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l3_total_active_energy, label: C phase total active energy, table: holding, address: 1480, type: s32, unit: kWh, scale: 0.01, poll: slow, conflicts: [{sources: [mbmd], type: u32, label: L3 Sum}]}
+  - {key: x.l3_import_energy, label: C phase forward active energy, table: holding, address: 1490, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l3_export_energy, label: C phase reverse active energy, table: holding, address: 1500, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.resettable_active_energy, label: Active resettable energy, table: holding, address: 1580, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.resettable_import_energy, label: Forward active resettable energy, table: holding, address: 1582, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.resettable_export_energy, label: Reverse active resettable energy, table: holding, address: 1584, type: u32, unit: kWh, scale: 0.01, poll: slow}
+
+  # Version information
+  - {key: firmware, label: Software version number, table: holding, address: 4100, type: u16, poll: slow, note: E.g. 301 = V301.}
+  - {key: x.hardware_version, label: Hardware version number, table: holding, address: 4101, type: u16, poll: slow}
+  - {key: x.firmware_checksum, label: Firmware checksum, table: holding, address: 4102, type: u16, poll: slow, note: 'Shown in hex (the CRC on the data sheet, e.g. 5B61 for the DS100-00B).'}
+
+  # Meter parameters
+  - {key: x.serial_high, label: Serial number (digits 1-4), table: holding, address: 4096, type: bcd16, poll: slow}
+  - {key: x.serial_low, label: Serial number (digits 5-12), table: holding, address: 4097, type: bcd32, poll: slow}
+  - {key: x.modbus_id, label: Modbus ID, table: holding, address: 4099, type: u16, writable: true, poll: slow, min: 1, max: 247}
+  - {key: x.clock, label: Time, table: holding, address: 4103, type: datetime, length: 4, datetime: {year: {register: 0, bits: [0, 7], bcd: true, offset: 2000}, month: {register: 1, bits: [8, 15], bcd: true}, day: {register: 1, bits: [0, 7], bcd: true}, hour: {register: 2, bits: [0, 7], bcd: true}, minute: {register: 3, bits: [8, 15], bcd: true}, second: {register: 3, bits: [0, 7], bcd: true}}, optional: true, writable: true, poll: slow, note: 'Only on the tariff model (DS100-30B). BCD bytes 00, year, month, day, weekday, hour, minute, second; write all four registers at once (function 16).'}
+  - {key: x.scroll_time, label: Scrolling time, table: holding, address: 4107, type: u16, unit: s, writable: true, poll: slow, min: 0, max: 99, note: 0 = the display doesn't scroll.}
+  - {key: x.baud_rate, label: RS485 baud rate, table: holding, address: 4108, type: u16, enum: baud_rate, writable: true, poll: slow, note: An index into the table.}
+  - {key: x.parity, label: Parity, table: holding, address: 4109, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: x.stop_bits, label: RS485 stop bits, table: holding, address: 4110, type: u16, writable: true, poll: slow, min: 1, max: 2}
+  - {key: x.combination_code, label: Combined code, table: holding, address: 4111, type: u16, enum: combination_code, writable: true, poll: slow, note: Sets what the total active and reactive energy count.}
+  - {key: x.demand_mode, label: Demand mode, table: holding, address: 4112, type: u16, enum: demand_mode, writable: true, poll: slow}
+  - {key: x.demand_period, label: Demand period, table: holding, address: 4113, type: u16, unit: min, writable: true, poll: slow, min: 1, max: 30, note: Default 15.}
+  - {key: x.s0_constant, label: S0 output, table: holding, address: 4119, type: u16, unit: imp/kWh, writable: true, poll: slow, min: 100, max: 2500, note: 10000 must be divisible by it.}
+  - {key: x.input_state, label: Terminal signal input status, table: holding, address: 4125, type: u16, optional: true, poll: slow, note: 0 or 1. Only on the DEM4A30B and DEM4A20B variants.}
+  - {key: x.clear_energy, label: Clear electricity, table: holding, address: 8193, type: u16, writable: true, write_only: true, note: 'One bit per resettable counter (1 = clear): bit 12 the resettable total active energy, bit 13 the resettable total reactive energy; bits 0 … 11 the per-phase resettable counters.'}
+  - {key: x.clear_demand, label: Clear demand, table: holding, address: 8194, type: u16, writable: true, write_only: true, note: 'The document says 0xFF5A clears all demand values, but its example writes 0xFFA5.'}
+  - {key: x.total_export_4490, label: Total Export, table: holding, address: 4490, type: u32, unit: kWh, scale: 0.01, verified: false, sources: [mbmd]}
+
+derived:
+  - {key: serial, label: Serial number, sum: [{key: x.serial_high, factor: 100000000}, {key: x.serial_low}], note: '12 BCD digits in three registers, most significant first (e.g. 20 24 05 27 00 01 = 202405270001).'}
+
+enums:
+  baud_rate: {'6': '9600', '7': '19200', '8': '38400', '9': '115200'}
+  parity: {'0': None, '1': Odd, '2': Even}
+  combination_code: {'1': Total = import, '2': Total = export, '3': Total = import + export, '4': Total = import − export, '5': 'Balanced (net) total, factory-set only'}
+  demand_mode: {'0': Interval, '1': Sliding}
+
+notes:
+- 'Models: DS100-009 (S0 only, no Modbus), DS100-00B, DS100-00B-R (terminals swapped: import measured bottom to top) and DS100-30B
+  (tariffs and real-time clock). The protocol part calls the series DEM4A; the maker of the hardware isn''t named.'
+- 'Addresses: the document gives hex Modbus register addresses; they are used as they are (0-based). Function 03 and 04 both
+  read them; settings are written with function 06 or 16.'
+- The top bit of current, power and power factor is the sign (two's complement, e.g. 0xFFFFEC78 = −5000 mA); negative = reverse
+  (export). The current's sign follows the active power.
+- At most 100 registers per read.
+- 'Defaults: Modbus ID 1, 9600 baud, no parity, 1 stop bit; demand period 15 min.'
+- 'Left out: the per-phase and per-tariff demand values (0x043A … 0x0498 except the combined active ones), the tariff, quadrant
+  and per-phase reactive energy counters (0x0124 … 0x0170 and 0x0502 … 0x065A except those above), the display password and
+  list (0x1016, 0x1020), the running-time and timing-current registers (0x1018, 0x101A) and the tariff tables (0x8100 ff.).'
+- 'evcc template `bgetech-ds100` (grid, pv, charge) lists: B+GE-TECH DS100.'
+- mbmd (type code DS100) detects the meter by reading Voltage (holding register 1036, u32, scale 0.001); its bus scan accepts
+  a value within 10% of 110 or 230 V.
+- Identification as mbmd recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,112 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Tolomatic Modbus RTU & TCP Programmer's Guide for the ACSI servo motor/drive/controller and the
+# ACS servo and stepper drives (3600-4169_16, 2022).
+
+modbusspec: 0
+id: tolomatic-acs
+manufacturer: Tolomatic
+name: ACS servo / stepper drives and ACSI integrated servo (discontinued)
+kind: other
+
+sources:
+- title: 'Modbus RTU & TCP Programmer''s Guide: ACSI Servo Motor/Drive/Controller, ACS Servo & Stepper Drives (3600-4169_16)'
+  version: '2022-10-05'
+  url: http://mail.tolomatic.com/archives/PDFs/3600-4169_16_Modbus_OBS.pdf
+  sha256: 1111e347435444245a183b0cb5476c47f4f4be65f4e19beb07544320a1e3dd59
+  archive_url: https://web.archive.org/web/20240517220543/http://mail.tolomatic.com/archives/PDFs/3600-4169_16_Modbus_OBS.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  limits:
+    min_interval_ms: 10
+
+encoding:
+  byte_order: big
+  word_order: little
+
+defaults:
+  verified: false
+
+model_choice: user
+
+models:
+  - {id: acs, name: 'ACS Stepper ST1048 / ACS Servo SV2048 (3604-9661, -9663, -9665, -9667)'}
+  - {id: acsi, name: 'ACSI 23-1Q1-M / 34-1Q1-M (3604-9740, -9770), Modbus TCP only'}
+
+points:
+  # Input registers (function 04)
+  - {key: x.position, label: Current position, table: input, address: 4000, type: f32, unit: mm}
+  - {key: state, label: Drive status, table: input, address: 4002, type: u32, flags: drive_status, note: 'Bits 4–19, 21–25 and 27–30 are for internal use.'}
+  - {key: error_code, label: Drive faults, table: input, address: 4004, type: u32, flags: drive_faults, note: 0 = no fault.}
+  - {key: x.digital_inputs, label: Digital inputs, table: input, address: 4007, type: u16, models: [acs], note: 8 inputs used.}
+  - {key: x.digital_outputs, label: Digital outputs, table: input, address: 4009, type: u16, models: [acs], note: 4 outputs used.}
+  - {key: x.digital_inputs_acsi, label: Digital inputs, table: input, address: 4006, type: u32, models: [acsi], note: 4 inputs used.}
+  - {key: x.digital_outputs_acsi, label: Digital outputs, table: input, address: 4008, type: u32, models: [acsi], note: 2 outputs used.}
+  - {key: x.remappable_1, label: Remappable register 1 (default analog input), table: input, address: 4010, type: f32, note: 'Configured in the drive''s setup software (e.g. actual position, velocity, current, bus voltage, drive board temperature); from ACS stepper firmware 1.8, ACS servo 1.20, ACSI 1.7.'}
+  - {key: x.remappable_2, label: Remappable register 2 (default analog output), table: input, address: 4012, type: f32, note: Configurable like remappable register 1.}
+
+  # Holding registers (function 03 / 06 / 16)
+  - {key: x.command, label: Commands, table: holding, address: 14000, type: u16, enum: command_acs, writable: true, models: [acs]}
+  - {key: x.move_select, label: Move select (0–16), table: holding, address: 14001, type: u16, writable: true, min: 0, max: 16, models: [acs]}
+  - {key: x.target_position, label: Target 0 position, table: holding, address: 14002, type: f32, unit: mm, writable: true, poll: slow, models: [acs]}
+  - {key: x.target_velocity, label: Target 0 velocity, table: holding, address: 14004, type: f32, unit: mm/s, writable: true, poll: slow, models: [acs]}
+  - {key: x.target_acceleration, label: Target 0 acceleration, table: holding, address: 14006, type: f32, unit: mm/s², writable: true, poll: slow, models: [acs]}
+  - {key: x.target_deceleration, label: Target 0 deceleration, table: holding, address: 14008, type: f32, unit: mm/s², writable: true, poll: slow, models: [acs]}
+  - {key: x.target_force, label: Target 0 force, table: holding, address: 14010, type: f32, unit: '%', writable: true, poll: slow, models: [acs], note: Percent of maximum.}
+  - {key: x.motion_type, label: Target 0 motion type, table: holding, address: 14013, type: u16, enum: motion_type, writable: true, poll: slow, models: [acs]}
+  - {key: x.output_control, label: Digital output control, table: holding, address: 14015, type: u16, writable: true, models: [acs], note: 'One bit per digital output (and a brake output on servo drives), each usable only when the output isn''t assigned in the setup software; the bit layout in the document is unclear.'}
+  - {key: x.command_acsi, label: Command, table: holding, address: 4000, type: u16, bits: [0, 7], enum: command_acsi, writable: true, models: [acsi]}
+  - {key: x.move_select_acsi, label: Move select (0–16), table: holding, address: 4000, type: u16, bits: [8, 15], writable: true, min: 0, max: 16, models: [acsi]}
+  - {key: x.target_position_acsi, label: Target position (move select 0), table: holding, address: 4002, type: f32, unit: mm, writable: true, poll: slow, models: [acsi]}
+  - {key: x.target_velocity_acsi, label: Target velocity (move select 0), table: holding, address: 4004, type: f32, unit: mm/s, writable: true, poll: slow, models: [acsi]}
+  - {key: x.target_acceleration_acsi, label: Target acceleration (move select 0), table: holding, address: 4006, type: f32, unit: mm/s², writable: true, poll: slow, models: [acsi]}
+  - {key: x.target_deceleration_acsi, label: Target deceleration (move select 0), table: holding, address: 4008, type: f32, unit: mm/s², writable: true, poll: slow, models: [acsi]}
+  - {key: x.target_force_acsi, label: Target force (move select 0), table: holding, address: 4010, type: f32, unit: '%', writable: true, poll: slow, models: [acsi], note: Percent of maximum.}
+  - {key: x.motion_type_acsi, label: Target motion type (move select 0), table: holding, address: 4012, type: u32, enum: motion_type, writable: true, poll: slow, models: [acsi]}
+  - {key: x.digital_output_acsi, label: Digital output, table: holding, address: 4014, type: u32, writable: true, models: [acsi], note: 2 bits used.}
+
+enums:
+  command_acs: {'0': Disable drive, '1': Enable drive, '3': Start motion, '5': Home, '8': E-stop, '17': Stop}
+  command_acsi: {'0': Disable / clear, '1': Enable / clear, '3': Start motion, '5': Home, '8': Software stop (E-stop), '9': Software stop (E-stop), '17': Stop motion (profile deceleration), '21': Home here}
+  motion_type: {'0': Absolute, '1': Incremental positive, '2': Incremental negative, '5': Home, '6': No action, '9': Force, '11': Incremental positive (rotary), '12': Incremental negative (rotary), '13': Velocity forward (rotary), '14': Velocity reverse (rotary), '16': Stop move}
+
+flags:
+  drive_status: {'0': Drive enabled, '1': Drive homed, '2': In motion, '3': Software stop, '20': Brake not active, '26': In commanded position, '31': Host control (CTRON)}
+  drive_faults: {'0': Positive limit (safety), '1': Negative limit (safety), '2': Software stop (safety), '3': Position error (safety), '4': Feedback error (critical), '5': Overcurrent (critical), '6': Motor over temperature (critical), '7': Drive over temperature (critical), '8': Drive over voltage (critical), '9': Drive under voltage (critical), '10': Flash error (critical), '11': I2T limit (safety), '12': Short circuit (critical), '13': Watchdog reset (critical), '14': Velocity error (safety)}
+
+problems:
+  - {when: {key: error_code, bit: 0}, kind: warning, text: Positive limit (bit 0)}
+  - {when: {key: error_code, bit: 1}, kind: warning, text: Negative limit (bit 1)}
+  - {when: {key: error_code, bit: 2}, kind: warning, text: Software stop (bit 2)}
+  - {when: {key: error_code, bit: 3}, kind: fault, text: Position error (bit 3)}
+  - {when: {key: error_code, bit: 4}, kind: fault, text: Feedback error (bit 4)}
+  - {when: {key: error_code, bit: 5}, kind: fault, text: Overcurrent (bit 5)}
+  - {when: {key: error_code, bit: 6}, kind: fault, text: Motor over temperature (bit 6)}
+  - {when: {key: error_code, bit: 7}, kind: fault, text: Drive over temperature (bit 7)}
+  - {when: {key: error_code, bit: 8}, kind: fault, text: Drive over voltage (bit 8)}
+  - {when: {key: error_code, bit: 9}, kind: fault, text: Drive under voltage (bit 9)}
+  - {when: {key: error_code, bit: 10}, kind: fault, text: Flash error (bit 10)}
+  - {when: {key: error_code, bit: 11}, kind: fault, text: I2T limit (bit 11)}
+  - {when: {key: error_code, bit: 12}, kind: fault, text: Short circuit (bit 12)}
+  - {when: {key: error_code, bit: 13}, kind: fault, text: Watchdog reset (bit 13)}
+  - {when: {key: error_code, bit: 14}, kind: fault, text: Velocity error (bit 14)}
+
+notes:
+- The document gives 6-digit references (404001, 414001, 304001) next to register numbers (4001, 14001); these are taken as
+  1-based, so 414001 is holding address 14000 and 304001 input address 4000. The document doesn't say so explicitly, so every
+  point is unverified.
+- 32-bit integers and floats are word-swapped (low word first), as the document states.
+- 'The ACS and ACSI register maps differ (the ACSI packs command and move select into one register and uses 32-bit digital
+  I/O), and they can''t be told apart over Modbus: the user picks the model.'
+- 'Left out: the ACS coils for digital inputs (100–107) and outputs (1100–1103), whose numbering base the document doesn''t
+  give; the ACSI doesn''t support coils.'
+- The products are discontinued. ACS drives with part numbers 3604-9661 and -9665 speak Modbus RTU (serial settings are set
+  in the setup software, not given in the document); the others Modbus TCP. Polls faster than every 10 ms can cause connection
+  problems.
+- Fault classes (safety / critical) are from the document; which counts as a fault or a warning here is assumed.

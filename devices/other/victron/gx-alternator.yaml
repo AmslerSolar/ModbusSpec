@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Victron's GX Modbus-TCP register list dbus_modbustcp 744e228 (revision 55) and dbus_modbustcp's attributes.csv.
+
+modbusspec: 0
+id: victron-gx-alternator
+manufacturer: Victron Energy
+name: 'GX Modbus-TCP: alternator (com.victronenergy.alternator)'
+kind: other
+
+sources:
+- title: Victron GX Modbus-TCP register list (CCGX-Modbus-TCP-register-list)
+  version: dbus_modbustcp 744e228 (revision 55)
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/CCGX-Modbus-TCP-register-list.xlsx
+- title: dbus_modbustcp attributes.csv (Victron's register table in the Modbus-TCP service source)
+  version: commit 744e228
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/attributes.csv
+- id: hass-victron
+  title: hass-victron (Home Assistant integration)
+  url: https://github.com/sfstar/hass-victron
+  license: Apache-2.0
+  commit: 3d3ec1e6cb7768d3c6d49ed23e9b52814477c205
+  path: custom_components/victron/const.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.dc_0_voltage, label: Battery voltage, table: holding, address: 4100, type: u16, unit: V, scale: 0.01}
+  - {key: x.dc_0_current, label: Battery current, table: holding, address: 4101, type: s16, unit: A, scale: 0.1}
+  - {key: x.dc_1_voltage, label: Auxiliary voltage, table: holding, address: 4102, type: u16, unit: V, scale: 0.01, verified: false, note: attributes.csv gives int16 with scale factor 10 (0.1 V); the list (which fixed only the DC source's register in revision 54) gives uint16 / 100.}
+  - {key: x.dc_0_temperature, label: Temperature, table: holding, address: 4103, type: s16, unit: °C, scale: 0.1}
+  - {key: x.history_energy_out, label: Total energy produced, table: holding, address: 4104, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.alarms_low_voltage, label: Low voltage alarm, table: holding, address: 4106, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_high_voltage, label: High voltage alarm, table: holding, address: 4107, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_low_starter_voltage, label: Low auxiliary voltage alarm, table: holding, address: 4108, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_high_starter_voltage, label: High auxiliary voltage alarm, table: holding, address: 4109, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_low_temperature, label: Low temperature alarm, table: holding, address: 4110, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_high_temperature, label: High temperature alarm, table: holding, address: 4111, type: u16, enum: alarms_low_voltage}
+  - {key: state, label: Alternator state, table: holding, address: 4112, type: u16, enum: state}
+  - {key: error_code, label: Alternator error code, table: holding, address: 4113, type: u16, enum: error_code}
+  - {key: x.engine_speed, label: Engine speed, table: holding, address: 4114, type: u16, unit: rpm}
+  - {key: x.speed, label: Alternator speed, table: holding, address: 4115, type: u16, unit: rpm}
+  - {key: x.field_drive, label: Percentage field drive, table: holding, address: 4116, type: u16, unit: '%'}
+  - {key: x.dc_in_v, label: Input voltage (before DC/DC converter), table: holding, address: 4117, type: u16, unit: V, scale: 0.01}
+  - {key: x.dc_in_p, label: Input power, table: holding, address: 4118, type: u16, unit: W}
+  - {key: x.mode, label: Mode, table: holding, address: 4119, type: u16, enum: mode}
+  - {key: x.history_cumulative_user_charged_ah, label: Cumulative amp-hours charged, table: holding, address: 4120, type: u32, unit: Ah, scale: 0.1}
+  - {key: x.custom_name, label: Custom Name, table: holding, address: 4130, type: str, length: 8, writable: true, poll: slow, verified: false, note: The list gives 4220 (the DC source's custom name); attributes.csv and the alternator's reserved range end (4129) give 4130.}
+
+enums:
+  alarms_low_voltage: {'0': Ok, '1': Warning, '2': Alarm}
+  state: {'0': 'Off', '2': Fault, '3': Bulk, '4': Absorption, '5': Float, '6': Storage, '7': Equalize, '11': Power Supply, '252': External control}
+  error_code: {'0': No Error, '12': High battery temperature, '13': High battery voltage, '14': Low battery voltage, '15': VBat exceeds $CPB, '21': High alternator temperature, '22': Alternator overspeed, '24': Internal error, '41': High field FET temperature, '42': Sensor missing, '43': Low VAlt, '44': High Voltage offset, '45': VAlt exceeds $CPB;51-52=Battery disconnect request, '53': Battery instance out of range, '54': Too many BMSes, '55': AEBus fault, '56': Too many Victron devices;58-61=Battery requested disconnection, '91': BMS lost, '92': Forced idle, '201': DCDC converter fail;201-207=DCDC error}
+  mode: {'1': 'On', '4': 'Off'}
+
+problems:
+  - {when: {key: x.alarms_low_voltage, equals: 2}, kind: warning, text: Low voltage alarm}
+  - {when: {key: x.alarms_low_voltage, equals: 1}, kind: warning, text: Low voltage alarm (warning)}
+  - {when: {key: x.alarms_high_voltage, equals: 2}, kind: warning, text: High voltage alarm}
+  - {when: {key: x.alarms_high_voltage, equals: 1}, kind: warning, text: High voltage alarm (warning)}
+  - {when: {key: x.alarms_low_starter_voltage, equals: 2}, kind: warning, text: Low auxiliary voltage alarm}
+  - {when: {key: x.alarms_low_starter_voltage, equals: 1}, kind: warning, text: Low auxiliary voltage alarm (warning)}
+  - {when: {key: x.alarms_high_starter_voltage, equals: 2}, kind: warning, text: High auxiliary voltage alarm}
+  - {when: {key: x.alarms_high_starter_voltage, equals: 1}, kind: warning, text: High auxiliary voltage alarm (warning)}
+  - {when: {key: x.alarms_low_temperature, equals: 2}, kind: warning, text: Low temperature alarm}
+  - {when: {key: x.alarms_low_temperature, equals: 1}, kind: warning, text: Low temperature alarm (warning)}
+  - {when: {key: x.alarms_high_temperature, equals: 2}, kind: warning, text: High temperature alarm}
+  - {when: {key: x.alarms_high_temperature, equals: 1}, kind: warning, text: High temperature alarm (warning)}
+  - {when: {key: state, equals: 2}, kind: fault, text: Alternator fault (state 2)}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Alternator error {value}'}
+
+notes:
+- 'No fixed unit id: the GX assigns them (since Venus OS 2.60), normally the device instance; see Settings → Integrations
+  → Modbus TCP server → Available services. 1 is only a placeholder.'
+- Addresses are the list's numbers, which are the protocol addresses (no 30001/40001 offset); read them as holding registers
+  (function 03). Strings carry two characters per register, first character in the high byte.
+- Registers the device or firmware doesn't have make the GX answer the whole request with an exception; read them in separate
+  requests or skip them.
+- Taken from the register list dbus_modbustcp 744e228 (revision 55); attributes.csv (Victron's dbus_modbustcp source) filled
+  in what the list leaves out.
+- The unit id is the GX device instance of this service; hass-victron finds it by scanning a fixed list of unit ids.

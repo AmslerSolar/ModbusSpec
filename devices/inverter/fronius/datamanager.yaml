@@ -1,0 +1,199 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Fronius Inverter Register Map Float v1.0 with SYMOHYBRID MODEL 124 (Fronius Datamanager register
+# map workbook; copy kept in a public repository, commit c044448d).
+
+modbusspec: 0
+id: fronius-datamanager
+manufacturer: Fronius
+name: Inverters behind a Fronius Datamanager, incl. Symo Hybrid (SunSpec float)
+kind: inverter
+
+sources:
+- title: Inverter Register Map Float v1.0 with SYMOHYBRID MODEL 124 (Fronius Datamanager Register Map)
+  version: v1.0 (copy at commit c044448d6346209e4aa8dae7f4bde08a676ad0ed)
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.fronius/doc/Inverter_Register_Map_Float_v1.0_with_SYMOHYBRID_MODEL_124.xlsx
+  sha256: 55e4d64b0935a9e0dc74dd73899f284f3dd960cf19250bcbb36e77a04893cca6
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40052
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+  - table: holding
+    address: 40002
+    type: u16
+    equals: 1
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: Fronius
+  # float inverter model
+  - table: holding
+    address: 40069
+    type: u16
+    in:
+    - 111
+    - 112
+    - 113
+
+sunspec: true
+
+points:
+  # Common model (1)
+  - {key: x.manufacturer, label: Mn (manufacturer), table: holding, address: 40004, type: str, length: 16, poll: slow}
+  - {key: x.model, label: Md (device model), table: holding, address: 40020, type: str, length: 16, poll: slow}
+  - {key: x.datamanager_firmware, label: Opt (firmware version of the Datamanager), table: holding, address: 40036, type: str, length: 8, poll: slow}
+  - {key: firmware, label: Vr (software version of the inverter), table: holding, address: 40044, type: str, length: 8, poll: slow}
+  - {key: serial, label: SN (serial number of the inverter), table: holding, address: 40052, type: str, length: 16, poll: slow, note: 'Where the inverter''s serial is not available (always on Symo Hybrid), this holds the inverter controller''s (PMC) serial or its unique ID instead, which may differ from the nameplate; it can switch from one to the other while running (e.g. after boot).'}
+  - {key: x.device_address, label: DA (Modbus device address), table: holding, address: 40068, type: u16, poll: slow}
+
+  # Inverter model 111 / 112 / 113 (float)
+  - {key: x.inverter_model, label: 'ID (111 single phase, 112 split phase, 113 three phase)', table: holding, address: 40069, type: u16, enum: inverter_model, poll: slow}
+  - {key: x.ac_current, label: A (AC total current), table: holding, address: 40071, type: f32, unit: A}
+  - {key: l1_current, label: AphA, table: holding, address: 40073, type: f32, unit: A}
+  - {key: l2_current, label: AphB, table: holding, address: 40075, type: f32, unit: A}
+  - {key: l3_current, label: AphC, table: holding, address: 40077, type: f32, unit: A}
+  - {key: x.l1_l2_voltage, label: PPVphAB, table: holding, address: 40079, type: f32, unit: V}
+  - {key: x.l2_l3_voltage, label: PPVphBC, table: holding, address: 40081, type: f32, unit: V}
+  - {key: x.l3_l1_voltage, label: PPVphCA, table: holding, address: 40083, type: f32, unit: V}
+  - {key: l1_voltage, label: PhVphA, table: holding, address: 40085, type: f32, unit: V}
+  - {key: l2_voltage, label: PhVphB, table: holding, address: 40087, type: f32, unit: V}
+  - {key: l3_voltage, label: PhVphC, table: holding, address: 40089, type: f32, unit: V}
+  - {key: x.ac_power, label: W (AC power), table: holding, address: 40091, type: f32, unit: W, positive: generation, verified: false, note: The document gives no sign; + = AC output assumed.}
+  - {key: frequency, label: Hz (AC frequency), table: holding, address: 40093, type: f32, unit: Hz}
+  - {key: apparent_power, label: VA (apparent power), table: holding, address: 40095, type: f32, unit: VA}
+  - {key: reactive_power, label: VAr (reactive power), table: holding, address: 40097, type: f32, unit: var}
+  - {key: x.power_factor_pct, label: PF (power factor), table: holding, address: 40099, type: f32, unit: '%'}
+  - {key: pv_energy, label: WH (AC lifetime energy production), table: holding, address: 40101, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The inverter's AC lifetime energy in Wh; Fronius says it may be imprecise.}
+  - {key: x.dc_current, label: DCA (DC current), table: holding, address: 40103, type: f32, unit: A, note: Not supported with several DC inputs; see the MPPT model.}
+  - {key: x.dc_voltage, label: DCV (DC voltage), table: holding, address: 40105, type: f32, unit: V, note: Not supported with several DC inputs; see the MPPT model.}
+  - {key: x.dc_power, label: 'DCW (DC power, all DC inputs)', table: holding, address: 40107, type: f32, unit: W}
+  - {key: x.operating_state, label: St (operating state), table: holding, address: 40117, type: u16, note: SunSpec operating state; the document gives no value table.}
+  - {key: x.vendor_state, label: StVnd (vendor operating state), table: holding, address: 40118, type: u16, note: The document gives no value table.}
+  - {key: x.events_1, label: Evt1 (event flags bits 0-31), table: holding, address: 40119, type: u32}
+  - {key: x.events_2, label: Evt2 (event flags bits 32-63), table: holding, address: 40121, type: u32}
+  - {key: x.vendor_events_1, label: EvtVnd1 (vendor event flags bits 0-31), table: holding, address: 40123, type: u32}
+  - {key: x.vendor_events_2, label: EvtVnd2 (vendor event flags bits 32-63), table: holding, address: 40125, type: u32}
+  - {key: x.vendor_events_3, label: EvtVnd3 (vendor event flags bits 64-95), table: holding, address: 40127, type: u32}
+  - {key: x.vendor_events_4, label: EvtVnd4 (vendor event flags bits 96-127), table: holding, address: 40129, type: u32}
+
+  # Nameplate model (120)
+  - {key: x.der_type, label: DERTyp (4 = PV), table: holding, address: 40133, type: u16, poll: slow}
+  - {key: x.rated_power, label: WRtg (continuous power output), table: holding, address: 40134, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40135, type: s16}, poll: slow}
+  - {key: x.rated_apparent_power, label: VARtg, table: holding, address: 40136, type: u16, unit: VA, scale_exponent_from: {table: holding, address: 40137, type: s16}, poll: slow}
+  - {key: x.rated_storage_energy, label: WHRtg (nominal storage energy), table: holding, address: 40150, type: u16, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40151, type: s16}, poll: slow}
+  - {key: x.max_charge_rate, label: MaxChaRte, table: holding, address: 40154, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40155, type: s16}, poll: slow}
+  - {key: x.max_discharge_rate, label: MaxDisChaRte, table: holding, address: 40156, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40157, type: s16}, poll: slow}
+
+  # Basic settings model (121)
+  - {key: x.max_power_setting, label: WMax (maximum power output), table: holding, address: 40161, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40181, type: s16}, writable: true, poll: slow}
+
+  # Extended measurements model (122)
+  - {key: x.pv_connection, label: PVConn, table: holding, address: 40193, type: u16, flags: conn_bits}
+  - {key: x.storage_connection, label: StorConn, table: holding, address: 40194, type: u16, flags: conn_bits}
+  - {key: x.ecp_connection, label: ECPConn (grid connection), table: holding, address: 40195, type: u16, enum: ecp_conn}
+  - {key: x.ac_energy_wh, label: ActWh (AC lifetime active energy output), table: holding, address: 40196, type: u64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.active_controls, label: StActCtl (active inverter controls), table: holding, address: 40226, type: u32, flags: active_controls}
+  - {key: x.clock, label: Tms (seconds since 2000-01-01 UTC), table: holding, address: 40232, type: u32, epoch: {start: '2000-01-01', unit: s}, poll: slow}
+
+  # Immediate controls model (123)
+  - {key: x.connection_control, label: Conn (connection control), table: holding, address: 40241, type: u16, enum: ecp_conn, writable: true}
+  - {key: x.power_limit_pct, label: WMaxLimPct (power output limit), table: holding, address: 40242, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 40260, type: s16}, writable: true, note: Percent of WMax.}
+  - {key: x.power_limit_window, label: WMaxLimPct_WinTms, table: holding, address: 40243, type: u16, unit: s, writable: true, min: 0, max: 300, poll: slow}
+  - {key: x.power_limit_revert, label: WMaxLimPct_RvrtTms, table: holding, address: 40244, type: u16, unit: s, writable: true, min: 0, max: 28800, poll: slow}
+  - {key: x.power_limit_ramp, label: WMaxLimPct_RmpTms, table: holding, address: 40245, type: u16, unit: s, writable: true, poll: slow}
+  - {key: x.power_limit_enable, label: WMaxLim_Ena, table: holding, address: 40246, type: u16, enum: disabled_enabled, writable: true}
+  - {key: x.pf_setpoint, label: OutPFSet (fixed power factor), table: holding, address: 40247, type: s16, scale_exponent_from: {table: holding, address: 40261, type: s16}, writable: true, poll: slow}
+  - {key: x.pf_enable, label: OutPFSet_Ena, table: holding, address: 40251, type: u16, enum: disabled_enabled, writable: true, poll: slow}
+  - {key: x.var_pct, label: 'VArMaxPct (reactive power, percent of VArMax)', table: holding, address: 40253, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40262, type: s16}, writable: true, poll: slow}
+  - {key: x.var_enable, label: VArPct_Ena, table: holding, address: 40259, type: u16, enum: disabled_enabled, writable: true, poll: slow}
+
+  # Multiple MPPT model (160)
+  - {key: x.mppt_events, label: Evt (global events), table: holding, address: 40269, type: u32}
+  - {key: x.dc_inputs, label: N (number of modules), table: holding, address: 40271, type: u16, poll: slow}
+  - {key: x.dc1_name, label: 1_IDStr, table: holding, address: 40274, type: str, length: 8, poll: slow}
+  - {key: x.dc1_current, label: 1_DCA, table: holding, address: 40282, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40265, type: s16}}
+  - {key: x.dc1_voltage, label: 1_DCV, table: holding, address: 40283, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40266, type: s16}}
+  - {key: x.dc1_power, label: 1_DCW, table: holding, address: 40284, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40267, type: s16}}
+  - {key: x.dc1_energy, label: 1_DCWH, table: holding, address: 40285, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40268, type: s16}, poll: slow, note: Not supported on Symo Hybrid.}
+  - {key: x.dc1_temperature, label: 1_Tmp, table: holding, address: 40289, type: s16, unit: °C}
+  - {key: x.dc1_state, label: 1_DCSt, table: holding, address: 40290, type: u16, note: The document gives no value table.}
+  - {key: x.dc1_events, label: 1_DCEvt, table: holding, address: 40291, type: u32}
+  - {key: x.dc2_name, label: 2_IDStr, table: holding, address: 40294, type: str, length: 8, poll: slow, note: '"String 2", or "Not supported" with one DC input.'}
+  - {key: x.dc2_current, label: 2_DCA, table: holding, address: 40302, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40265, type: s16}, optional: true}
+  - {key: x.dc2_voltage, label: 2_DCV, table: holding, address: 40303, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40266, type: s16}, optional: true}
+  - {key: x.dc2_power, label: 2_DCW, table: holding, address: 40304, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40267, type: s16}, optional: true}
+  - {key: x.dc2_energy, label: 2_DCWH, table: holding, address: 40305, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40268, type: s16}, poll: slow, optional: true, note: Not supported on Symo Hybrid.}
+  - {key: x.dc2_temperature, label: 2_Tmp, table: holding, address: 40309, type: s16, unit: °C, optional: true}
+  - {key: x.dc2_state, label: 2_DCSt, table: holding, address: 40310, type: u16, optional: true}
+  - {key: x.dc2_events, label: 2_DCEvt, table: holding, address: 40311, type: u32, optional: true}
+
+  # Basic storage controls model (124), Symo Hybrid with battery only
+  - {key: x.max_charge_power, label: WChaMax (reference for charge and discharge limits), table: holding, address: 40315, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40331, type: s16}, poll: slow, optional: true}
+  - {key: x.storage_control_mode, label: StorCtl_Mod, table: holding, address: 40318, type: u16, flags: storctl_mod, writable: true, optional: true}
+  - {key: x.minimum_reserve, label: MinRsvPct (minimum reserve), table: holding, address: 40320, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 40334, type: s16}, writable: true, poll: slow, optional: true}
+  - {key: battery_soc, label: 'ChaState (available energy, percent of capacity)', table: holding, address: 40321, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 40335, type: s16}, optional: true}
+  - {key: x.charge_state, label: ChaSt (charge status), table: holding, address: 40324, type: u16, enum: charge_state, optional: true}
+  - {key: x.discharge_rate_limit, label: OutWRte (maximum discharge rate), table: holding, address: 40325, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40338, type: s16}, writable: true, min: -100, max: 100, optional: true, note: Percent of WChaMax; may be negative to define a charging-only window. Invalid windows are silently ignored.}
+  - {key: x.charge_rate_limit, label: InWRte (maximum charge rate), table: holding, address: 40326, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40338, type: s16}, writable: true, min: -100, max: 100, optional: true, note: Percent of WChaMax; may be negative to define a discharging-only window. Invalid windows are silently ignored.}
+  - {key: x.grid_charging, label: ChaGriSet (charging from grid), table: holding, address: 40330, type: u16, enum: cha_gri_set, writable: true, poll: slow, optional: true}
+
+  # Fronius registers
+  - {key: x.active_state_code, label: F_Active_State_Code, table: holding, address: 213, type: u16, note: 'The inverter''s current state code, described in the inverter manual. Not supported on Fronius Hybrid inverters.'}
+  - {key: x.model_type, label: F_ModelType (SunSpec model type for inverter and meter data), table: holding, address: 215, type: u16, enum: model_type, writable: true, poll: slow, note: Write 1 or 2 and then 6 at once to confirm.}
+  - {key: x.storage_restrictions_view, label: F_Storage_Restrictions_View_Mode, table: holding, address: 216, type: u16, enum: restrictions_view, writable: true, poll: slow, note: 'Which restrictions model 124 reports: local (set over Modbus) or global (set system-wide).'}
+  - {key: x.site_power, label: F_Site_Power (all connected inverters), table: holding, address: 499, type: u32, unit: W}
+  - {key: x.site_energy_today, label: F_Site_Energy_Day (all connected inverters), table: holding, address: 501, type: u64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.site_energy_year, label: F_Site_Energy_Year (all connected inverters), table: holding, address: 505, type: u64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.site_energy_total, label: F_Site_Energy_Total (all connected inverters), table: holding, address: 509, type: u64, unit: kWh, scale: 0.001, poll: slow}
+
+enums:
+  inverter_model: {'111': Single phase, '112': Split phase, '113': Three phase}
+  ecp_conn: {'0': Disconnected, '1': Connected}
+  disabled_enabled: {'0': Disabled, '1': Enabled}
+  charge_state: {'1': 'Off', '2': Empty, '3': Discharging, '4': Charging, '5': Full, '6': Holding, '7': Testing (calibration or service charge)}
+  cha_gri_set: {'0': PV only (charging from grid disabled), '1': Grid (charging from grid enabled)}
+  model_type: {'1': Float, '2': Integer + scale factor}
+  restrictions_view: {'0': Local (default), '1': Global}
+
+flags:
+  conn_bits: {'0': Connected, '1': Available, '2': Operating, '3': Test}
+  active_controls: {'0': Fixed W, '1': Fixed var, '2': Fixed PF}
+  storctl_mod: {'0': Charge, '1': Discharge}
+
+notes:
+- 'Addresses: the workbook numbers registers from 1 (SunS at 40001); they are converted to protocol addresses here by subtracting
+  1, the Fronius registers too (F_Site_Power 500 → 499).'
+- 'This is the Datamanager''s chain with float inverter models (111-113): common 40000, inverter 40069, 120 at 40131, 121
+  at 40159, 122 at 40191, 123 at 40237, 160 at 40263, 124 at 40313 (Symo Hybrid with battery), end at 40339. Walk the chain
+  from ''SunS'' where possible; the GEN24 lays its chain out differently (fronius-gen24).'
+- The SunSpec model type (F_ModelType) can be switched to integer + scale factor; the document only describes float, so the
+  inverter-model addresses here only hold with float.
+- Single-phase (111) inverters leave phase B and C values unsupported; temperatures in model 111-113 (TmpCab, TmpSnk, TmpTrns,
+  TmpOt) and many controls are not supported and left out.
+- Unit id, port and transport are not stated in the document; 502, unit 1 and TCP assumed (the Datamanager is reached over
+  Ethernet). Word order not stated; big-endian (SunSpec) assumed.
+- Identification also matches a GEN24 with float models; the Datamanager's Mn / chain layout can't be told apart from it by
+  the checks alone.
+- The workbook gives no value tables for St, StVnd, DCSt or the event flag bits, so no problems are described.
+- 'Left out: commands (F_Delete_Data, F_Store_Data, F_Reset_All_Event_Flags), unsupported registers, reactive-power ratings
+  and limits, ramp and PF-minimum settings, timing registers of the immediate controls.'

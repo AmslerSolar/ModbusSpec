@@ -1,0 +1,111 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the EVracing EVSE Wallbox, DIN, W16 datasheet (last update 2021-08-31), register table.
+
+modbusspec: 0
+id: evracing-evse-wb-din
+manufacturer: EVracing
+name: EVSE-WB / EVSE-DIN / EVSE-W16 charging controller boards
+kind: charger
+
+sources:
+- title: EVSE Wallbox, DIN, W16 datasheet
+  version: '2021-08-31'
+  url: https://www.evracing.cz/user/documents/upload/EVSE-WB-DIN_latest.pdf
+  sha256: e711a842e5ef3544b53c69059c76b89d51f5d9d854eaf278c543d983e381ac07
+  archive_url: https://web.archive.org/web/20250616032055/https://www.evracing.cz/user/documents/upload/EVSE-WB-DIN_latest.pdf
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: charger/evsedin.go
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/common/evse.py, packages/modules/internal_chargepoint_handler/clients.py, packages/modules/chargepoints/openwb_series2_satellit/chargepoint_module.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Status registers (1000 …)
+  - {key: x.current, label: Actual configured amps value, table: holding, address: 1000, type: u16, unit: A, writable: true, note: From the minimum (2002) up to 80 A. Below 6 A the pilot goes to steady 12 V and charging stops.}
+  - {key: x.output_current, label: Actual amps value output, table: holding, address: 1001, type: u16, unit: A, note: The current offered to the vehicle (the document's read example shows 32 A for both 1000 and 1001).}
+  - {key: state, label: Vehicle state, table: holding, address: 1002, type: u16, enum: vehicle_state}
+  - {key: x.cable_limit, label: Maximum current according to the cable (PP resistor), table: holding, address: 1003, type: u16, unit: A, note: 6 / 13 / 20 / 32 / 63 / 80 A.}
+  - {key: x.control, label: Control bits, table: holding, address: 1004, type: u16, flags: control_bits, writable: true, note: 'bit 0 turns charging off now, bit 1 runs the self-test and RCD test (about 30 s), bit 2 clears an RCD error.'}
+  - {key: firmware, label: Firmware revision, table: holding, address: 1005, type: u16, poll: slow}
+  - {key: x.evse_state, label: EVSE state, table: holding, address: 1006, type: u16, enum: evse_state}
+  - {key: x.status_bits, label: EVSE status and fails, table: holding, address: 1007, type: u16, flags: status_bits}
+  - {key: x.error_timeout, label: Error timeout, table: holding, address: 1008, type: u16, note: 'Above 0: an error waits to be cleared automatically.'}
+  - {key: x.selftest_timeout, label: Selftest timeout, table: holding, address: 1009, type: u16, note: 'Above 0: the self-test is running (counts down from 300).'}
+
+  # Configuration registers (2000 …), kept in EEPROM
+  - {key: x.default_current, label: Default amps value after boot, table: holding, address: 2000, type: u16, unit: A, writable: true, min: 6, max: 80, persistent: true, poll: slow, note: Default 32 A (16 A for W16 boards).}
+  - {key: x.slave_address, label: Function of PROG pins 4 + 5 / slave address, table: holding, address: 2001, type: u16, writable: true, persistent: true, poll: slow, note: '0 (default) = analog current-limit inputs, Modbus off; above 0 = Modbus on with this slave address.'}
+  - {key: x.min_current, label: Minimum amps value, table: holding, address: 2002, type: u16, unit: A, writable: true, min: 0, max: 13, persistent: true, poll: slow, note: Default 5. 0 lets analog-input mode stop charging completely at 0 V.}
+  - {key: x.analog_input_config, label: Analog input config, table: holding, address: 2003, type: u16, writable: true, min: 0, max: 11, persistent: true, poll: slow, note: '0 = AN voltage 0–5 V sets the current between 2002 and 2000; 1–10 = button mode, each LED blink is that many amperes (default 1); 11 = blinks pick values from 2010–2017.'}
+  - {key: x.save_current, label: Amps settings after power on, table: holding, address: 2004, type: u16, enum: save_current, writable: true, persistent: true, poll: slow}
+  - {key: x.config, label: Configuration bits, table: holding, address: 2005, type: u16, flags: config_bits, writable: true, persistent: true, poll: slow, note: Default 1 per the table (the bit descriptions give bit 3 and bit 9 as enabled by default too).}
+  - {key: x.pp_detection, label: PP detection, table: holding, address: 2007, type: u16, unit: A, writable: true, persistent: true, poll: slow, note: '0 (default) = detect the cable limit from the PP resistor; above 0 = detection off, this fixed limit in A is used.'}
+  - {key: x.bootloader_revision, label: Bootloader firmware revision, table: holding, address: 2009, type: u16, poll: slow}
+  - {key: x.amps_value_1, label: Amps value 1, table: holding, address: 2010, type: u16, unit: A, writable: true, persistent: true, poll: slow, note: Default 6. Writing 65535 here restores the default settings of all registers.}
+  - {key: x.amps_value_2, label: Amps value 2, table: holding, address: 2011, type: u16, unit: A, writable: true, persistent: true, poll: slow, note: Default 10.}
+  - {key: x.amps_value_3, label: Amps value 3, table: holding, address: 2012, type: u16, unit: A, writable: true, persistent: true, poll: slow, note: Default 16.}
+  - {key: x.amps_value_4, label: Amps value 4, table: holding, address: 2013, type: u16, unit: A, writable: true, persistent: true, poll: slow, note: Default 25.}
+  - {key: x.amps_value_5, label: Amps value 5, table: holding, address: 2014, type: u16, unit: A, writable: true, persistent: true, poll: slow, note: Default 32.}
+  - {key: x.amps_value_6, label: Amps value 6, table: holding, address: 2015, type: u16, unit: A, writable: true, persistent: true, poll: slow, note: Default 48.}
+  - {key: x.amps_value_7, label: Amps value 7, table: holding, address: 2016, type: u16, unit: A, writable: true, persistent: true, poll: slow, note: Default 63.}
+  - {key: x.amps_value_8, label: Amps value 8, table: holding, address: 2017, type: u16, unit: A, writable: true, persistent: true, poll: slow, note: Default 80.}
+  - {key: x.milliamp_mode, label: Current in 0.01 A, table: holding, address: 2005, type: u16, bits: [7, 7], writable: true, verified: false, sources: [evcc, openwb]}
+
+enums:
+  vehicle_state: {'1': Ready (no vehicle), '2': Vehicle present, '3': Charging, '4': Charging with ventilation, '5': 'Failure (e.g. diode check, RCD)'}
+  evse_state: {'1': Steady 12 V, '2': PWM being generated, '3': 'OFF, steady 12 V'}
+  save_current: {'0': Don't save the current set by button, '1': Save the current set by button to register 2000}
+
+flags:
+  control_bits: {'0': Turn off charging now, '1': Run self-test and RCD test, '2': Clear RCD error}
+  status_bits: {'0': Relay on, '1': Diode check fail, '2': Ventilation required fail, '3': Waiting for pilot release (error recovery delay), '4': RCD check error}
+  config_bits: {'0': Button for current change enabled, '1': Stop charging when button pressed, '2': Pilot-ready LED always on, '3': Charging in vehicle state D (ventilation) enabled, '4': RCD feedback on MCLR pin enabled, '5': Auto-clear RCD error, '6': AN internal pull-up disabled, '7': PWM debug enabled, '8': Error LED routed to AN, '9': Pilot auto-recover delay enabled, '12': Startup delay enabled, '13': Disable EVSE after charge, '14': EVSE disabled, '15': Bootloader mode}
+
+problems:
+  - {when: {key: state, equals: 5}, kind: fault, text: Charging controller failure (vehicle state 5)}
+  - {when: {key: x.status_bits, bit: 1}, kind: fault, text: Diode check failed (status bit 1)}
+  - {when: {key: x.status_bits, bit: 2}, kind: fault, text: 'Vehicle requests ventilation, not allowed (status bit 2)'}
+  - {when: {key: x.status_bits, bit: 4}, kind: fault, text: RCD check error (status bit 4)}
+
+notes:
+- The board talks Modbus RTU on a 5 V UART (PROG header) or, on EVSE DIN, an optional RS485 module; 9600 baud 8N1. Port 502
+  only applies behind a serial-to-TCP gateway.
+- 'Modbus is off from the factory: register 2001 is 0 and the PROG pins work as analog current-limit inputs. It is switched
+  on by pulling AN to GND five times within 3 s at power-up (sets 2001 = 1, saved after the first Modbus access to a register
+  ≥ 2000), or by writing 2001. The slave address is then the value of 2001; in bootloader mode it is 1.'
+- Only function 03 (read holding registers) is implemented for reading.
+- Register addresses are decimal protocol addresses; the document's request example reads register 1000 at address 0x03E8.
+- 'Firmware history in the document: bit 6 of 2005 from revision 16, bits 7–9 from revision 17; status E checks from revision
+  11.'
+- 'Left out: 1010 and above (reserved / debug), 2006 (reserved for future current sharing) and 2008 (reserved).'
+- evcc waits 200 ms between requests.
+- openWB drives the EVSE of its own charge points with this map. It looks for the EVSE at unit 1 (charge point 0) and 2 (charge
+  point 1); 11 and 12 in its "SE" mode. It uses an EVSE only with firmware above 7.
+- On the openWB series 2 satellite the EVSE and meter are reached over Modbus TCP on port 8899.
+- 'Current in 0.01 A steps: firmware 17 and later, when bit 7 of register 2005 is set; openWB sets it.'
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

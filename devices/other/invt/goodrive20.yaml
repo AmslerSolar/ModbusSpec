@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the INVT Goodrive20 manual, chapter 7 "Communication protocol" (undated; published by Gekoms as
+# efip20-modbus-rtu).
+
+modbusspec: 0
+id: invt-goodrive20
+manufacturer: INVT
+name: Goodrive20 (GD20) vector inverter (motor drive)
+kind: other
+
+sources:
+- title: 'Goodrive20 inverter manual, chapter 7: Communication protocol (published as efip20-modbus-rtu)'
+  version: undated
+  url: https://gekoms.org/wp-content/uploads/2026/01/efip20-modbus-rtu.pdf
+  sha256: bd4a99d0301639eaead49235a8f42e3ec28644192d19c26b8641521fd5fcb622
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+  limits:
+    max_registers: 16
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 8451
+    type: u16
+    in:
+    - 262
+    - 272
+
+points:
+  # State
+  - {key: state, label: Inverter state word 1, table: holding, address: 8448, type: u16, enum: state, poll: fast}
+  - {key: x.bus_voltage_ok, label: Bus voltage established, table: holding, address: 8449, type: u16, bits: [0, 0], enum: no_yes, poll: fast}
+  - {key: x.motor_select, label: Active motor, table: holding, address: 8449, type: u16, bits: [1, 2], enum: motor, poll: slow}
+  - {key: x.motor_type, label: Motor type, table: holding, address: 8449, type: u16, bits: [3, 3], enum: motor_type, poll: slow}
+  - {key: x.overload_prealarm, label: Overload pre-alarm, table: holding, address: 8449, type: u16, bits: [4, 4], enum: no_yes, poll: fast}
+  - {key: x.control_source, label: Run command source, table: holding, address: 8449, type: u16, bits: [5, 6], enum: control_source, poll: slow}
+  - {key: error_code, label: Fault code of the inverter, table: holding, address: 8450, type: u16, poll: fast, verified: false, note: The fault code table is in another chapter of the manual and not in this document. 0 = no fault is not stated; assumed. The same code is also at 0x5000.}
+  - {key: x.device_code, label: Identifying code of the inverter, table: holding, address: 8451, type: u16, poll: slow, note: 'High byte = series (0x01 Goodrive), low byte = model (0x06 Goodrive20). The table gives 0x0106 for the GD20; an example in the text gives 0x0110 for the Goodrive20, so both are accepted in identify.'}
+  - {key: x.inverter_code, label: Inverter code, table: holding, address: 12310, type: u16, poll: slow}
+  # Live values (scale from the decimals of the stated ranges, as the document's fieldbus ratio rule says)
+  - {key: x.output_frequency, label: Operation frequency, table: holding, address: 12288, type: u16, unit: Hz, scale: 0.01, poll: fast}
+  - {key: x.set_frequency, label: Setting frequency, table: holding, address: 12289, type: u16, unit: Hz, scale: 0.01, poll: fast}
+  - {key: x.bus_voltage, label: Bus voltage, table: holding, address: 12290, type: u16, unit: V, poll: fast}
+  - {key: x.output_voltage, label: Output voltage, table: holding, address: 12291, type: u16, unit: V, poll: fast}
+  - {key: x.output_current, label: Output current, table: holding, address: 12292, type: u16, unit: A, scale: 0.1, poll: fast}
+  - {key: x.speed, label: Operation speed, table: holding, address: 12293, type: u16, unit: rpm, poll: fast}
+  - {key: x.output_power, label: Output power, table: holding, address: 12294, type: s16, unit: '%', scale: 0.1, poll: fast, note: 'Percent of rated power, −300.0…300.0 %.'}
+  - {key: x.output_torque, label: Output torque, table: holding, address: 12295, type: s16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.pid_setpoint, label: PID setting, table: holding, address: 12296, type: s16, unit: '%', scale: 0.1, poll: fast, note: 'The document lists 0x3008 / 0x3009 twice, as close-loop setting / feedback and as PID setting / feedback.'}
+  - {key: x.pid_feedback, label: PID feedback, table: holding, address: 12297, type: s16, unit: '%', scale: 0.1, poll: fast}
+  - {key: x.inputs, label: Input IO, table: holding, address: 12298, type: u16, poll: fast, note: Bit mask 0x000…0x1FF. 0x300B has the same description.}
+  - {key: x.ai1, label: AI 1, table: holding, address: 12300, type: u16, unit: V, scale: 0.01, poll: fast}
+  - {key: x.ai2, label: AI 2, table: holding, address: 12301, type: u16, unit: V, scale: 0.01, poll: fast}
+  - {key: x.ai3, label: AI 3, table: holding, address: 12302, type: u16, unit: V, scale: 0.01, poll: fast}
+  - {key: x.ai4, label: AI 4, table: holding, address: 12303, type: s16, unit: V, scale: 0.01, poll: fast}
+  - {key: x.pulse_input, label: High speed pulse 1 input, table: holding, address: 12304, type: u16, unit: kHz, scale: 0.01, poll: fast}
+  - {key: x.multistep, label: Current step of the multi-step speed, table: holding, address: 12306, type: u16, poll: fast}
+  - {key: x.external_length, label: External length, table: holding, address: 12307, type: u16, poll: fast}
+  - {key: x.external_count, label: External counting value, table: holding, address: 12308, type: u16, poll: fast}
+  - {key: x.torque_setting, label: Torque setting, table: holding, address: 12309, type: s16, unit: '%', scale: 0.1, poll: fast}
+  # Commands and set values (write-only)
+  - {key: x.command, label: Communication control command, table: holding, address: 8192, type: u16, enum: command, writable: true, write_only: true, poll: slow, note: Needs P00.01 set to the communication run command channel and P00.02 to Modbus.}
+  - {key: x.comm_frequency, label: Communication setting frequency, table: holding, address: 8193, type: u16, unit: Hz, scale: 0.01, writable: true, write_only: true, poll: slow, note: 0…maximum frequency (P00.03).}
+  # Function parameters (address = group in the high byte, number in the low byte: P00.03 = 0x0003)
+  - {key: x.run_command_channel, label: P00.01 Running command channel, table: holding, address: 1, type: u16, writable: true, min: 0, max: 2, persistent: true, poll: slow, note: The meanings are in another chapter of the manual.}
+  - {key: x.comm_channel, label: P00.02 Communication running command channel, table: holding, address: 2, type: u16, writable: true, persistent: true, poll: slow}
+  - {key: x.max_frequency, label: P00.03 Max. output frequency, table: holding, address: 3, type: u16, unit: Hz, scale: 0.01, writable: true, persistent: true, poll: slow}
+  - {key: x.acc_time, label: P00.11 ACC time 1, table: holding, address: 11, type: u16, unit: s, scale: 0.1, writable: true, persistent: true, poll: slow}
+  - {key: x.dec_time, label: P00.12 DEC time 1, table: holding, address: 12, type: u16, unit: s, scale: 0.1, writable: true, persistent: true, poll: slow}
+
+enums:
+  state: {'1': Forward running, '2': Reverse running, '3': Stopped, '4': Fault, '5': POFF (power off), '6': Pre-exciting}
+  no_yes: {'0': 'No', '1': 'Yes'}
+  motor: {'0': Motor 1, '1': Motor 2, '2': Motor 3, '3': Motor 4}
+  motor_type: {'0': Asynchronous motor, '1': Synchronous motor}
+  control_source: {'0': Keypad, '1': Terminals, '2': Communication}
+  command: {'1': Forward running, '2': Reverse running, '3': Forward jogging, '4': Reverse jogging, '5': Stop, '6': Coast to stop (emergency stop), '7': Fault reset, '8': Jogging stop}
+
+problems:
+  - {when: {key: state, equals: 4}, kind: fault, text: Inverter fault (state 4)}
+  - {when: {key: x.overload_prealarm, equals: 1}, kind: warning, text: Overload pre-alarm (0x2101 bit 4)}
+
+notes:
+- The document is published under the name efip20; its text and identifying code describe the INVT Goodrive20 (GD20).
+- All registers are read with function 03 (at most 16 per request) and written with 06 or 10. Parameter Pxx.yy is at address
+  0xXXYY (group and number each converted to hex, e.g. P10.01 = 0x0A01). Setting the top bit of the address (e.g. 0x8007)
+  writes the parameter to RAM only, without storing it in EEPROM; such addresses can't be read. Group P29 (factory) can't
+  be accessed.
+- 'Scaling follows the document''s rule: a value''s resolution is given by the decimals of its range (e.g. 0.00 Hz → raw ×
+  0.01). Bus voltage and output voltage are given in whole volts.'
+- State word 1 value 2 is printed as forward running a second time; reverse running is assumed from the command list.
+- Default unit id, serial settings and port are not in this chapter; unit id 1 is assumed. Modbus RTU and ASCII over RS485.
+- 'Left out: the other write-only set values at 0x2002…0x200E (PID reference / feedback, torque, frequency and torque limits,
+  special control word, virtual terminals, V/F voltage, AO outputs) and the full parameter list (another chapter).'

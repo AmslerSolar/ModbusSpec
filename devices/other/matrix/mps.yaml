@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Matrix MPS-200/300S Series Modbus Protocol Communication Protocol (undated).
+
+modbusspec: 0
+id: matrix-mps
+manufacturer: Matrix
+name: MPS-200 / MPS-300S programmable DC power supplies
+kind: other
+
+sources:
+- title: MPS-200/300S Series Modbus Protocol Communication Protocol
+  version: 2024-04 (file date; the document has no version)
+  url: https://www.szmatrix.com/wp-content/uploads/2025/09/MPS-200WPS300S-Series-Modbus-Programming-Protocol-1.pdf?download=true
+  sha256: 5fc3e12acfd5538e69233c720ad886108aafbafacbd4aa24eeb943cb10e99069
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.remote_mode, label: Remote Mode, table: holding, address: 0, type: u16, enum: remote_mode, writable: true, poll: slow}
+  - {key: x.voltage_setpoint, label: V_SET, table: holding, address: 1, type: f32, unit: V, writable: true, poll: slow}
+  - {key: x.current_setpoint, label: A_SET, table: holding, address: 3, type: f32, unit: A, writable: true, poll: slow}
+  - {key: x.voltage_min, label: V_MIN, table: holding, address: 5, type: f32, unit: V, writable: true, poll: slow}
+  - {key: x.voltage_max, label: V_MAX, table: holding, address: 7, type: f32, unit: V, writable: true, poll: slow}
+  - {key: x.current_min, label: A_MIN, table: holding, address: 9, type: f32, unit: A, writable: true, poll: slow}
+  - {key: x.current_max, label: A_MAX, table: holding, address: 11, type: f32, unit: A, writable: true, poll: slow}
+  - {key: x.ovp_setpoint, label: OVP_SET, table: holding, address: 13, type: f32, unit: V, writable: true, poll: slow}
+  - {key: x.ocp_setpoint, label: OCP_SET, table: holding, address: 15, type: f32, unit: A, writable: true, poll: slow}
+  - {key: x.ovp_enabled, label: OVP_STATE, table: holding, address: 17, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.ocp_enabled, label: OCP_STATE, table: holding, address: 18, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.output_on, label: OUTPUT, table: holding, address: 19, type: u16, enum: on_off, writable: true, verified: false, note: Address per the register table; the document's write example switches the output on at 0x001B instead.}
+  - {key: x.protection_flags, label: STATE, table: holding, address: 20, type: u16, flags: protection_flags, writable: true, note: Writing 1 to a bit clears that flag (over-temperature only once the temperature is back to normal).}
+  - {key: x.output_voltage, label: V_OUT, table: holding, address: 21, type: f32, unit: V, verified: false, note: Address per the register table; the document's read examples read the output voltage at 0x001D and the current at 0x001F instead.}
+  - {key: x.output_current, label: A_OUT, table: holding, address: 23, type: f32, unit: A, verified: false, note: Address per the register table; see the output voltage.}
+  - {key: x.regulation_mode, label: CV/CC, table: holding, address: 25, type: u16, enum: regulation_mode}
+
+enums:
+  remote_mode: {'0': Local, '1': Remote}
+  on_off: {'0': 'Off', '1': 'On'}
+  regulation_mode: {'0': Constant voltage (CV), '1': Constant current (CC)}
+
+flags:
+  protection_flags: {'0': Overvoltage protection tripped, '1': Overcurrent protection tripped, '2': Over-temperature protection tripped}
+
+problems:
+  - {when: {key: x.protection_flags, bit: 0}, kind: fault, text: Overvoltage protection tripped (bit 0)}
+  - {when: {key: x.protection_flags, bit: 1}, kind: fault, text: Overcurrent protection tripped (bit 1)}
+  - {when: {key: x.protection_flags, bit: 2}, kind: fault, text: Over-temperature protection tripped (bit 2)}
+
+notes:
+- The document names no maker; it is published by Shenzhen Matrix (szmatrix.com).
+- All registers are holding registers (read 03, write 06 / 10). Floats are IEEE 754 in two registers, high word first (from
+  the document's examples); they can only be written with function 10, not 06.
+- 'The document''s examples don''t match its register table: they read the output voltage / current at 0x001D / 0x001F and
+  switch the output at 0x001B (8 above the table''s addresses). This file follows the table; check on a real device.'
+- Serial settings and a default unit id aren't stated; the examples use unit 1. Allow about 5 ms per register between requests
+  (10 ms after a single write).
+- No serial number or model register is documented, so a network search can't recognise the device.

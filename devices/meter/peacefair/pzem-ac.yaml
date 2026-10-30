@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Peacefair PZEM-004T V3.0 Datasheet / User Manual (undated).
+
+modbusspec: 0
+id: peacefair-pzem-ac
+manufacturer: Peacefair
+name: PZEM-004T v3 / PZEM-014 / PZEM-016 AC energy meters
+kind: meter
+
+sources:
+- title: PZEM-004T V3.0 Datasheet / User Manual
+  version: '-'
+  url: https://innovatorsguru.com/wp-content/uploads/2019/06/PZEM-004T-V3.0-Datasheet-User-Manual.pdf
+  sha256: bd1e0623bfa9fbeb44d8d21a40b2e25e65fa6a2b02bb247756557b1a49e371ca
+  archive_url: https://web.archive.org/web/20210224225353/https://innovatorsguru.com/wp-content/uploads/2019/06/PZEM-004T-V3.0-Datasheet-User-Manual.pdf
+- id: tasmota
+  title: Tasmota (energy meter drivers)
+  url: https://github.com/arendst/Tasmota
+  license: GPL-3.0
+  commit: 4df6fa1d4bf6c4e98765eb76a096a597fb5af709
+  path: tasmota/tasmota_xnrg_energy/xnrg_05_pzem_ac.ino
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+points:
+  - {key: l1_voltage, label: Voltage value, table: input, address: 0, type: u16, unit: V, scale: 0.1, poll: fast}
+  - {key: l1_current, label: Current value, table: input, address: 1, type: u32, unit: A, scale: 0.001, poll: fast}
+  - {key: x.active_power, label: Power value, table: input, address: 3, type: u32, unit: W, scale: 0.1, poll: fast, note: Unsigned; the module measures a load and gives no direction.}
+  - {key: x.import_active, label: Energy value, table: input, address: 5, type: u32, unit: kWh, scale: 0.001, poll: slow, note: Counted in Wh (1 LSB = 1 Wh); range 0–9999.99 kWh. Reset with function code 0x42.}
+  - {key: frequency, label: Frequency value, table: input, address: 7, type: u16, unit: Hz, scale: 0.1, poll: fast}
+  - {key: power_factor, label: Power factor value, table: input, address: 8, type: u16, scale: 0.01, poll: fast, note: '0.00–1.00, no sign.'}
+  - {key: x.alarm_status, label: Alarm status, table: input, address: 9, type: u16, enum: alarm_status, poll: fast, note: Set while the active power is above the power alarm threshold.}
+  - {key: x.power_alarm_threshold, label: Power alarm threshold, table: holding, address: 1, type: u16, unit: W, writable: true, poll: slow}
+  - {key: x.modbus_address, label: Modbus-RTU address, table: holding, address: 2, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.modbus_address_2, label: Modbus address, table: holding, address: 2, type: u16, unit_id: 248, writable: true, note: Tasmota sets it with function 06; unit 0xF8 reaches any meter on the bus., verified: false, sources: [tasmota]}
+
+enums:
+  alarm_status: {'0': No alarm, '65535': Alarm}
+
+problems:
+  - {when: {key: x.alarm_status, equals: 65535}, kind: warning, text: Active power above the alarm threshold}
+
+notes:
+- The document covers the PZEM-004T v3.0 (10 A with internal shunt, 100 A with external current transformer) only.
+- 32-bit values are given as low 16 bits at the lower address, high 16 bits at the next (low word first).
+- Measurements are read with function 04, the two parameters with function 03 and written with function 06. The register addresses
+  are the protocol addresses the document gives (0-based).
+- Unit ids 1–247; 0xF8 is a general address that only works with a single meter on the bus; 0 is broadcast. Default unit 1
+  is not stated in the document (the examples use 1); assumed.
+- The module has a TTL serial interface that needs external 5 V; the document calls the link RS485.
+- No register identifies the device (no model or serial number register).
+- 32-bit values are sent low word first.
+- The meter counts consumed energy only; its readings are unsigned.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

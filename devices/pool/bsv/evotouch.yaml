@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the BSV EVOTOUCH modbus protocol (version 5).
+
+modbusspec: 0
+id: bsv-evotouch
+manufacturer: BSV
+name: EVOTOUCH salt chlorinator
+kind: pool
+
+sources:
+- title: EVOTOUCH modbus protocol
+  version: 5 (2021-01-18)
+  url: https://shop.peraqua.com/out/media/563719933020260903_15_23_02modbus-salt-modbus-en.pdf
+  sha256: f9e207d1563dfef8f94c20d2e118cd2374bd1c745ea227f73edf80556f4380ed
+
+connection:
+  default_port: 502
+  default_unit: 10
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Input registers: device info
+  - {key: x.device_model, label: Device model, table: input, address: 0, type: u16, enum: device_model, poll: slow}
+  - {key: firmware, label: SW version, table: input, address: 1, type: u16, poll: slow, note: 'Version code, e.g. 130 = 1.3.0.'}
+  - {key: x.customer, label: Customer (OEM code), table: input, address: 2, type: u16, enum: customer, poll: slow}
+  - {key: x.operation_minutes, label: Operation hours_low (minutes), table: input, address: 3, type: u16, bits: [0, 7], unit: min, poll: slow, verified: false, note: 'Not stated which byte holds what; assumed low byte = minutes, high byte = lowest hours byte.'}
+  - {key: x.operation_hours_low, label: 'Operation hours_low (hours, lowest byte)', table: input, address: 3, type: u16, bits: [8, 15], unit: h, poll: slow, verified: false}
+  - {key: x.operation_hours_high, label: Operation hours_high, table: input, address: 4, type: u16, unit: h, poll: slow, verified: false, note: The two higher bytes of the 24-bit hour counter.}
+
+  # Input registers: measurements
+  - {key: x.cell_intensity_percent, label: Cell intensity_p, table: input, address: 16, type: u16, unit: '%'}
+  - {key: x.ph, label: Current pH value, table: input, address: 17, type: u16, unit: pH, scale: 0.01, verified: false, note: Scale not stated in the document; assumed 0.01.}
+  - {key: x.orp, label: Current ORP value, table: input, address: 18, type: u16, unit: mV, verified: false, note: Unit and scale not stated; assumed mV.}
+  - {key: x.free_chlorine, label: Current ppm value, table: input, address: 19, type: u16, unit: ppm, scale: 0.01, verified: false, note: 'Free chlorine probe reading; scale not stated, assumed 0.01.'}
+  - {key: x.salt, label: Salt concentration, table: input, address: 20, type: u16, unit: g/l, scale: 0.1}
+  - {key: x.water_temperature, label: Water temperature, table: input, address: 21, type: u16, bits: [0, 7], unit: °C, note: 'Magnitude only, 1 °C steps; the sign is in the high byte (x.water_temperature_sign).'}
+  - {key: x.water_temperature_sign, label: Water temperature sign, table: input, address: 21, type: u16, bits: [8, 15], enum: sign}
+  - {key: x.cell_current, label: Cell intensity_a, table: input, address: 22, type: u16, unit: A, verified: false, note: Scale not stated in the document.}
+  - {key: x.cell_voltage, label: Cell_voltage, table: input, address: 23, type: u16, unit: V, scale: 0.1}
+
+  # Holding registers: configuration and control
+  - {key: x.modbus_address, label: ID Address, table: holding, address: 0, type: u16, poll: slow, writable: true}
+  - {key: x.com_setup, label: COM_setup, table: holding, address: 1, type: u16, enum: com_setup, poll: slow, writable: true}
+  - {key: x.language, label: Language, table: holding, address: 2, type: u16, enum: language, poll: slow, writable: true}
+  - {key: x.cleaning_cycle, label: Cleaning cycle, table: holding, address: 3, type: u16, unit: min, scale: 10, poll: slow, writable: true, note: Electrode cleaning interval in units of 10 minutes (24 = 4 hours).}
+  - {key: x.clock_hours, label: Time hours, table: holding, address: 4, type: u16, unit: h, poll: slow, writable: true}
+  - {key: x.clock_minutes, label: Time minutes, table: holding, address: 5, type: u16, unit: min, poll: slow, writable: true}
+  - {key: x.control_mode, label: Control mode, table: holding, address: 16, type: u16, enum: control_mode, poll: slow, writable: true}
+  - {key: x.master_probe, label: Master probe, table: holding, address: 17, type: u16, enum: master_probe, poll: slow, writable: true}
+  - {key: x.production_setpoint, label: Production set point, table: holding, address: 18, type: u16, unit: '%', poll: slow, writable: true, min: 0, max: 100}
+  - {key: x.ph_setpoint, label: pH setpoint, table: holding, address: 19, type: u16, unit: pH, scale: 0.01, poll: slow, writable: true, verified: false, note: Scale not stated; assumed as for the pH reading.}
+  - {key: x.orp_setpoint, label: ORP Setpoint, table: holding, address: 20, type: u16, unit: mV, poll: slow, writable: true, verified: false}
+  - {key: x.ppm_setpoint, label: PPM Setpoint, table: holding, address: 21, type: u16, unit: ppm, scale: 0.01, poll: slow, writable: true, verified: false, note: Scale not stated; assumed as for the ppm reading.}
+  - {key: x.relay_status, label: Relay status, table: holding, address: 32, type: u16, enum: relay_status, poll: slow, writable: true}
+
+  # Coils: user settings
+  - {key: x.cover, label: Cover position, table: coil, address: 0, type: bool, enum: cover, writable: true}
+  - {key: x.flow_switch, label: Flow switch, table: coil, address: 1, type: bool, enum: flow_switch, writable: true}
+  - {key: x.ph_alarm_disabled, label: pH alarm, table: coil, address: 2, type: bool, enum: ph_alarm, writable: true}
+  - {key: x.ph_mode, label: pH mode, table: coil, address: 3, type: bool, enum: ph_mode, writable: true}
+  - {key: x.ph_control_off, label: pH control, table: coil, address: 4, type: bool, enum: ph_control, writable: true}
+  - {key: x.night_mode, label: Night Mode, table: coil, address: 5, type: bool, enum: night_mode, writable: true}
+
+  # Discrete inputs: status, alarms, warnings
+  - {key: x.cell_polarity, label: Cell polarity, table: discrete, address: 0, type: bool, enum: cell_polarity}
+  - {key: x.filter_pump, label: Filter pump status, table: discrete, address: 1, type: bool, enum: filter_pump}
+  - {key: x.probes_stable, label: Waiting time for probe to be stable, table: discrete, address: 2, type: bool, enum: probes_stable}
+  - {key: x.electrode_cleaning, label: Electrode cleaning in process, table: discrete, address: 3, type: bool}
+  - {key: x.orp_probe_saturated, label: ORP probe saturated, table: discrete, address: 16, type: bool}
+  - {key: x.overtemperature, label: Overtemperature inside the chlorinator, table: discrete, address: 17, type: bool}
+  - {key: x.open_circuit, label: Open circuit, table: discrete, address: 18, type: bool}
+  - {key: x.no_water_flow, label: No water flow, table: discrete, address: 19, type: bool}
+  - {key: x.short_circuit, label: Short circuit, table: discrete, address: 20, type: bool}
+  - {key: x.ph_alarm, label: pH Alarm, table: discrete, address: 21, type: bool}
+  - {key: x.ppm_probe_disconnected, label: PPM Probe disconnected, table: discrete, address: 22, type: bool}
+  - {key: x.lack_of_salt, label: Lack of salt, table: discrete, address: 32, type: bool}
+  - {key: x.too_much_salt, label: Too much salt, table: discrete, address: 33, type: bool}
+  - {key: x.bad_cell, label: Bad Cell, table: discrete, address: 34, type: bool}
+  - {key: x.orp_probe_disconnected, label: ORP probe disconnected, table: discrete, address: 35, type: bool}
+
+derived:
+  - {key: x.operation_hours, label: Operation hours, unit: h, verified: false, note: 'Hour counter from its three bytes, byte order assumed (see the parts).', sum: [{key: x.operation_hours_high, factor: 256}, {key: x.operation_hours_low}]}
+
+enums:
+  device_model: {'0': EVOTOUCH}
+  customer: {'0': BSV}
+  sign: {'0': Positive, '1': Negative}
+  com_setup: {'0': 19200 8E1, '1': 19200 8N1, '2': 19200 8N2, '3': 9600 8E1, '4': 9600 8N1, '5': 9600 8N2}
+  language: {'0': English, '1': French, '2': Spanish, '3': Italian, '4': German, '5': Czech, '6': Dutch}
+  control_mode: {'0': Manual, '1': Auto}
+  master_probe: {'0': Free chlorine probe, '1': ORP probe}
+  relay_status: {'0': Manual off, '1': Manual on, '2': Auto off, '3': Auto on}
+  cover: {'0': Cover off, '1': Cover on}
+  flow_switch: {'0': No flow switch, '1': Flow switch fitted}
+  ph_alarm: {'0': pH alarm enabled, '1': pH alarm disabled}
+  ph_mode: {'0': Acid dosing, '1': Alkali dosing}
+  ph_control: {'0': pH control on, '1': pH control off}
+  night_mode: {'0': Acoustic alarms disabled, '1': Acoustic alarms enabled}
+  cell_polarity: {'0': Forward, '1': Reverse}
+  filter_pump: {'0': Stopped, '1': Running}
+  probes_stable: {'0': Probes stabilising, '1': Probes stable}
+
+problems:
+  - {when: {key: x.overtemperature, equals: 1}, kind: fault, text: Overtemperature inside the chlorinator}
+  - {when: {key: x.open_circuit, equals: 1}, kind: fault, text: Cell open circuit}
+  - {when: {key: x.short_circuit, equals: 1}, kind: fault, text: Cell short circuit}
+  - {when: {key: x.no_water_flow, equals: 1}, kind: fault, text: No water flow}
+  - {when: {key: x.orp_probe_saturated, equals: 1}, kind: fault, text: ORP probe saturated}
+  - {when: {key: x.ph_alarm, equals: 1}, kind: fault, text: pH alarm}
+  - {when: {key: x.ppm_probe_disconnected, equals: 1}, kind: fault, text: Free chlorine probe disconnected}
+  - {when: {key: x.lack_of_salt, equals: 1}, kind: warning, text: Lack of salt}
+  - {when: {key: x.too_much_salt, equals: 1}, kind: warning, text: Too much salt}
+  - {when: {key: x.bad_cell, equals: 1}, kind: warning, text: Bad cell}
+  - {when: {key: x.orp_probe_disconnected, equals: 1}, kind: warning, text: ORP probe disconnected}
+
+notes:
+- 'The document names no maker: it is titled EVOTOUCH, gives OEM customer code 0 = BSV and was hosted by Peraqua. Possibly
+  sold under other brands (the customer register tells OEM variants apart).'
+- RS485 (Modbus RTU). Default slave address 10 (0x0A); the serial setting is chosen in holding 0x01 (19200 or 9600 Bd, 8E1/8N1/8N2),
+  the document gives no default for it.
+- All addresses are given in hex in the document and taken as 0-based protocol addresses (not verified).
+- The two-byte values (pH, ORP, ppm, salt, current, voltage) are plain 16-bit numbers, high byte first. The document only
+  states the scaling for salt (g/l × 10) and cell voltage (V × 10); pH and ppm scaling are assumed.
+- Its cell voltage example (27 V → 270) gives the bytes wrongly; 270 = 0x010E.
+- 'Left out: the four on/off schedules of the auxiliary relay (holding 0x21–0x30); the document''s address list for them has
+  a duplicate (0x26) and a gap (0x2C).'
+- No register singles the device out (model code 0, customer code 0, no serial number), so there is no identify.

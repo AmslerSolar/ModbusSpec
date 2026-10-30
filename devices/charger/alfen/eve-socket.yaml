@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Alfen Configuration Guide – Modbus for ACE (1.0, 05/2025) and the Alfen NG9xx Modbus Slave TCP/IP
+# document (2.2, 03-03-2020).
+
+modbusspec: 0
+id: alfen-eve-socket
+manufacturer: Alfen
+name: Eve / AHP charging station (socket registers)
+kind: charger
+
+sources:
+- title: Alfen Configuration Guide – Modbus for ACE (firmware 4.10, ACE Service Installer 3.4.10-130)
+  version: 1.0 (05/2025)
+  url: https://alfen.com/media/1047/download
+  sha256: c6193bef31dc1beea90c2b2232f82477d66fc76eeccf6f4ca1dddc51f1cbc5e1
+- title: Implementation of Modbus Slave TCP/IP for Alfen NG9xx platform (firmware 4.5, Service Installer 3.4.5-119)
+  version: 2.2 (03-03-2020)
+  url: https://github.com/Hywan/LaMaisonVivante/blob/f8ce2f79e431ca0fadec221cb076348ff4ee50c5/transport/alfen/doc/Alfen_NG9xx_Modbus.pdf
+  sha256: 4426a798b1543f1bbaf31d3ac86d38bb8ebee78fc081fbec98c2dc6f31df6f84
+- id: alfen-modbus
+  title: alfen_modbus (Home Assistant integration)
+  url: https://github.com/ThaStealth/alfen_modbus
+  license: Apache-2.0
+  commit: c8f2a4cc87588b615b011a6a1770fe766678911d
+  path: custom_components/alfen_modbus/__init__.py, custom_components/alfen_modbus/const.py
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.evse.chargepoint.alfen/src/io/openems/edge/evse/chargepoint/alfen/EvseAlfenImpl.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    max_gap: 16
+
+encoding:
+  byte_order: big
+  word_order: detect
+  detect:
+    table: holding
+    address: 336
+    type: f32
+    plausible:
+    - 40
+    - 70
+
+points:
+  - {key: x.meter_state, label: Meter state, table: holding, address: 300, type: u16, flags: meter_state, invalid: [65535]}
+  - {key: x.meter_last_value_age, label: Meter last value timestamp, table: holding, address: 301, type: u64, unit: s, scale: 0.001, note: Time since the last received measurement (raw value in milliseconds).}
+  - {key: x.meter_type, label: Meter type, table: holding, address: 305, type: u16, enum: meter_type, invalid: [65535], poll: slow}
+  - {key: l1_voltage, label: Voltage L1-N, table: holding, address: 306, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage L2-N, table: holding, address: 308, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage L3-N, table: holding, address: 310, type: f32, unit: V}
+  - {key: x.voltage_l1_l2, label: Voltage L1-L2, table: holding, address: 312, type: f32, unit: V}
+  - {key: x.voltage_l2_l3, label: Voltage L2-L3, table: holding, address: 314, type: f32, unit: V}
+  - {key: x.voltage_l3_l1, label: Voltage L3-L1, table: holding, address: 316, type: f32, unit: V}
+  - {key: x.current_n, label: Current N, table: holding, address: 318, type: f32, unit: A}
+  - {key: l1_current, label: Current L1, table: holding, address: 320, type: f32, unit: A}
+  - {key: l2_current, label: Current L2, table: holding, address: 322, type: f32, unit: A}
+  - {key: l3_current, label: Current L3, table: holding, address: 324, type: f32, unit: A}
+  - {key: x.current_sum, label: Current sum, table: holding, address: 326, type: f32, unit: A}
+  - {key: x.power_factor_l1, label: Power factor L1, table: holding, address: 328, type: f32, unit: ''}
+  - {key: x.power_factor_l2, label: Power factor L2, table: holding, address: 330, type: f32, unit: ''}
+  - {key: x.power_factor_l3, label: Power factor L3, table: holding, address: 332, type: f32, unit: ''}
+  - {key: power_factor, label: Power factor sum, table: holding, address: 334, type: f32, unit: ''}
+  - {key: frequency, label: Frequency, table: holding, address: 336, type: f32, unit: Hz}
+  - {key: l1_power, label: Real power L1, table: holding, address: 338, type: f32, unit: W, positive: consumption, verified: false, note: The guide gives no sign; positive = drawn by the car is assumed.}
+  - {key: l2_power, label: Real power L2, table: holding, address: 340, type: f32, unit: W, positive: consumption, verified: false, note: The guide gives no sign; positive = drawn by the car is assumed.}
+  - {key: l3_power, label: Real power L3, table: holding, address: 342, type: f32, unit: W, positive: consumption, verified: false, note: The guide gives no sign; positive = drawn by the car is assumed.}
+  - {key: consumer_power, label: Real power sum, table: holding, address: 344, type: f32, unit: W, positive: consumption, verified: false, note: The guide gives no sign; positive = drawn by the car is assumed.}
+  - {key: x.apparent_power_l1, label: Apparent power L1, table: holding, address: 346, type: f32, unit: VA}
+  - {key: x.apparent_power_l2, label: Apparent power L2, table: holding, address: 348, type: f32, unit: VA}
+  - {key: x.apparent_power_l3, label: Apparent power L3, table: holding, address: 350, type: f32, unit: VA}
+  - {key: apparent_power, label: Apparent power sum, table: holding, address: 352, type: f32, unit: VA, note: NaN on chargers with the newer (post-2021) meter.}
+  - {key: x.reactive_power_l1, label: Reactive power L1, table: holding, address: 354, type: f32, unit: var}
+  - {key: x.reactive_power_l2, label: Reactive power L2, table: holding, address: 356, type: f32, unit: var}
+  - {key: x.reactive_power_l3, label: Reactive power L3, table: holding, address: 358, type: f32, unit: var}
+  - {key: reactive_power, label: Reactive power sum, table: holding, address: 360, type: f32, unit: var, note: NaN on chargers with the newer (post-2021) meter.}
+  - {key: x.energy_delivered_l1, label: Real energy delivered L1, table: holding, address: 362, type: f64, unit: kWh, scale: 0.001, note: Raw value in Wh.}
+  - {key: x.energy_delivered_l2, label: Real energy delivered L2, table: holding, address: 366, type: f64, unit: kWh, scale: 0.001, note: Raw value in Wh.}
+  - {key: x.energy_delivered_l3, label: Real energy delivered L3, table: holding, address: 370, type: f64, unit: kWh, scale: 0.001, note: Raw value in Wh.}
+  - {key: consumer_energy, label: Real energy delivered sum, table: holding, address: 374, type: f64, unit: kWh, scale: 0.001, verified: false, note: Raw value in Wh. The guide doesn't say whether "delivered" or "consumed" (390) is the energy charged into the car; delivered is assumed.}
+  - {key: x.energy_consumed_l1, label: Real energy consumed L1, table: holding, address: 378, type: f64, unit: kWh, scale: 0.001, note: Raw value in Wh.}
+  - {key: x.energy_consumed_l2, label: Real energy consumed L2, table: holding, address: 382, type: f64, unit: kWh, scale: 0.001, note: Raw value in Wh.}
+  - {key: x.energy_consumed_l3, label: Real energy consumed L3, table: holding, address: 386, type: f64, unit: kWh, scale: 0.001, note: Raw value in Wh.}
+  - {key: x.energy_consumed, label: Real energy consumed sum, table: holding, address: 390, type: f64, unit: kWh, scale: 0.001, note: Raw value in Wh; NaN on chargers with the newer (post-2021) meter.}
+  - {key: x.apparent_energy_l1, label: Apparent energy L1, table: holding, address: 394, type: f64, unit: kVAh, scale: 0.001, note: Raw value in VAh., conflicts: [{sources: [alfen-modbus, openems], unit: VAh, scale: 1, word_order: big}]}
+  - {key: x.apparent_energy_l2, label: Apparent energy L2, table: holding, address: 398, type: f64, unit: kVAh, scale: 0.001, note: Raw value in VAh., conflicts: [{sources: [alfen-modbus, openems], unit: VAh, scale: 1, word_order: big}]}
+  - {key: x.apparent_energy_l3, label: Apparent energy L3, table: holding, address: 402, type: f64, unit: kVAh, scale: 0.001, note: Raw value in VAh., conflicts: [{sources: [alfen-modbus, openems], unit: VAh, scale: 1, word_order: big}]}
+  - {key: x.apparent_energy, label: Apparent energy sum, table: holding, address: 406, type: f64, unit: kVAh, scale: 0.001, note: Raw value in VAh., conflicts: [{sources: [alfen-modbus, openems], unit: VAh, scale: 1, word_order: big}]}
+  - {key: x.reactive_energy_l1, label: Reactive energy L1, table: holding, address: 410, type: f64, unit: kvarh, scale: 0.001, note: Raw value in varh., conflicts: [{sources: [alfen-modbus, openems], unit: varh, scale: 1, word_order: big}]}
+  - {key: x.reactive_energy_l2, label: Reactive energy L2, table: holding, address: 414, type: f64, unit: kvarh, scale: 0.001, note: Raw value in varh., conflicts: [{sources: [alfen-modbus, openems], unit: varh, scale: 1, word_order: big}]}
+  - {key: x.reactive_energy_l3, label: Reactive energy L3, table: holding, address: 418, type: f64, unit: kvarh, scale: 0.001, note: Raw value in varh., conflicts: [{sources: [alfen-modbus, openems], unit: varh, scale: 1, word_order: big}]}
+  - {key: x.reactive_energy, label: Reactive energy sum, table: holding, address: 422, type: f64, unit: kvarh, scale: 0.001, note: Raw value in varh., conflicts: [{sources: [alfen-modbus, openems], unit: varh, scale: 1, word_order: big}]}
+  - {key: x.availability, label: Availability, table: holding, address: 1200, type: u16, enum: availability, invalid: [65535]}
+  - {key: x.mode3_state, label: Mode 3 state, table: holding, address: 1201, type: str, length: 5, note: 'IEC 61851 state as text: A no car, B1/B2 car connected, C1/D1 paused, C2/D2 charging, E and F error states.'}
+  - {key: x.actual_max_current, label: Actual applied max current, table: holding, address: 1206, type: f32, unit: A}
+  - {key: x.max_current_valid_time, label: Modbus max current remaining valid time, table: holding, address: 1208, type: u32, unit: s, invalid: [4294967295]}
+  - {key: x.max_current, label: Modbus max current, table: holding, address: 1210, type: f32, unit: A, writable: true}
+  - {key: x.safe_current, label: Active load balancing safe current, table: holding, address: 1212, type: f32, unit: A}
+  - {key: x.setpoint_accounted, label: Received setpoint accounted for, table: holding, address: 1214, type: u16, enum: yes_no, invalid: [65535]}
+  - {key: x.charge_phases, label: Charge using 1 or 3 phases, table: holding, address: 1215, type: u16, enum: charge_phases, writable: true, invalid: [65535]}
+
+enums:
+  meter_type: {'0': RTU, '1': TCP/IP, '2': UDP, '3': P1, '4': Other}
+  availability: {'0': Inoperative, '1': Operative}
+  yes_no: {'0': 'No', '1': 'Yes'}
+  charge_phases: {'1': 1 Phase, '3': 3 Phases}
+
+flags:
+  meter_state: {'0': Initialised, '1': Updated, '2': Warning, '3': Error}
+
+problems:
+  - {when: {key: x.mode3_state, in: [E, F]}, kind: fault, text: 'Charging error (Mode 3 state {value})'}
+  - {when: {key: x.meter_state, bit: 3}, kind: warning, text: Energy meter error (meter state 0x08)}
+  - {when: {key: x.meter_state, bit: 2}, kind: warning, text: Energy meter warning (meter state 0x04)}
+
+notes:
+- Holding registers only (function 03); up to two Modbus TCP clients at once. Socket 1 (single socket, or the left one) answers
+  on unit 1, the right socket of a dual station on unit 2; station registers on unit 200 (see alfen-eve-station).
+- Needs the licensed Active Load Balancing feature with data source "Energy Management System" and "Allow reading" switched
+  on in the ACE Service Installer (off by default).
+- 'The 2025 guide contradicts itself on the word order of 32- and 64-bit values: low word first in one place, network byte
+  order in another; the 2020 NG9xx document says big endian (network order) throughout. A reader can try both on the frequency
+  (336, 40–70 Hz), else on the L1 voltage (306), and keep the plausible one; FLOAT64 energies follow the same order.'
+- The 2025 guide's tables print register numbers (e.g. 300) but its text says to subtract 1 for the Modbus address; the 2020
+  NG9xx document prints the same numbers without that rule. The addresses here are the printed numbers; try one lower when
+  the manufacturer string isn't found at 117.
+- Reserved or unavailable values read as NaN (0xFFFF for 16-bit registers). A multi-register value must be read (and written)
+  in one request.
+- The meter registers 301, 312–316, 326–332, 346–350, 354–358, 362–386 (per phase) and 394–422 are only listed in the 2020
+  NG9xx document; the 2025 guide leaves them out. Values the meter doesn't give read as NaN.
+- The power sign is not in the guide; consumption-positive is assumed (unverified).
+- Needs the Active Load Balancing licence and Modbus TCP enabled on the charger (Eve NG9xx from firmware 4.2.0, AHP from 2.6.0).
+- AHP firmware rejects reads that start or end inside a multi-register value; read whole values only.
+- Socket 1 answers on unit id 1, socket 2 (dual chargers) on unit id 2; station registers on unit id 200 (see alfen-eve-station).
+- Registers 300-425 hold the socket's energy meter, 1200-1215 its mode 3 status and setpoint.
+- The sign of the meter's power values is not stated by the project.

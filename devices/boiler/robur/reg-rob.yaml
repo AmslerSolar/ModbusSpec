@@ -1,0 +1,63 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Robur MODBUS interface – Instruction guide for REG_ROB (document OTRG005, undated).
+
+modbusspec: 0
+id: robur-reg-rob
+manufacturer: Robur
+name: REG_ROB warm air heater controller (code 16020427)
+kind: boiler
+
+sources:
+- title: Robur MODBUS interface – Instruction guide (REG_ROB, OTRG005)
+  version: undated
+  url: https://www.orfejas.lt/dokumentacija/robur/kiti/Robur_OTRG005_MODBUS_interface_EN.pdf
+  sha256: 629662b868bf033ad7c06ee0c92f6fe0c598cb391f66c1a4016097cd55bd7d33
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: state, label: Heater state, table: holding, address: 1, type: u16, enum: state, note: Running at minimum power is not reported when parameter 5 (Mo) is 00.}
+  - {key: error_code, label: Anomaly / fault code, table: holding, address: 2, type: u16, enum: fault}
+  - {key: x.probe_degrees, label: Probe temperature (whole degrees), table: holding, address: 3, type: u16, bits: [8, 15], unit: °C, verified: false, note: 'High byte whole °C, low byte tenths. How temperatures below 0 °C are coded isn''t stated; read as unsigned.'}
+  - {key: x.probe_tenths, label: Probe temperature (tenths), table: holding, address: 3, type: u16, bits: [0, 7], unit: °C, scale: 0.1}
+  - {key: x.operating_command, label: Operating state request, table: holding, address: 11, type: u16, bits: [8, 15], enum: operating_command, writable: true, poll: slow, verified: false, note: Written with function 06 (broadcast allowed). 3 … 30 = independent heating with this setpoint in whole °C (tenths in the low byte; 0 with 30). Whether the register can be read back isn't stated.}
+  - {key: x.setpoint_tenths, label: Independent heating setpoint (tenths), table: holding, address: 11, type: u16, bits: [0, 7], unit: °C, scale: 0.1, writable: true, min: 0, max: 0.9, poll: slow, verified: false, note: 'Only used with an independent heating request (high byte 3 … 30), 0 otherwise.'}
+
+derived:
+  - {key: x.room_temperature, label: Room temperature (probe), unit: °C, sum: [{key: x.probe_degrees}, {key: x.probe_tenths}], note: 99.5 °C = probe fault (short circuit or not connected).}
+
+enums:
+  state: {'1': Stand-by, '3': Running (minimum power), '4': Running (maximum power), '5': Cooling, '6': Lockout}
+  fault: {'0': None, '1': Lockout of burner control unit, '2': Anomaly on the probe in use, '4': 5 remote resets in 15 minutes reached – reset not accepted, '5': Burner control unit lockout – safety thermostat tripped, '6': Burner control unit lockout – low flue gas temperature, '7': Burner control unit lockout – flame fault}
+  operating_command: {'0': 'Stand-by (no burner request, fan off)', '50': 'Assisted heating – minimum power (burner request, fan off)', '100': 'Assisted heating – maximum power (burner request, fan by parameter 5)', '128': 'Cooling (forced; no burner request, fan on)'}
+
+problems:
+  - {when: {key: error_code, in: [1, 2, 5, 6, 7]}, kind: fault, text: 'Heater fault: {text}'}
+  - {when: {key: error_code, equals: 4}, kind: warning, text: 'Heater: {text}'}
+  - {when: {key: state, equals: 6}, kind: fault, text: Heater in lockout (state 6)}
+
+notes:
+- REG_ROB is a Robur controller for gas-fired warm air heaters; which heater models carry it isn't stated in the document.
+  It is a Modbus RTU slave on RS-485 at 19200 baud, 8 data bits, even parity, 1 stop bit. The default slave address isn't
+  stated (1 assumed; not stated in the document). Port 502 is for a gateway.
+- 'Addresses are taken as the document gives them in its request frames (they are already the 0-based protocol addresses):
+  state 1, faults 2, probe 3, operating state 11, reset 12.'
+- 'Operating state (register 11, function 06): high byte 0 = stand-by, 3 … 30 = independent heating with setpoint high byte
+  + low byte / 10 °C (the controller compares its room probe with it using its local hysteresis and differential parameters
+  2 and 6), 50 = assisted heating at minimum power, 100 = assisted heating at maximum power, 128 = forced cooling (fan only).'
+- 'Burner control unit reset: write 0xAA55, 0x55AA, 0xAA55 to register 12, each within 10 s of the previous one; after an
+  interruption wait more than 10 s and start over. After 5 remote resets in 15 minutes further resets are refused (fault code
+  4).'

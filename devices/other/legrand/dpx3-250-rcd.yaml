@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Legrand DPX³ 250 Electr+RCD 4P Modbus table (v1.01).
+
+modbusspec: 0
+id: legrand-dpx3-250-rcd
+manufacturer: Legrand
+name: DPX³ 250 electronic circuit breaker with RCD, 4P
+kind: other
+
+sources:
+- title: Legrand DPX³ 250 Electr+RCD 4P - ModbusTable LGR EN
+  version: '1.01'
+  url: https://assets.legrand.com/pim/NP-FT-GT/DPX3250_ElectrRCD_4P_ModbusTable.pdf
+  sha256: 9c6b6dc4e9cbb80f891a67eab6a40e9991f08140537eaa0fa639731d306ff76b
+  archive_url: https://web.archive.org/web/20240418135230/https://assets.legrand.com/pim/NP-FT-GT/DPX3250_ElectrRCD_4P_ModbusTable.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # State of breaker (discrete inputs, function 02)
+  - {key: x.open, label: Open, table: discrete, address: 16384, type: bool}
+  - {key: x.closed, label: Closed, table: discrete, address: 16385, type: bool}
+  - {key: x.tripped, label: Tripped, table: discrete, address: 16386, type: bool}
+  # Differential protection
+  - {key: x.differential_prealarm, label: Differential pre-alarm (> threshold I1), table: discrete, address: 28672, type: bool}
+  - {key: x.differential_alarm, label: Differential alarm (> threshold I2), table: discrete, address: 28673, type: bool}
+  - {key: x.differential_relay_tripped, label: Differential protection relay tripped, table: discrete, address: 28676, type: bool, note: Latched until the breaker is seen closed again.}
+  # Three-phase protection
+  - {key: x.overload_prealarm_i1, label: Overload pre-alarm (threshold I1), table: discrete, address: 29184, type: bool}
+  - {key: x.overload_prealarm_i2, label: Overload pre-alarm (> threshold I2), table: discrete, address: 29185, type: bool}
+  - {key: x.overtemperature_alarm, label: Over-temperature alarm (> threshold T), table: discrete, address: 29186, type: bool}
+  - {key: x.overload_relay_tripped, label: Overload protection relay tripped, table: discrete, address: 29188, type: bool, note: Latched until the breaker is closed again or current flows on the phases.}
+  - {key: x.short_circuit_relay_tripped, label: Short-circuit protection relay tripped, table: discrete, address: 29189, type: bool, note: Latched as 0x7204.}
+  - {key: x.device_protection_relay_tripped, label: Device protection relay tripped (III element), table: discrete, address: 29190, type: bool, note: Latched as 0x7204.}
+  - {key: x.overtemperature_relay_tripped, label: Over-temperature protection relay tripped, table: discrete, address: 29192, type: bool, note: Latched as 0x7204.}
+  # Measurements (input registers, function 04)
+  - {key: l1_current, label: Phase 1 current value (R), table: input, address: 20480, type: u16, unit: A, invalid: [32768], verified: false, note: 'In the document''s "numeric coding" (unsigned, top bit 0), which it doesn''t define; taken as whole amperes.'}
+  - {key: l2_current, label: Phase 2 current value (S), table: input, address: 20481, type: u16, unit: A, invalid: [32768], verified: false, note: As phase 1.}
+  - {key: l3_current, label: Phase 3 current value (T), table: input, address: 20482, type: u16, unit: A, invalid: [32768], verified: false, note: As phase 1.}
+  - {key: x.neutral_current, label: Neutral current value, table: input, address: 20483, type: u16, unit: A, invalid: [32768], verified: false, note: As phase 1.}
+  - {key: x.differential_current, label: Differential current value, table: input, address: 20485, type: u16, unit: mA, invalid: [32768], verified: false, note: As phase 1.}
+  - {key: x.temperature, label: Sensor 1 temperature value, table: input, address: 32768, type: s16, unit: °C, invalid: [-32768], verified: false, note: In "numeric coding" (not defined in the document); taken as whole degrees.}
+  # Breaker data and counters
+  - {key: x.operations_counter, label: Operations counter, table: input, address: 16385, type: u16, poll: slow, note: Total; can't be reset.}
+  - {key: x.max_operations, label: Maximum number of operations, table: input, address: 16386, type: u16, poll: slow}
+  - {key: x.rated_current, label: Rated current, table: input, address: 16387, type: u16, unit: A, poll: slow}
+  - {key: x.poles, label: Number of poles, table: input, address: 16388, type: u16, bits: [0, 3], poll: slow}
+  - {key: x.neutral_position, label: Neutral position, table: input, address: 16388, type: u16, bits: [4, 4], enum: neutral_position, poll: slow}
+  - {key: x.device_type, label: Type of device, table: input, address: 16388, type: u16, bits: [8, 8], enum: device_type, poll: slow}
+  - {key: x.repulsive, label: Repulsive / non-repulsive breaker, table: input, address: 16388, type: u16, bits: [9, 9], enum: repulsive, poll: slow}
+  - {key: x.breaking_capacity, label: Breaking capacity, table: input, address: 16389, type: u16, unit: kA, scale: 0.01, poll: slow}
+  - {key: x.differential_trip_counter, label: Differential protection relay trip counter, table: input, address: 28672, type: u16, poll: slow}
+  - {key: x.differential_level, label: 'G1 main setting, differential: level', table: input, address: 28677, type: u16, unit: mA, poll: slow, verified: false, note: In numeric coding.}
+  - {key: x.differential_time, label: 'G1 main setting, differential: time', table: input, address: 28678, type: u16, unit: ms, poll: slow, verified: false, note: In numeric coding.}
+  - {key: x.overload_trip_counter, label: Overload protection relay trip counter, table: input, address: 29184, type: u16, poll: slow}
+  - {key: x.short_circuit_trip_counter, label: Short-circuit protection relay trip counter, table: input, address: 29185, type: u16, poll: slow}
+  - {key: x.device_protection_trip_counter, label: Device protection relay trip counter (III element), table: input, address: 29186, type: u16, poll: slow}
+  - {key: x.overtemperature_trip_counter, label: Over-temperature protection relay trip counter, table: input, address: 29188, type: u16, poll: slow}
+  - {key: x.last_trip, label: 'Last release: tripped type', table: input, address: 29189, type: u16, flags: last_trip, poll: slow}
+  - {key: x.last_trip_value, label: 'Last release: interrupted current or temperature', table: input, address: 29190, type: u32, poll: slow, verified: false, note: 'Two words, mA or °C by the trip type, in numeric coding; type and word order assumed.'}
+  - {key: x.overload_level, label: 'G1 overload: level', table: input, address: 29192, type: u16, poll: slow, verified: false, note: 'A or % of In (option bit 1 of 0x720A), in numeric coding.'}
+  - {key: x.overload_time, label: 'G1 overload: time', table: input, address: 29193, type: u16, unit: ms, poll: slow, verified: false, note: In numeric coding.}
+  - {key: x.overtemperature_level, label: 'G1 over-temperature protection: level', table: input, address: 29212, type: u16, unit: °C, poll: slow, verified: false, note: In numeric coding.}
+
+enums:
+  neutral_position: {'0': Right, '1': Left}
+  device_type: {'0': Isolating switch, '1': Automatic}
+  repulsive: {'0': Repulsive breaker, '1': Non-repulsive breaker}
+
+flags:
+  last_trip: {'0': Overload protection relay tripped, '1': Short-circuit protection relay tripped, '2': Device protection relay tripped (III element), '3': Earth fault protection relay tripped, '4': Over-temperature protection relay tripped, '5': Differential tripped}
+
+problems:
+  - {when: {key: x.tripped, equals: 1}, kind: fault, text: Breaker tripped}
+  - {when: {key: x.differential_relay_tripped, equals: 1}, kind: fault, text: Differential (RCD) protection tripped}
+  - {when: {key: x.overload_relay_tripped, equals: 1}, kind: fault, text: Overload protection tripped}
+  - {when: {key: x.short_circuit_relay_tripped, equals: 1}, kind: fault, text: Short-circuit protection tripped}
+  - {when: {key: x.device_protection_relay_tripped, equals: 1}, kind: fault, text: Device protection (III element) tripped}
+  - {when: {key: x.overtemperature_relay_tripped, equals: 1}, kind: fault, text: Over-temperature protection tripped}
+  - {when: {key: x.differential_alarm, equals: 1}, kind: warning, text: Differential current above threshold I2}
+  - {when: {key: x.differential_prealarm, equals: 1}, kind: warning, text: Differential current pre-alarm}
+  - {when: {key: x.overload_prealarm_i2, equals: 1}, kind: warning, text: Overload pre-alarm (above I2)}
+  - {when: {key: x.overtemperature_alarm, equals: 1}, kind: warning, text: Over-temperature alarm}
+
+notes:
+- RS485 Modbus RTU; address 1 … 247, baud rate 1200 … 38400 (programmable), 8N1. Default address and baud rate aren't stated;
+  1 and 9600 assumed.
+- Function 02 (discrete inputs) and 04 (input registers) only; no coils, no holding registers, nothing can be written over
+  Modbus. Addresses are the document's register addresses (0-based; its register numbers are one higher).
+- Many values are "expressed in numeric coding", which the document doesn't explain; their scale is unverified. Reserved words
+  return 0x8000; input register 0x4000 answers with an exception and isn't listed.
+- 'Left out: the overload, short-circuit, device-protection and neutral-protection option words and the remaining protection
+  settings (0x720A … 0x721D except the over-temperature level).'
+- The document gives no serial number or model register, so there is no identify.

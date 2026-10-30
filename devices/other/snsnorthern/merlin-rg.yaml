@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the S&S Northern Merlin RG Series Modbus Functionality (Rev 4).
+
+modbusspec: 0
+id: snsnorthern-merlin-rg
+manufacturer: S&S Northern
+name: Merlin RG refrigerant gas detector
+kind: other
+
+sources:
+- title: S&S Northern Merlin RG Series Modbus Functionality
+  version: Rev 4
+  url: https://snsnorthern.com/wp-content/uploads/2026/02/SS-RG-Modbus-Functionality-Rev-04.pdf
+  sha256: ff6ff6a37721cc9e35b5102040debc4f37099b2b8822f6b60617309ec383a117
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+defaults:
+  verified: false
+
+points:
+  # Identity and bus settings
+  - {key: x.baud_rate, label: Baud Rate, table: holding, address: 20, type: u16, poll: slow, note: '9600 (default), 19200, 38400 or 57600, set by DIP switch.'}
+  - {key: x.address, label: Address, table: holding, address: 21, type: u16, poll: slow, note: '0…127, set by DIP switch.'}
+  - {key: x.name, label: Name, table: holding, address: 22, type: str, length: 2, poll: slow, note: ASCII; content not described.}
+  # Measurement and output
+  - {key: x.refrigerant_gas, label: RG, table: holding, address: 25, type: s16, unit: ppm}
+  - {key: x.output_voltage, label: RG +10V O/P, table: holding, address: 28, type: s16, unit: V, scale: 0.1, writable: true, note: Writable when register 60 is 0 (output follows the written value).}
+  # Settings
+  - {key: x.gas_offset, label: RG Offset, table: holding, address: 31, type: s16, unit: ppm, writable: true, min: -5000, max: 5000, poll: slow}
+  - {key: x.pre_alarm_level, label: Pre-Alarm Level (Low), table: holding, address: 34, type: s16, unit: ppm, writable: true, min: 0, max: 5000, poll: slow, note: Default 175 ppm.}
+  - {key: x.alarm_level, label: Alarm Level (High), table: holding, address: 35, type: s16, unit: ppm, writable: true, min: 0, max: 5000, poll: slow, note: Default 1000 ppm.}
+  - {key: x.relay_set_point, label: Relay Set Point, table: holding, address: 36, type: s16, unit: ppm, writable: true, min: 0, max: 5000, poll: slow, note: Default 1000 ppm.}
+  - {key: x.relay_alarm, label: Relay Alarm, table: holding, address: 37, type: s16, enum: relay_alarm}
+  - {key: x.relay_polarity, label: Relay Polarity, table: holding, address: 38, type: s16, enum: relay_polarity, writable: true, poll: slow}
+  - {key: x.alarm_status, label: RG Alarm Status, table: holding, address: 40, type: s16, enum: alarm_status}
+  - {key: x.gas_max, label: RG Maximum, table: holding, address: 41, type: u16, unit: ppm, writable: true, min: 0, max: 5000, poll: slow}
+  - {key: x.gas_min, label: RG Minimum, table: holding, address: 42, type: u16, unit: ppm, writable: true, min: 0, max: 5000, poll: slow}
+  - {key: x.voltage_max, label: RG Voltage Max, table: holding, address: 43, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.voltage_min, label: RG Voltage Min, table: holding, address: 44, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  # Output feedback, alarms, codes
+  - {key: x.voltage_feedback, label: RG Voltage Feedback, table: holding, address: 53, type: u16, unit: V, scale: 0.1}
+  - {key: x.voltage_alarm, label: RG Voltage Alarm, table: holding, address: 56, type: s16, enum: voltage_alarm}
+  - {key: x.output_source, label: RG +10V O/P (40028), table: holding, address: 60, type: s16, enum: output_source, writable: true, poll: slow}
+  - {key: x.audible_alarm, label: Audible Alarm, table: holding, address: 63, type: s16, enum: audible_alarm, writable: true, poll: slow}
+  - {key: error_code, label: Error Code, table: holding, address: 64, type: s16, note: Codes not described in the document.}
+  - {key: x.warning_code, label: Warning Code, table: holding, address: 65, type: s16, note: Codes not described in the document.}
+
+enums:
+  relay_alarm: {'0': No alarm, '1': Alarm (relay changed state)}
+  relay_polarity: {'0': Normal (N/O), '1': Reversed (N/C)}
+  alarm_status: {'1': No alarm, '2': Pre-alarm, '3': Alarm}
+  voltage_alarm: {'0': No alarm, '1': Output more than 10 % off}
+  output_source: {'0': Written value, '1': Sensor}
+  audible_alarm: {'1': Disabled, '2': Enabled}
+
+problems:
+  - {when: {key: x.alarm_status, equals: 2}, kind: warning, text: Refrigerant gas pre-alarm level reached}
+  - {when: {key: x.alarm_status, equals: 3}, kind: fault, text: Refrigerant gas alarm level reached}
+  - {when: {key: x.voltage_alarm, equals: 1}, kind: warning, text: Output voltage more than 10 % off}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Detector error (code {value})'}
+  - {when: {key: x.warning_code, not: 0}, kind: warning, text: 'Detector warning (code {value})'}
+
+notes:
+- 'Addresses: the document numbers registers 40000 upwards and lists 40000–40019 as reserved, so 40000 is taken as protocol
+  address 0 (address = number − 40000) in the holding table. Not stated in the document; assumed, hence every point is `verified:
+  false`. If the device uses the common 40001 = 0 convention, all addresses are one lower.'
+- Serial line 9600 baud (19200, 38400 or 57600 by DIP switch), no parity, 8 data bits, 1 stop bit. The address (0…127) is
+  set by DIP switch; the default is not stated, 1 is assumed.
+- The RG shares the register layout of the Merlin RS sensor; its temperature and humidity functions are disabled.
+- That 0 means "no error / no warning" in registers 64 and 65 is not stated in the document; assumed.
+- The document gives no product code or serial number, so there is no identification. The Name registers (22–23) hold ASCII
+  text whose content isn't described.

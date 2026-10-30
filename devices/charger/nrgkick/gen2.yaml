@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From DiniTech's NRGkick Gen2 Local API documentation, Modbus part (below).
+
+modbusspec: 0
+id: nrgkick-gen2
+manufacturer: DiniTech
+name: NRGkick Gen2 mobile wallbox (SmartModule ≥ 4.0.0.0)
+kind: charger
+
+sources:
+- title: NRGkick Gen2 Local API Documentation (JSON and Modbus TCP)
+  version: Modbus API v1 (© 2024, page modified 2025-10-21)
+  url: https://nrgkick.com/wp-content/uploads/local_api_docu_simulate-1.html
+  sha256: c59d992b4bc7346998dc483ae60a63996acc0b5925ea5898416c847d48a7c02c
+  archive_url: https://web.archive.org/web/20260510050507/https://nrgkick.com/wp-content/uploads/local_api_docu_simulate-1.html
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 0
+    type: str
+    length: 11
+  checks:
+  - table: holding
+    address: 35
+    type: u16
+    range:
+    - 16
+    - 32
+
+points:
+  # Device information (read-only)
+  - {key: serial, label: Serial number, table: holding, address: 0, type: str, length: 11, poll: slow, verified: false, note: Byte order inside text registers not stated (see notes).}
+  - {key: x.model_type, label: Model type, table: holding, address: 11, type: str, length: 16, poll: slow, verified: false}
+  - {key: x.device_name, label: Device name, table: holding, address: 27, type: str, length: 8, poll: slow, verified: false}
+  - {key: x.rated_current, label: Max rated current, table: holding, address: 35, type: u16, unit: A, poll: slow}
+  - {key: x.attachment_phases, label: Attachment phase count, table: holding, address: 36, type: u16, poll: slow}
+  - {key: x.attachment_max_current, label: Attachment max current, table: holding, address: 37, type: u16, unit: A, scale: 0.1, poll: slow}
+  - {key: x.attachment_type, label: Attachment type, table: holding, address: 38, type: u16, enum: attachment_type, poll: slow}
+  - {key: x.grid_voltage_type, label: Detected grid voltage type, table: holding, address: 43, type: u16, unit: V, poll: slow}
+  - {key: x.grid_frequency_type, label: Detected grid frequency type, table: holding, address: 44, type: u16, unit: Hz, poll: slow}
+  - {key: x.grid_phases, label: Connected phases on grid side, table: holding, address: 45, type: u16, flags: grid_phases, poll: slow}
+  - {key: x.wifi_signal, label: WiFi signal strength, table: holding, address: 79, type: s16, unit: dBm, poll: slow}
+  - {key: firmware, label: Software version SmartModule, table: holding, address: 122, type: str, length: 8, poll: slow, verified: false}
+  - {key: x.firmware_main, label: Software version main controller, table: holding, address: 138, type: str, length: 8, poll: slow, verified: false}
+  # Device control (read / write; function 06 or 16, 196 only with 16)
+  - {key: x.charging_current, label: User-set charging current, table: holding, address: 194, type: u16, unit: A, scale: 0.1, writable: true, note: 6.0 A up to the rated current (16 or 32 A).}
+  - {key: x.charge_pause, label: Charge pause, table: holding, address: 195, type: u16, enum: charge_pause, writable: true}
+  - {key: x.energy_limit, label: User-set energy limit, table: holding, address: 196, type: u32, unit: kWh, scale: 0.001, writable: true, poll: slow, note: Wh; 0 = no limit.}
+  - {key: x.phase_count_limit, label: User-set maximum charge phases, table: holding, address: 198, type: u16, writable: true, min: 1, max: 3, poll: slow, note: Only when phase switching is enabled in the NRGkick app.}
+  # Device values (read-only)
+  - {key: consumer_energy, label: Total charged energy, table: holding, address: 199, type: u64, unit: kWh, scale: 0.001, poll: slow, note: Wh.}
+  - {key: session_energy, label: Charged energy during most recent charge, table: holding, address: 203, type: u32, unit: kWh, scale: 0.001, note: Wh.}
+  - {key: x.voltage_average, label: Average phase voltage, table: holding, address: 205, type: u16, unit: V, scale: 0.01}
+  - {key: x.current_signaled, label: Max current signalled to EV, table: holding, address: 206, type: u16, unit: A, scale: 0.1}
+  - {key: frequency, label: Frequency, table: holding, address: 207, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.peak_power, label: Highest power during most recent charge, table: holding, address: 208, type: s32, unit: W, scale: 0.001, poll: slow}
+  - {key: consumer_power, label: Active power all phases, table: holding, address: 210, type: s32, unit: W, scale: 0.001, positive: consumption, verified: false, note: Sign not stated in the documentation; a charger only draws power.}
+  - {key: reactive_power, label: Reactive power all phases, table: holding, address: 212, type: s32, unit: var, scale: 0.001}
+  - {key: apparent_power, label: Apparent power all phases, table: holding, address: 214, type: u32, unit: VA, scale: 0.001}
+  - {key: power_factor, label: Power factor all phases, table: holding, address: 216, type: s16, unit: '', scale: 0.001}
+  - {key: l1_voltage, label: Voltage L1, table: holding, address: 217, type: u16, unit: V, scale: 0.01}
+  - {key: l2_voltage, label: Voltage L2, table: holding, address: 218, type: u16, unit: V, scale: 0.01}
+  - {key: l3_voltage, label: Voltage L3, table: holding, address: 219, type: u16, unit: V, scale: 0.01}
+  - {key: l1_current, label: Current L1, table: holding, address: 220, type: u16, unit: A, scale: 0.001}
+  - {key: l2_current, label: Current L2, table: holding, address: 221, type: u16, unit: A, scale: 0.001}
+  - {key: l3_current, label: Current L3, table: holding, address: 222, type: u16, unit: A, scale: 0.001}
+  - {key: x.current_n, label: Current N, table: holding, address: 223, type: u16, unit: A, scale: 0.001}
+  - {key: l1_power, label: Active power L1, table: holding, address: 224, type: s32, unit: W, scale: 0.001, positive: consumption, verified: false, note: Sign not stated in the documentation.}
+  - {key: l2_power, label: Active power L2, table: holding, address: 226, type: s32, unit: W, scale: 0.001, positive: consumption, verified: false, note: Sign not stated in the documentation.}
+  - {key: l3_power, label: Active power L3, table: holding, address: 228, type: s32, unit: W, scale: 0.001, positive: consumption, verified: false, note: Sign not stated in the documentation.}
+  - {key: x.connect_time, label: Connect time of most recent charge, table: holding, address: 247, type: u32, unit: s}
+  - {key: x.charge_time, label: Charge time of most recent charge, table: holding, address: 249, type: u32, unit: s}
+  - {key: state, label: Charging status, table: holding, address: 251, type: u16, enum: status}
+  - {key: x.charge_permitted, label: EV allowed to charge, table: holding, address: 252, type: u16, enum: charge_permitted}
+  - {key: x.relays, label: Switched relays, table: holding, address: 253, type: u16, flags: relays}
+  - {key: x.plug_cycles, label: Vehicle plug-in cycle count, table: holding, address: 254, type: u16, poll: slow}
+  - {key: x.rcd_trigger, label: RCD triggered, table: holding, address: 255, type: u16, enum: rcd_trigger}
+  - {key: x.warning_code, label: Current warning, table: holding, address: 256, type: u16, enum: warning}
+  - {key: error_code, label: Current error, table: holding, address: 257, type: u16, enum: error}
+  - {key: temperature, label: Housing temperature, table: holding, address: 258, type: s16, unit: °C, scale: 0.01}
+  - {key: x.attachment_temperature_l1, label: Attachment phase 1 temperature, table: holding, address: 259, type: s16, unit: °C, scale: 0.01}
+  - {key: x.attachment_temperature_l2, label: Attachment phase 2 temperature, table: holding, address: 260, type: s16, unit: °C, scale: 0.01}
+  - {key: x.attachment_temperature_l3, label: Attachment phase 3 temperature, table: holding, address: 261, type: s16, unit: °C, scale: 0.01}
+
+enums:
+  attachment_type: {'0': Unknown, '1': CEE, '2': Domestic, '3': Type 2, '4': Wall, '5': AUS}
+  charge_pause: {'0': No pause, '1': Paused}
+  charge_permitted: {'0': Not allowed, '1': Allowed}
+  status: {'0': Unknown, '1': Standby, '2': Connected, '3': Charging, '6': Error, '7': Wakeup}
+  rcd_trigger: {'0': No fault, '1': AC 30 mA fault, '2': AC 60 mA fault, '3': AC 150 mA fault, '4': DC positive 6 mA fault, '5': DC negative 6 mA fault}
+  warning: {'0': No warning, '1': No PE, '2': Blackout protection, '3': Energy limit reached, '4': EV does not comply with standard, '5': Unsupported charging mode, '6': No attachment detected, '7': No communication with Type 2 attachment, '16': Increased temperature, '17': Increased housing temperature, '18': Increased attachment temperature, '19': Increased domestic plug temperature}
+  error: {'0': No error, '1': General error, '2': 32 A attachment on 16 A unit, '3': Voltage drop detected, '4': Unplug detection triggered, '5': Type 2 not authorized, '16': Residual current detected, '32': CP signal voltage error, '33': CP signal impermissible, '34': EV diode fault, '48': PE self-test failed, '49': RCD self-test failed, '50': Relay self-test failed, '51': PE and RCD self-test failed, '52': PE and relay self-test failed, '53': RCD and relay self-test failed, '54': 'PE, RCD and relay self-test failed', '64': Supply voltage error, '65': Phase shift error, '66': Overvoltage detected, '67': Undervoltage detected, '68': Overvoltage without PE detected, '69': Undervoltage without PE detected, '70': Underfrequency detected, '71': Overfrequency detected, '72': Unknown frequency type, '73': Unknown grid type, '80': General overtemperature, '81': Housing overtemperature, '82': Attachment overtemperature, '83': Domestic plug overtemperature}
+
+flags:
+  grid_phases: {'0': L1, '1': L2, '2': L3}
+  relays: {'0': N, '1': L1, '2': L2, '3': L3}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charger error (code {value})'}
+  - {when: {key: state, equals: 6}, kind: fault, text: Charger in error state}
+  - {when: {key: x.rcd_trigger, not: 0}, kind: fault, text: 'Residual current device tripped (code {value})'}
+  - {when: {key: x.warning_code, not: 0}, kind: warning, text: 'Charger warning (code {value})'}
+
+notes:
+- Enable the Modbus API in the NRGkick app; the device announces it over mDNS (_nrgkick._tcp, modbus_api_enabled=1).
+- Addresses are the documentation's 0-based protocol addresses; every register is a holding register (function 03; control
+  registers written with 06 or 16).
+- Read each value with its full register count; several values may be read together if their boundaries are kept.
+- The documentation says all registers are little endian without saying whether that means the word order or the bytes too;
+  low word first with big-endian bytes inside each register is assumed (16-bit values like 160 = 16.0 A only make sense that
+  way). Not verified, also for text.
+- Raw values are divided by the documentation's factor (scale = 1 / factor).
+- 'Left out: network and cellular texts (46–113), GPS (114–121), the other controllers'' hardware and software versions, per-phase
+  reactive and apparent power and power factor (230–244), charging rate in km/h (245) and domestic plug temperatures (262–263).'

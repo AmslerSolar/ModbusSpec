@@ -1,0 +1,174 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the MUST EP3000Plus Modbus RTU Protocol 1.0 (English spreadsheet, as kept in the esphome-must-inverter
+# repository at commit 11946ecf).
+
+modbusspec: 0
+id: must-ep3000
+manufacturer: MUST
+name: EP3000 Plus inverter/charger
+kind: inverter
+
+sources:
+- title: EP3000Plus Modbus RTU Protocol 1.0 (English)
+  version: '1.0'
+  url: https://github.com/vladyspavlov/esphome-must-inverter/blob/11946ecf313f72a2530fee8550418989694a45f6/docs/EP3000Plus%20Modbus%20RTU%20Protocol1.0%20-%20Eng.xlsx
+  sha256: b319662f85d546ad56f2583ff9157583f8b0b1195ff8832c44438d202a3e3c2a
+- id: must-ep30
+  title: ha-must-ep30 (Home Assistant integration)
+  url: https://github.com/mkbodanu4/ha-must-ep30
+  license: MIT
+  commit: 0798502f9ddb287c36b57dbfa82743bcb4080dcb
+  path: custom_components/must_ep30/const.py, custom_components/must_ep30/devices/ep3000_plus.py
+
+connection:
+  default_port: 502
+  default_unit: 10
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 60
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 31200
+    type: u32
+  checks:
+  # machine type
+  - table: holding
+    address: 30000
+    type: u16
+    in:
+    - 0
+    - 2
+    - 3
+    - 4100
+  # battery class
+  - table: holding
+    address: 30003
+    type: u16
+    in:
+    - 12
+    - 24
+    - 48
+
+points:
+  # Status (30000 ff.)
+  - {key: x.machine_type, label: Type of machine, table: holding, address: 30000, type: u16, enum: machine_type, poll: slow}
+  - {key: firmware, label: Software version, table: holding, address: 30001, type: u16, poll: slow}
+  - {key: state, label: Work state, table: holding, address: 30002, type: u16, enum: work_state}
+  - {key: x.battery_class, label: Battery class, table: holding, address: 30003, type: u16, unit: V, poll: slow, note: 'Nominal battery voltage: 12, 24 or 48.'}
+  - {key: x.rated_power, label: Rated power, table: holding, address: 30004, type: u16, unit: W, poll: slow}
+  - {key: x.input_voltage, label: Input AC voltage, table: holding, address: 30005, type: u16, unit: V, scale: 0.1}
+  - {key: frequency, label: Input AC frequency, table: holding, address: 30006, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.output_voltage, label: Output AC voltage, table: holding, address: 30007, type: u16, unit: V, verified: false, note: 'The document gives coefficient 1 (whole volts) here, unlike 0.1 for the input voltage; possibly an error in the document.', conflicts: [{sources: [must-ep30], scale: 0.1, label: Output voltage}]}
+  - {key: x.output_frequency, label: Output AC frequency, table: holding, address: 30008, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.output_current, label: Output AC current, table: holding, address: 30009, type: u16, unit: A, scale: 0.1}
+  - {key: load_power, label: Output AC active power, table: holding, address: 30010, type: u16, unit: W}
+  - {key: apparent_power, label: Output AC apparent power, table: holding, address: 30011, type: u16, unit: VA}
+  - {key: x.load_percent, label: Load percent, table: holding, address: 30012, type: u16, unit: '%'}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 30014, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery_current, label: Battery current, table: holding, address: 30015, type: u16, unit: A, scale: 0.1, verified: false, note: Direction not stated in the document; unsigned assumed.}
+  - {key: battery_temperature, label: Battery temperature, table: holding, address: 30016, type: s16, unit: °C, verified: false, note: Signedness not stated in the document; signed assumed., conflicts: [{sources: [must-ep30], type: u16}]}
+  - {key: battery_soc, label: Battery SOC, table: holding, address: 30017, type: u16, unit: '%'}
+  - {key: temperature, label: Radiator temperature, table: holding, address: 30018, type: s16, unit: °C, verified: false, note: Signedness not stated in the document; signed assumed., conflicts: [{sources: [must-ep30], type: u16, label: Inverter temperature}]}
+  - {key: x.buzzer_state, label: Buzzer state, table: holding, address: 30020, type: u16, enum: buzzer_state}
+  - {key: error_code, label: System fault ID, table: holding, address: 30021, type: u16, enum: fault_code}
+  - {key: x.system_alarm, label: System alarm ID, table: holding, address: 30022, type: u16, flags: alarm_bits, note: The document's alarm table is a bit table (one bit per alarm).}
+  - {key: x.grid_charge_flag, label: Grid charge flag, table: holding, address: 30024, type: u16, enum: grid_charge_flag}
+  - {key: x.grid_state, label: Grid state, table: holding, address: 30025, type: u16, enum: grid_state}
+  # Split-phase values (30030 ff.); the document doesn't say which models fill them
+  - {key: l1_voltage, label: L1 input voltage, table: holding, address: 30030, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: L2 input voltage, table: holding, address: 30031, type: u16, unit: V, scale: 0.1}
+  - {key: x.l12_input_voltage, label: L12 input voltage, table: holding, address: 30032, type: u16, unit: V, scale: 0.1}
+  - {key: x.input_frequency_split, label: Input frequency, table: holding, address: 30033, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.l1_output_voltage, label: L1 output voltage, table: holding, address: 30036, type: u16, unit: V, scale: 0.1}
+  - {key: x.l1_output_current, label: L1 output current, table: holding, address: 30037, type: u16, unit: A, scale: 0.1}
+  - {key: x.l1_output_power, label: L1 output PLoad, table: holding, address: 30038, type: u16, unit: W}
+  - {key: x.l1_output_apparent_power, label: L1 output SLoad, table: holding, address: 30039, type: u16, unit: VA}
+  - {key: x.l1_output_load_percent, label: L1 output load percent, table: holding, address: 30040, type: u16, unit: '%'}
+  - {key: x.l2_output_voltage, label: L2 output voltage, table: holding, address: 30041, type: u16, unit: V, scale: 0.1}
+  - {key: x.l2_output_current, label: L2 output current, table: holding, address: 30042, type: u16, unit: A, scale: 0.1}
+  - {key: x.l2_output_power, label: L2 output PLoad, table: holding, address: 30043, type: u16, unit: W}
+  - {key: x.l2_output_apparent_power, label: L2 output SLoad, table: holding, address: 30044, type: u16, unit: VA}
+  - {key: x.l2_output_load_percent, label: L2 output load percent, table: holding, address: 30045, type: u16, unit: '%'}
+  - {key: x.l12_output_voltage, label: L12 output voltage, table: holding, address: 30046, type: u16, unit: V, scale: 0.1}
+  - {key: x.output_frequency_split, label: Output frequency, table: holding, address: 30047, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.total_load_power, label: Total PLoad, table: holding, address: 30048, type: u16, unit: W}
+  - {key: x.total_load_apparent_power, label: Total SLoad, table: holding, address: 30049, type: u16, unit: VA}
+  - {key: x.total_load_percent, label: Total load percent, table: holding, address: 30050, type: u16, unit: '%'}
+  # Settings (31000 ff.)
+  - {key: x.grid_frequency_type, label: Grid frequency type, table: holding, address: 31000, type: u16, enum: grid_frequency_type, writable: true, poll: slow}
+  - {key: x.grid_voltage_type, label: Grid voltage type, table: holding, address: 31001, type: u16, unit: V, writable: true, poll: slow, verified: false, note: 'The document lists 100, 110 and 120 V; that the register holds the voltage itself (not an index) is assumed.'}
+  - {key: x.shutdown_voltage, label: Shutdown voltage, table: holding, address: 31002, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '12 V model: 10.0–11.0 V in 0.5 V steps, default 10.5 V.'}
+  - {key: x.absorption_voltage, label: Absorption charge voltage, table: holding, address: 31003, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '12 V model: 13.8–14.5 V, default 14.1 V.'}
+  - {key: x.float_voltage, label: Float charge voltage, table: holding, address: 31004, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '12 V model: 13.5–13.7 V, default 13.5 V.'}
+  - {key: x.bulk_current, label: Bulk current, table: holding, address: 31005, type: u16, unit: A, writable: true, poll: slow, note: 'Maximum charge current; the allowed range depends on rated power and battery voltage (minimum 10 A, 5 A steps; see notes).'}
+  - {key: x.buzzer, label: Buzzer, table: holding, address: 31006, type: u16, enum: buzzer_state, writable: true, poll: slow}
+  - {key: x.grid_charge_disable, label: Enable grid charge, table: holding, address: 31007, type: u16, enum: enable_inverted, writable: true, poll: slow, note: '0 = enabled, 1 = disabled.'}
+  - {key: x.key_sound_disable, label: Key sound, table: holding, address: 31008, type: u16, enum: enable_inverted, writable: true, poll: slow, note: '0 = enabled, 1 = disabled.'}
+  - {key: x.backlight, label: Enable backlight, table: holding, address: 31009, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.point_to_inverter, label: Battery voltage back to inverter (Point2Inv), table: holding, address: 31014, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '12 V model: 13.0–14.5 V in 0.5 V steps.'}
+  - {key: x.point_to_grid, label: Battery voltage back to grid (Point2Grid), table: holding, address: 31015, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '12 V model: 10.5–12.0 V in 0.5 V steps.'}
+  - {key: x.power_saving_mode, label: Power saving mode enable, table: holding, address: 31020, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.search_time, label: Search time, table: holding, address: 31021, type: u16, unit: s, writable: true, min: 5, max: 30, poll: slow}
+  - {key: x.output_source_priority, label: Output source priority, table: holding, address: 31022, type: u16, enum: output_source_priority, writable: true, poll: slow}
+  - {key: x.ac_input_voltage_range, label: AC input voltage range, table: holding, address: 31023, type: u16, enum: ac_input_range, writable: true, poll: slow}
+  # Identity
+  - {key: serial, label: Inverter serial number, table: holding, address: 31200, type: u32, poll: slow, note: 'The document gives a high word (31200) and a low word (31201), each 0–65535; read here as one 32-bit number.', conflicts: [{sources: [must-ep30], type: u16, label: Serial number (high)}]}
+  - {key: x.charge_stage, label: Charge stage, table: holding, address: 30023, type: u16, enum: charge_stage, verified: false, sources: [must-ep30]}
+
+enums:
+  machine_type: {'0': EP2000 Pro, '2': PV2000 Pro, '3': EP3300 LV / EP3000 Plus, '4100': EP3300 TLV}
+  work_state: {'0': Self-check, '1': Backup, '2': Line, '3': Stop, '4': Debug, '5': Soft start, '6': Power off, '7': Standby}
+  buzzer_state: {'0': Normal, '1': Silenced}
+  fault_code: {'0': No fault, '1': Fan error, '2': Over temperature, '3': Battery voltage too high, '4': Battery voltage too low, '5': Short circuit, '6': Inverter output voltage high, '7': Overload, '11': Main relay failed, '28': Rated load recognition failed, '41': Grid voltage low, '42': Grid voltage high, '43': Grid frequency low, '44': Grid frequency high, '51': Overcurrent, '58': Inverter output voltage low}
+  grid_charge_flag: {'0': Not charging from grid, '1': Charging from grid}
+  grid_state: {'0': No grid, '1': Normal, '2': Abnormal}
+  grid_frequency_type: {'0': 50 Hz, '1': 60 Hz}
+  enable_inverted: {'0': Enabled, '1': Disabled}
+  off_on: {'0': Disabled, '1': Enabled}
+  output_source_priority: {'0': Grid, '1': Battery}
+  ac_input_range: {'0': Wide, '1': Narrow}
+  charge_stage: {'0': Constant current, '1': Constant voltage, '2': Float voltage}
+
+flags:
+  alarm_bits: {'0': Inverter over temperature, '1': Battery over temperature, '2': Battery voltage too high, '3': Battery voltage too low, '4': Overload}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Inverter fault: {text} ({value})'}
+  - {when: {key: x.system_alarm, bit: 0}, kind: warning, text: Inverter over temperature (alarm bit 0)}
+  - {when: {key: x.system_alarm, bit: 1}, kind: warning, text: Battery over temperature (alarm bit 1)}
+  - {when: {key: x.system_alarm, bit: 2}, kind: warning, text: Battery voltage too high (alarm bit 2)}
+  - {when: {key: x.system_alarm, bit: 3}, kind: warning, text: Battery voltage too low (alarm bit 3)}
+  - {when: {key: x.system_alarm, bit: 4}, kind: warning, text: Overload (alarm bit 4)}
+  - {when: {key: x.grid_state, equals: 0}, kind: mains_lost, text: No grid}
+  - {when: {key: x.grid_state, equals: 2}, kind: warning, text: Grid abnormal}
+  - {when: {key: state, equals: 1}, kind: backup_mode, text: Running on battery (backup)}
+
+notes:
+- Addresses are the document's decimal register numbers, used as protocol addresses unchanged (its example frame reads register
+  10001 as 0x2711). All registers are read with function 03; writes use 06 or 16.
+- The document allows at most 60 registers per read.
+- 'Maximum charge current (31005) by rated power and battery voltage: 12 V: 30 A (1 kW), 45 A (1.5 kW), 60 A (2 kW); 24 V:
+  20, 25, 30, 40, 60 A (1, 1.5, 2, 3, 4 kW); 48 V: 20, 30, 35, 40 A (3, 4, 5, 6 kW).'
+- Voltage settings (31002–31004, 31014, 31015) are given for 12 V models only; for 24 and 48 V batteries they presumably scale
+  with the battery class (not stated).
+- 'Left out: reserved registers and the calibration coefficients (31100–31116). The document marks 30023 as reserved.'
+- Signedness of the registers isn't stated; all are read unsigned except the temperatures (signed assumed).
+- 'Left out: Serial number (low) (holding 31201, u16) from must-ep30 overlaps serial from the documents.'
+- ha-must-ep30 reads 26 registers from 30000 in one request.
+- The integration's author says the PV1800/PV1900 map of ha-must-inverter gives wrong values on an EP3000 Plus; this is a
+  different map.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

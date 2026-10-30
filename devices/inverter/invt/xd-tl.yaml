@@ -1,0 +1,293 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the INVT Solar Inverter Modbus RTU Protocol (RS485 Communication Protocol V1.38, 2024-07-16).
+
+modbusspec: 0
+id: invt-xd-tl
+manufacturer: INVT
+name: XD hybrid / XG grid-tied inverters
+kind: inverter
+
+sources:
+- title: INVT Solar Inverter Modbus RTU Protocol (INVT SOLAR RS485 Communication Protocol)
+  version: V1.38 (2024-07-16)
+  url: https://github.com/user-attachments/files/17638743/INVT.Modbus.July.2024.pdf
+  sha256: d7ddf2c46c52f9862a05cbf71e22253e27a983bca21141f6759aee129f928998
+- id: solarman
+  title: ha-solarman (Home Assistant integration)
+  url: https://github.com/davidrapan/ha-solarman
+  license: MIT
+  commit: ac1d88b83268beeb0511b8a1b7fc8e17deddc044
+  path: custom_components/solarman/inverter_definitions/invt_xd-tl.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 12289
+    type: str
+    length: 16
+    chars: low
+
+models:
+  - {id: hybrid, name: XD hybrid inverter (single-phase), match: {table: holding, address: 12392, type: u16, equals: 1}}
+  - {id: grid_tied, name: XG grid-tied inverter (single- or three-phase), match: {table: holding, address: 12392, type: u16, not: 1}}
+
+points:
+  # Identity and clock (read / write area 0x3000 ff.)
+  - {key: x.rated_power, label: Rated power, table: holding, address: 12288, type: u16, unit: kW, scale: 0.1, poll: slow}
+  - {key: serial, label: Inverter serial number, table: holding, address: 12289, type: str, length: 16, chars: low, poll: slow, verified: false, note: '16 registers of ASCII characters (''0''–''9'', ''a''–''z'', ''A''–''Z'' per register): one character per register, in the low byte, assumed.'}
+  - {key: x.model_name, label: Model of inverter device, table: holding, address: 12397, type: str, length: 16, chars: low, poll: slow, verified: false, note: Coded like the serial number; one character per register assumed.}
+  - {key: x.software_id, label: Software version identifier, table: holding, address: 14336, type: str, length: 2, poll: slow, verified: false, note: Two registers of ASCII; two characters per register assumed.}
+  - {key: firmware, label: Software version number 1 (main DSP), table: holding, address: 14338, type: u16, poll: slow, note: '1–9999: thousands and hundreds = official version, tens and units = test version.'}
+  - {key: x.aux_dsp_version, label: Software version number 2 (auxiliary DSP), table: holding, address: 14339, type: u16, poll: slow}
+  - {key: x.cpld_version, label: Software version number 3 (CPLD), table: holding, address: 14340, type: u16, poll: slow}
+  - {key: x.arm_version, label: Software version number 4 (ARM), table: holding, address: 14341, type: u16, poll: slow}
+  - {key: x.model_recognition, label: Model recognition, table: holding, address: 12392, type: u16, enum: model_recognition, poll: slow, note: 'The register table gives 1 hybrid, 2 grid-tied, 3 off-grid; the overview table at the start says 1 hybrid, 2 battery pack data, any other value grid-tied.'}
+  - {key: x.inverter_model, label: Inverter model, table: holding, address: 14465, type: u16, poll: slow, note: No value table in the document.}
+  - {key: x.modbus_address, label: 485 address setting, table: holding, address: 12306, type: u16, writable: true, min: 1, max: 247, persistent: true, poll: slow}
+  - {key: x.baud_rate, label: 485 baud rate setting, table: holding, address: 12307, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.clock, label: Year-Month / Day-Hour / Minute-Seconds, table: holding, address: 12308, type: datetime, length: 3, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}, writable: true, poll: slow, note: Year 20–99 (2000 added).}
+  - {key: x.grid_code, label: Grid code (regulation), table: holding, address: 12318, type: u16, bits: [8, 15], enum: grid_code, writable: true, poll: slow}
+  - {key: x.manufacturer_selection, label: Manufacturer selection, table: holding, address: 12318, type: u16, bits: [0, 7], enum: manufacturer_selection, writable: true, poll: slow}
+
+  # Control settings
+  - {key: x.remote_shutdown, label: Remote shutdown, table: holding, address: 12312, type: u16, enum: remote_shutdown, writable: true, poll: slow}
+  - {key: x.active_power_limit, label: Percent of active power setting, table: holding, address: 12313, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100, persistent: true, poll: slow}
+  - {key: x.reactive_power_mode, label: Setting of reactive power control mode, table: holding, address: 12314, type: u16, enum: reactive_power_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.power_factor_setting, label: Power factor settings, table: holding, address: 12315, type: s16, scale: 0.001, writable: true, persistent: true, poll: slow, note: +800…+1000 and −800…−1000 raw (magnitude 0.8–1).}
+  - {key: x.reactive_power_setting, label: Reactive power setting, table: holding, address: 12316, type: s16, unit: '%', scale: 0.1, writable: true, min: -60, max: 60, persistent: true, poll: slow, note: 'The description gives −60 … +60 %, the range column −66 … +66 %.'}
+  - {key: x.zero_export_meter, label: Zero export function meter, table: holding, address: 12395, type: u16, enum: zero_export_meter, writable: true, poll: slow}
+  - {key: x.single_export_limiting, label: Single inverter export limiting, table: holding, address: 12430, type: u16, enum: enable, writable: true, poll: slow}
+  - {key: x.allowed_backflow_power, label: Allowable backflow power, table: holding, address: 12379, type: u16, unit: kW, scale: 0.1, writable: true, poll: slow}
+
+  # Battery and energy-storage settings (hybrid, area 0x3100 ff.)
+  - {key: x.priority_mode, label: Priority configuration, table: holding, address: 12561, type: u16, enum: priority_mode, writable: true, poll: slow, models: [hybrid]}
+  - {key: x.eps_enable, label: EPS function enable, table: holding, address: 12564, type: u16, enum: enable, writable: true, poll: slow, models: [hybrid]}
+  - {key: x.discharge_stop_soc, label: Stop SOC during discharge, table: holding, address: 12568, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, models: [hybrid], note: Grid priority mode.}
+  - {key: x.charge_stop_soc, label: Stop SOC when charging, table: holding, address: 12579, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, models: [hybrid], note: Battery priority mode.}
+  - {key: x.ac_charge_enable, label: AC charging enable, table: holding, address: 12580, type: u16, enum: enable, writable: true, poll: slow, models: [hybrid]}
+  - {key: x.max_charge_current, label: Maximum battery charging current, table: holding, address: 12599, type: u16, unit: A, scale: 0.1, writable: true, min: 0, max: 100, poll: slow, models: [hybrid]}
+  - {key: x.max_discharge_current, label: Maximum battery discharge current, table: holding, address: 12600, type: u16, unit: A, scale: 0.1, writable: true, min: 0, max: 100, poll: slow, models: [hybrid]}
+  - {key: x.battery_type, label: Battery type, table: holding, address: 12601, type: u16, enum: battery_type, writable: true, poll: slow, models: [hybrid]}
+  - {key: x.battery_manufacturer, label: Battery manufacturers, table: holding, address: 12602, type: u16, enum: battery_manufacturer, writable: true, poll: slow, models: [hybrid]}
+  - {key: x.battery_dod, label: Battery discharge depth DOD, table: holding, address: 12604, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, models: [hybrid]}
+  - {key: x.ems_battery_power, label: EMS set battery charge and discharge power, table: holding, address: 12607, type: s16, unit: kW, scale: 0.1, writable: true, min: -12, max: 12, poll: slow, models: [hybrid], verified: false, note: The document doesn't say which sign charges; used with 0x3140 and mode control 0x314A = EMS.}
+  - {key: x.ems_battery_power_enable, label: EMS set battery charge and discharge power mode enable, table: holding, address: 12608, type: u16, enum: enable, writable: true, poll: slow, models: [hybrid]}
+  - {key: x.mode_control, label: Mode control, table: holding, address: 12618, type: u16, enum: mode_control, writable: true, poll: slow, models: [hybrid]}
+
+  # State, alarms and faults (read-only area 0x3800 ff.)
+  - {key: state, label: Inverter working status, table: holding, address: 14342, type: u16, enum: state}
+  - {key: x.main_alarm_code, label: Main alarm code, table: holding, address: 14343, type: u16, enum: alarm_main, note: 'With the sub-alarm code it forms the displayed code main-sub (e.g. 04-08). Main codes 1–45 are grid-tied, 46–64 energy-storage alarms.', conflicts: [{sources: [solarman], type: u32, word_order: big, label: Device Alarm}]}
+  - {key: x.sub_alarm_code, label: Sub-alarm code, table: holding, address: 14344, type: u16}
+  - {key: error_code, label: Main fault code, table: holding, address: 14345, type: u16, enum: fault_main, verified: false, note: With the sub-fault code it forms the displayed code main-sub (e.g. 31-03). 0 = no fault is not stated; assumed., conflicts: [{sources: [solarman], type: u32, word_order: big, label: Device Fault}]}
+  - {key: x.sub_fault_code, label: Sub-fault code, table: holding, address: 14346, type: u16}
+  - {key: x.alarm_bits, label: Alarm bit, table: holding, address: 14347, type: u32, note: No bit table in the document.}
+  - {key: x.fault_bits, label: Fault bit, table: holding, address: 14349, type: u32, note: No bit table in the document.}
+  - {key: x.hardware_abnormal, label: Internal hardware abnormal, table: holding, address: 14450, type: u16, flags: hardware_abnormal}
+  - {key: x.derating_mode, label: Derating mode, table: holding, address: 14380, type: u16, enum: derating_mode, note: 'Values for XG3–70 kW; the XG100–136 kW use another table (0 none, 1 ambient temperature, 2 over-frequency, 3 reactive power, 4 user active power setting, 5 loading slope, 6 fan, 7 wave-by-wave current limit, 8 anti-reflux, 9 low-voltage ride-through, 10 MPPT reset, 12 bus voltage too high).'}
+  - {key: x.derating_power, label: Derating power, table: holding, address: 14378, type: u32, unit: W, scale: 0.1}
+
+  # Grid side
+  - {key: x.pbus_voltage, label: PBUS voltage, table: holding, address: 14351, type: u16, unit: V, scale: 0.1}
+  - {key: x.nbus_voltage, label: NBUS voltage, table: holding, address: 14352, type: u16, unit: V, scale: 0.1}
+  - {key: x.rs_voltage, label: RS grid line voltage, table: holding, address: 14353, type: u16, unit: V, scale: 0.1}
+  - {key: x.st_voltage, label: ST grid line voltage, table: holding, address: 14354, type: u16, unit: V, scale: 0.1}
+  - {key: x.tr_voltage, label: TR grid line voltage, table: holding, address: 14355, type: u16, unit: V, scale: 0.1}
+  - {key: l1_voltage, label: R grid phase voltage, table: holding, address: 14356, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: S grid phase voltage, table: holding, address: 14357, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: T grid phase voltage, table: holding, address: 14358, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: R phase grid-connected current, table: holding, address: 14359, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], scale: 0.0001, label: Grid L1 Current}]}
+  - {key: l2_current, label: S phase grid-connected current, table: holding, address: 14360, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: Grid L2 Current}]}
+  - {key: l3_current, label: T phase grid-connected current, table: holding, address: 14361, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: Grid L3 Current}]}
+  - {key: frequency, label: RS grid frequency, table: holding, address: 14362, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.grid_connect_countdown, label: Countdown to grid connection, table: holding, address: 14363, type: u16, unit: s}
+  - {key: x.load_power_kw, label: Load power, table: holding, address: 14364, type: u16, unit: kW, scale: 0.1}
+  - {key: x.active_power, label: Active power, table: holding, address: 14365, type: s32, unit: W, scale: 0.1, verified: false, note: The inverter's AC output power; the document gives no sign convention.}
+  - {key: reactive_power, label: Reactive power, table: holding, address: 14367, type: s32, unit: var, scale: 0.1}
+  - {key: power_factor, label: Power factor, table: holding, address: 14369, type: s16, scale: 0.001}
+  - {key: x.meter_power, label: Meter power, table: holding, address: 14375, type: s32, unit: W, scale: 0.1, verified: false, note: 'Power at the grid meter / CT; the document doesn''t say which direction is positive, so it isn''t given as grid_power.'}
+  - {key: x.meter_l1_power, label: R phase meter power, table: holding, address: 14534, type: s32, unit: W, scale: 0.1}
+  - {key: x.meter_l2_power, label: S phase meter power, table: holding, address: 14536, type: s32, unit: W, scale: 0.1}
+  - {key: x.meter_l3_power, label: T phase meter power, table: holding, address: 14538, type: s32, unit: W, scale: 0.1}
+  - {key: x.ct_current, label: CT current, table: holding, address: 14481, type: s16, unit: A, scale: 0.01}
+  - {key: x.leakage_current, label: Leakage current, table: holding, address: 14377, type: s16, unit: mA, scale: 0.1, conflicts: [{sources: [solarman], type: u16, label: Leakage Current}]}
+  - {key: x.dci_r, label: R phase DCI, table: holding, address: 14386, type: s16, unit: mA, scale: 0.1}
+  - {key: x.dci_s, label: S phase DCI, table: holding, address: 14387, type: s16, unit: mA, scale: 0.1}
+  - {key: x.dci_t, label: T phase DCI, table: holding, address: 14388, type: s16, unit: mA, scale: 0.1}
+  - {key: x.insulation_resistance, label: DC insulation resistance, table: holding, address: 14389, type: u16, unit: kΩ}
+  - {key: x.efficiency, label: Machine efficiency, table: holding, address: 14466, type: u16, unit: '%', scale: 0.1}
+  - {key: x.rtc_state, label: RTC state, table: holding, address: 14467, type: u16, enum: rtc_state, poll: slow}
+  - {key: x.meter_comm_quality, label: Meter communication quality, table: holding, address: 14468, type: u16, unit: '%', scale: 0.1}
+  - {key: x.daily_peak_power, label: Daily peak power, table: holding, address: 14540, type: u32, unit: W}
+
+  # Temperatures
+  - {key: x.module_r_temperature, label: INV module R temperature, table: holding, address: 14370, type: s16, unit: °C, scale: 0.1}
+  - {key: x.module_s_temperature, label: INV module S temperature, table: holding, address: 14371, type: s16, unit: °C, scale: 0.1}
+  - {key: x.module_t_temperature, label: INV module T temperature, table: holding, address: 14372, type: s16, unit: °C, scale: 0.1}
+  - {key: x.ambient_temperature, label: Ambient temperature, table: holding, address: 14373, type: s16, unit: °C, scale: 0.1}
+  - {key: temperature, label: Radiator temperature, table: holding, address: 14374, type: s16, unit: °C, scale: 0.1}
+
+  # PV inputs
+  - {key: x.pv1_voltage, label: PV1 input voltage, table: holding, address: 14390, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: PV1 input current, table: holding, address: 14391, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV1 Current}]}
+  - {key: x.pv2_voltage, label: PV2 input voltage, table: holding, address: 14392, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: PV2 input current, table: holding, address: 14393, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV2 Current}]}
+  - {key: x.pv3_voltage, label: PV3 input voltage, table: holding, address: 14394, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv3_current, label: PV3 input current, table: holding, address: 14395, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV3 Current}]}
+  - {key: x.pv4_voltage, label: PV4 input voltage, table: holding, address: 14396, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv4_current, label: PV4 input current, table: holding, address: 14397, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV4 Current}]}
+  - {key: x.pv5_voltage, label: PV5 input voltage, table: holding, address: 14398, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv5_current, label: PV5 input current, table: holding, address: 14399, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV5 Current}]}
+  - {key: x.pv6_voltage, label: PV6 input voltage, table: holding, address: 14400, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv6_current, label: PV6 input current, table: holding, address: 14401, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV6 Current}]}
+  - {key: x.pv7_voltage, label: PV7 input voltage, table: holding, address: 14402, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv7_current, label: PV7 input current, table: holding, address: 14403, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV7 Current}]}
+  - {key: x.pv8_voltage, label: PV8 input voltage, table: holding, address: 14404, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv8_current, label: PV8 input current, table: holding, address: 14405, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV8 Current}]}
+  - {key: x.pv9_voltage, label: PV9 input voltage, table: holding, address: 14406, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv9_current, label: PV9 input current, table: holding, address: 14407, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV9 Current}]}
+  - {key: x.pv10_voltage, label: PV10 input voltage, table: holding, address: 14408, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv10_current, label: PV10 input current, table: holding, address: 14409, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV10 Current}]}
+  - {key: x.pv11_voltage, label: PV11 input voltage, table: holding, address: 14410, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv11_current, label: PV11 input current, table: holding, address: 14411, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV11 Current}]}
+  - {key: x.pv12_voltage, label: PV12 input voltage, table: holding, address: 14412, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv12_current, label: PV12 input current, table: holding, address: 14413, type: s16, unit: A, scale: 0.01, conflicts: [{sources: [solarman], type: u16, label: PV12 Current}]}
+  - {key: x.pv1_power, label: PV1Power, table: holding, address: 15105, type: u16, unit: W, scale: 0.1, note: 'From the 0x3B00 area, which the document marks as internal debugging, not public.'}
+  - {key: x.pv2_power, label: PV2Power, table: holding, address: 15106, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv3_power, label: PV3Power, table: holding, address: 15107, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv4_power, label: PV4Power, table: holding, address: 15108, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv5_power, label: PV5Power, table: holding, address: 15109, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv6_power, label: PV6Power, table: holding, address: 15110, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv7_power, label: PV7Power, table: holding, address: 15111, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv8_power, label: PV8Power, table: holding, address: 15112, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv9_power, label: PV9Power, table: holding, address: 15113, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv10_power, label: PV10Power, table: holding, address: 15114, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv11_power, label: PV11Power, table: holding, address: 15115, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv12_power, label: PV12Power, table: holding, address: 15116, type: u16, unit: W, scale: 0.1, optional: true}
+  - {key: x.pv_total_power, label: PV total power (new version of energy flow diagram), table: holding, address: 14564, type: u32, unit: W, models: [hybrid], optional: true, note: May be missing on older firmware.}
+
+  # Energy counters (the high word comes first)
+  - {key: x.generation_time, label: Power generation time, table: holding, address: 14381, type: u32, unit: s, scale: 0.5, poll: slow}
+  - {key: pv_energy_today, label: Power generation on the day, table: holding, address: 14383, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: pv_energy, label: Total power generation, table: holding, address: 14384, type: u32, unit: kWh, scale: 0.1, poll: slow, note: The inverter's total generation; on hybrid models this may include battery discharge (0x38D6 is the PV-only total).}
+  - {key: x.pv_energy_total, label: PV total power generation, table: holding, address: 14550, type: u32, unit: kWh, scale: 0.01, poll: slow, models: [hybrid]}
+  - {key: x.load_energy_today, label: Load power consumption on the day, table: holding, address: 14482, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.load_energy, label: Total power consumption of load, table: holding, address: 14483, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.export_energy_today, label: Grid connection volume on the day, table: holding, address: 14485, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_export_energy, label: Total grid-connected capacity, table: holding, address: 14486, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.import_energy_today, label: Electricity purchased on the day, table: holding, address: 14488, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_import_energy, label: Total purchased electricity, table: holding, address: 14489, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_charge_today, label: Battery charge capacity for the day, table: holding, address: 14491, type: u16, unit: kWh, scale: 0.1, poll: slow, models: [hybrid]}
+  - {key: x.battery_charge_energy, label: Total battery charge, table: holding, address: 14492, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [hybrid]}
+  - {key: x.battery_discharge_today, label: Battery discharge capacity for the day, table: holding, address: 14494, type: u16, unit: kWh, scale: 0.1, poll: slow, models: [hybrid]}
+  - {key: x.battery_discharge_energy, label: Total battery discharge, table: holding, address: 14495, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [hybrid]}
+
+  # Energy storage (read-only area 0x3900 ff., hybrid)
+  - {key: battery_power, label: Battery power, table: holding, address: 14600, type: s32, unit: W, scale: 0.1, positive: charge, models: [hybrid], note: '+ = charging, − = discharging.'}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 14602, type: u16, unit: V, scale: 0.1, models: [hybrid]}
+  - {key: x.battery_current, label: Battery current, table: holding, address: 14603, type: s16, unit: A, scale: 0.1, models: [hybrid], verified: false, note: The document doesn't give the sign; probably like the battery power (+ = charging).}
+  - {key: x.user_power, label: Total active power flowing to users, table: holding, address: 14610, type: s32, unit: W, scale: 0.1, models: [hybrid]}
+  - {key: x.grid_flow_power, label: Total active power flowing to the grid, table: holding, address: 14618, type: s32, unit: W, scale: 0.1, models: [hybrid], verified: false, note: Sign convention not stated.}
+  - {key: load_power, label: Local load total active power, table: holding, address: 14626, type: s32, unit: W, scale: 0.1, models: [hybrid], conflicts: [{sources: [solarman], type: u16, label: Load UPS Power}]}
+  - {key: x.battery_state, label: Battery charging and discharging status, table: holding, address: 14628, type: u16, enum: battery_state, models: [hybrid]}
+  - {key: x.eps_frequency, label: EPS frequency, table: holding, address: 14630, type: u16, unit: Hz, scale: 0.01, models: [hybrid]}
+  - {key: x.eps_l1_voltage, label: EPS R phase output voltage, table: holding, address: 14631, type: u16, unit: V, scale: 0.1, models: [hybrid]}
+  - {key: x.eps_l1_current, label: EPS R phase output current, table: holding, address: 14632, type: u16, unit: A, scale: 0.01, models: [hybrid]}
+  - {key: x.eps_power, label: EPS total power, table: holding, address: 14643, type: s32, unit: W, scale: 0.1, models: [hybrid]}
+
+  # BMS (hybrid)
+  - {key: x.bms_charge_voltage, label: CHG CV voltage, table: holding, address: 14647, type: u16, unit: V, scale: 0.1, models: [hybrid]}
+  - {key: x.bms_discharge_cut_voltage, label: DSG cut voltage, table: holding, address: 14648, type: u16, unit: V, scale: 0.1, models: [hybrid]}
+  - {key: x.bms_max_charge_current, label: MAX charge current, table: holding, address: 14649, type: u16, unit: A, scale: 0.1, models: [hybrid]}
+  - {key: x.bms_max_discharge_current, label: MAX discharge current, table: holding, address: 14650, type: u16, unit: A, scale: 0.1, models: [hybrid]}
+  - {key: battery_soc, label: SOC, table: holding, address: 14651, type: u16, unit: '%', models: [hybrid]}
+  - {key: battery_soh, label: SOH, table: holding, address: 14652, type: u16, unit: '%', models: [hybrid]}
+  - {key: x.charge_disabled, label: CHG disable, table: holding, address: 14653, type: u16, enum: prohibit, models: [hybrid]}
+  - {key: x.discharge_disabled, label: DSG disable, table: holding, address: 14654, type: u16, enum: prohibit, models: [hybrid]}
+  - {key: x.bms_module_status, label: Module status byte1, table: holding, address: 14655, type: u16, enum: bms_module_status, models: [hybrid]}
+  - {key: x.bms_warning_status, label: Warning status, table: holding, address: 14656, type: u16, models: [hybrid], note: 'High byte warning status byte 1, low byte byte 2; no bit table in the document.'}
+  - {key: x.bms_alarm_status, label: Alarm status, table: holding, address: 14657, type: u16, models: [hybrid], note: 'High byte alarm status byte 1, low byte byte 2; no bit table in the document.'}
+  - {key: x.bms_fault_status1, label: Fault status 1, table: holding, address: 14658, type: u16, models: [hybrid], note: 'High byte fault status byte 1, low byte byte 2; no bit table in the document.'}
+  - {key: x.bms_fault_status2, label: Fault status 2, table: holding, address: 14659, type: u16, models: [hybrid], note: 'High byte fault status byte 3, low byte byte 4.'}
+  - {key: x.max_cell_voltage, label: Max cell voltage, table: holding, address: 14660, type: u16, unit: mV, models: [hybrid]}
+  - {key: x.min_cell_voltage, label: Min cell voltage, table: holding, address: 14661, type: u16, unit: mV, models: [hybrid]}
+  - {key: x.max_cell_temperature, label: Max cell temperature, table: holding, address: 14662, type: s16, unit: °C, scale: 0.1, models: [hybrid], verified: false, note: No data type given; signed assumed from the range −400…1500.}
+  - {key: x.min_cell_temperature, label: Min cell temperature, table: holding, address: 14663, type: s16, unit: °C, scale: 0.1, models: [hybrid], verified: false, note: No data type given; signed assumed.}
+  - {key: x.bms_communication, label: BMS communication status, table: holding, address: 14668, type: u16, enum: bms_communication, models: [hybrid]}
+  - {key: battery_temperature, label: Battery temperature, table: holding, address: 14669, type: u16, unit: °C, scale: 0.1, models: [hybrid], note: Unsigned in the document.}
+  - {key: x.battery_name, label: Battery name, table: holding, address: 14670, type: str, length: 8, poll: slow, models: [hybrid], verified: false, note: 'ASCII, first character first; two characters per register assumed.'}
+  - {key: x.battery_cycles, label: Battery charging cycle, table: holding, address: 14678, type: u16, poll: slow, models: [hybrid]}
+
+derived:
+  - {key: pv_power, label: PV power (sum of PV1–PV12), unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}, {key: x.pv3_power}, {key: x.pv4_power}, {key: x.pv5_power}, {key: x.pv6_power}, {key: x.pv7_power}, {key: x.pv8_power}, {key: x.pv9_power}, {key: x.pv10_power}, {key: x.pv11_power}, {key: x.pv12_power}], note: The per-input powers come from the debugging area (0x3B01 ff.).}
+
+enums:
+  model_recognition: {'1': Hybrid inverter, '2': Grid-tied inverter, '3': Off-grid inverter}
+  baud_rate: {'0': '9600', '1': '115200'}
+  remote_shutdown: {'21845': Startup (0x5555), '43690': Shutdown (0xAAAA), '48059': Shut down but keep EPS (0xBBBB)}
+  reactive_power_mode: {'0': Power factor control, '1': Reactive power percentage control, '2': QV curve control, '3': Active power priority, '4': Fixed / default PF curve, '5': P-PF curve}
+  grid_code: {'0': CQC2013, '1': SKYWORTH, '2': EN50549, '3': Brazil, '4': Spain, '5': Philippine, '6': India, '7': Belgium, '8': EU EN50438, '9': South Africa NRS, '10': Western Australia, '11': Netherlands, '12': Thailand, '13': Bangkok, '14': China CQC2018, '15': Greece, '16': Norway, '17': Korea, '18': Germany, '19': France, '20': Ireland, '21': Turkey, '22': Taiwan, '23': Italy, '24': Slovakia, '25': Romania 280V}
+  manufacturer_selection: {'0': INVT, '1': Skyworth}
+  zero_export_meter: {'0': CT, '1': Standard meter (single inverter), '2': DFUN (Pilot) meter (single inverter), '3': Eastron meter, '4': CHINT meter, '5': 'Eybond device (multi-inverter, Gridbox2)', '6': Solarman device (multi-inverter), '7': Astec meter, '8': PLC device (multi-inverter), '9': AC coupling, '10': Customization}
+  enable: {'0': Disabled, '1': Enabled}
+  priority_mode: {'0': Load priority, '1': Battery priority, '2': Grid priority}
+  battery_type: {'0': Lead-acid, '1': Lithium}
+  battery_manufacturer: {'1': ATL, '2': Pylontech, '3': Vestwoods, '4': Topband, '5': Sunwoda, '6': HanChu, '7': INVT, '8': Lithium Valley, '9': Dongci, '10': Goldencell, '11': GSL, '12': Chisage, '13': UTICA, '14': Dyness}
+  mode_control: {'0': Self-use, '1': EMS control}
+  state: {'0': Initialization, '1': Wait, '2': On-grid, '3': Fault, '4': Burning program, '5': Off-grid, '6': Bypass, '7': PID repair, '8': PID inhibition, '9': Snow removal, '10': SVG mode}
+  derating_mode: {'0': No derating, '1': High voltage, '2': BST high temperature, '3': Inverter, '4': Ambient temperature, '5': Power setting, '6': MPPT reset, '7': Reactive power, '8': Loading slope, '9': AC high voltage, '10': ATE adjust, '11': Single-inverter anti-reflux, '12': Multi-inverter anti-reflux, '13': Over-frequency}
+  rtc_state: {'0': RTC configuration failed, '1': RTC configuration successful}
+  battery_state: {'0': Idle, '1': Charging, '2': Discharging}
+  prohibit: {'0': Allowed, '1': Prohibited}
+  bms_module_status: {'0': Normal, '1': Prompt, '2': Warning, '3': Fault}
+  bms_communication: {'0': Abnormal, '1': Normal}
+  fault_main: {'0': No fault, '1': PV voltage failure, '3': BUS voltage error, '5': Overcurrent, '6': Abnormal temperature, '7': Insulation detection fault, '8': Drive failure, '9': Communication failure, '10': Leakage current fault, '11': Relay failure, '12': Internal fan failure, '14': DCI failure, '15': PID failure, '19': Consistency fault, '31': Mains voltage failure, '33': Mains frequency failure, '36': Model identification failure, '37': Remote shutdown, '38': AFCI fault, '39': AFCI self-check failure, '40': Parallel system failure, '41': Auto-test failure, '42': N-PE failure, '43': Leakage current self-check fault, '44': String detection fault, '45': Auxiliary power failure, '46': EPS short circuit, '47': Battery failure, '48': Battery error 1, '49': Battery error 2}
+  alarm_main: {'0': No alarm, '1': Fan speed low, '2': Lightning protector, '3': String current, '4': Anti-reflux meter communication, '5': Grid out of range, '6': PV short circuit, '7': EPS overload, '8': Fuse abnormality, '9': AC coupling meter communication, '46': Battery full, '47': Battery voltage too low, '48': Battery alarm}
+
+flags:
+  hardware_abnormal: {'0': External flash abnormal, '1': EEPROM read abnormal, '2': EEPROM write abnormal, '3': GFCI self-test failure}
+
+problems:
+  - {when: {key: state, equals: 3}, kind: fault, text: Inverter in fault state}
+  - {when: {key: state, equals: 5}, kind: backup_mode, text: Inverter running off-grid}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Inverter fault {value} ({text})'}
+  - {when: {key: x.main_alarm_code, not: 0}, kind: warning, text: 'Inverter alarm {value} ({text})'}
+  - {when: {key: x.hardware_abnormal, bit: 0}, kind: fault, text: External flash abnormal}
+  - {when: {key: x.hardware_abnormal, bit: 1}, kind: fault, text: EEPROM read abnormal}
+  - {when: {key: x.hardware_abnormal, bit: 2}, kind: fault, text: EEPROM write abnormal}
+  - {when: {key: x.hardware_abnormal, bit: 3}, kind: fault, text: GFCI self-test failure}
+  - {when: {key: x.bms_communication, equals: 0}, kind: warning, text: Battery BMS communication lost}
+  - {when: {key: x.bms_module_status, equals: 2}, kind: warning, text: Battery reports a warning}
+  - {when: {key: x.bms_module_status, equals: 3}, kind: fault, text: Battery reports a fault}
+
+notes:
+- The document covers the XG grid-tied series (single- and three-phase) and the XD single-phase hybrid series. Grid-tied models
+  answer 0x3000–0x307D and 0x3800–0x387D; hybrids also 0x3100–0x317D, 0x387D–0x38FA and 0x3900–0x397D. Points of the hybrid
+  areas are marked with the hybrid model.
+- Everything is read with function 03 and written with function 10h (06 is also listed); addresses are the document's hex
+  addresses, already 0-based. At most 125 registers per request.
+- RS485 only, fixed 9600 baud 8N1 (0x3013 can switch to 115200); the unit id is set on the keypad (1–247) and isn't given
+  a default in the document, 1 is assumed. A broadcast address 0 answers like the own address (one inverter on the bus only).
+- The fault and alarm codes are shown as main-sub (e.g. 31-03 no mains voltage, 04-08 meter communication); the enums name
+  the main code groups only. The full sub-code tables are in the document's appendix.
+- 'Left out: the grid-protection, ride-through, QU curve, snow-removal, AFCI, auto-test and fuse-detection settings and readings,
+  per-string currents, battery 2 registers, the debugging registers, harmonics, the fault log (0x4000 ff.), I/V scan and waveform
+  areas. 0x38D0 holds date and time as milliseconds since 1970 (u64), which can''t be expressed yet.'
+- The project reaches the device through a Solarman Wi-Fi / LAN data logger (its own V5 protocol on TCP 8899) or over plain
+  Modbus TCP / RTU; the register map is the same.

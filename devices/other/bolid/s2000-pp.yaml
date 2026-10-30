@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Bolid С2000-ПП operating manual (АЦДР.426469.020 РЭп, revision 1 of 2018-02-06, firmware 1.31).
+
+modbusspec: 0
+id: bolid-s2000-pp
+manufacturer: Bolid
+name: S2000-PP protocol converter (Orion security and fire system to Modbus RTU)
+kind: other
+
+sources:
+- title: Преобразователь протокола «С2000-ПП», руководство по эксплуатации АЦДР.426469.020 РЭп (firmware 1.31)
+  version: Изм.1, 2018-02-06
+  url: https://bolid.ru/files/373/566/s2000_pp_re_v.1.31_apr_18.pdf
+  sha256: e26cbd3b6449f28ddafd2c9e1fedd210df87c24924e5e17f9429284bbe47c29a
+  archive_url: https://web.archive.org/web/20220314074455/https://bolid.ru/files/373/566/s2000_pp_re_v.1.31_apr_18.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 46152
+    type: u16
+    equals: 36
+
+points:
+  # Identity and database sizes
+  - {key: x.device_type, label: Device type, table: holding, address: 46152, type: u16, poll: slow, note: 36 for the S2000-PP.}
+  - {key: firmware, label: Device version, table: holding, address: 46153, type: u16, scale: 0.01, poll: slow, note: 'Version × 100, e.g. 131 = 1.31.'}
+  - {key: x.max_relays, label: Maximum number of relays, table: holding, address: 46144, type: u16, poll: slow}
+  - {key: x.max_zones, label: Maximum number of zones, table: holding, address: 46145, type: u16, poll: slow}
+  - {key: x.max_partitions, label: Maximum number of partitions, table: holding, address: 46146, type: u16, poll: slow}
+  - {key: x.max_zone_states, label: Maximum number of zone states, table: holding, address: 46147, type: u16, poll: slow}
+  - {key: x.max_partition_states, label: Maximum number of partition states, table: holding, address: 46148, type: u16, poll: slow}
+  - {key: x.max_events, label: Maximum number of events, table: holding, address: 46149, type: u16, poll: slow}
+  - {key: x.max_event_length, label: Maximum event description length, table: holding, address: 46150, type: u16, poll: slow}
+  # Zones, partitions, relays (first of each; see notes for the others)
+  - {key: x.zone1_state, label: Zone 1 state (highest priority), table: holding, address: 40000, type: u16, bits: [8, 15], enum: orion_state, note: 'Zone n is at 40000 + n − 1 (up to 40511). High byte = the zone''s highest-priority state, low byte = the next one (table 5 codes).'}
+  - {key: x.zone1_state2, label: Zone 1 state (second), table: holding, address: 40000, type: u16, bits: [0, 7], enum: orion_state}
+  - {key: x.zone1_value, label: Zone 1 temperature / humidity / CO, table: holding, address: 30000, type: s16, scale: 0.00390625, optional: true, note: 'Signed fixed point, high byte integer part, low byte fraction (raw ÷ 256); °C, % or ppm depending on the detector. Only in Orion master mode and for zones of type 6; zone n at 30000 + n − 1 (up to 30511), at most 12 registers per request, all from one Orion device. Otherwise the device answers exception 2 or 3.'}
+  - {key: x.partition1_state, label: Partition 1 state (highest priority), table: holding, address: 44096, type: u16, bits: [8, 15], enum: orion_state, writable: true, note: 'Partition n is at 44096 + n − 1 (up to 44159). Write 24 to arm, 109 to disarm.'}
+  - {key: x.partition1_state2, label: Partition 1 state (second), table: holding, address: 44096, type: u16, bits: [0, 7], enum: orion_state}
+  - {key: x.relay1, label: Relay 1, table: coil, address: 10000, type: bool, enum: relay_state, writable: true, note: Relay n is coil 10000 + n − 1 (up to 10254). Only relays not used by the Orion device's own tactics can be switched.}
+  # Event buffer
+  - {key: x.newest_event, label: Number of the newest event, table: holding, address: 46160, type: u16}
+  - {key: x.oldest_event, label: Number of the oldest event, table: holding, address: 46161, type: u16}
+  - {key: x.unread_events, label: Number of unread events, table: holding, address: 46162, type: u16}
+  - {key: x.mark_event_read, label: Mark event as read, table: holding, address: 46163, type: u16, writable: true, poll: slow, note: Write the event number.}
+  - {key: x.clear_events, label: Clear event buffer, table: holding, address: 46164, type: u16, writable: true, poll: slow, note: Write 0.}
+  # Clock
+  - {key: x.clock, label: Device time and date, table: holding, address: 46165, type: datetime, length: 3, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}, second: {register: 1, bits: [8, 15]}, day: {register: 1, bits: [0, 7]}, month: {register: 2, bits: [8, 15]}, year: {register: 2, bits: [0, 7], offset: 2000}}, writable: true, write_multiple: true, poll: slow, verified: false, note: 'Bytes hour, minute, second, day, month, year. The year is two digits (the document''s event example has 17 for 2017); the offset 2000 is assumed. Setting the time works only in Orion master mode.'}
+  # Modbus system state and selectors for two-step reads
+  - {key: x.modbus_system_state, label: Modbus system state, table: holding, address: 46136, type: u16, enum: modbus_system_state, writable: true, poll: slow, note: 'Written by the Modbus master: 85 makes the S2000-PP send event 90 (no communication channel) to the Orion system, 170 event 91 (restored). Firmware 1.31 and later.'}
+  - {key: x.select_zone, label: Zone number for the extended zone state, table: holding, address: 46176, type: u16, writable: true, poll: slow}
+  - {key: x.select_partition, label: Partition number for the extended partition state, table: holding, address: 46177, type: u16, writable: true, poll: slow}
+  - {key: x.select_event, label: Event number for reading by number, table: holding, address: 46178, type: u16, writable: true, poll: slow}
+  - {key: x.select_value_zone, label: Zone number for temperature / humidity / CO, table: holding, address: 46179, type: u16, writable: true, poll: slow}
+  - {key: x.select_counter_zone, label: Zone number for a pulse counter, table: holding, address: 46180, type: u16, writable: true, poll: slow}
+  - {key: x.select_rip_zone, label: Zone number for power supply voltage / current, table: holding, address: 46181, type: u16, writable: true, poll: slow}
+  - {key: x.selected_value, label: Value of the selected zone, table: holding, address: 46328, type: s16, scale: 0.00390625, optional: true, note: 'After writing a zone number to 46179 or 46181: temperature °C, humidity %, CO ppm, or a RIP power supply''s voltage V / current A / battery charge %. Signed fixed point (raw ÷ 256). Exception 15 means the value isn''t there yet: ask again later.'}
+  - {key: x.selected_counter_high, label: Pulse counter of the selected zone (bytes 1-2), table: holding, address: 46332, type: u16, optional: true}
+  - {key: x.selected_counter_low, label: Pulse counter of the selected zone (bytes 3-6), table: holding, address: 46333, type: u32, optional: true}
+
+derived:
+  - {key: x.selected_counter, label: Pulse counter of the selected zone, sum: [{key: x.selected_counter_high, factor: 4294967296}, {key: x.selected_counter_low}], note: '6-byte counter, most significant byte first, after writing a zone number to 46180 (S2000-ASR counters).'}
+
+enums:
+  relay_state: {'0': 'Off', '1': 'On'}
+  modbus_system_state: {'85': Fault, '170': Restored}
+  orion_state: {'1': Mains 220 V restored, '2': Mains 220 V failure, '3': Intrusion alarm, '4': Interference, '6': Interference cleared, '17': Arming failed, '18': Duress code entered, '19': Test (detector test triggered), '20': Test mode entered, '21': Test mode left, '22': Monitoring restored, '23': Arming delay, '24': Input armed, '34': Identification, '35': Technological input restored, '36': Technological input violated, '37': Fire, '38': Second technological input violated, '39': Equipment back to normal, '40': Fire 2, '41': Equipment fault, '42': Unknown device, '44': Attention (pre-alarm), '45': Input open circuit, '46': Two-wire line (DPLS) broken, '47': Two-wire line (DPLS) restored, '58': Silent alarm, '71': Level low, '72': Level normal, '74': Level high, '75': Level critically high, '76': Temperature high, '77': Level critically low, '78': Temperature normal, '79': Flood alarm, '80': Flood sensor restored, '82': Thermometer fault, '83': Thermometer restored, '84': Local programming started, '109': Input disarmed, '110': Alarm reset, '117': Disarmed input restored, '118': Entry alarm, '119': Disarmed input violated, '121': Output open circuit, '122': Output short circuit, '123': Output restored, '126': Output communication lost, '127': Output communication restored, '128': Output state changed, '130': Pump on, '131': Pump off, '135': Self-test error, '137': Start, '139': Extinguishing start failed, '140': Test, '141': Extinguishing start delay, '142': Extinguishing automation off, '143': Extinguishing start cancelled, '144': Extinguishing in progress, '145': Emergency extinguishing start, '146': Extinguishing started, '147': Extinguishing start blocked, '148': Extinguishing automation on, '149': Housing opened, '150': Voice alarm started, '151': Voice alarm cancelled, '152': Housing closed, '153': Actuator in working position, '154': Actuator in initial position, '155': Actuator failure, '156': Actuator error, '158': Internal zone restored, '161': Extinguishing start delay stopped, '165': Input configuration error, '187': Input communication lost, '188': Input communication restored, '189': Communication lost on DPLS branch 1, '190': Communication lost on DPLS branch 2, '191': Communication restored on DPLS branch 1, '192': Output voltage switched off, '193': Output voltage switched on, '194': Power supply overload, '195': Power supply overload cleared, '196': Charger fault, '197': Charger restored, '198': Power supply fault, '199': Power supply restored, '200': Battery restored, '201': Communication restored on DPLS branch 2, '202': Battery fault, '203': Device restarted, '204': Maintenance required, '205': Battery test failed, '206': Temperature low, '211': Battery low, '212': Backup battery low, '213': Backup battery restored, '214': Input short circuit, '215': Two-wire line (DPLS) short circuit, '216': Detector triggered (unconfirmed), '217': RS-485 ring branch off, '218': RS-485 ring branch restored, '220': Smoke control sensor triggered, '221': Smoke control sensor failure, '222': Two-wire line (DPLS) overvoltage, '223': Guard patrol mark, '237': Partition disarmed under duress, '241': Partition armed, '242': Partition disarmed, '250': Device communication lost, '251': Device communication restored, '253': S2000M console switched on}
+
+problems:
+  - {when: {key: x.zone1_state, in: [37, 40, 44, 216]}, kind: warning, text: 'Zone 1: {text}'}
+  - {when: {key: x.zone1_state, in: [3, 18, 58, 79, 118, 149]}, kind: warning, text: 'Zone 1 alarm: {text}'}
+  - {when: {key: x.zone1_state, in: [139, 141, 144, 145, 146, 147]}, kind: warning, text: 'Zone 1 extinguishing: {text}'}
+  - {when: {key: x.zone1_state, in: [2, 41, 45, 46, 82, 121, 122, 126, 135, 155, 156, 165, 187, 189, 190, 194, 196, 198, 202, 205, 211, 212, 214, 215, 221, 222, 250]}, kind: warning, text: 'Zone 1 fault: {text}'}
+
+notes:
+- 'The S2000-PP is a gateway: it maps detectors, partitions and relays of a Bolid Orion system (polled itself in Orion master
+  mode, or fed by an S2000M console in slave mode) to Modbus zones 1-512, partitions 1-64 and relays 1-255, as set up in its
+  database with the UProg program. Which zone is which detector is site configuration; only zone 1, partition 1 and relay
+  1 are listed here, the others follow at the stated offsets.'
+- Addresses are the protocol addresses as the document gives them (its request examples send 0x9C48 for zone 9 = 40008, 0x2710
+  for relay 1 = 10000).
+- 'Functions 1, 3, 5, 6, 15 and 16. Exception 15 means the requested data (e.g. a zone''s state) hasn''t arrived from the
+  Orion side yet: repeat the request later. Exception 6 = busy.'
+- Modbus address 1-247, 1200-115200 Bd, parity none/even/odd and 1 or 2 stop bits are set with UProg; the document gives no
+  factory defaults, so unit 1, 9600 Bd and 8N1 here are assumptions. Packets are at most 256 bytes.
+- 'Zone states are written to the zone register with function 6: 109 disarm, 24 arm, 142 / 148 automation off / on, 143 reset
+  extinguishing start, 146 extinguishing start (as the zone type allows).'
+- Each zone and partition state register carries the two highest-priority current states (table 5 gives every state a priority,
+  1 = highest). The problems here look at zone 1 only.
+- 'Left out: the extended zone / partition states (46192, 46200) and the event records (46264 oldest unread, 46296 by number),
+  which are variable-length byte structures (event number, length, code, then typed fields: user, partition, zone, relay,
+  relay state, time, partition id).'
+- Events 90 / 91 (Modbus channel lost / restored) go to the Orion side only and don't change zone states.

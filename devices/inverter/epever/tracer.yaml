@@ -1,0 +1,239 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the EPEVER B-Series MODBUS Specification (LS-B, VS-B, Tracer-B, Tracer-A, iTracer, eTracer controller
+# communication instruction; protocol v2.5, as re-hosted in a public repository at the commit given in sources), with
+# additions from the older B-Series MODBUS Specification V2.3 and the LS-B Series register list V1.1.
+
+modbusspec: 0
+id: epever-tracer
+manufacturer: EPEVER
+name: Solar charge controllers (LS-B, VS-B, Tracer-A/B, iTracer, eTracer)
+kind: inverter
+
+sources:
+- title: EPEVER B-Series MODBUS Specification (LS-B, VS-B, Tracer-B, Tracer-A, iTracer, eTracer Series Controller Communication
+    Instruction)
+  version: v2.5 (file MODBUS-Protocol-v25.pdf, commit e217867869450fa59d6bd3a5cab9878ccd0ff163)
+  url: https://github.com/softwarecrash/EPEver2MQTT/blob/e217867869450fa59d6bd3a5cab9878ccd0ff163/Protocol/MODBUS-Protocol-v25.pdf
+  sha256: d0f9f08be06b5125134c3be24d9acc1430dcd4e9e82478df68d451489aaa77fb
+- title: B-Series MODBUS Specification
+  version: V2.3 (June 12, 2015)
+  url: https://github.com/kasbert/epsolar-tracer/blob/42b25f51c996ad2fd6c74bfd32e07400591e7eaf/archive/ControllerProtocolV2.3.pdf
+  sha256: a3fccf914928118def85223482e3091956d046810a01c20152006e6f68c61b70
+- title: LS-B Series Protocol, ModBus Register Address List
+  version: V1.1
+  url: http://www.solar-elektro.cz/data/dokumenty/1733_modbus_protocol.pdf
+  sha256: 86c05193b7f6e1945eb67616c6658366ef4033b110f506a33c1eeef03b0eafbf
+  archive_url: https://web.archive.org/web/20211005104824/http://www.solar-elektro.cz/data/dokumenty/1733_modbus_protocol.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 115200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  checks:
+  # battery rated voltage 12/24/36/48 V
+  - table: input
+    address: 12573
+    type: u16
+    in:
+    - 1200
+    - 2400
+    - 3600
+    - 4800
+  # battery rated voltage level
+  - table: holding
+    address: 36967
+    type: u16
+    range:
+    - 0
+    - 9
+
+points:
+  # Rated data (input registers)
+  - {key: x.pv_rated_voltage, label: Array rated voltage, table: input, address: 12288, type: u16, unit: V, scale: 0.01, poll: slow}
+  - {key: x.pv_rated_current, label: Array rated current, table: input, address: 12289, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.pv_rated_power, label: Array rated power, table: input, address: 12290, type: u32, unit: W, scale: 0.01, poll: slow}
+  - {key: x.battery_rated_voltage_3004, label: Battery rated voltage, table: input, address: 12292, type: u16, unit: V, scale: 0.01, poll: slow}
+  - {key: x.battery_rated_current, label: Battery rated current (rated charging current), table: input, address: 12293, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.battery_rated_power, label: Battery rated power, table: input, address: 12294, type: u32, unit: W, scale: 0.01, poll: slow}
+  - {key: x.charging_mode_type, label: Charging mode, table: input, address: 12296, type: u16, enum: charging_mode_type, poll: slow, note: 'From V2.3 and LS-B V1.1 (LS-B: PWM only).'}
+  - {key: x.load_rated_voltage, label: Rated load voltage, table: input, address: 12301, type: u16, unit: V, scale: 0.01, poll: slow}
+  - {key: x.load_rated_current, label: Rated load current, table: input, address: 12302, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.load_rated_power, label: Rated load power, table: input, address: 12303, type: u32, unit: W, scale: 0.01, poll: slow}
+  # Real-time data (input registers)
+  - {key: x.pv_voltage, label: PV array input voltage, table: input, address: 12544, type: u16, unit: V, scale: 0.01}
+  - {key: x.pv_current, label: PV array input current, table: input, address: 12545, type: u16, unit: A, scale: 0.01}
+  - {key: pv_power, label: PV array input power, table: input, address: 12546, type: u32, unit: W, scale: 0.01}
+  - {key: x.battery_voltage_3104, label: Battery voltage (charging equipment output voltage), table: input, address: 12548, type: u16, unit: V, scale: 0.01, note: From LS-B V1.1 and the read example in V2.3; 0x331A gives the battery voltage too.}
+  - {key: x.battery_charging_current, label: Battery charging current, table: input, address: 12549, type: u16, unit: A, scale: 0.01, note: From LS-B V1.1.}
+  - {key: x.battery_charging_power, label: Battery charging power, table: input, address: 12550, type: u32, unit: W, scale: 0.01, note: From V2.3 and LS-B V1.1.}
+  - {key: x.load_voltage, label: Load voltage, table: input, address: 12556, type: u16, unit: V, scale: 0.01}
+  - {key: x.load_current, label: Load current, table: input, address: 12557, type: u16, unit: A, scale: 0.01}
+  - {key: x.load_power, label: Load power, table: input, address: 12558, type: u32, unit: W, scale: 0.01, note: Power of the controller's DC load output.}
+  - {key: battery_temperature, label: Battery temperature, table: input, address: 12560, type: s16, unit: °C, scale: 0.01, verified: false, note: Signedness not stated in the document; assumed signed.}
+  - {key: temperature, label: Device temperature, table: input, address: 12561, type: s16, unit: °C, scale: 0.01, verified: false, note: Signedness not stated in the document; assumed signed.}
+  - {key: x.power_component_temperature, label: Power components temperature (heat sink), table: input, address: 12562, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: Only in LS-B V1.1. Signedness not stated; assumed signed.}
+  - {key: battery_soc, label: Battery SOC, table: input, address: 12570, type: u16, unit: '%'}
+  - {key: x.remote_battery_temperature, label: Remote battery temperature, table: input, address: 12571, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: 'Measured by the remote temperature sensor (V2.3, LS-B V1.1). Signedness not stated; assumed signed.'}
+  - {key: x.battery_rated_voltage, label: Battery's real rated voltage, table: input, address: 12573, type: u16, unit: V, scale: 0.01, poll: slow, note: 1200 / 2400 / 3600 / 4800 = 12 / 24 / 36 / 48 V system.}
+  - {key: battery_voltage, label: Battery voltage, table: input, address: 13082, type: u16, unit: V, scale: 0.01}
+  - {key: battery_current, label: Battery current, table: input, address: 13083, type: s32, unit: A, scale: 0.01, positive: charge, note: 'Two registers, low word first. Net current: charging minus discharging, positive = charging (stated in LS-B V1.1; v2.5 and V2.3 don''t state it).'}
+  - {key: x.battery_temperature_331d, label: Battery temperature, table: input, address: 13085, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: Only in LS-B V1.1. Signedness not stated; assumed signed.}
+  - {key: x.ambient_temperature, label: Ambient temperature, table: input, address: 13086, type: s16, unit: °C, scale: 0.01, optional: true, verified: false, note: Only in LS-B V1.1. Signedness not stated; assumed signed.}
+  # Status (input registers)
+  - {key: x.battery_status, label: Battery status, table: input, address: 12800, type: u16}
+  - {key: x.battery_voltage_status, label: Battery status D3-D0, table: input, address: 12800, type: u16, bits: [0, 3], enum: battery_voltage_status}
+  - {key: x.battery_temperature_status, label: Battery status D7-D4, table: input, address: 12800, type: u16, bits: [4, 7], enum: battery_temperature_status}
+  - {key: x.battery_resistance_abnormal, label: Battery status D8 (inner resistance abnormal), table: input, address: 12800, type: u16, bits: [8, 8]}
+  - {key: x.rated_voltage_wrong, label: Battery status D15 (rated voltage wrongly identified), table: input, address: 12800, type: u16, bits: [15, 15]}
+  - {key: x.charging_status, label: Charging equipment status, table: input, address: 12801, type: u16, flags: charging_status}
+  - {key: state, label: Charging status (D3-D2), table: input, address: 12801, type: u16, bits: [2, 3], enum: charging_state}
+  - {key: x.charging_running, label: Charging equipment running (D0), table: input, address: 12801, type: u16, bits: [0, 0], enum: standby_running}
+  - {key: x.pv_input_status, label: Input voltage status (D15-D14), table: input, address: 12801, type: u16, bits: [14, 15], enum: pv_input_status}
+  - {key: x.discharging_status, label: Discharging equipment status, table: input, address: 12802, type: u16, flags: discharging_status}
+  - {key: x.discharging_running, label: Discharging equipment running (D0), table: input, address: 12802, type: u16, bits: [0, 0], enum: standby_running}
+  - {key: x.discharge_input_status, label: Discharging input voltage status (D15-D14), table: input, address: 12802, type: u16, bits: [14, 15], enum: discharge_input_status}
+  - {key: x.load_level, label: Output power (D13-D12), table: input, address: 12802, type: u16, bits: [12, 13], enum: load_level}
+  - {key: x.over_temperature, label: Over temperature inside the device, table: discrete, address: 8192, type: bool}
+  - {key: x.night, label: Day/Night, table: discrete, address: 8204, type: bool, enum: day_night}
+  # Statistics (input registers)
+  - {key: x.pv_voltage_max_today, label: Maximum PV voltage today, table: input, address: 13056, type: u16, unit: V, scale: 0.01, poll: slow, note: From V2.3 and LS-B V1.1.}
+  - {key: x.pv_voltage_min_today, label: Minimum PV voltage today, table: input, address: 13057, type: u16, unit: V, scale: 0.01, poll: slow, note: From V2.3 and LS-B V1.1.}
+  - {key: x.battery_voltage_max_today, label: Maximum battery voltage today, table: input, address: 13058, type: u16, unit: V, scale: 0.01, poll: slow}
+  - {key: x.battery_voltage_min_today, label: Minimum battery voltage today, table: input, address: 13059, type: u16, unit: V, scale: 0.01, poll: slow}
+  - {key: x.load_energy_today, label: Consumed energy today, table: input, address: 13060, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.load_energy_month, label: Consumed energy this month, table: input, address: 13062, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.load_energy_year, label: Consumed energy this year, table: input, address: 13064, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.load_energy, label: Total consumed energy, table: input, address: 13066, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: pv_energy_today, label: Generated energy today, table: input, address: 13068, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.pv_energy_month, label: Generated energy this month, table: input, address: 13070, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.pv_energy_year, label: Generated energy this year, table: input, address: 13072, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: pv_energy, label: Total generated energy, table: input, address: 13074, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  # Battery parameters (holding, function 03 / 10)
+  - {key: x.battery_type, label: Battery type, table: holding, address: 36864, type: u16, enum: battery_type, writable: true, poll: slow}
+  - {key: x.battery_capacity, label: Battery capacity, table: holding, address: 36865, type: u16, unit: Ah, writable: true, poll: slow}
+  - {key: x.temp_compensation, label: Temperature compensation coefficient, table: holding, address: 36866, type: u16, unit: mV/°C/2V, scale: 0.01, writable: true, min: 0, max: 9, poll: slow}
+  - {key: x.over_voltage_disconnect, label: Over voltage disconnect voltage, table: holding, address: 36867, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.charging_limit_voltage, label: Charging limit voltage, table: holding, address: 36868, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.over_voltage_reconnect, label: Over voltage reconnect voltage, table: holding, address: 36869, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.equalize_voltage, label: Equalize charging voltage, table: holding, address: 36870, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.boost_voltage, label: Boost charging voltage, table: holding, address: 36871, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.float_voltage, label: Float charging voltage, table: holding, address: 36872, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.boost_reconnect_voltage, label: Boost reconnect charging voltage, table: holding, address: 36873, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.low_voltage_reconnect, label: Low voltage reconnect voltage, table: holding, address: 36874, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.under_voltage_warning_recover, label: Under voltage warning recover voltage, table: holding, address: 36875, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.under_voltage_warning, label: Under voltage warning voltage, table: holding, address: 36876, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.low_voltage_disconnect, label: Low voltage disconnect voltage, table: holding, address: 36877, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.discharging_limit_voltage, label: Discharging limit voltage, table: holding, address: 36878, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.clock, label: Real time clock, table: holding, address: 36883, type: datetime, length: 3, datetime: {second: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, month: {register: 2, bits: [0, 7]}, year: {register: 2, bits: [8, 15], offset: 2000}}, writable: true, poll: slow, note: Write all three registers together. Two-digit year; the 2000 offset is assumed.}
+  - {key: x.battery_temp_upper_limit, label: Battery upper temperature limit, table: holding, address: 36887, type: s16, unit: °C, scale: 0.01, writable: true, poll: slow}
+  - {key: x.battery_temp_lower_limit, label: Battery lower temperature limit, table: holding, address: 36888, type: s16, unit: °C, scale: 0.01, writable: true, poll: slow, verified: false, note: Signedness not stated; assumed signed.}
+  - {key: x.device_over_temperature, label: Device over temperature, table: holding, address: 36889, type: s16, unit: °C, scale: 0.01, writable: true, poll: slow}
+  - {key: x.device_recovery_temperature, label: Device recovery temperature, table: holding, address: 36890, type: s16, unit: °C, scale: 0.01, writable: true, poll: slow}
+  # Load control (holding)
+  - {key: x.night_threshold_voltage, label: Night time threshold voltage (NTTV), table: holding, address: 36894, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.night_delay, label: Light signal startup (night) delay time, table: holding, address: 36895, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.day_threshold_voltage, label: Day time threshold voltage (DTTV), table: holding, address: 36896, type: u16, unit: V, scale: 0.01, writable: true, poll: slow}
+  - {key: x.day_delay, label: Light signal close (day) delay time, table: holding, address: 36897, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.load_control_mode, label: Load control mode, table: holding, address: 36925, type: u16, enum: load_control_mode, writable: true, poll: slow}
+  - {key: x.main_power_supply, label: Device configure of main power supply, table: holding, address: 36966, type: u16, enum: main_power_supply, writable: true, poll: slow, note: Only in V2.3.}
+  - {key: x.battery_rated_voltage_level, label: Battery rated voltage level, table: holding, address: 36967, type: u16, enum: rated_voltage_level, writable: true, poll: slow}
+  - {key: x.default_load_on, label: Default load On/Off in manual mode, table: holding, address: 36970, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.equalize_duration, label: Equalize duration, table: holding, address: 36971, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.boost_duration, label: Boost duration, table: holding, address: 36972, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.discharge_soc_limit, label: Battery discharge, table: holding, address: 36973, type: u16, unit: '%', scale: 0.01, writable: true, poll: slow, verified: false, note: 'SOC at which discharging stops (only in SOC charging mode), usually 20–80 %. Factor 100 as the document gives it; not checked on a device.'}
+  - {key: x.charge_soc_limit, label: Battery charge, table: holding, address: 36974, type: u16, unit: '%', scale: 0.01, writable: true, poll: slow, verified: false, note: 'Depth of charge (only in SOC charging mode), 100 % by default. Factor 100 as the document gives it.'}
+  - {key: x.charging_mode, label: Charging mode, table: holding, address: 36976, type: u16, enum: charging_mode, writable: true, poll: slow}
+  # Coils (function 05, write)
+  - {key: x.charging_on, label: Charging device on/off, table: coil, address: 0, type: bool, writable: true, note: The document lists only writing (function 05).}
+  - {key: x.output_manual_mode, label: Output control mode manual/automatic, table: coil, address: 1, type: bool, writable: true, note: '1 = manual, 0 = automatic.'}
+  - {key: x.load_manual_on, label: Manual control the load, table: coil, address: 2, type: bool, writable: true, note: Switches the load when the load is in manual mode.}
+  - {key: x.load_default_on, label: Default control the load, table: coil, address: 3, type: bool, writable: true}
+  - {key: x.load_test_mode, label: Enable load test mode, table: coil, address: 5, type: bool, writable: true}
+  - {key: x.load_force_on, label: Force the load on/off, table: coil, address: 6, type: bool, writable: true, note: For a temporary load test.}
+
+enums:
+  battery_voltage_status: {'0': Normal, '1': Over voltage, '2': Under voltage, '3': Over discharge, '4': Fault}
+  battery_temperature_status: {'0': Normal, '1': Over temperature, '2': Low temperature}
+  charging_state: {'0': Not charging, '1': Float, '2': Boost, '3': Equalization}
+  standby_running: {'0': Standby, '1': Running}
+  pv_input_status: {'0': Normal, '1': No input power connected, '2': Input voltage too high, '3': Input voltage error}
+  discharge_input_status: {'0': Normal, '1': Input voltage low, '2': Input voltage high, '3': No access}
+  load_level: {'0': Light load, '1': Moderate, '2': Rated, '3': Overload}
+  day_night: {'0': Day, '1': Night}
+  battery_type: {'0': User defined, '1': Sealed, '2': GEL, '3': Flooded}
+  load_control_mode: {'0': Manual control, '1': Light on/off, '2': Light on + timer, '3': Timing control}
+  rated_voltage_level: {'0': Auto recognize, '1': 12 V, '2': 24 V, '3': 36 V, '4': 48 V, '5': 60 V, '6': 110 V, '7': 120 V, '8': 220 V, '9': 240 V}
+  off_on: {'0': 'Off', '1': 'On'}
+  charging_mode: {'0': Voltage compensation, '1': SOC}
+  charging_mode_type: {'0': Connect/disconnect, '1': PWM, '2': MPPT}
+  main_power_supply: {'1': Battery, '2': AC-DC power supply}
+
+flags:
+  charging_status: {'0': Running, '1': Fault, '4': PV input short circuit, '6': Disequilibrium in three circuits, '7': Load MOSFET short circuit, '8': Load short circuit, '9': Load over current, '10': Input over current, '11': Anti-reverse MOSFET short circuit, '12': Charging or anti-reverse MOSFET open circuit, '13': Charging MOSFET short circuit}
+  discharging_status: {'0': Running, '1': Fault, '4': Output over voltage, '5': Boost over voltage, '6': Short circuit in high voltage side, '7': Input over voltage, '8': Output voltage abnormal, '9': Unable to stop discharging, '10': Unable to discharge, '11': Short circuit}
+
+problems:
+  - {when: {key: x.battery_voltage_status, equals: 1}, kind: warning, text: Battery over voltage}
+  - {when: {key: x.battery_voltage_status, equals: 2}, kind: warning, text: Battery under voltage}
+  - {when: {key: x.battery_voltage_status, equals: 3}, kind: warning, text: Battery over discharged}
+  - {when: {key: x.battery_voltage_status, equals: 4}, kind: fault, text: Battery fault}
+  - {when: {key: x.battery_temperature_status, in: [1, 2]}, kind: warning, text: 'Battery temperature: {text}'}
+  - {when: {key: x.battery_resistance_abnormal, equals: 1}, kind: warning, text: Battery inner resistance abnormal}
+  - {when: {key: x.rated_voltage_wrong, equals: 1}, kind: fault, text: Battery rated voltage wrongly identified}
+  - {when: {key: x.pv_input_status, in: [2, 3]}, kind: fault, text: 'PV input: {text}'}
+  - {when: {key: x.charging_status, bit: 1}, kind: fault, text: Charging fault}
+  - {when: {key: x.charging_status, bit: 4}, kind: fault, text: PV input short circuit}
+  - {when: {key: x.charging_status, bit: 6}, kind: fault, text: Disequilibrium in three circuits}
+  - {when: {key: x.charging_status, bit: 7}, kind: fault, text: Load MOSFET short circuit}
+  - {when: {key: x.charging_status, bit: 8}, kind: fault, text: Load short circuit}
+  - {when: {key: x.charging_status, bit: 9}, kind: fault, text: Load over current}
+  - {when: {key: x.charging_status, bit: 10}, kind: fault, text: PV input over current}
+  - {when: {key: x.charging_status, bit: 11}, kind: fault, text: Anti-reverse MOSFET short circuit}
+  - {when: {key: x.charging_status, bit: 12}, kind: fault, text: Charging or anti-reverse MOSFET open circuit}
+  - {when: {key: x.charging_status, bit: 13}, kind: fault, text: Charging MOSFET short circuit}
+  - {when: {key: x.discharging_status, bit: 1}, kind: fault, text: Discharging (load output) fault}
+  - {when: {key: x.discharging_status, bit: 4}, kind: fault, text: Load output over voltage}
+  - {when: {key: x.discharging_status, bit: 5}, kind: fault, text: Boost over voltage}
+  - {when: {key: x.discharging_status, bit: 6}, kind: fault, text: Short circuit on the high voltage side}
+  - {when: {key: x.discharging_status, bit: 7}, kind: fault, text: Discharging input over voltage}
+  - {when: {key: x.discharging_status, bit: 8}, kind: fault, text: Load output voltage abnormal}
+  - {when: {key: x.discharging_status, bit: 9}, kind: fault, text: Unable to stop discharging}
+  - {when: {key: x.discharging_status, bit: 10}, kind: fault, text: Unable to discharge}
+  - {when: {key: x.discharging_status, bit: 11}, kind: fault, text: Load output short circuit}
+  - {when: {key: x.load_level, equals: 3}, kind: warning, text: Load output overloaded}
+  - {when: {key: x.over_temperature, equals: 1}, kind: fault, text: Controller over temperature}
+
+notes:
+- Modbus RTU, unit 1 by default (changeable with the PC software or the MT50 display; only one controller on the bus while
+  changing it), 115200 baud, 8 data bits, no parity, 1 stop bit (parity stated in V2.3 and LS-B V1.1). V2.3 gives the default
+  server address as 0; v2.5 and LS-B V1.1 say 1. Port 502 is only for a Modbus TCP gateway on the RS485 line; the documents
+  name none.
+- Addresses are hexadecimal protocol addresses (base offset 0), used as given. Function 04 for real-time and rated data, 03
+  / 10 for parameters, 02 for the two discrete inputs, 05 for the coils.
+- Values are raw ÷ 100 where the document gives a factor of 100. 32-bit values are two registers, low word at the lower address
+  (word order little); within a register the high byte comes first.
+- The documents don't say whether temperatures are signed; those points are unverified. The battery current direction (0x331B,
+  + = charging) is stated only in LS-B V1.1.
+- 'Charging equipment status 0x3201 bit 12: v2.5 names it an open circuit of the charging or anti-reverse MOSFET; V2.3 and
+  LS-B V1.1 call it a short circuit. The newer wording is kept.'
+- 'V2.3 swaps the labels of 0x901E and 0x9020 (DTTV at 0x901E, NTTV at 0x9020), but its descriptions match v2.5: 0x901E is
+  the sundown (night) threshold, 0x9020 the sunrise (day) threshold.'
+- Battery parameters 0x9003–0x900E can only be set with battery type User, all together; the document lists ordering rules
+  between them (over-voltage disconnect > charging limit > equalize > boost > float > boost reconnect; under-voltage warning
+  recover > warning > low-voltage disconnect > discharging limit).
+- 'Left out: the load timer registers (0x903E–0x904D, 0x9065, 0x9069), backlight time (0x9063), and the coils to restore defaults
+  (13) and clear energy statistics (14).'
+- 'RJ45 RS485 port on LS-B, VS-B, Tracer-A/B: pins 3–4 B, 5–6 A, 7–8 ground, 1–2 supply output (don''t use). The LS-B V1.1
+  list gives A and B the other way round (3–4 A, 5–6 B) and pins 1–2 as not connected.'

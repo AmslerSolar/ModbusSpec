@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Sigenergy Modbus Protocol (V2.9, 2026-05-13); older versions of the document listed under
+# `sources` were compared with it. This file is the AC charger (Sigen EVAC).
+
+modbusspec: 0
+id: sigenergy-ac-charger
+manufacturer: Sigenergy
+name: Sigen EVAC AC charger
+kind: charger
+
+sources:
+- title: Sigenergy Modbus Protocol
+  version: V2.9 (2026-05-13)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202026-05-13%20V2.9.pdf
+  sha256: a9386133e798aafaeca1882ab031645efb3c9190edadc3eafe8318fa15786e67
+- title: Sigenergy Modbus Protocol (EN)
+  version: V2.9 (2026-05-13)
+  url: https://github.com/TypQxQ/Sigenergy-Local-Modbus/blob/b66e3042de6396205c33f3603108579b7ef73e6a/Modbus_reference_documentation/Sigenergy%20Modbus%20Protocol%20EN_V2.9.pdf
+  sha256: 1e4306bcf46735f8432fcec0dae83938fa49107790d02beaf702285961a5d0d8
+- title: Sigenergy Modbus Protocol
+  version: V2.8 (2025-11-28)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202025-11-28%20V2.8.pdf
+  sha256: df91e45d04d1664fa8720a9c566494534a77731739849c3892b654c1d91902d7
+- title: Sigenergy Modbus Protocol (EN)
+  version: V2.7 (2025-05-23)
+  url: https://github.com/Si-GCG/sigenergy_projects/blob/52a74a74ff754f0b1de6022a8a35fb04234f3a5a/Modbus.Protocol.EN.-.SIGEN.pdf
+  sha256: 3b1fb31390a74773b76c6be1f56fad081197639c389ef25dd39289406e2232ce
+- title: Sigenergy Modbus Protocol
+  version: V2.5 (2025-02-19)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202025-02-19%20V2.5.pdf
+  sha256: 1025e0d7bb7f8cba869fd88c788af8c2a0fa8858b3582fcdd19effb93fc874ea
+- title: Sigenergy Modbus Protocol
+  version: V2.4 (2025-02-05)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202025-02-05%20V2.4.pdf
+  sha256: ab9e2dccf3a4641179353c25d5629eb67078467d8ea701f6daf55609c21f459f
+- title: Sigenergy Modbus Protocol
+  version: V1.8 (2024-07-24)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202024-07-24%20V1.8.pdf
+  sha256: 7b6655929a001e0d24d384f08a832032e579534774788ecc1fab90c3bb325940
+- title: Sigenergy Modbus Protocol
+  version: V1.7 (2024-04-09)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202024-04-09%20V1.7.pdf
+  sha256: 9d44e5a9523682fc833c6f533b2f76c9fd5e6de504763e76b9368b14f15928ed
+- id: sigenergy-local-modbus
+  title: Sigenergy-Local-Modbus (Home Assistant integration)
+  url: https://github.com/TypQxQ/Sigenergy-Local-Modbus
+  license: MIT
+  commit: b66e3042de6396205c33f3603108579b7ef73e6a
+  path: custom_components/sigen/modbusregisterdefinitions.py, custom_components/sigen/sensor.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 124
+    min_interval_ms: 1000
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: input
+    address: 32000
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 6
+    - 7
+  - table: input
+    address: 32005
+    type: u32
+    range:
+    - 3000
+    - 23000
+
+points:
+  # Input registers, on the charger's own unit id
+  - {key: state, label: System state, table: input, address: 32000, type: u16, enum: ac_charger_state, note: States as defined by IEC 61851-1.}
+  - {key: consumer_energy, label: Total energy consumed, table: input, address: 32001, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: consumer_power, label: Charging power, table: input, address: 32003, type: s32, unit: W, positive: consumption, verified: false, note: Sign not stated; assumed positive while charging.}
+  - {key: x.rated_power, label: Rated power, table: input, address: 32005, type: u32, unit: W, poll: slow}
+  - {key: x.rated_current, label: Rated current, table: input, address: 32007, type: s32, unit: A, scale: 0.01, poll: slow}
+  - {key: x.rated_voltage, label: Rated voltage, table: input, address: 32009, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.input_breaker_current, label: AC-Charger input breaker rated current, table: input, address: 32010, type: s32, unit: A, scale: 0.01, poll: slow}
+  - {key: x.alarm1, label: Alarm 1, table: input, address: 32012, type: u16, flags: ac_alarm1}
+  - {key: x.alarm2, label: Alarm 2, table: input, address: 32013, type: u16, flags: ac_alarm2}
+  - {key: x.alarm3, label: Alarm 3, table: input, address: 32014, type: u16, flags: ac_alarm3}
+  # Settings (holding registers)
+  - {key: x.start_stop, label: Start/Stop, table: holding, address: 42000, type: u16, enum: start_stop, writable: true, write_only: true, note: 'Note the order: 0 = start, 1 = stop.'}
+  - {key: x.output_current, label: Charger output current, table: holding, address: 42001, type: u32, unit: A, scale: 0.01, writable: true, min: 6, verified: false, note: 6 A up to the smaller of rated current and input breaker current. The document gives gain 100 but no unit; A is assumed from the range.}
+
+enums:
+  ac_charger_state: {'0': System init, '1': A1/A2 (no vehicle), '2': B1 (vehicle connected), '3': 'B2 (vehicle connected, ready)', '4': C1 (charging requested), '5': C2 (charging), '6': F (not available), '7': E (error)}
+  start_stop: {'0': Start, '1': Stop}
+
+flags:
+  ac_alarm1: {'0': Grid overvoltage, '1': Grid undervoltage, '2': Overload, '3': Short circuit, '4': Charging output overcurrent, '5': Leak current out of limit, '6': Grounding fault, '7': Abnormal phase sequence of grid wiring, '8': PEN fault}
+  ac_alarm2: {'0': Leak current detection circuit fault, '1': Relay stuck, '2': Pilot circuit fault, '3': Auxiliary power supply module fault, '4': Electric lock fault, '5': Lamp panel communication fault}
+  ac_alarm3: {'0': Internal temperature too high, '1': Charging cable fault, '2': Meter communication fault}
+
+problems:
+  - {when: {key: state, in: [6, 7]}, kind: fault, text: 'Charger state {text}'}
+  - {when: {key: x.alarm1, bit: 0}, kind: fault, text: 'AC charger: Grid overvoltage (bit 0)'}
+  - {when: {key: x.alarm1, bit: 1}, kind: fault, text: 'AC charger: Grid undervoltage (bit 1)'}
+  - {when: {key: x.alarm1, bit: 2}, kind: fault, text: 'AC charger: Overload (bit 2)'}
+  - {when: {key: x.alarm1, bit: 3}, kind: fault, text: 'AC charger: Short circuit (bit 3)'}
+  - {when: {key: x.alarm1, bit: 4}, kind: fault, text: 'AC charger: Charging output overcurrent (bit 4)'}
+  - {when: {key: x.alarm1, bit: 5}, kind: fault, text: 'AC charger: Leak current out of limit (bit 5)'}
+  - {when: {key: x.alarm1, bit: 6}, kind: fault, text: 'AC charger: Grounding fault (bit 6)'}
+  - {when: {key: x.alarm1, bit: 7}, kind: fault, text: 'AC charger: Abnormal phase sequence of grid wiring (bit 7)'}
+  - {when: {key: x.alarm1, bit: 8}, kind: fault, text: 'AC charger: PEN fault (bit 8)'}
+  - {when: {key: x.alarm2, bit: 0}, kind: fault, text: 'AC charger: Leak current detection circuit fault (bit 0)'}
+  - {when: {key: x.alarm2, bit: 1}, kind: fault, text: 'AC charger: Relay stuck (bit 1)'}
+  - {when: {key: x.alarm2, bit: 2}, kind: fault, text: 'AC charger: Pilot circuit fault (bit 2)'}
+  - {when: {key: x.alarm2, bit: 3}, kind: fault, text: 'AC charger: Auxiliary power supply module fault (bit 3)'}
+  - {when: {key: x.alarm2, bit: 4}, kind: fault, text: 'AC charger: Electric lock fault (bit 4)'}
+  - {when: {key: x.alarm2, bit: 5}, kind: warning, text: 'AC charger: Lamp panel communication fault (bit 5)'}
+  - {when: {key: x.alarm3, bit: 0}, kind: fault, text: 'AC charger: Internal temperature too high (bit 0)'}
+  - {when: {key: x.alarm3, bit: 1}, kind: fault, text: 'AC charger: Charging cable fault (bit 1)'}
+  - {when: {key: x.alarm3, bit: 2}, kind: warning, text: 'AC charger: Meter communication fault (bit 2)'}
+
+notes:
+- 'Sigen EVAC (7, 11, 22 kW) and PG EVAC (9.6, 11.5 kW) wallboxes. They have no Modbus interface of their own: they are reached
+  through a Sigenergy inverter of the plant (Modbus TCP to the inverter), on the charger''s own unit id 1-246 set in the mySigen
+  app. The default unit id 1 is not stated in the document; it must differ from the inverters'' ids.'
+- The document gives no identification registers for the charger; identify checks the state range and a plausible rated power
+  (assumed range 3-23 kW).
+- The meaning of the IEC 61851 state letters in the enum is the standard's (A = no vehicle, B = connected, C = charging, E
+  / F = error / not available); the document gives the letters only.
+- Addresses are the document's register numbers, used unchanged as 0-based protocol addresses (its request examples put 30540
+  on the wire as 0x774C and 40001 as 0x9C41). 3xxxx registers are input registers (function 04), 4xxxx and 5xxxx holding registers
+  (function 03).
+- 'The document is inconsistent about holding registers: its type table says read/write registers support functions 04, 06
+  and 0x10, and one example reads a 4xxxx register with function 04, another a 3xxxx register with function 03. Not tested;
+  the tables here follow the section titles.'
+- Byte and word order are not stated; big-endian (most significant register first) is assumed.
+- Power registers have gain 1000 in kW (kVar, kVA) in the document, i.e. the raw value is W (var, VA); energy registers gain
+  100 in kWh.
+- 'At most 124 registers per read request and a minimum request period of 1000 ms, as the document states. RS485: 9600 baud
+  default, 8N1. Modbus TCP server on port 502 (alternatively the device can connect out as a TCP client to a configured port).
+  One inverter of the plant gives access to all devices of the plant by their unit ids; AC chargers (EVAC) are only reachable
+  through an inverter, not on their own.'
+- Alarm kinds follow the severity levels V2.8 and older of the document give (critical = fault, general = warning); V2.9 dropped
+  that table. Grid power outage is reported as mains lost.
+- The AC charger answers on its own unit id; the project's README says it usually has 1, so the inverter must use another.

@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Elektroteks-IN UPP Modbus table description (Описание таблицы ModBus, version 1.0, 2017-09-13), for
+# the thyristor three-phase soft starters 18 … 315 kW (panel software 1.0, controller software 3.0).
+
+modbusspec: 0
+id: elektroteksin-upp
+manufacturer: Elektroteks-IN (Электротекс-ИН)
+name: UPP thyristor soft starter 18 … 315 kW
+kind: other
+
+sources:
+- title: 'УПП: Описание таблицы ModBus (soft starters, Modbus table description)'
+  version: 1.0 (2017-09-13)
+  url: https://etx-in.ru/files/%D0%A3%D0%9F%D0%9F%20%D0%9E%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20%D1%82%D0%B0%D0%B1%D0%BB%D0%B8%D1%86%D1%8B%20modbus%20%D1%80%D0%B5%D0%B4.1.0.pdf
+  sha256: 765ac852648c791e51c9c0cc1963bf1bc24f69747eb2ff16e4ed8b2a8402db4f
+  archive_url: https://web.archive.org/web/20231209225755/http://etx-in.ru/files/%D0%A3%D0%9F%D0%9F%20%D0%9E%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5%20%D1%82%D0%B0%D0%B1%D0%BB%D0%B8%D1%86%D1%8B%20modbus%20%D1%80%D0%B5%D0%B4.1.0.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Status (input registers)
+  - {key: state, label: Состояние УПП (soft starter state), table: input, address: 0, type: u16, enum: state}
+  - {key: error_code, label: Код аварии (fault code), table: input, address: 1, type: u16, enum: fault}
+  - {key: x.restart_attempts_left, label: Remaining start attempts, table: input, address: 2, type: u16}
+  - {key: x.restart_time, label: Restart time by attempts, table: input, address: 3, type: u16, verified: false, note: Unit not stated.}
+  - {key: x.thyristor_angle, label: Thyristor firing angle, table: input, address: 4, type: u16, unit: °, scale: 0.1, note: Electrical degrees.}
+  - {key: l1_voltage, label: Input voltage phase A, table: input, address: 5, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Input voltage phase B, table: input, address: 6, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Input voltage phase C, table: input, address: 7, type: u16, unit: V, scale: 0.1}
+  - {key: x.phase_order, label: Phase sequence, table: input, address: 8, type: u16, enum: phase_order, poll: slow}
+  - {key: frequency, label: Mains frequency, table: input, address: 9, type: u16, unit: Hz, scale: 0.01}
+  - {key: l1_current, label: Current phase A, table: input, address: 10, type: u16, unit: A, scale: 0.1}
+  - {key: l2_current, label: Current phase B, table: input, address: 11, type: u16, unit: A, scale: 0.1}
+  - {key: l3_current, label: Current phase C, table: input, address: 12, type: u16, unit: A, scale: 0.1}
+  - {key: x.active_power, label: Active power, table: input, address: 13, type: u16, unit: W, scale: 100, verified: false, note: 0.1 kW per step. Unsigned assumed (not stated).}
+  - {key: x.heatsink_l1_temperature, label: Heatsink temperature phase A, table: input, address: 14, type: s16, unit: °C, verified: false, note: Signed assumed (not stated).}
+  - {key: x.heatsink_l2_temperature, label: Heatsink temperature phase B, table: input, address: 15, type: s16, unit: °C, verified: false, note: Signed assumed (not stated).}
+  - {key: x.heatsink_l3_temperature, label: Heatsink temperature phase C, table: input, address: 16, type: s16, unit: °C, verified: false, note: Signed assumed (not stated).}
+  - {key: x.motor_temperature, label: Motor temperature, table: input, address: 17, type: s16, unit: °C, verified: false, note: Signed assumed (not stated).}
+  - {key: x.motor_thermal_load, label: Motor overload by thermal model, table: input, address: 18, type: u16, unit: '%', scale: 0.00153}
+  - {key: x.mains_sync, label: Synchronised with the mains, table: discrete, address: 0, type: bool}
+  # Commands (coils)
+  - {key: x.run, label: Start/stop command, table: coil, address: 0, type: bool, writable: true, poll: slow, verified: false, note: Which value means start isn't stated (1 = start assumed).}
+  - {key: x.manual_control, label: Manual control (commands through holding register 0x0001), table: coil, address: 1, type: bool, writable: true, poll: slow}
+  - {key: x.bypass_contactor_enabled, label: Bypass contactor enabled, table: coil, address: 101, type: bool, writable: true, poll: slow}
+  - {key: x.kick_start_enabled, label: Kick start enabled, table: coil, address: 102, type: bool, writable: true, poll: slow}
+  # Settings (holding registers)
+  - {key: x.manual_command, label: Manual control command, table: holding, address: 1, type: u16, enum: manual_command, writable: true, poll: slow, note: Only with coil 0x0001 = 1.}
+  - {key: x.motor_rated_current, label: Motor rated current, table: holding, address: 100, type: u16, unit: A, scale: 0.1, writable: true, poll: slow, min: 1, max: 999.9, note: 'Holding register 0x0000 is the same setting, writable only with coil 0x0001 = 1.'}
+  - {key: x.soft_start_time, label: Soft start duration, table: holding, address: 101, type: u16, unit: s, scale: 0.01, writable: true, poll: slow}
+  - {key: x.soft_stop_time, label: Soft stop duration, table: holding, address: 102, type: u16, unit: s, scale: 0.01, writable: true, poll: slow}
+  - {key: x.start_algorithm, label: Start algorithm, table: holding, address: 105, type: u16, enum: start_algorithm, writable: true, poll: slow}
+  - {key: x.stop_algorithm, label: Stop algorithm, table: holding, address: 106, type: u16, enum: stop_algorithm, writable: true, poll: slow}
+  - {key: x.restart_attempts, label: Number of restart attempts, table: holding, address: 107, type: u16, writable: true, poll: slow}
+  - {key: x.min_phase_voltage, label: Minimum phase voltage, table: holding, address: 132, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.max_phase_voltage, label: Maximum phase voltage, table: holding, address: 133, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.max_motor_temperature_start, label: Maximum motor temperature for start, table: holding, address: 144, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.max_motor_temperature_run, label: Maximum motor temperature in operation, table: holding, address: 145, type: u16, unit: °C, writable: true, poll: slow}
+  - {key: x.clock, label: Date and time, table: holding, address: 200, type: datetime, length: 6, datetime: {year: {register: 0}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, writable: true, poll: slow}
+
+enums:
+  state: {'0': Stopped, '1': Starting, '2': Running, '3': Stopping, '4': Fault}
+  fault: {'0': No fault, '1': Mains fault, '2': Mains failure during operation, '3': Start timeout, '4': Heatsink overheat, '5': Motor overheat, '6': Critical current, '7': Current imbalance, '8': Overcurrent, '9': Supply fault −15 V, '10': Supply fault +15 V, '11': Supply fault +5 V, '12': Supply fault +18 V}
+  phase_order: {'0': ABC, '1': ACB}
+  manual_command: {'0': No command, '1': Fault reset, '2': Direct stop, '3': Soft start, '4': Fast start, '5': Soft stop, '6': Fast stop, '7': Automatic mode run, '8': Automatic mode stop}
+  start_algorithm: {'0': Linear, '1': Current limit}
+  stop_algorithm: {'0': Linear, '1': Direct stop}
+
+problems:
+  - {when: {key: state, equals: 4}, kind: fault, text: Soft starter fault (state 4)}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Soft starter fault: {text} (code {value})'}
+
+notes:
+- Elektroteks-IN (ООО «Электротекс-ИН», Oryol). The hex addresses of the document are taken as 0-based protocol addresses.
+- Data types aren't stated; all registers are taken as 16-bit unsigned except the temperatures (signed assumed).
+- RS485 with Modbus RTU or ASCII (selectable), 1200 … 115200 baud, 8N1, addresses 1 … 255. Default baud rate and address aren't
+  stated; 9600 and 1 assumed.
+- 'Left out: the schedule (holding 0x0009 … 0x0030), the current-limit and angle-ramp curves (0x006F … 0x0083), protection
+  thresholds given as fractions of the rated current, thermal-model and imbalance settings, start-end detection, and the coils
+  0x0064 and 0x0067.'
+- 'Holding 0x00C8 … 0x00CD: year (2000 … 2099), month, day, hour, minute, second, one register each.'
+- No identification registers (model, serial or firmware) are given.

@@ -1,0 +1,68 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Victron's GX Modbus-TCP register list dbus_modbustcp 744e228 (revision 55) and dbus_modbustcp's attributes.csv.
+
+modbusspec: 0
+id: victron-gx-temperature
+manufacturer: Victron Energy
+name: 'GX Modbus-TCP: temperature sensor (com.victronenergy.temperature)'
+kind: other
+
+sources:
+- title: Victron GX Modbus-TCP register list (CCGX-Modbus-TCP-register-list)
+  version: dbus_modbustcp 744e228 (revision 55)
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/CCGX-Modbus-TCP-register-list.xlsx
+- title: dbus_modbustcp attributes.csv (Victron's register table in the Modbus-TCP service source)
+  version: commit 744e228
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/attributes.csv
+- id: hass-victron
+  title: hass-victron (Home Assistant integration)
+  url: https://github.com/sfstar/hass-victron
+  license: Apache-2.0
+  commit: 3d3ec1e6cb7768d3c6d49ed23e9b52814477c205
+  path: custom_components/victron/const.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.product_id, label: Product ID, table: holding, address: 3300, type: u16, poll: slow}
+  - {key: x.scale, label: Temperature scale factor, table: holding, address: 3301, type: u16, scale: 0.01}
+  - {key: x.offset, label: Temperature offset, table: holding, address: 3302, type: s16, scale: 0.01}
+  - {key: x.temperature_type, label: Temperature type, table: holding, address: 3303, type: u16, enum: temperature_type}
+  - {key: x.temperature, label: Temperature, table: holding, address: 3304, type: s16, unit: °C, scale: 0.01}
+  - {key: x.status, label: Temperature status, table: holding, address: 3305, type: u16, enum: status}
+  - {key: x.humidity, label: Humidity, table: holding, address: 3306, type: u16, unit: '%', scale: 0.1, note: Only on sensors that measure it.}
+  - {key: x.battery_voltage, label: Sensor battery voltage, table: holding, address: 3307, type: u16, unit: V, scale: 0.01}
+  - {key: x.pressure, label: Atmospheric pressure, table: holding, address: 3308, type: u16, unit: hPa, note: Only on sensors that measure it.}
+  - {key: x.co2, label: CO2 concentration, table: holding, address: 3309, type: u16, unit: ppm, note: Only on sensors that measure it.}
+  - {key: x.luminosity, label: Light level in lux, table: holding, address: 3310, type: u32, unit: lx, note: Only on sensors that measure it.}
+  - {key: x.nox, label: Nitrogen Oxides index, table: holding, address: 3312, type: u16, note: Only on sensors that measure it.}
+  - {key: x.pm25, label: PM2.5 particulate matter concentration, table: holding, address: 3313, type: u16, unit: µg/m³, note: Only on sensors that measure it.}
+  - {key: x.voc, label: Volatile Organic Compounds index, table: holding, address: 3314, type: u16, note: Only on sensors that measure it.}
+  - {key: x.custom_name, label: Custom Name, table: holding, address: 3320, type: str, length: 8, writable: true, poll: slow}
+
+enums:
+  temperature_type: {'0': Battery, '1': Fridge, '2': Generic, '3': Room, '4': Outdoor, '5': WaterHeater, '6': Freezer}
+  status: {'0': OK, '1': Open circuit, '2': Short circuited, '3': Reverse Polarity, '4': Unknown, '5': Sensor battery low}
+
+notes:
+- 'No fixed unit id: the GX assigns them (since Venus OS 2.60), normally the device instance; see Settings → Integrations
+  → Modbus TCP server → Available services. 1 is only a placeholder.'
+- Addresses are the list's numbers, which are the protocol addresses (no 30001/40001 offset); read them as holding registers
+  (function 03). Strings carry two characters per register, first character in the high byte.
+- Registers the device or firmware doesn't have make the GX answer the whole request with an exception; read them in separate
+  requests or skip them.
+- Taken from the register list dbus_modbustcp 744e228 (revision 55); attributes.csv (Victron's dbus_modbustcp source) filled
+  in what the list leaves out.
+- The unit id is the GX device instance of this service; hass-victron finds it by scanning a fixed list of unit ids.

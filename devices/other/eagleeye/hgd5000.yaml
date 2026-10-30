@@ -1,0 +1,76 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Eagle Eye Power Solutions HGD5000 Modbus Functionality (Rev 02, 2024-01-10).
+
+modbusspec: 0
+id: eagleeye-hgd5000
+manufacturer: Eagle Eye Power Solutions
+name: HGD5000 hydrogen gas detector
+kind: other
+
+sources:
+- title: Eagle Eye Power Solutions HGD5000 Modbus Functionality
+  version: Rev 02 (2024-01-10)
+  url: https://eepowersolutions.com/wp-content/uploads/2025/08/eagle-eye-power-solutions-hgd-5000-modbus-functionality.pdf
+  sha256: ff67fc0867ec2e963d00bf948cac6c65806e4fc09aefdc8c2fa8b00a6dd5ea15
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Measurements and states (function 03)
+  - {key: x.h2_concentration, label: H2 gas concentration, table: holding, address: 0, type: s16, unit: '%', scale: 0.1, poll: fast, note: Percent by volume (%VOL).}
+  - {key: x.temperature_f, label: Temperature (°F), table: holding, address: 1, type: u16, unit: °F, poll: fast}
+  - {key: x.temperature, label: Temperature (°C), table: holding, address: 2, type: u16, unit: °C, scale: 0.1, poll: fast, verified: false, note: The document lists this register as unsigned; how temperatures below 0 °C read is not stated.}
+  - {key: x.humidity, label: Humidity, table: holding, address: 3, type: u16, unit: '%', poll: fast}
+  - {key: x.analog_out1_voltage, label: Analogue OUT 1 V, table: holding, address: 4, type: u16, unit: V, scale: 0.1, poll: fast}
+  - {key: x.analog_out2_voltage, label: Analogue OUT 2 V, table: holding, address: 5, type: u16, unit: V, scale: 0.1, poll: fast}
+  - {key: x.analog_out1_current, label: Analogue OUT 1 mA, table: holding, address: 6, type: u16, unit: mA, scale: 0.1, poll: fast}
+  - {key: x.analog_out2_current, label: Analogue OUT 2 mA, table: holding, address: 7, type: u16, unit: mA, scale: 0.1, poll: fast}
+  - {key: x.pre_alarm_relay, label: Pre Alarm Relay current status, table: holding, address: 10, type: u16, enum: on_off, poll: fast}
+  - {key: x.alarm_relay, label: Alarm Relay current status, table: holding, address: 11, type: u16, enum: on_off, poll: fast}
+  - {key: x.fire_alarm_relay, label: Fire Alarm Relay current status, table: holding, address: 12, type: u16, enum: on_off, poll: fast}
+  - {key: x.strobe, label: Strobe output status, table: holding, address: 13, type: u16, enum: on_off, poll: fast}
+  - {key: x.buzzer, label: Buzzer status, table: holding, address: 14, type: u16, enum: on_off, poll: fast}
+  - {key: x.zero_calibration, label: ZERO calibration value, table: holding, address: 17, type: u16, poll: slow, note: Raw ADC counts.}
+  - {key: x.span_calibration, label: SPAN calibration value, table: holding, address: 18, type: u16, poll: slow, note: Raw ADC counts.}
+  - {key: x.raw_adc, label: RAW ADC, table: holding, address: 19, type: u16, poll: fast}
+  - {key: x.raw_h2_concentration, label: RAW H2 gas concentration (ignoring deadband), table: holding, address: 20, type: s16, unit: '%', scale: 0.1, poll: fast, note: 'Percent by volume, without the deadband applied.'}
+  - {key: x.working_days, label: GDM working days, table: holding, address: 27, type: u16, unit: d, poll: slow}
+  - {key: firmware, label: HGD sw version, table: holding, address: 28, type: u16, scale: 0.1, poll: slow, note: 10 = version 1.0.}
+  - {key: x.gdm_firmware, label: GDM sw version, table: holding, address: 29, type: u16, scale: 0.1, poll: slow, note: 10 = version 1.0.}
+
+  # Settings (function 03 / 06)
+  - {key: x.analog_out1_minimum, label: Minimum value for analogue OUT1, table: holding, address: 30, type: u16, enum: analog_minimum, poll: slow, writable: true}
+  - {key: x.analog_out2_minimum, label: Minimum value for analogue OUT2, table: holding, address: 31, type: u16, enum: analog_minimum, poll: slow, writable: true}
+  - {key: x.pre_alarm_relay_delay, label: Pre alarm relay delay, table: holding, address: 32, type: u16, unit: s, poll: slow, writable: true, min: 0, max: 15}
+  - {key: x.alarm_relay_delay, label: Alarm relay delay, table: holding, address: 33, type: u16, unit: s, poll: slow, writable: true, min: 0, max: 15}
+  - {key: x.deadband, label: Deadband, table: holding, address: 34, type: u16, enum: enabled, poll: slow, writable: true}
+
+enums:
+  on_off: {'0': 'Off', '1': 'On'}
+  analog_minimum: {'0': 0 V / 0 mA, '1': 2 V / 4 mA}
+  enabled: {'0': Disabled, '1': Enabled}
+
+problems:
+  - {when: {key: x.pre_alarm_relay, equals: 1}, kind: warning, text: Hydrogen pre-alarm (pre-alarm relay on)}
+  - {when: {key: x.alarm_relay, equals: 1}, kind: warning, text: Hydrogen alarm (alarm relay on)}
+  - {when: {key: x.fire_alarm_relay, equals: 1}, kind: warning, text: Fire alarm (fire alarm relay on)}
+
+notes:
+- Addresses are the document's register numbers (0 = 40001), read with function 03; settings are written with function 06.
+- Registers 8, 9, 15, 16 and 21…26 are marked not used.
+- Changed settings are kept only after writing 99 to register 99 (40100, function 06); that write-only command is not listed
+  as a point.
+- Modbus RTU only. Serial settings, the factory unit address and request limits are not stated in the document; default_unit
+  1 is assumed. The Modbus TCP port is the usual default for a gateway.
+- The detector gives no identification registers, so it can't be recognised in a network search.
+- 'The alarm relays are reported as warnings: the detector itself keeps working while they are on.'

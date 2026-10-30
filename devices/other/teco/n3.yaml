@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the TECO-Westinghouse N3 MODBUS protocol (1.0).
+
+modbusspec: 0
+id: teco-n3
+manufacturer: TECO-Westinghouse
+name: N3 series AC drive
+kind: other
+
+sources:
+- title: N3 MODBUS protocol
+  version: '1.0'
+  url: https://www.tecowestinghouse.com/wp-content/uploads/2018/08/n3_modbus_protocol_hv1.pdf
+  sha256: 06c72a588437d2972d43671dc5d850572235e0602e3b17846df27806fbc02ecd
+  archive_url: https://web.archive.org/web/20250520125532/https://www.tecowestinghouse.com/wp-content/uploads/2018/08/n3_modbus_protocol_hv1.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+  limits:
+    min_interval_ms: 10
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Command data (read / write)
+  - {key: x.command_word, label: Operation signal, table: holding, address: 257, type: u16, flags: command_bits, writable: true, poll: slow, note: Write 0 to the unused bits E and F.}
+  - {key: x.frequency_command, label: Frequency command, table: holding, address: 258, type: u16, unit: Hz, scale: 0.01, writable: true, poll: slow, note: Scale from the document's example (0x1770 = 60.00 Hz).}
+  # Monitor data (read only)
+  - {key: x.status_word, label: Operation state, table: holding, address: 288, type: u16, flags: status_bits}
+  - {key: error_code, label: Fault description, table: holding, address: 289, type: u16, enum: fault_code}
+  - {key: x.terminal_status, label: Sequence input / contact output status, table: holding, address: 290, type: u16, flags: terminal_bits}
+  - {key: x.frequency_setpoint, label: Frequency command (V1), table: holding, address: 291, type: u16, unit: Hz, scale: 0.01, note: Scale from the document's read example (0x1770 = 60.00 Hz).}
+  - {key: x.output_frequency, label: Output frequency (V2), table: holding, address: 292, type: u16, unit: Hz, scale: 0.01, verified: false, note: Not stated in the document; assumed to scale like the frequency command.}
+  - {key: x.output_voltage, label: Output voltage command, table: holding, address: 293, type: u16, unit: V}
+  - {key: x.dc_bus_voltage, label: Output DC voltage command, table: holding, address: 294, type: u16, unit: V}
+  - {key: x.output_current, label: Output current (V6), table: holding, address: 295, type: u16, unit: A, scale: 0.1}
+  - {key: x.output_torque, label: Output torque (V7), table: holding, address: 297, type: u16, verified: false, note: Unit and scale not stated in the document.}
+  - {key: x.pid_feedback, label: PID feedback value, table: holding, address: 298, type: u16, unit: '%', scale: 0.1, note: 100 % = maximum output frequency.}
+  - {key: x.pid_input, label: PID input value, table: holding, address: 299, type: s16, unit: '%', scale: 0.1, note: Signed; 100 % = maximum output frequency.}
+  - {key: x.ain_input, label: TM2 AIN input value (V3), table: holding, address: 300, type: u16, unit: V, scale: 0.009765625, note: 1024 counts = 10 V.}
+  - {key: x.s6_input, label: TM2 S6 input value (V4), table: holding, address: 301, type: u16, unit: V, scale: 0.009765625, note: 1024 counts = 10 V.}
+  - {key: x.keypad_vr_input, label: Keypad VR input value (V5), table: holding, address: 302, type: u16, unit: V, scale: 0.009765625, note: 1024 counts = 10 V.}
+
+enums:
+  fault_code: {'0': Normal, '1': Program abnormal (CPF), '2': EEPROM abnormal (EPR), '3': Overvoltage (OV), '4': Undervoltage (LV), '5': Drive overheat (OH), '10': Overcurrent while decelerating (OC-D), '11': Overcurrent while accelerating (OC-A), '12': Overcurrent at constant speed (OC-C), '13': Overvoltage at constant speed / decelerating (OV-C), '14': Drive overheat at constant speed (OH-C), '15': Drive overspeed (OVSP), '16': CPU interrupted (CTER), '17': OC_S, '20': Overcurrent at stop (OC), '21': Motor overload (OL1), '22': Drive overload (OL2), '23': Over-torque detected (OL3), '24': Undervoltage while running (LV-C), '29': Err8, '30': Stop at 0 Hz (STP0), '31': Direct start disabled (STP1), '32': Control panel emergency stop (STP2), '33': Emergency stop (E.S), '34': External base block (bb), '35': Auto-tuning error (ATER), '36': PID feedback signal loss (PDER), '37': Communication error (EFO), '38': Encoder signal loss (ECER), '39': Analog conversion error (Err4), '40': Parameter locked (LOC), '41': Keypad operation error (Err1), '42': Parameter setting error (Err2), '43': Parameter modified over communication (Err5), '44': Communication failure (Err6), '45': Parameter setting error (Err7)}
+
+flags:
+  command_bits: {'0': Run (0 = stop), '1': Reverse (0 = forward), '2': External fault (EFO), '3': Fault reset, '4': Jog, '5': Multi-function input S1, '6': Multi-function input S2, '7': Multi-function input S3, '8': Multi-function input S4, '9': Multi-function input S5, '10': Multi-function input S6, '11': Multi-function input AIN, '12': Relay RY1, '13': Relay RY2}
+  status_bits: {'0': Running (0 = stopped), '1': Reverse (0 = forward), '2': Ready, '3': Abnormal, '4': Data setting error}
+  terminal_bits: {'0': Terminal S1 closed, '1': Terminal S2 closed, '2': Terminal S3 closed, '3': Terminal S4 closed, '4': Terminal S5 closed, '5': Terminal S6 closed, '6': Terminal AIN closed, '10': Relay 1 on, '11': Relay 2 on}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Drive fault {value}: {text}'}
+  - {when: {key: x.status_word, bit: 4}, kind: warning, text: Data setting error (bit 4)}
+
+notes:
+- The document itself names no maker; it is published by TECO-Westinghouse.
+- Addresses are the document's register numbers (hex), used as protocol addresses as in its examples (reading 0123H, writing
+  0102H); all are holding registers (read 03, write 06 / 10).
+- The document doesn't state the serial settings or a default slave address (1…254, set on the drive); unit 1 is from its
+  examples. Frames are at most 80 bytes; keep 10 ms between a request and the next command; the drive times out after 400
+  ms.
+- Registers 0x0000–0x00FF map the drive parameters (A000 ff., B000 ff.); the document only gives the parameter number per
+  register, not their meaning, so they are left out.
+- No serial number or model register is documented, so a network search can't recognise the device.

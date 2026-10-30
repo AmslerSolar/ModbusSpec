@@ -1,0 +1,334 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Swegon CASA Genius Modbus Register list (SCB 4.1, updated 2023-08-28).
+
+modbusspec: 0
+id: swegon-casa
+manufacturer: Swegon
+name: CASA ventilation units (SEM / SEC, Genius software)
+kind: ventilation
+
+sources:
+- title: Swegon CASA Genius Modbus Register (technical data sheet 9838)
+  version: SCB 4.1, updated 2023-08-28
+  url: https://www.swegon.com/globalassets/digizuite/9838-en-casa_genius_modbus_address_technicaldatasheet_en.pdf
+  sha256: 38d3ded742b3b600d0af13969ffbc1b254ae8d3c9ebd868f5adfe1c9d1374d93
+- id: swegon-modbus
+  title: swegon_modbus (Home Assistant integration)
+  url: https://github.com/majorfrog/swegon_modbus
+  license: MIT
+  commit: 58d96d8e2ec306f981f00d6e4af2c549a4bbdef8
+  path: custom_components/swegon_modbus/models.py, custom_components/swegon_modbus/const.py, custom_components/swegon_modbus/translations/en.json,
+    swegon_registers.md
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+identify:
+  serial:
+    table: input
+    address: 6023
+    type: str
+    length: 24
+    chars: low
+
+points:
+  # User settings
+  - {key: x.operating_mode, label: Operating Mode, table: holding, address: 5000, type: u16, enum: operating_mode, writable: true}
+  - {key: x.fireplace_activate, label: Fireplace function Activation, table: holding, address: 5001, type: u16, writable: true, write_only: true, note: '1 starts the fireplace function (with its timer), 0 stops it.'}
+  - {key: x.cooking_mode, label: Cooking mode control, table: holding, address: 5004, type: u16, enum: off_on, writable: true, persistent: false, note: 1 opens the cooker hood damper and sets the cooking airflows; it switches off after 10 h or on restart.}
+  - {key: x.co2_automation, label: CO2 automation, table: holding, address: 5008, type: u16, enum: off_on, writable: true, poll: slow, note: Units with a CO2 sensor only.}
+  - {key: x.rh_automation, label: RH automation, table: holding, address: 5009, type: u16, enum: automation_level, writable: true, poll: slow}
+  - {key: x.voc_automation, label: VOC automation, table: holding, address: 5010, type: u16, enum: automation_level, writable: true, poll: slow, note: Units with a VOC sensor only.}
+  - {key: x.emergency_stop, label: Emergency Stop, table: holding, address: 5017, type: u16, enum: emergency_stop, writable: true, poll: slow, note: With emergency overpressurising the water radiator freezing protection is off.}
+  - {key: x.temperature_setpoint, label: Temperature setpoint, table: holding, address: 5100, type: s16, unit: °C, scale: 0.1, writable: true, min: 13, max: 25, poll: slow, note: Supply air setpoint (supply air control)., conflicts: [{sources: [swegon-modbus], scale: 1}]}
+  - {key: x.boost_timer, label: Boost mode timer, table: holding, address: 5101, type: u16, enum: boost_timer, writable: true, poll: slow}
+  - {key: x.travelling_speed_drop, label: Travelling mode speed drop, table: holding, address: 5105, type: u16, unit: '%', writable: true, min: 0, max: 10, poll: slow}
+  - {key: x.home_plus_level, label: Home + mode ventilation level, table: holding, address: 5107, type: u16, unit: '%', writable: true, min: 10, max: 90, poll: slow, note: 0 % is the Home and 100 % the Boost ventilation level.}
+  - {key: x.supply_control_method, label: Supply air control method, table: holding, address: 5129, type: u16, enum: supply_control_method, writable: true, poll: slow}
+  - {key: x.service_reminder, label: Service Reminder, table: holding, address: 5140, type: u16, enum: off_on, writable: true, poll: slow, note: Writing 0 then 1 restarts the service interval.}
+  - {key: x.service_interval, label: Service Reminder interval, table: holding, address: 5141, type: u16, unit: month, writable: true, min: 0, max: 12, poll: slow}
+  - {key: x.summer_mode_detection, label: Summer mode detection, table: holding, address: 5163, type: u16, enum: summer_mode_detection, writable: true, poll: slow}
+  - {key: x.temperature_setpoint_summer, label: Temperature setpoint Summer, table: holding, address: 5167, type: s16, unit: °C, scale: 0.1, writable: true, min: 13, max: 25, poll: slow, conflicts: [{sources: [swegon-modbus], type: u16, scale: 1, label: Summer cooling minimum supply temperature}]}
+  - {key: x.summer_mode_boost, label: Summer mode boost, table: holding, address: 5168, type: u16, enum: automation_level, writable: true, poll: slow}
+  - {key: x.room_temperature_setpoint, label: Room temperature setpoint, table: holding, address: 5186, type: s16, unit: °C, scale: 0.1, writable: true, min: 13, max: 25, poll: slow}
+  - {key: x.away_supply_fan, label: Away mode Supply fan speed, table: holding, address: 5301, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.away_exhaust_fan, label: Away mode Exhaust fan speed, table: holding, address: 5302, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.home_supply_fan, label: Home mode Supply fan speed, table: holding, address: 5303, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.home_exhaust_fan, label: Home mode Exhaust fan speed, table: holding, address: 5304, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.boost_supply_fan, label: Boost mode Supply fan speed, table: holding, address: 5305, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.boost_exhaust_fan, label: Boost mode Exhaust fan speed, table: holding, address: 5306, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.ventilation_control_mode, label: Ventilation control mode, table: holding, address: 5317, type: u16, enum: ventilation_control_mode, poll: slow}
+  - {key: x.reset_info_alarms, label: Reset All info alarms, table: holding, address: 5405, type: u16, writable: true, write_only: true, note: 1 confirms the alarms; clears itself.}
+
+  # Device information
+  - {key: x.firmware_major, label: Device Firmware version major, table: input, address: 6000, type: u16, poll: slow}
+  - {key: x.firmware_minor, label: Device Firmware version minor, table: input, address: 6001, type: u16, poll: slow}
+  - {key: x.firmware_build, label: Device Firmware build, table: input, address: 6002, type: u16, poll: slow}
+  - {key: x.model_name, label: 'Model name[0:14]', table: input, address: 6007, type: str, length: 15, chars: low, poll: slow, note: 15 ASCII characters (the document's register range for it is garbled); one character per register in the low byte assumed., conflicts: [{sources: [swegon-modbus], length: 16, label: Model name}], verified: false}
+  - {key: serial, label: 'Unit Serial Number[0:23]', table: input, address: 6023, type: str, length: 24, chars: low, poll: slow, note: 24 ASCII characters in 24 registers (3x6024…3x6047); one character per register in the low byte assumed., conflicts: [{sources: [swegon-modbus], label: Serial number}], verified: false}
+
+  # Alarms
+  - {key: x.active_alarm, label: Active Alarms, table: input, address: 6131, type: u16, enum: no_yes}
+  - {key: x.alarm_word_1, label: Active Alarms Bitwise - 1, table: input, address: 6135, type: u16, flags: alarms_1}
+  - {key: x.past_alarm_word_1, label: Resettable alarm bitwise - 1 (Past active alarm), table: input, address: 6136, type: u16, flags: alarms_1}
+  - {key: x.alarm_word_2, label: Active Alarms Bitwise - 2, table: input, address: 6190, type: u16, flags: alarms_2}
+  - {key: x.alarm_word_3, label: Active Alarms Bitwise - 3, table: input, address: 6192, type: u16, flags: alarms_3}
+  - {key: x.critical_alarm, label: Critical Alarms (Ventilation stopped), table: input, address: 6194, type: u16, enum: no_yes}
+  - {key: x.hours_to_service, label: Hours to next Service, table: input, address: 6342, type: u16, unit: h, poll: slow, note: Only with the service reminder on.}
+
+  # Measurements
+  - {key: x.fresh_air_temperature, label: Fresh air temperature, table: input, address: 6200, type: s16, unit: °C, scale: 0.1, note: T1 (filtered).}
+  - {key: x.supply_before_reheater_temperature, label: Supply air before re-heater temperature, table: input, address: 6201, type: s16, unit: °C, scale: 0.1}
+  - {key: x.supply_air_temperature, label: Supply air temperature, table: input, address: 6202, type: s16, unit: °C, scale: 0.1, note: 'T4, or T7 with an external sensor.'}
+  - {key: x.extract_air_temperature, label: Extract air temperature, table: input, address: 6203, type: s16, unit: °C, scale: 0.1}
+  - {key: x.exhaust_air_temperature, label: Exhaust air temperature, table: input, address: 6204, type: s16, unit: °C, scale: 0.1, optional: true, note: T5 if fitted.}
+  - {key: x.room_air_temperature, label: Room air temperature, table: input, address: 6205, type: s16, unit: °C, scale: 0.1}
+  - {key: x.water_radiator_temperature, label: Water Radiator temperature, table: input, address: 6208, type: s16, unit: °C, scale: 0.1, optional: true, note: T6 with a water radiator.}
+  - {key: x.external_outside_temperature, label: External Outside air temperature, table: input, address: 6210, type: s16, unit: °C, scale: 0.1, optional: true, note: T8 if fitted.}
+  - {key: x.co2, label: Room air CO2, table: input, address: 6212, type: u16, unit: ppm, optional: true}
+  - {key: x.humidity, label: Room air RH, table: input, address: 6213, type: u16, unit: '%'}
+  - {key: x.absolute_humidity, label: Room air AH, table: input, address: 6214, type: u16, unit: g/m³, scale: 0.01, conflicts: [{sources: [swegon-modbus], scale: 0.1, label: Absolute humidity}]}
+  - {key: x.voc, label: Room air VOC, table: input, address: 6216, type: u16, unit: ppm, optional: true}
+  - {key: x.supply_duct_pressure, label: Supply Duct Pressure, table: input, address: 6217, type: u16, unit: Pa, optional: true, note: Needs an external pressure sensor.}
+  - {key: x.exhaust_duct_pressure, label: Exhaust Duct Pressure, table: input, address: 6218, type: u16, unit: Pa, optional: true, note: Needs an external pressure sensor.}
+  - {key: x.supply_air_flow, label: Supply Air Flow, table: input, address: 6219, type: u16, unit: l/s, optional: true, note: Needs an external airflow sensor.}
+  - {key: x.exhaust_air_flow, label: Exhaust Air Flow, table: input, address: 6220, type: u16, unit: l/s, optional: true, note: Needs an external airflow sensor.}
+  - {key: x.room_pressure, label: Room pressure, table: input, address: 6276, type: s16, unit: Pa, scale: 0.1, optional: true}
+  - {key: x.rotor_speed, label: Rotor rotating speed, table: input, address: 6233, type: u16, unit: rpm, scale: 0.1, conflicts: [{sources: [swegon-modbus], scale: 1, label: Rotor speed}]}
+
+  # Unit status
+  - {key: state, label: Unit state, table: input, address: 6300, type: u16, enum: unit_state}
+  - {key: x.speed_state_smart, label: Ventilation Speed state (compatibility to Smart), table: input, address: 6301, type: u16, enum: speed_state_smart}
+  - {key: x.supply_fan_control, label: Supply Fan Control, table: input, address: 6302, type: u16, unit: '%'}
+  - {key: x.exhaust_fan_control, label: Exhaust Fan Control, table: input, address: 6303, type: u16, unit: '%'}
+  - {key: x.supply_fan_rpm, label: Supply Fan RPM, table: input, address: 6304, type: u16, unit: rpm}
+  - {key: x.exhaust_fan_rpm, label: Exhaust Fan RPM, table: input, address: 6305, type: u16, unit: rpm}
+  - {key: x.travelling_active, label: Travelling mode Active, table: input, address: 6306, type: u16, enum: no_yes}
+  - {key: x.boost_time_left, label: Boost Time left, table: input, address: 6307, type: u16, unit: min}
+  - {key: x.week_timer, label: Week Timer Active, table: input, address: 6308, type: u16, enum: week_timer}
+  - {key: x.temperature_setpoint_effective, label: Temperature Setpoint, table: input, address: 6319, type: s16, unit: °C, note: Effective supply setpoint. The document gives °C and 13…25; possibly 0.1 °C like the other temperatures., conflicts: [{sources: [swegon-modbus], scale: 0.1, label: Room controller supply setpoint}], verified: false}
+  - {key: x.silent_active, label: Silent mode Active, table: input, address: 6324, type: u16, enum: no_yes}
+  - {key: x.rotor_control, label: Rotor control, table: input, address: 6331, type: u16, unit: '%', scale: 0.1, conflicts: [{sources: [swegon-modbus], scale: 1, label: Rotor active}]}
+  - {key: x.fireplace_active, label: Fireplace function active, table: input, address: 6334, type: u16, enum: no_yes}
+  - {key: x.cooking_active, label: Cooking mode Active, table: input, address: 6336, type: u16, enum: no_yes}
+  - {key: x.bypass_position, label: Heat exchanger bypass plate position, table: input, address: 6347, type: u16, unit: '%', note: 100 = fully open.}
+  - {key: x.heating_state, label: Heating state, table: input, address: 6369, type: u16, enum: heating_state}
+  - {key: x.speed_state, label: Ventilation Speed state (Genius), table: input, address: 6433, type: u16, enum: speed_state}
+  - {key: x.travelling_mode, label: Travelling mode, table: holding, address: 5003, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.central_vacuum_cleaner, label: Central vacuum cleaner, table: holding, address: 5005, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.heating_boost_control, label: Heating boost control, table: holding, address: 5011, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.internal_post_heater, label: Internal post heater, table: holding, address: 5013, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.external_cooling, label: External cooling, table: holding, address: 5014, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.external_post_heater, label: External post heater, table: holding, address: 5015, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.external_liquid_coil, label: External liquid coil, table: holding, address: 5016, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.smart_control, label: Smart control, table: holding, address: 5018, type: s16, unit: '%', writable: true, note: The integration accepts -100…100 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.cooker_hood_function, label: Cooker hood function, table: holding, address: 5019, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.fireplace_run_time, label: Fireplace run time, table: holding, address: 5103, type: u16, unit: min, writable: true, note: The integration accepts 0…60 min., verified: false, sources: [swegon-modbus]}
+  - {key: x.fireplace_max_speed_diff, label: Fireplace max speed difference, table: holding, address: 5104, type: u16, unit: '%', writable: true, note: The integration accepts 0…25 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.travelling_temp_drop, label: Travelling temperature drop, table: holding, address: 5106, type: u16, unit: °C, writable: true, note: The integration accepts 0…10 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.cooker_hood_home_compensation, label: Cooker hood home compensation, table: holding, address: 5108, type: u16, unit: '%', writable: true, note: The integration accepts 0…50 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.cooker_hood_boost_compensation, label: Cooker hood boost compensation, table: holding, address: 5109, type: u16, unit: '%', writable: true, note: The integration accepts 0…50 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.central_vacuum_run_time, label: Central vacuum run time, table: holding, address: 5111, type: u16, unit: min, writable: true, note: The integration accepts 0…60 min., verified: false, sources: [swegon-modbus]}
+  - {key: x.central_vacuum_compensation, label: Central vacuum compensation, table: holding, address: 5112, type: u16, unit: '%', writable: true, note: The integration accepts 0…50 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.co2_home_limit, label: CO₂ home limit, table: holding, address: 5113, type: u16, unit: ppm, writable: true, note: The integration accepts 0…2000 ppm., verified: false, sources: [swegon-modbus]}
+  - {key: x.co2_away_limit, label: CO₂ away limit, table: holding, address: 5114, type: u16, unit: ppm, writable: true, note: The integration accepts 0…2000 ppm., verified: false, sources: [swegon-modbus]}
+  - {key: x.rh_boost_limit, label: Humidity boost limit, table: holding, address: 5116, type: u16, unit: '%', writable: true, note: The integration accepts 0…50 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.rh_full_boost_limit, label: Humidity full boost limit, table: holding, address: 5117, type: u16, unit: '%', writable: true, note: The integration accepts 0…50 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.rh_boost_delay, label: Humidity boost delay, table: holding, address: 5118, type: u16, unit: min, writable: true, note: The integration accepts 0…30 min., verified: false, sources: [swegon-modbus]}
+  - {key: x.rh_boost_during_delay, label: Humidity boost during delay, table: holding, address: 5119, type: u16, unit: '%', writable: true, note: The integration accepts 0…25 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.voc_boost_limit, label: VOC boost limit, table: holding, address: 5120, type: u16, unit: ppm, writable: true, note: The integration accepts 0…2000 ppm., verified: false, sources: [swegon-modbus]}
+  - {key: x.voc_full_boost_limit, label: VOC full boost limit, table: holding, address: 5121, type: u16, unit: ppm, writable: true, note: The integration accepts 0…2000 ppm., verified: false, sources: [swegon-modbus]}
+  - {key: x.heating_boost_gain, label: Heating boost gain, table: holding, address: 5123, type: u16, unit: '%', writable: true, note: The integration accepts 0…100 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.summer_cooling_full_boost_room_limit, label: Summer cooling full boost room limit, table: holding, address: 5124, type: u16, unit: °C, writable: true, note: The integration accepts 18…40 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.heating_fresh_air_limit, label: Heating fresh air limit, table: holding, address: 5128, type: s16, unit: °C, writable: true, note: The integration accepts -50…50 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.room_temp_fine_tuning, label: Room temperature fine tuning, table: holding, address: 5131, type: s16, unit: °C, scale: 0.1, writable: true, note: The integration accepts -5…5 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.room_control_supply_min, label: Room control supply minimum, table: holding, address: 5132, type: u16, unit: °C, writable: true, note: The integration accepts 10…50 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.room_control_supply_max, label: Room control supply maximum, table: holding, address: 5133, type: u16, unit: °C, writable: true, note: The integration accepts 10…50 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.cooling_fresh_air_limit, label: Cooling fresh air limit, table: holding, address: 5134, type: u16, unit: °C, writable: true, note: The integration accepts 0…50 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.room_control_cooling_min, label: Room control cooling minimum, table: holding, address: 5135, type: u16, unit: °C, writable: true, note: The integration accepts 10…50 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.room_control_cooling_max, label: Room control cooling maximum, table: holding, address: 5136, type: u16, unit: °C, writable: true, note: The integration accepts 10…50 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.external_preheating_fresh_air_limit, label: External preheating fresh air limit, table: holding, address: 5137, type: s16, unit: °C, writable: true, note: The integration accepts -50…50 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.external_precooling_fresh_air_limit, label: External precooling fresh air limit, table: holding, address: 5138, type: s16, unit: °C, writable: true, note: The integration accepts -50…50 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.cooker_hood_boost_speed, label: Cooker hood boost speed, table: holding, address: 5150, type: u16, unit: '%', writable: true, note: The integration accepts 0…100 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.room_temperature_sensor, label: Room temperature sensor, table: holding, address: 5151, type: u16, enum: room_temperature_sensor, writable: true, verified: false, sources: [swegon-modbus]}
+  - {key: x.supply_temperature_sensor, label: Supply temperature sensor, table: holding, address: 5152, type: u16, enum: supply_temperature_sensor, writable: true, verified: false, sources: [swegon-modbus]}
+  - {key: x.outside_temperature_sensor, label: Outside temperature sensor, table: holding, address: 5153, type: u16, enum: outside_temperature_sensor, writable: true, verified: false, sources: [swegon-modbus]}
+  - {key: x.supply_temp_fine_tuning, label: Supply temperature fine tuning, table: holding, address: 5154, type: s16, unit: °C, scale: 0.1, writable: true, note: The integration accepts -5…5 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.water_temperature_sensor, label: Water temperature sensor, table: holding, address: 5155, type: u16, enum: water_temperature_sensor, writable: true, verified: false, sources: [swegon-modbus]}
+  - {key: x.summer_cooling_fresh_air_limit, label: Summer cooling fresh air limit, table: holding, address: 5164, type: u16, unit: °C, writable: true, note: The integration accepts 0…25 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.summer_cooling_fresh_air_start_limit, label: Summer cooling fresh air start limit, table: holding, address: 5165, type: u16, unit: °C, writable: true, note: The integration accepts 0…25 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.summer_cooling_room_temp_limit, label: Summer cooling room temperature limit, table: holding, address: 5166, type: u16, unit: °C, writable: true, note: The integration accepts 0…35 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.summer_cooling_boost_room_limit, label: Summer cooling boost room limit, table: holding, address: 5169, type: u16, unit: °C, writable: true, note: The integration accepts 18…28 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.away_temp_drop, label: Away temperature drop, table: holding, address: 5170, type: u16, unit: °C, writable: true, note: The integration accepts 0…10 °C., verified: false, sources: [swegon-modbus]}
+  - {key: x.heating_mode, label: Heating mode, table: holding, address: 5173, type: u16, enum: heating_mode, writable: true, verified: false, sources: [swegon-modbus]}
+  - {key: x.external_electrical_preheater, label: External electrical preheater, table: holding, address: 5175, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.summer_cooling_cooker_hood_damper, label: Summer cooling cooker hood damper, table: holding, address: 5176, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.fireplace_smart_visibility, label: Fireplace visibility (smart functions), table: holding, address: 5200, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.travelling_smart_visibility, label: Travelling visibility (smart functions), table: holding, address: 5201, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.central_vacuum_smart_visibility, label: Central vacuum visibility (smart functions), table: holding, address: 5203, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.summer_cooling_smart_visibility, label: Summer night cooling visibility (smart functions), table: holding, address: 5204, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.heating_boost_smart_visibility, label: Heating boost visibility (smart functions), table: holding, address: 5205, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.shutdown_smart_visibility, label: Shutdown visibility (smart functions), table: holding, address: 5206, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.auto_humidity_smart_visibility, label: Auto humidity control visibility (smart functions), table: holding, address: 5207, type: u16, writable: true, note: '0 = off, 1 = on.', verified: false, sources: [swegon-modbus]}
+  - {key: x.max_smart_boost, label: Maximum smart boost, table: holding, address: 5307, type: u16, unit: '%', writable: true, note: The integration accepts 0…100 %., verified: false, sources: [swegon-modbus]}
+  - {key: x.confirm_reheater_alarm, label: Confirm reheater alarm, table: holding, address: 5400, type: u16, writable: true, note: Write 1 to trigger., verified: false, sources: [swegon-modbus]}
+  - {key: x.confirm_preheater_alarm, label: Confirm preheater alarm, table: holding, address: 5401, type: u16, writable: true, note: Write 1 to trigger., verified: false, sources: [swegon-modbus]}
+  - {key: x.confirm_freezing_alarm, label: Confirm freezing alarm, table: holding, address: 5402, type: u16, writable: true, note: Write 1 to trigger., verified: false, sources: [swegon-modbus]}
+  - {key: x.confirm_filter_alarm, label: Confirm filter alarm, table: holding, address: 5403, type: u16, writable: true, note: Write 1 to trigger., verified: false, sources: [swegon-modbus]}
+  - {key: x.confirm_service_alarm, label: Confirm service alarm, table: holding, address: 5404, type: u16, writable: true, note: Write 1 to trigger., verified: false, sources: [swegon-modbus]}
+  - {key: x.confirm_fan_alarm, label: Confirm fan alarm, table: holding, address: 5406, type: u16, writable: true, note: Write 1 to trigger., verified: false, sources: [swegon-modbus]}
+  - {key: x.confirm_sensor_alarm, label: Confirm sensor alarm, table: holding, address: 5407, type: u16, writable: true, note: Write 1 to trigger., verified: false, sources: [swegon-modbus]}
+  - {key: x.t1_sensor_failure, label: T1 temperature sensor failure, table: input, address: 6100, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t2_sensor_failure, label: T2 temperature sensor failure, table: input, address: 6101, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t3_sensor_failure, label: T3 temperature sensor failure, table: input, address: 6102, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t4_sensor_failure, label: T4 temperature sensor failure, table: input, address: 6103, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t5_sensor_failure, label: T5 temperature sensor failure, table: input, address: 6104, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t6_sensor_failure, label: T6 temperature sensor failure, table: input, address: 6105, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t7_sensor_failure, label: T7 temperature sensor failure, table: input, address: 6106, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t8_sensor_failure, label: T8 temperature sensor failure, table: input, address: 6107, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t1_sensor_failure_unconfirmed, label: T1 temperature sensor failure (unconfirmed), table: input, address: 6108, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t2_sensor_failure_unconfirmed, label: T2 temperature sensor failure (unconfirmed), table: input, address: 6109, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t3_sensor_failure_unconfirmed, label: T3 temperature sensor failure (unconfirmed), table: input, address: 6110, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t4_sensor_failure_unconfirmed, label: T4 temperature sensor failure (unconfirmed), table: input, address: 6111, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t5_sensor_failure_unconfirmed, label: T5 temperature sensor failure (unconfirmed), table: input, address: 6112, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t6_sensor_failure_unconfirmed, label: T6 temperature sensor failure (unconfirmed), table: input, address: 6113, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t7_sensor_failure_unconfirmed, label: T7 temperature sensor failure (unconfirmed), table: input, address: 6114, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t8_sensor_failure_unconfirmed, label: T8 temperature sensor failure (unconfirmed), table: input, address: 6115, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.afterheater_failure, label: Afterheater failure, table: input, address: 6116, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.afterheater_failure_unconfirmed, label: Afterheater failure (unconfirmed), table: input, address: 6117, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.preheater_failure, label: Preheater failure, table: input, address: 6118, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.preheater_failure_unconfirmed, label: Preheater failure (unconfirmed), table: input, address: 6119, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.freezing_danger, label: Freezing danger, table: input, address: 6120, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.freezing_danger_unconfirmed, label: Freezing danger (unconfirmed), table: input, address: 6121, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.internal_temp_alarm, label: Internal temperature alarm, table: input, address: 6122, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.internal_temp_alarm_unconfirmed, label: Internal temperature alarm (unconfirmed), table: input, address: 6123, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.supply_fan_failure, label: Supply fan failure, table: input, address: 6124, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.supply_fan_failure_unconfirmed, label: Supply fan failure (unconfirmed), table: input, address: 6125, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.exhaust_fan_failure, label: Exhaust fan failure, table: input, address: 6126, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.exhaust_fan_failure_unconfirmed, label: Exhaust fan failure (unconfirmed), table: input, address: 6127, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.service_info, label: Service info, table: input, address: 6128, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.filter_guard_unconfirmed, label: Filter guard info (unconfirmed), table: input, address: 6129, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.emergency_stop_active, label: Emergency stop, table: input, address: 6130, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.info_active, label: Info active, table: input, address: 6132, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t9_sensor_failure, label: T9 temperature sensor failure, table: input, address: 6133, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.t9_sensor_failure_unconfirmed, label: T9 temperature sensor failure (unconfirmed), table: input, address: 6134, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.preheater_temp_high, label: Preheater temperature high, table: input, address: 6140, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.preheater_temp_high_unconfirmed, label: Preheater temperature high (unconfirmed), table: input, address: 6141, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.supply_temp_low, label: Supply temperature low, table: input, address: 6142, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.supply_temp_low_unconfirmed, label: Supply temperature low (unconfirmed), table: input, address: 6143, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.supply_temp_high, label: Supply temperature high, table: input, address: 6144, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.supply_temp_high_unconfirmed, label: Supply temperature high (unconfirmed), table: input, address: 6145, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.rotor_alarm, label: Rotor alarm, table: input, address: 6146, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.rotor_alarm_unconfirmed, label: Rotor alarm (unconfirmed), table: input, address: 6147, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.fan_control_alarm, label: Fan control alarm, table: input, address: 6148, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.fan_control_alarm_unconfirmed, label: Fan control alarm (unconfirmed), table: input, address: 6149, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.user_panel_1_temp, label: User panel 1 temperature, table: input, address: 6206, type: s16, unit: °C, scale: 0.1, verified: false, sources: [swegon-modbus]}
+  - {key: x.user_panel_2_temp, label: User panel 2 temperature, table: input, address: 6207, type: s16, unit: °C, scale: 0.1, verified: false, sources: [swegon-modbus]}
+  - {key: x.preheater_temp, label: Preheater temperature, table: input, address: 6209, type: s16, unit: °C, scale: 0.1, verified: false, sources: [swegon-modbus]}
+  - {key: x.co2_unfiltered, label: CO₂ (unfiltered), table: input, address: 6211, type: u16, unit: ppm, verified: false, sources: [swegon-modbus]}
+  - {key: x.absolute_humidity_setpoint, label: Absolute humidity setpoint, table: input, address: 6215, type: u16, unit: g/m³, scale: 0.1, verified: false, sources: [swegon-modbus]}
+  - {key: x.auto_co2_control, label: Auto CO₂ control output, table: input, address: 6309, type: s16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.auto_rh_control, label: Auto humidity control output, table: input, address: 6310, type: u16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.auto_air_quality_control_output, label: Auto air quality control output, table: input, address: 6311, type: u16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.auto_temp_boost_control, label: Auto temperature boost control output, table: input, address: 6312, type: u16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.fan_speed_limit_control, label: Fan speed limit control output, table: input, address: 6313, type: s16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.smart_control_output, label: Smart control output, table: input, address: 6314, type: s16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.supply_control_power, label: Supply control power, table: input, address: 6316, type: u16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.cooling_control_active, label: Cooling control active, table: input, address: 6322, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.defrost_status, label: Defrost status, table: input, address: 6327, type: u16, verified: false, sources: [swegon-modbus]}
+  - {key: x.preheater_active, label: Preheater active, table: input, address: 6332, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.summer_cooling_active, label: Summer cooling active, table: input, address: 6333, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.central_vacuum_active, label: Central vacuum active, table: input, address: 6335, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.external_boost_active, label: External boost active, table: input, address: 6337, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.external_away_active, label: External away active, table: input, address: 6338, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.heat_exchanger_bypass, label: Heat exchanger bypass, table: input, address: 6339, type: u16, verified: false, sources: [swegon-modbus]}
+  - {key: x.filter_guard_active, label: Filter guard active, table: input, address: 6341, type: u16, note: '0 = no, 1 = yes.', verified: false, sources: [swegon-modbus]}
+  - {key: x.preheater_output_power, label: Preheater output power, table: input, address: 6343, type: u16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.nordic_preheater_power, label: Nordic preheater power, table: input, address: 6344, type: u16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.defrost_supply_limit, label: Defrost supply limit, table: input, address: 6345, type: u16, unit: '%', verified: false, sources: [swegon-modbus]}
+  - {key: x.defrost_exhaust_forcing, label: Defrost exhaust forcing, table: input, address: 6346, type: u16, unit: '%', verified: false, sources: [swegon-modbus]}
+
+enums:
+  operating_mode: {'0': Shutdown, '1': Away, '2': Home, '3': Boost, '4': Travelling, '5': Home+}
+  boost_timer: {'0': Continuous, '1': 30 min, '2': 60 min, '3': 90 min, '4': 120 min, '5': 240 min}
+  off_on: {'0': 'Off', '1': 'On'}
+  no_yes: {'0': 'No', '1': 'Yes'}
+  automation_level: {'0': 'Off', '1': Low, '2': Normal, '3': High, '4': Max, '5': Advanced}
+  emergency_stop: {'0': Disabled, '1': Emergency stop, '2': Emergency overpressurising}
+  supply_control_method: {'0': Supply air, '1': Room air}
+  summer_mode_detection: {'0': 'Off', '1': Auto, '2': 'On'}
+  ventilation_control_mode: {'0': Normal, '1': Supply pressure control, '2': Extract pressure control, '3': Pressure control, '4': Airflow (l/s) control}
+  unit_state: {'0': Critical stop, '1': User stopped, '2': Starting, '3': Normal, '4': Commissioning}
+  speed_state_smart: {'0': Stopped, '1': Away, '2': Home, '3': Boost}
+  speed_state: {'0': Stopped, '1': Travelling, '2': Away, '3': Home, '4': Home+, '5': Boost, '6': Fireplace}
+  week_timer: {'0': Not active, '1': Stopped, '2': Travelling, '3': Away, '4': Silent, '5': Home, '6': Home+, '7': Boost, '10': Interrupted}
+  heating_state: {'0': Starting, '1': Stopped, '2': External cooling, '3': Internal cooling, '4': Internal cooling limited, '5': Summer mode control, '6': Heat exchanger control, '7': Heating, '8': Defrost 1, '9': Defrost 2, '10': Defrost 3}
+  heating_mode: {'0': Not available, '1': Eco, '2': Comfort}
+  room_temperature_sensor: {'0': Internal, '1': T6, '2': T7, '3': T8, '4': T9, '5': UP1, '6': UP2}
+  supply_temperature_sensor: {'0': Internal, '1': T6, '2': T7, '3': T8, '4': T9}
+  outside_temperature_sensor: {'0': Internal, '1': T6, '2': T7, '3': T8, '4': T9}
+  water_temperature_sensor: {'0': Internal, '1': T6, '2': T7, '3': T8, '4': T9}
+
+flags:
+  alarms_1: {'0': E011 Post-heater failure, '1': E021 Pre-heater failure, '3': E041 Freezing danger, '4': E051 Supply fan failure, '5': E061 Exhaust fan failure, '6': E151…E169 Temperature sensor failure (T1…T9), '7': E071 Emergency stop, '9': Service info, '10': Genius alarm (see words 2 and 3), '11': E111 Supply temperature low, '12': E121 Internal temperature high, '13': Pre-heater temperature high, '14': E131 Rotor RPM alarm, '15': Fan control alarm}
+  alarms_2: {'0': E171 Sensor package failure, '1': E172 RH sensor failure, '2': E173 CO2 sensor failure, '3': E174 VOC sensor failure, '4': E031 External electrical pre-heater failure, '5': E181 External electrical post-heater failure, '6': Internal PCB temperature high, '7': Internal parameter error, '8': E091 External alarm, '9': E093 External device message, '10': E092 External critical alarm, '11': E101 External fire detector alarm, '12': E141 Heat exchanger efficiency low, '13': Heat exchanger control failure}
+  alarms_3: {'0': E191 Cooling condenser temperature high, '1': E192 Cooling hot gas temperature high, '2': E193 Cooling pressure high, '3': E134 Rotor stall, '4': E133 Rotor driver overheat, '5': E132 Rotor connection failure, '6': E502 Indoor humidity, '7': E512 Cooling coil condensate removal critical failure}
+
+problems:
+  - {when: {key: x.critical_alarm, equals: 1}, kind: fault, text: 'Critical alarm, ventilation stopped'}
+  - {when: {key: x.alarm_word_1, bit: 0}, kind: warning, text: E011 Post-heater failure}
+  - {when: {key: x.alarm_word_1, bit: 1}, kind: warning, text: E021 Pre-heater failure}
+  - {when: {key: x.alarm_word_1, bit: 3}, kind: fault, text: E041 Freezing danger}
+  - {when: {key: x.alarm_word_1, bit: 4}, kind: fault, text: E051 Supply fan failure}
+  - {when: {key: x.alarm_word_1, bit: 5}, kind: fault, text: E061 Exhaust fan failure}
+  - {when: {key: x.alarm_word_1, bit: 6}, kind: warning, text: Temperature sensor failure}
+  - {when: {key: x.alarm_word_1, bit: 7}, kind: fault, text: E071 Emergency stop}
+  - {when: {key: x.alarm_word_1, bit: 9}, kind: warning, text: Service due}
+  - {when: {key: x.alarm_word_1, bit: 11}, kind: warning, text: E111 Supply temperature low}
+  - {when: {key: x.alarm_word_1, bit: 12}, kind: warning, text: E121 Internal temperature high}
+  - {when: {key: x.alarm_word_1, bit: 13}, kind: warning, text: Pre-heater temperature high}
+  - {when: {key: x.alarm_word_1, bit: 14}, kind: warning, text: E131 Rotor RPM alarm}
+  - {when: {key: x.alarm_word_1, bit: 15}, kind: warning, text: Fan control alarm}
+  - {when: {key: x.alarm_word_2, bit: 0}, kind: warning, text: E171 Sensor package failure}
+  - {when: {key: x.alarm_word_2, bit: 1}, kind: warning, text: E172 RH sensor failure}
+  - {when: {key: x.alarm_word_2, bit: 2}, kind: warning, text: E173 CO2 sensor failure}
+  - {when: {key: x.alarm_word_2, bit: 3}, kind: warning, text: E174 VOC sensor failure}
+  - {when: {key: x.alarm_word_2, bit: 4}, kind: warning, text: E031 External electrical pre-heater failure}
+  - {when: {key: x.alarm_word_2, bit: 5}, kind: warning, text: E181 External electrical post-heater failure}
+  - {when: {key: x.alarm_word_2, bit: 6}, kind: warning, text: Internal PCB temperature high}
+  - {when: {key: x.alarm_word_2, bit: 7}, kind: warning, text: Internal parameter error}
+  - {when: {key: x.alarm_word_2, bit: 8}, kind: warning, text: E091 External alarm}
+  - {when: {key: x.alarm_word_2, bit: 10}, kind: fault, text: E092 External critical alarm}
+  - {when: {key: x.alarm_word_2, bit: 11}, kind: fault, text: E101 External fire detector alarm}
+  - {when: {key: x.alarm_word_2, bit: 12}, kind: warning, text: E141 Heat exchanger efficiency low}
+  - {when: {key: x.alarm_word_2, bit: 13}, kind: warning, text: Heat exchanger control failure}
+  - {when: {key: x.alarm_word_3, bit: 0}, kind: warning, text: E191 Cooling condenser temperature high}
+  - {when: {key: x.alarm_word_3, bit: 1}, kind: warning, text: E192 Cooling hot gas temperature high}
+  - {when: {key: x.alarm_word_3, bit: 2}, kind: warning, text: E193 Cooling pressure high}
+  - {when: {key: x.alarm_word_3, bit: 3}, kind: warning, text: E134 Rotor stall}
+  - {when: {key: x.alarm_word_3, bit: 4}, kind: warning, text: E133 Rotor driver overheat}
+  - {when: {key: x.alarm_word_3, bit: 5}, kind: warning, text: E132 Rotor connection failure}
+  - {when: {key: x.alarm_word_3, bit: 6}, kind: warning, text: E502 Indoor humidity}
+  - {when: {key: x.alarm_word_3, bit: 7}, kind: fault, text: E512 Cooling coil condensate removal failure}
+
+notes:
+- The document lists registers as 4x (holding, function 03) and 3x (input, function 04) references; they are taken as 1-based,
+  so 4x5001 is holding address 5000 and 3x6201 input address 6200. The numbering base isn't stated; assumed.
+- Valid for the SEM / SEC Modbus connection with Genius software 4.0; each register's first software version is in the document
+  (3.0, 3.1, 4.0, 4.1). Registers marked 4.x are missing on older software.
+- The document gives neither serial settings nor a default unit id; unit 1 is assumed.
+- Each alarm also has its own active / resettable register pair (3x6101…3x6199); the bit words carry the same information
+  and are listed instead. Words 2 and 3 (and the critical alarm) are Genius-only.
+- 'Left out: automation tuning limits, cooking / fireplace / vacuum cleaner tuning, heating and cooling coil configuration,
+  GIO and relay functions and their Modbus control, sensor selection and 0–10 V scaling, per-sensor CO2 / RH / VOC / temperature
+  readings, pressure commissioning setpoints, heater outputs, and the room controller area (4x1505…, 3x2253…).'
+- The register list is for SEM / SEC device version 3.0 and later; some registers changed meaning between software 3.0 and
+  3.1 (auto humidity / air quality control are 0/1 in 3.0, 0…5 from 3.1).
+- 'Modbus RTU on the unit''s RJ45 port for SEC/SEM accessories (568B: orange/white = A+, orange = B−).'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

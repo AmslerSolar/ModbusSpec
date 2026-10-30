@@ -1,0 +1,127 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: comair-hruc-plus
+manufacturer: ComAir / Vent-Axia
+name: HRUC-Plus 3, Sentinel Kinetic Advance / Econiq / Apex (Gen V)
+kind: ventilation
+
+sources:
+- id: comair-modbus-homeassistant
+  title: comair-modbus-homeassistant (Home Assistant integration)
+  url: https://github.com/Koky05/comair-modbus-homeassistant
+  license: MIT
+  commit: 3df62987a5004247e1c1bcd2772bf75d6cb10e89
+  path: custom_components/comair_modbus/library/const.py, custom_components/comair_modbus/library/components.py, custom_components/comair_modbus/library/codes.py
+
+connection:
+  default_port: 502
+  default_unit: 2
+  transports:
+  - rtu
+  serial:
+    baud: 115200
+    format: 8N1
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - comair-modbus-homeassistant
+
+points:
+  - {key: x.virtual_input_1, label: Virtual input 1, table: holding, address: 0, type: u16, writable: true}
+  - {key: x.virtual_input_2, label: Virtual input 2, table: holding, address: 1, type: u16, writable: true}
+  - {key: x.virtual_input_3, label: Virtual input 3, table: holding, address: 2, type: u16, writable: true}
+  - {key: x.virtual_input_4, label: Virtual input 4, table: holding, address: 3, type: u16, writable: true}
+  - {key: x.virtual_input_5, label: Virtual input 5, table: holding, address: 4, type: u16, writable: true}
+  - {key: x.virtual_input_6, label: Virtual input 6, table: holding, address: 5, type: u16, writable: true}
+  - {key: x.virtual_input_7, label: Virtual input 7, table: holding, address: 6, type: u16, writable: true}
+  - {key: x.virtual_input_8, label: Virtual input 8, table: holding, address: 7, type: u16, writable: true}
+  - {key: x.virtual_input_9, label: Virtual input 9, table: holding, address: 8, type: u16, writable: true}
+  - {key: x.virtual_input_10, label: Virtual input 10, table: holding, address: 9, type: u16, writable: true}
+  - {key: x.bms_keepalive, label: BMS keep-alive, table: holding, address: 19, type: u16, writable: true, note: The project writes 0 here on every poll so the unit does not raise W-15 (BMS offline).}
+  - {key: x.override_minutes, label: Override duration, table: holding, address: 29, type: u16, unit: min, bits: [0, 7], writable: true, note: 0 = no override (the unit runs its own schedule).}
+  - {key: x.override_preset, label: Override airflow preset, table: holding, address: 29, type: u16, bits: [8, 15], enum: ventilation_preset, writable: true, note: 'High byte: airflow preset (enum ventilation_preset); low byte: duration in minutes (at most 240). A duration of 0 cancels the override and returns the unit to its own schedule; preset 0 with a duration stops the fans. The unit sets the register back to 0 once it has taken the override.'}
+  - {key: x.clock, label: Clock, table: holding, address: 39, type: datetime, length: 3, datetime: {year: {register: 0}, month: {register: 1, bits: [8, 15]}, day: {register: 1, bits: [0, 7]}, hour: {register: 2, bits: [8, 15]}, minute: {register: 2, bits: [0, 7]}}, writable: true}
+  - {key: x.run_time, label: Run Time, table: input, address: 0, type: u16, unit: d}
+  - {key: x.service_timer, label: Service Timer, table: input, address: 1, type: u16, unit: month, offset: 1, note: The unit counts from 0; the project adds 1 to match the manual.}
+  - {key: x.filter_timer, label: Filter Timer, table: input, address: 2, type: u16, unit: month, offset: 1, note: The unit counts from 0; the project adds 1 to match the manual.}
+  - {key: x.faults, label: Faults, table: input, address: 3, type: u32, flags: faults}
+  - {key: x.warnings, label: Warnings, table: input, address: 5, type: u32, flags: warnings}
+  - {key: x.notifications, label: Notifications, table: input, address: 7, type: u32, flags: notifications}
+  - {key: consumer_power, label: Power, table: input, address: 9, type: u16, unit: W, positive: consumption}
+  - {key: x.bypass_state, label: Damper Position, table: input, address: 11, type: u16, enum: bypass_state}
+  - {key: x.supply_rpm, label: Supply rpm, table: input, address: 13, type: u16, unit: rpm, invalid: [32768]}
+  - {key: x.extract_rpm, label: Extract rpm, table: input, address: 15, type: u16, unit: rpm, invalid: [32768]}
+  - {key: x.attention_led, label: Attention LED, table: input, address: 19, type: u16, invalid: [32768], note: Any non-zero value means on.}
+  - {key: x.cooling_enable, label: Cooling Enable, table: input, address: 20, type: u16, invalid: [32768], note: Any non-zero value means on.}
+  - {key: x.preheater_enable, label: Preheater Enable, table: input, address: 21, type: u16, invalid: [32768], note: Any non-zero value means on.}
+  - {key: x.controlled_cooling, label: Controlled Cooling, table: input, address: 22, type: u16, invalid: [32768], note: Any non-zero value means on.}
+  - {key: x.controlled_heating, label: Controlled Heating, table: input, address: 23, type: u16, invalid: [32768], note: Any non-zero value means on.}
+  - {key: x.bypass_output, label: Bypass output, table: input, address: 24, type: u16, invalid: [32768], note: 'Any non-zero value means on. Meaning not documented; the project saw it stay at 1 while the summer bypass opened and closed, so it is not the bypass damper output.'}
+  - {key: x.intake_temp, label: Intake Temperature, table: input, address: 99, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.intake_humidity, label: Intake Humidity, table: input, address: 100, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.intake_co2, label: Intake CO2, table: input, address: 101, type: u16, unit: ppm, invalid: [32768]}
+  - {key: x.supply_temp, label: Supply Temperature, table: input, address: 109, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.extract_temp, label: Extract Temperature, table: input, address: 119, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.extract_humidity, label: Extract Humidity, table: input, address: 120, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.extract_co2, label: Extract CO2, table: input, address: 121, type: u16, unit: ppm, invalid: [32768]}
+  - {key: x.exhaust_temp, label: Exhaust Temperature, table: input, address: 129, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_0_temperature, label: Zone 0 temperature, table: input, address: 199, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_0_humidity, label: Zone 0 humidity, table: input, address: 200, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_1_temperature, label: Zone 1 temperature, table: input, address: 209, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_1_humidity, label: Zone 1 humidity, table: input, address: 210, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_2_temperature, label: Zone 2 temperature, table: input, address: 219, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_2_humidity, label: Zone 2 humidity, table: input, address: 220, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_3_temperature, label: Zone 3 temperature, table: input, address: 229, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_3_humidity, label: Zone 3 humidity, table: input, address: 230, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_4_temperature, label: Zone 4 temperature, table: input, address: 239, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_4_humidity, label: Zone 4 humidity, table: input, address: 240, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_5_temperature, label: Zone 5 temperature, table: input, address: 249, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_5_humidity, label: Zone 5 humidity, table: input, address: 250, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_6_temperature, label: Zone 6 temperature, table: input, address: 259, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_6_humidity, label: Zone 6 humidity, table: input, address: 260, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_7_temperature, label: Zone 7 temperature, table: input, address: 269, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_7_humidity, label: Zone 7 humidity, table: input, address: 270, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_8_temperature, label: Zone 8 temperature, table: input, address: 279, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_8_humidity, label: Zone 8 humidity, table: input, address: 280, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_9_temperature, label: Zone 9 temperature, table: input, address: 289, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_9_humidity, label: Zone 9 humidity, table: input, address: 290, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_10_temperature, label: Zone 10 temperature, table: input, address: 299, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_10_humidity, label: Zone 10 humidity, table: input, address: 300, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_11_temperature, label: Zone 11 temperature, table: input, address: 309, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_11_humidity, label: Zone 11 humidity, table: input, address: 310, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_12_temperature, label: Zone 12 temperature, table: input, address: 319, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_12_humidity, label: Zone 12 humidity, table: input, address: 320, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_13_temperature, label: Zone 13 temperature, table: input, address: 329, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_13_humidity, label: Zone 13 humidity, table: input, address: 330, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_14_temperature, label: Zone 14 temperature, table: input, address: 339, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_14_humidity, label: Zone 14 humidity, table: input, address: 340, type: u16, unit: '%', invalid: [32768]}
+  - {key: x.zone_15_temperature, label: Zone 15 temperature, table: input, address: 349, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.zone_15_humidity, label: Zone 15 humidity, table: input, address: 350, type: u16, unit: '%', invalid: [32768]}
+
+enums:
+  bypass_state: {'0': Closed, '1': SBP Normal, '2': SBP Evening Fresh, '3': SBP Nighttime Fresh, '4': Anti-frost, '5': Diagnostic, '6': Service Mode, '7': BMS Override}
+  ventilation_preset: {'0': 'Off', '1': Low, '2': Medium, '3': High, '4': Boost, '255': Max}
+
+flags:
+  faults: {'0': 'F-1: Supply air thermistor', '1': 'F-2: Extract air thermistor', '2': 'F-3: Supply fan', '3': 'F-4: Extract fan', '7': 'F-8: Supply air too cold', '31': 'F-32: HMI communication lost'}
+  warnings: {'0': 'W-1: Supply air temperature', '1': 'W-2: Exhaust air temperature', '2': 'W-3: Preheated air temperature', '3': 'W-4: Intake air humidity', '4': 'W-5: Extract air humidity', '5': 'W-6: Supply air flow', '6': 'W-7: Extract air flow', '7': 'W-8: Left filter sensor', '8': 'W-9: Right filter sensor', '9': 'W-10: System overpressure', '10': 'W-11: Preheater activated', '11': 'W-12: Filter cleaning or replacement overdue', '12': 'W-13: Service interval overdue', '13': 'W-14: Lost connection to sensors or controllers', '14': 'W-15: BMS offline', '17': 'W-18: Bypass or heat exchanger efficiency', '18': 'W-19: Preheater IO offline', '19': 'W-20: Cooling unit offline'}
+  notifications: {'0': 'N-1: Filter cleaning or replacement due soon', '1': 'N-2: Service due soon', '2': 'N-3: Device offline', '3': 'N-4: Cooling suspended', '4': 'N-5: Cooling insufficient'}
+
+notes:
+- Modbus RTU on the unit's BMS connector, unit id 2, 115200 baud 8N1 (settings in the Vent-Axia Connect app, Advanced Settings,
+  Modbus); the project reaches it through an RS485-to-TCP gateway.
+- The project names the ComAir HRUC-Plus 3 (250, 350), Vent-Axia Sentinel Kinetic Advance (250S/SX, 350S/SX), Sentinel Econiq
+  SC and Sentinel Kinetic Apex (Gen V), which share this register map.
+- Measurements the unit does not have read 0x8000. Zones that are not configured read 0x8000 for both temperature and humidity.
+- 'The project writes 0 to holding register 19 (40020) on every poll: without it the unit raises warning W-15 (BMS offline)
+  after an override has been written.'
+- Holding registers 0-9 (40001-40010) are BMS virtual inputs that feed a remote temperature, humidity or CO2 value into the
+  unit; which kind each one is gets set in the unit's own BMS setup.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

@@ -1,0 +1,143 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Sigenergy Modbus Protocol (V2.9, 2026-05-13); older versions of the document listed under
+# `sources` were compared with it. This file is the DC charger built into a hybrid inverter.
+
+modbusspec: 0
+id: sigenergy-dc-charger
+manufacturer: Sigenergy
+name: DC charger (EVDC, part of a SigenStor / Sigen Hybrid inverter)
+kind: charger
+
+sources:
+- title: Sigenergy Modbus Protocol
+  version: V2.9 (2026-05-13)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202026-05-13%20V2.9.pdf
+  sha256: a9386133e798aafaeca1882ab031645efb3c9190edadc3eafe8318fa15786e67
+- title: Sigenergy Modbus Protocol (EN)
+  version: V2.9 (2026-05-13)
+  url: https://github.com/TypQxQ/Sigenergy-Local-Modbus/blob/b66e3042de6396205c33f3603108579b7ef73e6a/Modbus_reference_documentation/Sigenergy%20Modbus%20Protocol%20EN_V2.9.pdf
+  sha256: 1e4306bcf46735f8432fcec0dae83938fa49107790d02beaf702285961a5d0d8
+- title: Sigenergy Modbus Protocol
+  version: V2.8 (2025-11-28)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202025-11-28%20V2.8.pdf
+  sha256: df91e45d04d1664fa8720a9c566494534a77731739849c3892b654c1d91902d7
+- title: Sigenergy Modbus Protocol (EN)
+  version: V2.7 (2025-05-23)
+  url: https://github.com/Si-GCG/sigenergy_projects/blob/52a74a74ff754f0b1de6022a8a35fb04234f3a5a/Modbus.Protocol.EN.-.SIGEN.pdf
+  sha256: 3b1fb31390a74773b76c6be1f56fad081197639c389ef25dd39289406e2232ce
+- title: Sigenergy Modbus Protocol
+  version: V2.5 (2025-02-19)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202025-02-19%20V2.5.pdf
+  sha256: 1025e0d7bb7f8cba869fd88c788af8c2a0fa8858b3582fcdd19effb93fc874ea
+- title: Sigenergy Modbus Protocol
+  version: V2.4 (2025-02-05)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202025-02-05%20V2.4.pdf
+  sha256: ab9e2dccf3a4641179353c25d5629eb67078467d8ea701f6daf55609c21f459f
+- title: Sigenergy Modbus Protocol
+  version: V1.8 (2024-07-24)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202024-07-24%20V1.8.pdf
+  sha256: 7b6655929a001e0d24d384f08a832032e579534774788ecc1fab90c3bb325940
+- title: Sigenergy Modbus Protocol
+  version: V1.7 (2024-04-09)
+  url: https://github.com/seud0nym/sigenergy2mqtt/blob/94e62b676a98ff4db5ab853b0572830a7f49b060/resources/protocol/Sigenergy%20Modbus%20Protocol%202024-04-09%20V1.7.pdf
+  sha256: 9d44e5a9523682fc833c6f533b2f76c9fd5e6de504763e76b9368b14f15928ed
+- id: sigenergy-local-modbus
+  title: Sigenergy-Local-Modbus (Home Assistant integration)
+  url: https://github.com/TypQxQ/Sigenergy-Local-Modbus
+  license: MIT
+  commit: b66e3042de6396205c33f3603108579b7ef73e6a
+  path: custom_components/sigen/modbusregisterdefinitions.py, custom_components/sigen/sensor.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 124
+    min_interval_ms: 1000
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: input
+    address: 31500
+    type: u16
+    answers: true
+  - table: input
+    address: 31523
+    type: u32
+    range:
+    - 1
+    - 100000
+
+points:
+  # Input registers, on the hybrid inverter's unit id
+  - {key: x.alarm, label: Alarm 5 (DC charger), table: input, address: 30609, type: u16, flags: dc_charger_alarm}
+  - {key: x.vehicle_battery_voltage, label: '[DC charger] Vehicle battery voltage', table: input, address: 31500, type: u16, unit: V, scale: 0.1}
+  - {key: x.charging_current, label: '[DC charger] Charging current', table: input, address: 31501, type: u16, unit: A, scale: 0.1}
+  - {key: consumer_power, label: '[DC charger] Output power', table: input, address: 31502, type: s32, unit: W, positive: consumption, verified: false, note: 'Sign not stated; assumed positive while charging the vehicle (negative while discharging, V2G).'}
+  - {key: x.vehicle_soc, label: '[DC charger] Vehicle SOC', table: input, address: 31504, type: u16, unit: '%', scale: 0.1}
+  - {key: session_energy, label: '[DC charger] Current charging capacity', table: input, address: 31505, type: u32, unit: kWh, scale: 0.01, note: Energy charged in the current session.}
+  - {key: x.session_duration, label: '[DC charger] Current charging duration', table: input, address: 31507, type: u32, unit: s}
+  - {key: state, label: '[DC charger] Running state', table: input, address: 31513, type: u16, enum: dc_charger_state, note: Since V2.8 of the document.}
+  - {key: x.discharging_current, label: '[DC charger] Discharging current', table: input, address: 31514, type: u16, unit: A, scale: 0.1, note: 31514-31526 since V2.9 of the document.}
+  - {key: x.session_discharge_energy, label: '[DC charger] Current discharging capacity', table: input, address: 31515, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.session_discharge_duration, label: '[DC charger] Current discharging duration', table: input, address: 31517, type: u32, unit: s}
+  - {key: consumer_energy, label: '[DC charger] Total charging capacity', table: input, address: 31519, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.discharge_energy, label: '[DC charger] Total discharging capacity', table: input, address: 31521, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.rated_charge_power, label: '[DC charger] Rated charging power', table: input, address: 31523, type: u32, unit: W, poll: slow}
+  - {key: x.rated_discharge_power, label: '[DC charger] Rated discharging power', table: input, address: 31525, type: u32, unit: W, poll: slow}
+  # Settings (holding registers)
+  - {key: x.start_stop, label: '[DC charger] Start/Stop', table: holding, address: 41000, type: u16, enum: start_stop, writable: true, write_only: true, note: 'Note the order: 0 = start, 1 = stop.'}
+  - {key: x.max_charge_power, label: '[DC charger] Max charging power limit', table: holding, address: 41002, type: u32, unit: W, writable: true, note: 0 to rated charging power. Since V2.9 of the document.}
+  - {key: x.max_discharge_power, label: '[DC charger] Max discharging power limit', table: holding, address: 41004, type: u32, unit: W, writable: true, note: 0 to rated discharging power.}
+
+enums:
+  dc_charger_state: {'0': Idle, '1': 'Occupied (plugged in, not detected)', '2': Preparing (establishing communication), '3': Charging, '4': Fault, '5': Scheduled, '6': Ended, '7': Unavailable (maintenance), '8': Discharging, '9': Alarm, '10': Preparing (insulation check)}
+  start_stop: {'0': Start, '1': Stop}
+
+flags:
+  dc_charger_alarm: {'0': Software version mismatch, '1': Low insulation resistance to ground, '2': Over-temperature, '3': Equipment fault, '4': Charging fault, '5': Equipment protection}
+
+problems:
+  - {when: {key: state, equals: 4}, kind: fault, text: DC charger fault (state 4)}
+  - {when: {key: state, equals: 9}, kind: warning, text: DC charger alarm (state 9)}
+  - {when: {key: x.alarm, bit: 0}, kind: fault, text: 'DC charger: Software version mismatch (bit 0)'}
+  - {when: {key: x.alarm, bit: 1}, kind: fault, text: 'DC charger: Low insulation resistance to ground (bit 1)'}
+  - {when: {key: x.alarm, bit: 2}, kind: fault, text: 'DC charger: Over-temperature (bit 2)'}
+  - {when: {key: x.alarm, bit: 3}, kind: fault, text: 'DC charger: Equipment fault (bit 3)'}
+  - {when: {key: x.alarm, bit: 4}, kind: fault, text: 'DC charger: Charging fault (bit 4)'}
+  - {when: {key: x.alarm, bit: 5}, kind: fault, text: 'DC charger: Equipment protection (bit 5)'}
+
+notes:
+- The DC charger (EVDC) built into SigenStor and Sigen Hybrid hybrid inverters. Its registers sit in the inverter's register
+  map and answer on the inverter's unit id (1-246, set in the mySigen app; default 1 assumed, not stated).
+- Alarm 5 of the inverter (30609) holds the DC charger alarms.
+- Addresses are the document's register numbers, used unchanged as 0-based protocol addresses (its request examples put 30540
+  on the wire as 0x774C and 40001 as 0x9C41). 3xxxx registers are input registers (function 04), 4xxxx and 5xxxx holding registers
+  (function 03).
+- 'The document is inconsistent about holding registers: its type table says read/write registers support functions 04, 06
+  and 0x10, and one example reads a 4xxxx register with function 04, another a 3xxxx register with function 03. Not tested;
+  the tables here follow the section titles.'
+- Byte and word order are not stated; big-endian (most significant register first) is assumed.
+- Power registers have gain 1000 in kW (kVar, kVA) in the document, i.e. the raw value is W (var, VA); energy registers gain
+  100 in kWh.
+- 'At most 124 registers per read request and a minimum request period of 1000 ms, as the document states. RS485: 9600 baud
+  default, 8N1. Modbus TCP server on port 502 (alternatively the device can connect out as a TCP client to a configured port).
+  One inverter of the plant gives access to all devices of the plant by their unit ids; AC chargers (EVAC) are only reachable
+  through an inverter, not on their own.'
+- Alarm kinds follow the severity levels V2.8 and older of the document give (critical = fault, general = warning); V2.9 dropped
+  that table. Grid power outage is reported as mains lost.
+- 'The identify range on the rated charging power (31523, since V2.9) is an assumption: any plausible non-zero rating; the
+  document gives no fixed identification register for the DC charger.'
+- The DC charger is read on the unit id of the hybrid inverter it is built into.

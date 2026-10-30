@@ -1,0 +1,235 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Robur T10 DDC Modbus Interface document (DDC firmware 4.018, 12/07/2019), register mapping v2.0.
+
+modbusspec: 0
+id: robur-ddc
+manufacturer: Robur
+name: DDC plant controller for GAHP gas absorption heat pumps and chillers
+kind: heat_pump
+
+sources:
+- title: The Robur T10 DDC Modbus Interface, f/w 4.018
+  version: f/w 4.018 (12/07/2019)
+  url: https://www.orfejas.lt/dokumentacija/robur/kiti/Robur_DDC_MODBUS_protocol_EN.pdf
+  sha256: efb510052c8ef285c3d2753453f46d8fdef1d3f0e2791807bad4e489adb93c35
+  archive_url: https://web.archive.org/web/20211129061554/https://www.orfejas.lt/dokumentacija/robur/kiti/Robur_DDC_MODBUS_protocol_EN.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 1
+    type: u32
+
+points:
+  # DDC configuration (input 0x0000 ff.)
+  - {key: x.device_type, label: DDC ID (device type), table: input, address: 0, type: u16, bits: [10, 15], enum: device_type, poll: slow}
+  - {key: x.network_id, label: DDC ID (device network ID), table: input, address: 0, type: u16, bits: [0, 9], poll: slow}
+  - {key: serial, label: DDC Serial Number, table: input, address: 1, type: u32, poll: slow}
+  - {key: x.firmware_major, label: DDC Firmware Release Major, table: input, address: 3, type: u16, poll: slow}
+  - {key: x.firmware_minor, label: DDC Firmware Release Minor, table: input, address: 4, type: u16, poll: slow}
+  - {key: x.cooling_master, label: DDC is cooling plant (or 2-pipe plant) master, table: input, address: 5, type: u16, enum: false_true, invalid: [65535], poll: slow, note: 0xFFFF = no cooling plant configured.}
+  - {key: x.heating_master, label: DDC is heating plant (or 2-pipe plant) master, table: input, address: 6, type: u16, enum: false_true, invalid: [65535], poll: slow, note: 0xFFFF = no heating plant configured.}
+  - {key: x.cooling_modules, label: Number of cooling modules configured on this DDC, table: input, address: 8, type: u16, invalid: [65535], poll: slow}
+  - {key: x.heating_modules, label: Number of heating modules configured on this DDC, table: input, address: 9, type: u16, invalid: [65535], poll: slow}
+  - {key: x.two_pipe_plant, label: 2 pipes cooling/heating plant configured, table: input, address: 12, type: u16, enum: false_true, poll: slow}
+  - {key: x.gahp_w_configured, label: GAHP-W units configured, table: input, address: 13, type: u16, enum: false_true, poll: slow}
+
+  # Plant working data (input 0x0064 ff. cooling, 0x00FA ff. heating)
+  - {key: x.cooling_outlet_temperature, label: Outlet Water Temperature (base cooling plant), table: input, address: 102, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767], note: '0x7FFE = not provided (plant not configured or DDC not master), 0x7FFF = not available (e.g. faulty probe); applies to every signed value here.'}
+  - {key: x.cooling_inlet_temperature, label: Inlet Water Temperature (base cooling plant), table: input, address: 103, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.heating_data_seconds, label: Timestamp 1 seconds (base heating plant working data), table: input, address: 250, type: u16, bits: [10, 15], unit: s, note: When the plant working data were taken; read it in the same request as them. Bit positions from the document's drawing (most significant field first).}
+  - {key: x.heating_data_minutes, label: Timestamp 1 minutes (base heating plant working data), table: input, address: 250, type: u16, bits: [4, 9], unit: min}
+  - {key: x.heating_data_hour_high, label: 'Timestamp 1 hours, 4 most significant bits (base heating plant working data)', table: input, address: 250, type: u16, bits: [0, 3]}
+  - {key: x.heating_data_hour_low, label: 'Timestamp 2 hours, least significant bit (base heating plant working data)', table: input, address: 251, type: u16, bits: [15, 15]}
+  - {key: x.heating_data_year, label: Timestamp 2 year (base heating plant working data), table: input, address: 251, type: u16, bits: [9, 14], offset: 2000}
+  - {key: x.heating_data_month, label: Timestamp 2 month (base heating plant working data), table: input, address: 251, type: u16, bits: [5, 8]}
+  - {key: x.heating_data_day, label: Timestamp 2 day (base heating plant working data), table: input, address: 251, type: u16, bits: [0, 4]}
+  - {key: x.heating_outlet_temperature, label: Outlet Water Temperature (base heating plant), table: input, address: 252, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767], note: In a 2-pipe cool/heat plant the same as the cooling plant (except with split manifolds).}
+  - {key: x.heating_inlet_temperature, label: Inlet Water Temperature (base heating plant), table: input, address: 253, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.outdoor_temperature, label: External Ambient Temperature, table: input, address: 254, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767], note: 'Mean of the units'' outdoor probes, or the DDC''s own outdoor probe if fitted. Also at 0x0068.'}
+  - {key: x.indoor_temperature, label: Internal Ambient Temperature (DDC probe), table: input, address: 255, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.transient_mode, label: Cool/Heat transient mode, table: input, address: 256, type: u16, enum: transient_mode, invalid: [65535]}
+  - {key: x.separable_state, label: Separable Heating Plant Inclusion state, table: input, address: 257, type: u16, enum: separable_state, invalid: [65535]}
+
+  # Water regulation settings (input registers show them; the same layout is writable in holding 0x012C ff. / 0x0240 ff.)
+  - {key: x.cooling_setpoint_default, label: Default Water Setpoint Temperature (base cooling plant), table: input, address: 400, type: s16, unit: °C, scale: 0.1, optional: true, poll: slow, note: Not mapped if the DDC isn't master or there is no cooling plant.}
+  - {key: x.cooling_differential, label: Water Differential Temperature (base cooling plant), table: input, address: 402, type: s16, unit: °C, scale: 0.1, optional: true, poll: slow}
+  - {key: x.cooling_setpoint_active, label: Currently Active Water Setpoint Temp. (base cooling plant), table: input, address: 403, type: s16, unit: °C, scale: 0.1, optional: true, invalid: [32767], note: Reads 0x7FFF while the plant is off or in a transient.}
+  - {key: x.heating_setpoint_default, label: Default Water Setpoint Temperature (base heating plant), table: input, address: 676, type: s16, unit: °C, scale: 0.1, optional: true, poll: slow}
+  - {key: x.heating_differential, label: Water Differential Temperature (base heating plant), table: input, address: 678, type: s16, unit: °C, scale: 0.1, optional: true, poll: slow}
+  - {key: x.heating_setpoint_active, label: Currently Active Water Setpoint Temp. (base heating plant), table: input, address: 679, type: s16, unit: °C, scale: 0.1, optional: true, invalid: [32767], note: Reads 0x7FFF while the plant is off or in a transient.}
+  - {key: x.set_cooling_setpoint, label: Default Water Setpoint Temperature (base cooling plant), table: holding, address: 300, type: s16, unit: °C, scale: 0.1, writable: true, optional: true, poll: slow, note: Not mapped unless the DDC is master of a cooling plant and parameter access is enabled.}
+  - {key: x.set_cooling_differential, label: Water Differential Temperature (base cooling plant), table: holding, address: 302, type: s16, unit: °C, scale: 0.1, writable: true, optional: true, poll: slow}
+  - {key: x.set_heating_setpoint, label: Default Water Setpoint Temperature (base heating plant), table: holding, address: 576, type: s16, unit: °C, scale: 0.1, writable: true, optional: true, poll: slow, note: Not mapped unless the DDC is master of a heating plant and parameter access is enabled.}
+  - {key: x.set_heating_differential, label: Water Differential Temperature (base heating plant), table: holding, address: 578, type: s16, unit: °C, scale: 0.1, writable: true, optional: true, poll: slow}
+
+  # Service status (discrete inputs 0x01F4 ff.)
+  - {key: x.cooling_service_on, label: On / Off Cooling Service or 2 Pipes Cool/Heat Service, table: discrete, address: 500, type: bool, optional: true}
+  - {key: x.heating_service_on, label: On / Off Heating Service, table: discrete, address: 501, type: bool, optional: true}
+  - {key: x.heat_mode, label: Cool / Heat Mode (1 = heat), table: discrete, address: 502, type: bool, optional: true, note: 2-pipe cool/heat plants only.}
+  - {key: x.dhw_service_on, label: On / Off Base Domestic Hot Water Service, table: discrete, address: 503, type: bool, optional: true}
+  - {key: x.separable_dhw_service_on, label: On / Off Separable Domestic Hot Water Service, table: discrete, address: 504, type: bool, optional: true}
+
+  # BMS commands (coils)
+  - {key: x.bms_cooling_start, label: BMS Start / Stop Cooling Service or 2 pipes Cool/Heat Service, table: coil, address: 4, type: bool, writable: true, optional: true, note: Read-only unless BMS control is enabled; not mapped unless the DDC is master of a cooling service.}
+  - {key: x.bms_heating_start, label: BMS Start / Stop Heating Service, table: coil, address: 5, type: bool, writable: true, optional: true}
+  - {key: x.bms_heat_mode, label: BMS Cool / Heat Mode (1 = heat), table: coil, address: 6, type: bool, writable: true, optional: true}
+  - {key: x.bms_dhw_start, label: BMS Start / Stop Base Domestic Hot Water Service, table: coil, address: 13, type: bool, writable: true, optional: true}
+
+  # DDC alarms, multi client area (input 0x03D0 ff. cooling side, 0x03DC ff. heating side)
+  - {key: x.cooling_plant_alarm, label: General Alarm (cooling plant), table: input, address: 976, type: u16, enum: alarm_rank, invalid: [65535], note: 'Rank only: 0 none, 1 info, 2 warning, 3 error. 0xFFFF taken as not provided (read-only registers of an unconfigured plant read so).'}
+  - {key: x.cooling_plant_alarm1, label: Alarm 1 String Code (cooling plant), table: input, address: 978, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.cooling_plant_alarm2, label: Alarm 2 String Code (cooling plant), table: input, address: 980, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.cooling_plant_alarm3, label: Alarm 3 String Code (cooling plant), table: input, address: 982, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.cooling_plant_alarm4, label: Alarm 4 String Code (cooling plant), table: input, address: 984, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.cooling_plant_alarm5, label: Alarm 5 String Code (cooling plant), table: input, address: 986, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.heating_plant_alarm, label: General Alarm (heating plant), table: input, address: 988, type: u16, enum: alarm_rank, invalid: [65535]}
+  - {key: x.heating_plant_alarm1, label: Alarm 1 String Code (heating plant), table: input, address: 990, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.heating_plant_alarm2, label: Alarm 2 String Code (heating plant), table: input, address: 992, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.heating_plant_alarm3, label: Alarm 3 String Code (heating plant), table: input, address: 994, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.heating_plant_alarm4, label: Alarm 4 String Code (heating plant), table: input, address: 996, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.heating_plant_alarm5, label: Alarm 5 String Code (heating plant), table: input, address: 998, type: u16, bits: [0, 9], enum: alarm_string}
+
+  # Heating module 00 (input 0x1388 ff.; module n at + 250 × n)
+  - {key: x.hm0_network_id, label: Heating module 00 Unit Network ID, table: input, address: 5000, type: u16, invalid: [65535], poll: slow}
+  - {key: x.hm0_unit_type, label: Heating module 00 Unit Type, table: input, address: 5003, type: u16, enum: unit_type, invalid: [65535], poll: slow}
+  - {key: x.hm0_firmware_major, label: Heating module 00 Firmware Release Major, table: input, address: 5004, type: u16, invalid: [65535], poll: slow}
+  - {key: x.hm0_firmware_minor, label: Heating module 00 Firmware Release Minor, table: input, address: 5005, type: u16, invalid: [65535], poll: slow}
+  - {key: x.hm0_serial, label: Heating module 00 Module Serial Number, table: input, address: 5006, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.hm0_outlet_temperature, label: Heating module 00 Outlet Temperature, table: input, address: 5022, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.hm0_inlet_temperature, label: Heating module 00 Inlet Temperature, table: input, address: 5023, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.hm0_outdoor_temperature, label: Heating module 00 External Ambient Temperature, table: input, address: 5024, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.hm0_generator_temperature, label: Heating module 00 Generator/Rectifier Temperature, table: input, address: 5025, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.hm0_condenser_temperature, label: Heating module 00 Condenser Temperature, table: input, address: 5026, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.hm0_supply_voltage, label: Heating module 00 Electronics Supply Voltage, table: input, address: 5029, type: s16, unit: V, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.hm0_solution_pump_rpm, label: Heating module 00 Solution Pump RPM, table: input, address: 5030, type: s16, unit: rpm, invalid: [32766, 32767]}
+  - {key: x.hm0_absorber_temperature, label: Heating module 00 Absorber Temperature, table: input, address: 5032, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.hm0_evaporator_temperature, label: Heating module 00 Evaporator Temperature, table: input, address: 5033, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.hm0_blower_rpm, label: Heating module 00 Blower speed RPM (modulating units), table: input, address: 5039, type: s16, unit: rpm, invalid: [32766, 32767]}
+  - {key: x.hm0_water_flow, label: Heating module 00 Water flow rate (modulating units), table: input, address: 5040, type: s16, unit: l/h, invalid: [32766, 32767]}
+  - {key: x.hm0_power_feedback, label: Heating module 00 Power feedback percentage (modulating units), table: input, address: 5043, type: s16, unit: '%', scale: 0.01, invalid: [32766, 32767]}
+  - {key: x.hm0_flue_temperature, label: Heating module 00 Flue Temperature (modulating units), table: input, address: 5045, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.hm0_general_alarm, label: Heating module 00 General Alarm, table: input, address: 5072, type: u16, enum: module_alarm, invalid: [65535], note: 'Multi client area. Bits 0–1 = rank, bit 2 = module excluded by the user.'}
+  - {key: x.hm0_excluded, label: Heating module 00 General Alarm (module excluded), table: input, address: 5072, type: u16, bits: [2, 2], enum: false_true}
+  - {key: x.hm0_alarm1, label: Heating module 00 Alarm 1 String Code, table: input, address: 5074, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.hm0_alarm2, label: Heating module 00 Alarm 2 String Code, table: input, address: 5076, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.hm0_alarm3, label: Heating module 00 Alarm 3 String Code, table: input, address: 5078, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.hm0_alarm4, label: Heating module 00 Alarm 4 String Code, table: input, address: 5080, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.hm0_alarm5, label: Heating module 00 Alarm 5 String Code, table: input, address: 5082, type: u16, bits: [0, 9], enum: alarm_string}
+  - {key: x.hm0_working_time, label: Heating module 00 Working Time, table: input, address: 5084, type: u32, unit: h, scale: 0.000277777777777778, invalid: [4294967295], poll: slow, note: Seconds in the register (converted to hours here).}
+  - {key: x.hm0_ignitions, label: Heating module 00 Ignitions Number, table: input, address: 5086, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.hm0_defrostings, label: Heating module 00 Defrosting Number (GAHP-A / GAHP-AR), table: input, address: 5088, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.hm0_heating_time, label: Heating module 00 Space Heating Working Time, table: input, address: 5104, type: u32, unit: h, scale: 0.000277777777777778, invalid: [4294967295], poll: slow}
+  - {key: x.hm0_dhw_time, label: Heating module 00 DHW Working Time, table: input, address: 5106, type: u32, unit: h, scale: 0.000277777777777778, invalid: [4294967295], poll: slow}
+  - {key: x.hm0_hours_since_maintenance, label: Heating module 00 Working Hours since last maintenance, table: input, address: 5108, type: u32, unit: h, invalid: [4294967295], poll: slow}
+  - {key: x.hm0_not_configured, label: Heating module 00 Not Configured, table: discrete, address: 2024, type: bool}
+  - {key: x.hm0_user_excluded, label: Heating module 00 User Excluded, table: discrete, address: 2025, type: bool}
+  - {key: x.hm0_offline, label: Heating module 00 Offline, table: discrete, address: 2026, type: bool}
+  - {key: x.hm0_on, label: Heating module 00 ON/OFF, table: discrete, address: 2027, type: bool}
+  - {key: x.hm0_defrosting, label: Heating module 00 Performing Defrosting, table: discrete, address: 2028, type: bool}
+  - {key: x.hm0_off_limit, label: Heating module 00 Off Due to Limit Temperature, table: discrete, address: 2029, type: bool}
+  - {key: x.hm0_flow_switch, label: Heating module 00 Water Flow Switch, table: discrete, address: 2030, type: bool}
+  - {key: x.hm0_alarm, label: Heating module 00 Alarm (W/E), table: discrete, address: 2031, type: bool}
+  - {key: x.hm0_warning, label: Heating module 00 Warning Alarm, table: discrete, address: 2032, type: bool}
+  - {key: x.hm0_error, label: Heating module 00 Error Alarm, table: discrete, address: 2033, type: bool}
+  - {key: x.hm0_dhw_request, label: Heating module 00 DHW request, table: discrete, address: 2034, type: bool}
+  - {key: x.hm0_flame, label: Heating module 00 Flame status, table: discrete, address: 2035, type: bool}
+  - {key: x.hm0_silent, label: Heating module 00 ON in Silent Mode, table: discrete, address: 2036, type: bool}
+
+  # Cooling module 00 (input 0x03E8 ff., discrete 0x03E8 ff.)
+  - {key: x.cm0_unit_type, label: Cooling module 00 Unit Type, table: input, address: 1003, type: u16, enum: unit_type, invalid: [65535], poll: slow}
+  - {key: x.cm0_serial, label: Cooling module 00 Module Serial Number, table: input, address: 1006, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.cm0_outlet_temperature, label: Cooling module 00 Outlet Temperature, table: input, address: 1022, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.cm0_inlet_temperature, label: Cooling module 00 Inlet Temperature, table: input, address: 1023, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767]}
+  - {key: x.cm0_general_alarm, label: Cooling module 00 General Alarm, table: input, address: 1072, type: u16, enum: module_alarm, invalid: [65535], note: Multi client area; laid out as the heating module's.}
+  - {key: x.cm0_working_time, label: Cooling module 00 Working Time, table: input, address: 1084, type: u32, unit: h, scale: 0.000277777777777778, invalid: [4294967295], poll: slow}
+  - {key: x.cm0_ignitions, label: Cooling module 00 Ignitions Number, table: input, address: 1086, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.cm0_offline, label: Cooling module 00 Offline, table: discrete, address: 1002, type: bool}
+  - {key: x.cm0_on, label: Cooling module 00 ON/OFF, table: discrete, address: 1003, type: bool}
+  - {key: x.cm0_flame, label: Cooling module 00 Flame status, table: discrete, address: 1011, type: bool}
+
+derived:
+  - {key: x.heating_data_hour, label: Timestamp hour (base heating plant working data), unit: h, sum: [{key: x.heating_data_hour_high, factor: 2}, {key: x.heating_data_hour_low}], note: 'The hour (0–23) is split over the two timestamp registers: 4 high bits at the end of the first, the lowest bit at the top of the second.'}
+
+enums:
+  device_type: {'0': DDC (Direct Digital Controller), '1': CCI (Comfort Control Interface)}
+  false_true: {'0': 'No', '1': 'Yes'}
+  transient_mode: {'0': All functional, '1': Modules being turned off, '2': Modules being cool/heat switched}
+  separable_state: {'0': Undefined, '1': Included, '2': Separate, '3': Being included, '4': Being separated}
+  alarm_rank: {'0': No alarm, '1': Information, '2': Warning, '3': Error}
+  module_alarm: {'0': No alarm, '1': Information, '2': Warning, '3': Error, '4': Excluded – no alarm, '5': Excluded – information, '6': Excluded – warning, '7': Excluded – error}
+  unit_type: {'0': ACF, '1': AY, '2': AYF2, '3': AYF4, '4': GAHP-W, '5': Prontoclima-C, '6': Prontoclima-CR, '7': GAHP-A, '8': GAHP-AR, '9': ACF-HR, '10': GAHP-W Modulating (E3 / PRO), '11': GAHP-AR Modulating, '12': GAHP-A Modulating (E3 / PRO), '13': AY Condensing, '14': Third party unit (non Robur), '15': GAHP-W Modulating HeatOnly}
+  alarm_string: {'0': No alarm, '1': Faulty Lockout Reset, '2': Limit Thermostat, '3': Flue Lim./Press. Sw., '4': Antifreeze, '5': Flue Thermostat, '6': Missing Heater Board, '7': Low Air Cooling, '8': High EXT Temp., '9': Low EXT Temp., '10': High REC/GEN Temp., '11': Lockout but Flame ON, '12': Low REC/GEN Temp., '13': 'Cool ON, Heat W Flow', '14': 'Heat ON, Chil W Flow', '15': 'Unit ON, No Flame', '16': Low Chiller Wat Flow, '17': Solution Pump OFF, '18': Flame Lockout, '19': Chil OUT T Probe Err, '20': Chil. IN T Probe Error, '21': CND T Probe Error, '22': EXT T Probe Error, '23': REC/GEN T Probe Err., '24': EVAP T Probe Error, '25': ABS T Probe Error, '26': Heat. IN Temp. High, '27': Heat. IN Temp. Low, '28': Heat. Differ. T High, '29': Missing Aux Board, '30': Absorb. Temp. High, '31': C Antifreez Pump ON, '32': Defrosting ON, '33': 'Cool ON, Heat W Flow', '34': Low Heater Wat Flow, '35': Low Heater Wat Flow, '36': Heat OUT T Probe Err, '37': 'Heat ON, Chil W Flow', '38': 'Cool ON, Heat W Flow', '39': Heat. IN T Probe Error, '40': Heat. OUT Temp. High, '41': Heat. Antifreeze ON, '42': Invalid Parameters, '43': Incompl. Params Set, '44': Invalid Page0 Params, '45': Invalid Page1 Params, '46': RY and RW Both ON, '47': 24V Pwr Supply fuse, '48': Wrong Module Types, '49': Faulty Board (ROM), '50': Faulty Board (pRAM), '51': Faulty Board (xRAM), '52': Faulty Board (Regs), '53': New Unit-CCI Binding, '54': Off-line, '55': All Modules Off-Line, '56': High Cool. Wat. Temp, '57': Low Heat. Wat. Temp, '58': Both RY and RW ON, '59': AMB T Probe Error, '60': Unit Config Mismatch, '61': Master DDC Off-Line, '62': Slave DDC Off-Line, '63': Alarms Log Erased, '64': CCI Power On, '65': Alarms Log restarted, '66': '> Max CCI Ign Resets', '67': C/H Vlv Opp. End Pos, '68': C/H Valve Mid Posit., '69': 2 C/H Vlv Pos Detecd, '70': Low Water Flow, '71': Faulty Board (FW), '72': Unknown Alarm Code, '73': Sep. Modules Offline, '74': C/H Valve mismatch, '75': C/H Valve off-line, '76': C/H Valve Timeout, '77': C/H Valve Err. Pos., '78': C/H Valve Unknwn Err, '79': DHW Valve mismatch, '80': DHW Valve off-line, '81': DHW Valve Timeout, '82': DHW Valve Err. Pos., '83': Flowmeter Fault, '84': Low Primary Wat Flow, '85': Prim OUT T Probe Err, '86': Combus. Blower Fault, '87': Prim Heat OUT T High, '88': Water T. Probe Error, '89': MIX T Probe Error, '90': 0-10 V Input Error, '91': Missing EXT T Probe, '92': FLUE T Probe Error, '93': Low Internal Temp., '94': DDC ID Conflict, '95': Condens. Probe Alarm, '96': OUT T Probe Error, '97': IN T Probe Error, '98': GAHPs Water T Limit, '99': 3rd Party Unit Error, '100': 'OFF: Base Mfd Prb Er', '101': 'OFF: Sep Mfd Prb Err', '102': C(H) IN T Prbe Offln, '103': C(H) OUT T Prbe Offl, '104': Heat IN T Probe Offl, '105': Heat OUT T Prbe Offl, '106': Splt IN T Prbe Offln, '107': Splt OUT T Prbe Offl, '108': GAHP IN T Probe Offl, '109': C(H) IN T Prbe Misma, '110': C(H) OUT T Prbe Mism, '111': Heat IN T Prbe Misma, '112': Heat OUT T Prbe Mism, '113': Splt IN T Prbe Misma, '114': Splt OUT T Prbe Mism, '115': GAHP IN T Prbe Misma, '116': C(H) IN T Probe Err, '117': C(H) OUT T Probe Err, '118': Heat IN T Probe Err, '119': Heat OUT T Probe Err, '120': Splt IN T Probe Err, '121': Splt OUT T Probe Err, '122': GAHP IN T Probe Err, '123': C(H) Pri WPump Offln, '124': Heat Pri WPump Offln, '125': Splt Pri WPump Offln, '126': C(H) Pri WPump Misma, '127': Heat Pri WPump Misma, '128': Splt Pri WPump Misma, '129': Base Mfd Prb Not Cfg, '130': Splt Mfd Prb Not Cfg, '131': Base WPmp Not Config, '132': Splt WPmp Not Config, '133': C(H) Sec WPump Offln, '134': Heat Sec WPump Offln, '135': C(H) Sec WPump Misma, '136': Heat Sec WPump Misma, '137': GENF T Probe Error, '138': Wrong GENF Prb Posit, '139': Wrong Pump Sens Conn, '140': Limit Temper. (base), '141': Limit Temper. (splt), '142': High FLUE/GENF Temp., '143': Heating Limit Temper, '144': Cooling Limit Temper, '145': Source Limit Temper., '146': SW Wdog Restart, '148': Defr. Valve Fault, '149': Oil Pump priming, '150': Maintenance Due}
+
+problems:
+  - {when: {key: x.cooling_plant_alarm, equals: 3}, kind: fault, text: 'Cooling plant: error alarm'}
+  - {when: {key: x.cooling_plant_alarm, equals: 2}, kind: warning, text: 'Cooling plant: warning alarm'}
+  - {when: {key: x.heating_plant_alarm, equals: 3}, kind: fault, text: 'Heating plant: error alarm'}
+  - {when: {key: x.heating_plant_alarm, equals: 2}, kind: warning, text: 'Heating plant: warning alarm'}
+  - {when: {key: x.cooling_plant_alarm1, not: 0}, kind: warning, text: 'Cooling plant alarm: {text} (string {value})'}
+  - {when: {key: x.cooling_plant_alarm2, not: 0}, kind: warning, text: 'Cooling plant alarm: {text} (string {value})'}
+  - {when: {key: x.cooling_plant_alarm3, not: 0}, kind: warning, text: 'Cooling plant alarm: {text} (string {value})'}
+  - {when: {key: x.cooling_plant_alarm4, not: 0}, kind: warning, text: 'Cooling plant alarm: {text} (string {value})'}
+  - {when: {key: x.cooling_plant_alarm5, not: 0}, kind: warning, text: 'Cooling plant alarm: {text} (string {value})'}
+  - {when: {key: x.heating_plant_alarm1, not: 0}, kind: warning, text: 'Heating plant alarm: {text} (string {value})'}
+  - {when: {key: x.heating_plant_alarm2, not: 0}, kind: warning, text: 'Heating plant alarm: {text} (string {value})'}
+  - {when: {key: x.heating_plant_alarm3, not: 0}, kind: warning, text: 'Heating plant alarm: {text} (string {value})'}
+  - {when: {key: x.heating_plant_alarm4, not: 0}, kind: warning, text: 'Heating plant alarm: {text} (string {value})'}
+  - {when: {key: x.heating_plant_alarm5, not: 0}, kind: warning, text: 'Heating plant alarm: {text} (string {value})'}
+  - {when: {key: x.hm0_error, equals: 1}, kind: fault, text: 'Heating module 00: error alarm'}
+  - {when: {key: x.hm0_warning, equals: 1}, kind: warning, text: 'Heating module 00: warning alarm'}
+  - {when: {key: x.hm0_offline, equals: 1}, kind: fault, text: Heating module 00 offline (no supply or no communication with the DDC)}
+  - {when: {key: x.hm0_alarm1, not: 0}, kind: warning, text: 'Heating module 00 alarm: {text} (string {value})'}
+  - {when: {key: x.hm0_alarm2, not: 0}, kind: warning, text: 'Heating module 00 alarm: {text} (string {value})'}
+  - {when: {key: x.hm0_alarm3, not: 0}, kind: warning, text: 'Heating module 00 alarm: {text} (string {value})'}
+  - {when: {key: x.hm0_alarm4, not: 0}, kind: warning, text: 'Heating module 00 alarm: {text} (string {value})'}
+  - {when: {key: x.hm0_alarm5, not: 0}, kind: warning, text: 'Heating module 00 alarm: {text} (string {value})'}
+  - {when: {key: x.cm0_offline, equals: 1}, kind: fault, text: Cooling module 00 offline (no supply or no communication with the DDC)}
+
+notes:
+- The DDC (Direct Digital Controller) controls a plant of Robur gas absorption units (GAHP heat pumps, ACF / AY chillers and
+  boilers); it speaks Modbus RTU as a slave on RS-232 (front DB9 or rear RJ-45) or RS-485. Default 19200 8N1; also 19200 8E1,
+  9600 8N1 / 8E1, and 8N2 on RS-232 only. Default slave address 1. Port 502 is for a gateway.
+- Addresses are the document's "real" (0-based, hex) addresses; it also lists them in prefix notation (00001 / 10001 / 30001
+  / 40001 = 0).
+- 'Signed values: 0x7FFE (32766) = field doesn''t exist / not configured, 0x7FFF (32767) = not available because of a fault
+  (e.g. a broken probe). Unsigned: 0xFFFF = not provided. Temperatures and voltages are in tenths, working times in seconds,
+  flow in l/h, power feedback 0–10000.'
+- The DDC fills module slots 0 … n − 1 in ascending order of the units' network ID; the number of configured modules is at
+  input 0x0008 (cooling) and 0x0009 (heating). Only module 00 is described here. Each further module has the same layout at
+  + 250 registers (input registers; module 00 at 0x03E8 cooling, 0x1388 heating), + 64 (discrete inputs; 0x03E8 cooling, 0x07E8
+  heating) and + 20 (the 'excluded' coil; 0x03E8 cooling, 0x0528 heating).
+- Alarms exist in a single-client and a multi-client area with the same content. Reading a slot in the single-client area
+  unlocks it for the next alarm, so that area suits only one Modbus master; this file reads the multi-client area, where a
+  slot may change from one alarm to another without passing through 0.
+- 'Alarm string codes are the 10 low bits of their register. Each string code has an alarm error code in the register after
+  it (not described here): from the top, source 2 bits (cooling / heating / both modules / electronics), rank 2 bits (info
+  / warning / error), a duplicate flag (the same alarm also reported on the unit''s cooling module) and the 11-bit code. The
+  bit order of that layout is read from the document''s drawing (most significant first), not stated.'
+- 'Module general alarm registers: bits 0–1 rank, bit 2 = module excluded by the user (alarms of excluded modules are better
+  not shown). Plant general alarms hold the rank only.'
+- Several registers are only mapped (answer) when the matching plant or service is configured on this DDC and the DDC is its
+  master (`optional` here).
+- The plant and module working data begin with two time-stamp registers (seconds 6 bits, minutes 6 bits, hours 4 high bits
+  | hours low bit, year since 2000 6 bits, month 4 bits, day 5 bits; 24 h clock). Only the base heating plant's is described
+  here (0x00FA/0x00FB), its hour joined as a derived value; the others (cooling plant 0x0064, separable heating plant 0x2328,
+  each module at + 0x14 from its first register) have the same layout.
+- Left out the command access flags, the working-mode and probe-installed flags, the water timer and quiet mode timer schedules,
+  weather compensation and chrono settings, the event logger, alarm semaphores, reset commands (alarm, ignition box, maintenance
+  counters), external request setpoints, the single-client alarm areas, the per-module maintenance intervals and dates, rarely
+  used module counters, and modules 01–15.

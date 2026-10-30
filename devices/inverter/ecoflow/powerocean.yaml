@@ -1,0 +1,180 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: ecoflow-powerocean
+manufacturer: EcoFlow
+name: PowerOcean / Ocean 2 single-phase
+kind: inverter
+
+sources:
+- id: ef-powerocean-tcpmodbus
+  title: EF-PowerOcean-TcpModbus (Home Assistant integration)
+  url: https://github.com/MaxGrmm/EF-PowerOcean-TcpModbus
+  license: MIT
+  commit: c2c2989de642cc62d7c3528ed1596e95b51ac4a9
+  path: custom_components/ef_powerocean_tcpmodbus/const.py, custom_components/ef_powerocean_tcpmodbus/models.py, custom_components/ef_powerocean_tcpmodbus/telemetry.py,
+    custom_components/ef_powerocean_tcpmodbus/translations/en.json
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/ecoflow-powerocean-modbus.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+  input_equals_holding: true
+
+encoding:
+  word_order: little
+
+defaults:
+  verified: false
+  sources:
+  - ef-powerocean-tcpmodbus
+
+models:
+  - {id: powerocean_plus, name: PowerOcean Plus, match: {table: holding, address: 40003, type: u16, equals: 3}}
+  - {id: ocean_2_single_phase, name: Ocean 2 Single Phase, match: {table: holding, address: 40003, type: u16, equals: 4}}
+
+points:
+  - {key: x.protocol_version, label: Modbus Protocol Version, table: holding, address: 40001, type: u16}
+  - {key: x.product_category, label: product category, table: holding, address: 40002, type: u16, enum: product_category}
+  - {key: x.product_number, label: product number, table: holding, address: 40003, type: u16}
+  - {key: serial, label: serial number, table: holding, address: 40004, type: str, length: 8}
+  - {key: firmware, label: firmware version, table: holding, address: 40012, type: u32, note: 'One byte per part, most significant first: 0x01020304 = 1.2.3.4.'}
+  - {key: x.device_address, label: Modbus Device Address, table: holding, address: 40014, type: u16}
+  - {key: x.grid_connection_code, label: Grid Connection Code, table: holding, address: 40513, type: u16, note: Not implemented on every model.}
+  - {key: load_power, label: House Power, table: holding, address: 40519, type: f32, unit: W}
+  - {key: grid_power, label: Grid Power, table: holding, address: 40521, type: f32, unit: W, positive: import, sources: [ef-powerocean-tcpmodbus, evcc]}
+  - {key: pv_power, label: Solar Power, table: holding, address: 40523, type: f32, unit: W, sources: [ef-powerocean-tcpmodbus, evcc]}
+  - {key: battery_power, label: Battery Power, table: holding, address: 40525, type: f32, unit: W, positive: charge, sources: [ef-powerocean-tcpmodbus, evcc]}
+  - {key: battery_soc, label: Battery SOC, table: holding, address: 40527, type: u16, unit: '%', sources: [ef-powerocean-tcpmodbus, evcc]}
+  - {key: x.inverter_rated_power, label: Inverter Rated Power, table: holding, address: 40528, type: u32, unit: W}
+  - {key: x.system_modes, label: System Modes, table: holding, address: 40530, type: u32, flags: system_modes}
+  - {key: state, label: Operating Mode, table: holding, address: 40530, type: u32, bits: [4, 6], enum: operating_mode}
+  - {key: x.active_control_mode, label: Active Control Method, table: holding, address: 40530, type: u32, bits: [7, 10], enum: control_method}
+  - {key: x.system_state_2, label: system state 2, table: holding, address: 40532, type: u32, flags: system_state_2, note: 'Reads 0 when there is no fault, including while the system runs. Not implemented on every model.'}
+  - {key: x.control_command, label: System control command, table: holding, address: 40534, type: u32, writable: true, note: 'Write-only. Bits 4-7: control method (control_method values); bit 3: battery saver. The project never sets bits 0-1.'}
+  - {key: x.min_soc_limit, label: App Backup Reserve, table: holding, address: 40536, type: u16, unit: '%', writable: true, note: Backup reserve set in the EcoFlow app. The PowerOcean Plus stores a written value but keeps using the app's.}
+  - {key: x.grid_feed_mode, label: Grid Feed-in Mode, table: holding, address: 40537, type: u16, enum: grid_feed_mode, writable: true}
+  - {key: x.feed_in_power_max_setting, label: Maximum feed-in Power (Configured), table: holding, address: 40538, type: u32, unit: W, writable: true, note: Not implemented on every model.}
+  - {key: x.breaker_capacity, label: Circuit Breaker Capacity, table: holding, address: 40540, type: u16, unit: A, note: Not implemented on every model.}
+  - {key: x.device_led_brightness, label: device led brightness, table: holding, address: 40541, type: u16, unit: '%', writable: true}
+  - {key: x.system_power_setpoint, label: System Power Setpoint, table: holding, address: 40542, type: s32, unit: W, writable: true, note: 'Grid power target: positive draws from the grid, negative feeds in (system feed control method).'}
+  - {key: x.inverter_power_setpoint, label: Inverter Power Setpoint, table: holding, address: 40544, type: s32, unit: W, writable: true}
+  - {key: x.limit_inv_power, label: Maximum Inverter Power (DC to AC), table: holding, address: 40546, type: u32, unit: W}
+  - {key: x.limit_inv_max, label: Maximum Rectifier Power (AC to DC), table: holding, address: 40548, type: u32, unit: W}
+  - {key: x.inverter_output_power, label: Inverter AC Power, table: holding, address: 40550, type: s32, unit: W, note: 'Positive while rectifying (AC to DC), negative while inverting. Not implemented on every model.'}
+  - {key: x.battery_capacity, label: Battery Nominal Capacity, table: holding, address: 40552, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.battery_discharge_power_limit, label: Available Battery Discharge Power, table: holding, address: 40554, type: u32, unit: W}
+  - {key: x.battery_charge_power_limit, label: Available Battery Charge Power, table: holding, address: 40556, type: u32, unit: W, note: 'Not writable (the device refuses it). Holds the configured cap while an app charge schedule is set, otherwise the BMS''s current capability.'}
+  - {key: x.grid_current_l1, label: Grid-side Current L1, table: holding, address: 40559, type: f32, unit: A, note: Measured at the grid connection (voltage_l1 / current_l1 are the inverter's own phases). Not implemented on every model.}
+  - {key: x.grid_current_l2, label: Grid-side Current L2, table: holding, address: 40561, type: f32, unit: A, note: Measured at the grid connection (voltage_l1 / current_l1 are the inverter's own phases). Not implemented on every model.}
+  - {key: x.grid_current_l3, label: Grid-side Current L3, table: holding, address: 40563, type: f32, unit: A, note: Measured at the grid connection (voltage_l1 / current_l1 are the inverter's own phases). Not implemented on every model.}
+  - {key: x.grid_voltage_l1, label: Grid-side Voltage L1, table: holding, address: 40565, type: f32, unit: V, note: Measured at the grid connection (voltage_l1 / current_l1 are the inverter's own phases). Not implemented on every model.}
+  - {key: x.grid_voltage_l2, label: Grid-side Voltage L2, table: holding, address: 40567, type: f32, unit: V, note: Measured at the grid connection (voltage_l1 / current_l1 are the inverter's own phases). Not implemented on every model.}
+  - {key: x.grid_voltage_l3, label: Grid-side Voltage L3, table: holding, address: 40569, type: f32, unit: V, note: Measured at the grid connection (voltage_l1 / current_l1 are the inverter's own phases). Not implemented on every model.}
+  - {key: x.battery_power_setpoint, label: Battery Power Setpoint, table: holding, address: 40571, type: s32, unit: W, writable: true, note: 'Positive charges the battery, negative discharges it (battery-limits control method).'}
+  - {key: x.feed_in_power_max_percent, label: Maximum feed-in Power (Percent), table: holding, address: 40573, type: u16, unit: '%', note: Stored but not acted on by the PowerOcean Plus. Not implemented on every model.}
+  - {key: battery_voltage, label: Battery Voltage, table: holding, address: 40574, type: f32, unit: V}
+  - {key: x.battery_current, label: Battery Current, table: holding, address: 40576, type: f32, unit: A}
+  - {key: battery_temperature, label: Battery Temperature, table: holding, address: 40578, type: f32, unit: °C}
+  - {key: l1_voltage, label: Inverter Voltage L1, table: holding, address: 40580, type: f32, unit: V}
+  - {key: l2_voltage, label: Inverter Voltage L2, table: holding, address: 40582, type: f32, unit: V}
+  - {key: l3_voltage, label: Inverter Voltage L3, table: holding, address: 40584, type: f32, unit: V}
+  - {key: l1_current, label: Inverter Current L1, table: holding, address: 40586, type: f32, unit: A}
+  - {key: l2_current, label: Inverter Current L2, table: holding, address: 40588, type: f32, unit: A}
+  - {key: l3_current, label: Inverter Current L3, table: holding, address: 40590, type: f32, unit: A}
+  - {key: temperature, label: Inverter Temperature, table: holding, address: 40592, type: f32, unit: °C}
+  - {key: frequency, label: Grid Frequency, table: holding, address: 40594, type: f32, unit: Hz}
+  - {key: x.pv1_voltage, label: PV String 1 Voltage, table: holding, address: 40596, type: f32, unit: V}
+  - {key: x.pv2_voltage, label: PV String 2 Voltage, table: holding, address: 40598, type: f32, unit: V}
+  - {key: x.pv3_voltage, label: PV String 3 Voltage, table: holding, address: 40600, type: f32, unit: V}
+  - {key: x.pv1_current, label: PV String 1 Current, table: holding, address: 40602, type: f32, unit: A}
+  - {key: x.pv2_current, label: PV String 2 Current, table: holding, address: 40604, type: f32, unit: A}
+  - {key: x.pv3_current, label: PV String 3 Current, table: holding, address: 40606, type: f32, unit: A}
+  - {key: x.heartbeat, label: Heartbeat, table: holding, address: 40608, type: u16, writable: true, note: 'Write-only: write 1 to keep Modbus control.'}
+  - {key: x.feed_in_power_max_effective, label: Maximum feed-in Power (Effective), table: holding, address: 40609, type: u32, unit: W, note: Export cap in force after the internal safety rules; reads 0 on the PowerOcean Plus.}
+  - {key: x.fault_count, label: Active Fault Count, table: holding, address: 42049, type: u16}
+  - {key: x.fault_1, label: fault 1, table: holding, address: 42050, type: u16, enum: fault_code}
+  - {key: x.fault_2, label: fault 2, table: holding, address: 42051, type: u16, enum: fault_code}
+  - {key: x.fault_3, label: fault 3, table: holding, address: 42052, type: u16, enum: fault_code}
+  - {key: x.fault_4, label: fault 4, table: holding, address: 42053, type: u16, enum: fault_code}
+  - {key: x.fault_5, label: fault 5, table: holding, address: 42054, type: u16, enum: fault_code}
+  - {key: x.fault_6, label: fault 6, table: holding, address: 42055, type: u16, enum: fault_code}
+  - {key: x.fault_7, label: fault 7, table: holding, address: 42056, type: u16, enum: fault_code}
+  - {key: x.fault_8, label: fault 8, table: holding, address: 42057, type: u16, enum: fault_code}
+  - {key: x.fault_9, label: fault 9, table: holding, address: 42058, type: u16, enum: fault_code}
+  - {key: x.fault_10, label: fault 10, table: holding, address: 42059, type: u16, enum: fault_code}
+  - {key: x.fault_11, label: fault 11, table: holding, address: 42060, type: u16, enum: fault_code}
+  - {key: x.fault_12, label: fault 12, table: holding, address: 42061, type: u16, enum: fault_code}
+  - {key: x.fault_13, label: fault 13, table: holding, address: 42062, type: u16, enum: fault_code}
+  - {key: x.fault_14, label: fault 14, table: holding, address: 42063, type: u16, enum: fault_code}
+  - {key: x.fault_15, label: fault 15, table: holding, address: 42064, type: u16, enum: fault_code}
+  - {key: x.fault_16, label: fault 16, table: holding, address: 42065, type: u16, enum: fault_code}
+  - {key: x.fault_17, label: fault 17, table: holding, address: 42066, type: u16, enum: fault_code}
+  - {key: x.fault_18, label: fault 18, table: holding, address: 42067, type: u16, enum: fault_code}
+  - {key: x.fault_19, label: fault 19, table: holding, address: 42068, type: u16, enum: fault_code}
+  - {key: x.fault_20, label: fault 20, table: holding, address: 42069, type: u16, enum: fault_code}
+  - {key: x.battery_count, label: Battery Module Count, table: holding, address: 42081, type: u16}
+  - {key: x.soc_battery_1, label: Battery 1 SOC, table: holding, address: 42082, type: u16, unit: '%'}
+  - {key: x.soc_battery_2, label: Battery 2 SOC, table: holding, address: 42083, type: u16, unit: '%'}
+  - {key: x.soc_battery_3, label: Battery 3 SOC, table: holding, address: 42084, type: u16, unit: '%'}
+  - {key: x.soc_battery_4, label: Battery 4 SOC, table: holding, address: 42085, type: u16, unit: '%'}
+  - {key: x.soc_battery_5, label: Battery 5 SOC, table: holding, address: 42086, type: u16, unit: '%'}
+  - {key: x.soc_battery_6, label: Battery 6 SOC, table: holding, address: 42087, type: u16, unit: '%'}
+  - {key: x.soc_battery_7, label: Battery 7 SOC, table: holding, address: 42088, type: u16, unit: '%'}
+  - {key: x.soc_battery_8, label: Battery 8 SOC, table: holding, address: 42089, type: u16, unit: '%'}
+  - {key: x.soc_battery_9, label: Battery 9 SOC, table: holding, address: 42090, type: u16, unit: '%'}
+  - {key: x.soc_battery_10, label: Battery 10 SOC, table: holding, address: 42091, type: u16, unit: '%'}
+  - {key: x.soc_battery_11, label: Battery 11 SOC, table: holding, address: 42092, type: u16, unit: '%'}
+  - {key: x.soc_battery_12, label: Battery 12 SOC, table: holding, address: 42093, type: u16, unit: '%'}
+  - {key: grid_import_energy, label: Grid Import Total, table: holding, address: 42161, type: f32, unit: kWh, sources: [ef-powerocean-tcpmodbus, evcc]}
+  - {key: x.grid_import_today, label: Grid Import Today, table: holding, address: 42163, type: f32, unit: kWh, note: 'Not reliably reset at midnight, per the project.'}
+  - {key: grid_export_energy, label: Grid Export Total, table: holding, address: 42177, type: f32, unit: kWh}
+  - {key: x.grid_export_today, label: Grid Export Today, table: holding, address: 42179, type: f32, unit: kWh, note: 'Not reliably reset at midnight, per the project.'}
+  - {key: x.inverter_ac_in_total, label: Inverter AC Input Total, table: holding, address: 42193, type: f32, unit: kWh, note: Not implemented on every model.}
+  - {key: x.inverter_ac_in_today, label: Inverter AC Input Today, table: holding, address: 42195, type: f32, unit: kWh, note: 'Not reliably reset at midnight, per the project. Not implemented on every model.'}
+  - {key: x.inverter_ac_out_total, label: Inverter AC Output Total, table: holding, address: 42209, type: f32, unit: kWh, note: Not implemented on every model.}
+  - {key: x.inverter_ac_out_today, label: Inverter AC Output Today, table: holding, address: 42211, type: f32, unit: kWh, note: 'Not reliably reset at midnight, per the project. Not implemented on every model.'}
+  - {key: x.bat_charged_total, label: Battery Charged Total, table: holding, address: 42225, type: f32, unit: kWh}
+  - {key: x.bat_charged_today, label: Battery Charged Today, table: holding, address: 42227, type: f32, unit: kWh, note: 'Not reliably reset at midnight, per the project.'}
+  - {key: x.bat_discharged_total, label: Battery Discharged Total, table: holding, address: 42241, type: f32, unit: kWh, sources: [ef-powerocean-tcpmodbus, evcc]}
+  - {key: x.bat_discharged_today, label: Battery Discharged Today, table: holding, address: 42243, type: f32, unit: kWh, note: 'Not reliably reset at midnight, per the project.'}
+  - {key: pv_energy, label: Solar Yield Total, table: holding, address: 42257, type: f32, unit: kWh, sources: [ef-powerocean-tcpmodbus, evcc]}
+  - {key: pv_energy_today, label: Solar Yield Today, table: holding, address: 42259, type: f32, unit: kWh, note: 'Not reliably reset at midnight, per the project.'}
+
+enums:
+  product_category: {'1': three-phase, '2': single-phase}
+  grid_feed_mode: {'0': Limited, '1': Unlimited, '2': Limited (percent)}
+  control_method: {'0': Default, '1': System feed/draw (meter), '2': Inverter feed/draw, '3': Battery charge/discharge}
+  operating_mode: {'0': Standby, '1': Self-consumption, '2': AI}
+  fault_code: {'100': Power outage, '101': Grid undervoltage, '102': Grid overvoltage, '105': Grid under-frequency, '128': Bus fast overvoltage, '139': Voltage flicker alarm, '140': Sudden grid voltage phase change alarm, '156': Grid reconnection waiting, '163': 12V auxiliary power fault, '179': Inverter module power-on notification, '203': BP module power-on notification, '521': Energy storage communication error, '532': 12V auxiliary power voltage fault, '700': Device off-grid event, '702': Low power mode, '703': EMS module power-on notification}
+
+flags:
+  system_modes: {'0': Off-grid (islanded), '1': System fault, '2': Running (0 = standby), '3': Battery saver / low-power mode, '11': Following Modbus control, '12': BMS connected}
+  system_state_2: {'0': System shutdown, '1': Upgrade shutdown, '2': Epo triggered, '3': Low power mode, '4': Fan failure, '5': System failure, '6': Battery reverse connection, '7': Battery disconnected, '8': Auxiliary power failure, '9': Pcs timeout, '10': Pcs failure, '11': Igbt self test failure, '12': High temperature protection, '13': Battery overheating, '14': Ntc circuit failure, '15': System reset, '16': Hardware version error, '17': Parallel sync error, '18': Low temperature protection, '19': Parallel master slave conflict, '20': Parallel slave setting error, '21': Parallel inverter error, '22': Parallel meter fault}
+
+notes:
+- Modbus answers only after the inverter's control mode is set to Modbus control in the EcoFlow Pro app. Registers exist only
+  from 40001 to 44096; the device answers on any unit id.
+- Addresses are EcoFlow's register numbers plus 40001, used as the protocol address.
+- 32-bit values are read low word first.
+- 32-bit writes (function 16) must be sent high word first on every model measured; a write in read order is taken as a value
+  65536 times too large.
+- 'Models told apart by product number (40003) and category (40002, 1 = three-phase, 2 = single-phase); not matchable by one
+  register: PowerOcean Single Phase (product number 1 with category single-phase, product number 2); PowerOcean Three Phase
+  (product number 1 with category three-phase); PowerOcean DC Fit (no product number known).'
+- Energy counters are in kWh.
+- Control (setpoints, control command 40534) is only followed while the heartbeat register 40608 is written (value 1) at least
+  every 60 s; the project writes it every 20 s.
+- 'evcc template `ecoflow-powerocean-modbus` (grid, pv, battery) lists: EcoFlow PowerOcean Modbus.'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

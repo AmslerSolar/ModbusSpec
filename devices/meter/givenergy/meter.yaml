@@ -1,0 +1,69 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: givenergy-meter
+manufacturer: GivEnergy
+name: EM115 / EM418 energy meter
+kind: meter
+
+sources:
+- id: givenergy-modbus
+  title: givenergy-modbus (Python library for GivEnergy inverters, used by givenergy-hass)
+  url: https://github.com/dewet22/givenergy-modbus
+  license: Apache-2.0
+  commit: 90e3ec13098aacc9607160209779b4e029ac8cd9
+  path: givenergy_modbus/model/meter.py
+
+connection:
+  default_port: 8899
+  default_unit: 1
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - givenergy-modbus
+
+points:
+  - {key: l1_voltage, label: Voltage phase 1, table: input, address: 60, type: u16, unit: V, scale: 0.1, note: 'The library treats values outside 0.0 to 500.0 (after scaling) as invalid, except all zero.'}
+  - {key: l2_voltage, label: Voltage phase 2, table: input, address: 61, type: u16, unit: V, scale: 0.1, note: 'The library treats values outside 0.0 to 500.0 (after scaling) as invalid, except all zero.'}
+  - {key: l3_voltage, label: Voltage phase 3, table: input, address: 62, type: u16, unit: V, scale: 0.1, note: 'The library treats values outside 0.0 to 500.0 (after scaling) as invalid, except all zero.'}
+  - {key: l1_current, label: Current phase 1, table: input, address: 63, type: u16, unit: A, scale: 0.01}
+  - {key: l2_current, label: Current phase 2, table: input, address: 64, type: u16, unit: A, scale: 0.01}
+  - {key: l3_current, label: Current phase 3, table: input, address: 65, type: u16, unit: A, scale: 0.01}
+  - {key: x.i_ln, label: Current ln, table: input, address: 66, type: u16, unit: A, scale: 0.01}
+  - {key: x.i_total, label: Current total, table: input, address: 67, type: u16, unit: A, scale: 0.01}
+  - {key: x.p_active_phase_1, label: Power active phase 1, table: input, address: 68, type: s16, unit: W, note: Negative while exporting (seen in the library's captures).}
+  - {key: x.p_active_phase_2, label: Power active phase 2, table: input, address: 69, type: s16, unit: W, note: Negative while exporting (seen in the library's captures).}
+  - {key: x.p_active_phase_3, label: Power active phase 3, table: input, address: 70, type: s16, unit: W, note: Negative while exporting (seen in the library's captures).}
+  - {key: x.p_active_total, label: Power active total, table: input, address: 71, type: s16, unit: W, note: Negative while exporting (seen in the library's captures).}
+  - {key: x.p_reactive_phase_1, label: Power reactive phase 1, table: input, address: 72, type: s16, unit: var}
+  - {key: x.p_reactive_phase_2, label: Power reactive phase 2, table: input, address: 73, type: s16, unit: var}
+  - {key: x.p_reactive_phase_3, label: Power reactive phase 3, table: input, address: 74, type: s16, unit: var}
+  - {key: x.p_reactive_total, label: Power reactive total, table: input, address: 75, type: s16, unit: var}
+  - {key: x.p_apparent_phase_1, label: Power apparent phase 1, table: input, address: 76, type: u16, unit: VA, scale: 0.1}
+  - {key: x.p_apparent_phase_2, label: Power apparent phase 2, table: input, address: 77, type: u16, unit: VA, scale: 0.1}
+  - {key: x.p_apparent_phase_3, label: Power apparent phase 3, table: input, address: 78, type: u16, unit: VA, scale: 0.1}
+  - {key: x.p_apparent_total, label: Power apparent total, table: input, address: 79, type: u16, unit: VA, scale: 0.1}
+  - {key: x.pf_phase_1, label: Power factor phase 1, table: input, address: 80, type: s16, scale: 0.0001, note: 'The library treats values outside -1.0 to 1.0 (after scaling) as invalid, except all zero.'}
+  - {key: x.pf_phase_2, label: Power factor phase 2, table: input, address: 81, type: s16, scale: 0.0001, note: 'The library treats values outside -1.0 to 1.0 (after scaling) as invalid, except all zero.'}
+  - {key: x.pf_phase_3, label: Power factor phase 3, table: input, address: 82, type: s16, scale: 0.0001, note: 'The library treats values outside -1.0 to 1.0 (after scaling) as invalid, except all zero.'}
+  - {key: power_factor, label: Power factor total, table: input, address: 83, type: s16, scale: 0.0001, note: 'The library treats values outside -1.0 to 1.0 (after scaling) as invalid, except all zero.'}
+  - {key: frequency, label: Frequency, table: input, address: 84, type: u16, unit: Hz, scale: 0.01, note: 'The library treats values outside 40.0 to 70.0 (after scaling) as invalid, except all zero.'}
+  - {key: x.e_import_active, label: Energy import active, table: input, address: 85, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.e_import_reactive, label: Energy import reactive, table: input, address: 86, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.e_export_active, label: Energy export active, table: input, address: 87, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.e_export_reactive, label: Energy export reactive, table: input, address: 88, type: u16, unit: kWh, scale: 0.1}
+
+notes:
+- Reached through the inverter's Wi-Fi / LAN dongle on TCP port 8899, which wraps Modbus requests in GivEnergy's own framing
+  (not plain Modbus TCP); every device on the bus answers there under its own device address. The library reads at most 60
+  registers per request, in blocks starting at multiples of 60.
+- Meters answer at device addresses 0x01 to 0x08.
+- The meter product registers 60-68 (serial, factory code, type, versions, Modbus id, baud rate) are read with a GivEnergy-specific
+  request and are left out.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

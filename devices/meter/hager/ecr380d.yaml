@@ -1,0 +1,173 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Hager Modbus Tables Summary (rev. 1.14, October 2022).
+
+modbusspec: 0
+id: hager-ecr380d
+manufacturer: Hager
+name: ECR / ECA energy meters (single-phase, three-phase, CT and triple single-phase)
+kind: meter
+
+sources:
+- title: Hager Modbus Tables Summary (energy meters ECR / ECA)
+  version: 1.14 (October 2022)
+  url: https://assets.hager.com/step-content/P/HA_46515737/Document/std.lang.all/Modbus_table_Summary_V1_14.pdf
+  sha256: 28bb221edf8be0e19d9c9a86116c9bc67cea9b3047d323108013e1e61b5b4c48
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.hager/src/io/openems/edge/meter/hager/ecr380d/HagerEcr380dMeterImpl.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 4196
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 4096
+    type: str
+    length: 16
+    prefix: Hager
+
+models:
+  - {id: triple, name: 'Triple single-phase meter (ECR180T, ECA180T, ECR300T, ECA300T)', match: {table: holding, address: 4112, type: str, length: 16, contains: [ECR180T, ECA180T, ECR300T, ECA300T]}}
+  - {id: single_phase, name: 'Single-phase meter (ECR140D, ECR180D, ECR181D, ECA180D, ECA181D)', match: {table: holding, address: 4112, type: str, length: 16, contains: [ECR140D, ECR180D, ECR181D, ECA180D, ECA181D]}}
+  - {id: three_phase_ct, name: 'Three-phase CT meter (ECR300C–302C, ECA300C–302C)', match: {table: holding, address: 4112, type: str, length: 16, contains: [ECR300C, ECR301C, ECR302C, ECA300C, ECA301C, ECA302C]}}
+  - {id: three_phase, name: 'Three-phase direct meter 80 A / 125 A (ECR380D–382D, ECA380D–382D, ECR310D–312D, ECA310D–312D)', match: {table: holding, address: 4112, type: str, length: 16, contains: [ECR38, ECA38, ECR31, ECA31]}}
+
+points:
+  # Identification (0x1000 ff.)
+  - {key: x.vendor_name, label: Vendor name, table: holding, address: 4096, type: str, length: 16, poll: slow}
+  - {key: x.product_code, label: Product code, table: holding, address: 4112, type: str, length: 16, poll: slow, note: 'The commercial reference, e.g. ECR380D.'}
+  - {key: firmware, label: Software version, table: holding, address: 4128, type: u32, poll: slow, note: 'One byte per level from the top: 0x02030000 = 2.3.0.', conflicts: [{sources: [openems], type: str, length: 2}]}
+  - {key: x.product_name, label: Product name, table: holding, address: 4146, type: str, length: 16, poll: slow}
+  - {key: x.model_name, label: Model name, table: holding, address: 4162, type: str, length: 16, poll: slow}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 4194, type: u32, poll: slow, note: Coded as the software version., conflicts: [{sources: [openems], type: str, length: 2}]}
+  - {key: serial, label: Product code (serial number), table: holding, address: 4196, type: str, length: 16, poll: slow, note: 'RRYYWWNNNN: reference id, year, week, running number in the week.'}
+  - {key: x.production_day, label: Production day of the year, table: holding, address: 4214, type: u16, poll: slow}
+  - {key: x.production_year, label: Production year, table: holding, address: 4215, type: u16, poll: slow}
+  # Instantaneous measures (0xB000 ff.); for CT meters referred to the primary side
+  - {key: l1_voltage, label: V(L1-N), table: holding, address: 45056, type: u16, unit: V, scale: 0.01}
+  - {key: l2_voltage, label: V(L2-N), table: holding, address: 45057, type: u16, unit: V, scale: 0.01, invalid: [65535]}
+  - {key: l3_voltage, label: V(L3-N), table: holding, address: 45058, type: u16, unit: V, scale: 0.01, invalid: [65535]}
+  - {key: x.voltage_l1_l2, label: V(L1-L2), table: holding, address: 45059, type: u16, unit: V, scale: 0.01, invalid: [65535]}
+  - {key: x.voltage_l2_l3, label: V(L2-L3), table: holding, address: 45060, type: u16, unit: V, scale: 0.01, invalid: [65535]}
+  - {key: x.voltage_l3_l1, label: V(L3-L1), table: holding, address: 45061, type: u16, unit: V, scale: 0.01, invalid: [65535]}
+  - {key: frequency, label: Frequency, table: holding, address: 45062, type: u16, unit: Hz, scale: 0.01}
+  - {key: l1_current, label: I(L1), table: holding, address: 45065, type: u32, unit: A, scale: 0.001}
+  - {key: l2_current, label: I(L2), table: holding, address: 45067, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: l3_current, label: I(L3), table: holding, address: 45069, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: x.neutral_current, label: I(Neutral), table: holding, address: 45071, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: grid_power, label: P(ΣL), table: holding, address: 45073, type: s32, unit: W, scale: 10, invalid: [2147483647], positive: import, verified: false, note: 'The sign isn''t stated; the energy registers count imported energy as Ea+, so positive is taken as import (consumption).'}
+  - {key: reactive_power, label: Q(ΣL), table: holding, address: 45075, type: s32, unit: var, scale: 10, invalid: [2147483647]}
+  - {key: apparent_power, label: S(ΣL), table: holding, address: 45077, type: u32, unit: VA, scale: 10, invalid: [4294967295]}
+  - {key: power_factor, label: PF(ΣL) IEC, table: holding, address: 45079, type: s16, scale: 0.001, invalid: [32767], note: P/S with the sign by the IEC convention; +1.000 when no power flows., conflicts: [{sources: [openems], scale: 1, label: 'Power factor IEC Sum(L1,L2,L3)'}]}
+  - {key: x.power_factor_ieee, label: PF(ΣL) IEEE, table: holding, address: 45080, type: s16, scale: 0.001, invalid: [32767], conflicts: [{sources: [openems], scale: 1, label: 'Power factor IEEE Sum(L1,L2,L3)'}]}
+  - {key: l1_power, label: P(L1), table: holding, address: 45081, type: s32, unit: W, scale: 10, positive: import, verified: false, note: Sign assumed as for P(ΣL). On the triple meters L1–L3 are meters 1–3.}
+  - {key: l2_power, label: P(L2), table: holding, address: 45083, type: s32, unit: W, scale: 10, invalid: [2147483647], positive: import, verified: false}
+  - {key: l3_power, label: P(L3), table: holding, address: 45085, type: s32, unit: W, scale: 10, invalid: [2147483647], positive: import, verified: false}
+  - {key: x.reactive_power_l1, label: Q(L1), table: holding, address: 45087, type: s32, unit: var, scale: 10}
+  - {key: x.reactive_power_l2, label: Q(L2), table: holding, address: 45089, type: s32, unit: var, scale: 10, invalid: [2147483647]}
+  - {key: x.reactive_power_l3, label: Q(L3), table: holding, address: 45091, type: s32, unit: var, scale: 10, invalid: [2147483647]}
+  - {key: x.apparent_power_l1, label: S(L1), table: holding, address: 45093, type: u32, unit: VA, scale: 10}
+  - {key: x.apparent_power_l2, label: S(L2), table: holding, address: 45095, type: u32, unit: VA, scale: 10, invalid: [4294967295]}
+  - {key: x.apparent_power_l3, label: S(L3), table: holding, address: 45097, type: u32, unit: VA, scale: 10, invalid: [4294967295]}
+  - {key: x.power_factor_l1, label: PF(L1) IEC, table: holding, address: 45099, type: s16, scale: 0.001, conflicts: [{sources: [openems], unit: '%', label: Power factor IEC L1}]}
+  - {key: x.power_factor_l2, label: PF(L2) IEC, table: holding, address: 45100, type: s16, scale: 0.001, invalid: [32767], conflicts: [{sources: [openems], unit: '%', label: Power factor IEC L2}]}
+  - {key: x.power_factor_l3, label: PF(L3) IEC, table: holding, address: 45101, type: s16, scale: 0.001, invalid: [32767], conflicts: [{sources: [openems], unit: '%', label: Power factor IEC L3}]}
+  - {key: x.power_factor_l1_ieee, label: PF(L1) IEEE, table: holding, address: 45102, type: s16, scale: 0.001, conflicts: [{sources: [openems], unit: '%', label: Power factor IEEE L1}]}
+  - {key: x.power_factor_l2_ieee, label: PF(L2) IEEE, table: holding, address: 45103, type: s16, scale: 0.001, invalid: [32767], conflicts: [{sources: [openems], unit: '%', label: Power factor IEEE L2}]}
+  - {key: x.power_factor_l3_ieee, label: PF(L3) IEEE, table: holding, address: 45104, type: s16, scale: 0.001, invalid: [32767], conflicts: [{sources: [openems], unit: '%', label: Power factor IEEE L3}]}
+  # Energies, all tariffs (0xB060 ff.)
+  - {key: grid_import_energy, label: Ea+ (ΣT), table: holding, address: 45152, type: u32, unit: kWh, invalid: [4294967295], note: 'Rolls over at the overflow value (register 0xC010): 100 000 kWh on 1P 40 A, 10 000 000 kWh on other direct meters.'}
+  - {key: x.reactive_import_energy, label: Er+ (ΣT), table: holding, address: 45154, type: u32, unit: kvarh, invalid: [4294967295]}
+  - {key: grid_export_energy, label: Ea- (ΣT), table: holding, address: 45156, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.reactive_export_energy, label: Er- (ΣT), table: holding, address: 45158, type: u32, unit: kvarh, invalid: [4294967295]}
+  - {key: x.partial_import_energy, label: 'P_Ea+ (ΣT), resettable', table: holding, address: 45160, type: u32, unit: kWh, invalid: [4294967295], note: Not on 1P 40 A (ECR140D).}
+  - {key: x.partial_export_energy, label: 'P_Ea- (ΣT), resettable', table: holding, address: 45162, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.import_energy_wh, label: Ea+ (ΣT) in Wh, table: holding, address: 45164, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], note: Firmware 1.2 and later only; older firmware answers with an exception. Wraps at the 32-bit limit (99 999 999 Wh on 1P 40 A).}
+  - {key: x.export_energy_wh, label: Ea- (ΣT) in Wh, table: holding, address: 45166, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.import_energy_arn, label: 'Ea+ (ΣT), vector sum (ARN 4400)', table: holding, address: 45168, type: u32, unit: kWh, invalid: [4294967295], note: Three-phase energy summed by vector (net of the phases) instead of by phase; firmware 1.2 and later.}
+  - {key: x.export_energy_arn, label: 'Ea- (ΣT), vector sum (ARN 4400)', table: holding, address: 45170, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.import_energy_arn_wh, label: 'Ea+ (ΣT), vector sum, in Wh', table: holding, address: 45172, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.export_energy_arn_wh, label: 'Ea- (ΣT), vector sum, in Wh', table: holding, address: 45174, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  # Triple single-phase meters: energies per meter (0xB080 ff.)
+  - {key: x.meter1_import_energy, label: Ea+ (M1)(ΣT), table: holding, address: 45184, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.meter2_import_energy, label: Ea+ (M2)(ΣT), table: holding, address: 45186, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.meter3_import_energy, label: Ea+ (M3)(ΣT), table: holding, address: 45188, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.meter1_export_energy, label: Ea- (M1)(ΣT), table: holding, address: 45190, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.meter2_export_energy, label: Ea- (M2)(ΣT), table: holding, address: 45192, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.meter3_export_energy, label: Ea- (M3)(ΣT), table: holding, address: 45194, type: u32, unit: kWh, invalid: [4294967295]}
+  # Energies per phase (0xB180 ff.)
+  - {key: x.import_energy_l1, label: 'Ea+[L1]', table: holding, address: 45440, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.import_energy_l2, label: 'Ea+[L2]', table: holding, address: 45442, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.import_energy_l3, label: 'Ea+[L3]', table: holding, address: 45444, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.export_energy_l1, label: 'Ea-[L1]', table: holding, address: 45446, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.export_energy_l2, label: 'Ea-[L2]', table: holding, address: 45448, type: u32, unit: kWh, invalid: [4294967295]}
+  - {key: x.export_energy_l3, label: 'Ea-[L3]', table: holding, address: 45450, type: u32, unit: kWh, invalid: [4294967295]}
+  # Tariffs (0xB0B0 ff.)
+  - {key: x.tariff_count, label: Number of available tariffs, table: holding, address: 45232, type: u16, poll: slow}
+  - {key: x.active_tariff, label: Active tariff, table: holding, address: 45233, type: u16}
+  - {key: x.tariff_mode, label: Tariff mode, table: holding, address: 45235, type: u16, enum: tariff_mode, poll: slow}
+  - {key: x.set_tariff, label: Set tariff, table: holding, address: 45236, type: u16, writable: true, write_only: true, poll: slow, note: 1–8 (1–4 on triple meters); used in Modbus tariff mode.}
+  # Network and Modbus settings (0xC000 ff.)
+  - {key: x.network_type, label: Network type, table: holding, address: 49152, type: u16, enum: network_type, poll: slow}
+  - {key: x.ct_secondary, label: CT secondary, table: holding, address: 49153, type: u16, unit: A, invalid: [65535], poll: slow}
+  - {key: x.ct_primary, label: CT primary, table: holding, address: 49154, type: u16, unit: A, invalid: [65535], poll: slow}
+  - {key: x.mid_certified, label: MID certified, table: holding, address: 49155, type: u16, enum: mid, poll: slow}
+  - {key: x.overflow_value, label: Energy overflow value, table: holding, address: 49168, type: u32, poll: slow, note: kWh / kvarh at which the energy registers roll over.}
+  - {key: x.switch_on_count, label: Switch-ons since production, table: holding, address: 49200, type: u16, poll: slow}
+  - {key: x.modbus_address, label: Modbus address, table: holding, address: 49216, type: u16, writable: true, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 49217, type: u16, bits: [8, 15], enum: baud_rate, writable: true, poll: slow}
+  - {key: x.parity, label: Parity and stop bits, table: holding, address: 49217, type: u16, bits: [0, 7], enum: parity, writable: true, poll: slow}
+  - {key: x.vendor_url, label: Product Name, table: holding, address: 4130, type: str, length: 16, verified: false, sources: [openems]}
+  - {key: x.application_name, label: User application name, table: holding, address: 4178, type: str, length: 16, verified: false, sources: [openems]}
+  - {key: x.production_site_code, label: Production site code, table: holding, address: 4212, type: str, length: 2, verified: false, sources: [openems]}
+  - {key: x.er_plus_l1, label: Imported reactive Energy L1, table: holding, address: 45452, type: u32, unit: kvarh, verified: false, sources: [openems]}
+  - {key: x.er_plus_l2, label: Imported reactive Energy L2, table: holding, address: 45454, type: u32, unit: kvarh, verified: false, sources: [openems]}
+  - {key: x.er_plus_l3, label: Imported reactive Energy L3, table: holding, address: 45456, type: u32, unit: kvarh, verified: false, sources: [openems]}
+  - {key: x.er_minus_l1, label: Exported reactive Energy L1, table: holding, address: 45458, type: u32, unit: kvarh, verified: false, sources: [openems]}
+  - {key: x.er_minus_l2, label: Exported reactive Energy L2, table: holding, address: 45460, type: u32, unit: kvarh, verified: false, sources: [openems]}
+  - {key: x.er_minus_l3, label: Exported reactive Energy L3, table: holding, address: 45462, type: u32, unit: kvarh, verified: false, sources: [openems]}
+
+enums:
+  tariff_mode: {'0': Physical input, '1': Modbus}
+  network_type: {'1': Single-phase (1BL), '4': Three-phase four-wire (4NBL)}
+  mid: {'0': Not MID, '1': MID}
+  baud_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200', '5': '38400'}
+  parity: {'0': 'No parity, 1 stop bit', '1': 'No parity, 2 stop bits', '2': 'Odd parity, 1 stop bit', '3': 'Odd parity, 2 stop bits', '4': 'Even parity, 1 stop bit', '5': 'Even parity, 2 stop bits'}
+
+notes:
+- Addresses are the document's hex addresses (0-based protocol addresses; the decimal column is the same number). All registers
+  are read with function 03.
+- 'Registers a model doesn''t have read as 0xFFFF / 0xFFFFFFFF (unsigned) or 0x7FFF / 0x7FFFFFFF (signed), given as `invalid`:
+  phase 2 / 3 and line-to-line values on single-phase meters, totals on triple meters, partial energies on 1P 40 A, vector-sum
+  and per-phase energies on all but three-phase meters.'
+- On the triple single-phase meters (ECR180T, ECA180T, ECR300T, ECA300T) L1, L2 and L3 are three separate meters (meter 1–3);
+  their total power and total energies aren't available.
+- CT meters give currents, powers and energies referred to the primary side; the same values referred to the secondary side
+  are at 0xB270 ff. and 0xB2B0 ff. and are left out, as are the per-tariff and partial per-tariff energies (0xB0C0 ff., 0xB140
+  ff., 0xB1B0 ff., 0xB210 ff.), the overflow event counters and the partial-energy reset registers (0xC020 ff.).
+- Three-phase models sum energies either by phase magnitude (ECR380D/381D-type references) or by vector (ECR382D-type); the
+  vector-sum registers 0xB070 ff. are available on all three-phase models with firmware 1.2 or later.
+- The serial settings default isn't stated (set on the meter or in 0xC041); default unit id 1 is assumed. The meters speak
+  Modbus RTU on screw terminals or (Agardio versions) RJ45.
+- The driver's default meter type is PRODUCTION; OpenEMS doesn't say which way the device's own power value is positive, so
+  no direction is given.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

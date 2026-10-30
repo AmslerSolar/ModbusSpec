@@ -1,0 +1,86 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Nanotec "Technical Manual CLC, Fieldbus: Modbus RTU" (1.0.3, firmware FIR-v2542).
+
+modbusspec: 0
+id: nanotec-clc
+manufacturer: Nanotec
+name: CLC motor controllers with Modbus RTU (CLC3-1-5, CLC3-2-5, CLC6-1-5, CLC6-2-5, CLC15-2-5)
+kind: other
+
+sources:
+- title: Technical Manual CLC, Fieldbus Modbus RTU
+  version: 1.0.3 (03/2026), firmware FIR-v2542
+  url: https://www.nanotec.com/fileadmin/files/Handbuecher/Motorsteuerungen/clc/CLC_ModbusRTU_Technical-Manual_V1.0.3.pdf
+  sha256: e33da26775f6691bde172b6e84ea1def6f9589f3b545e7d712184ada766ab669
+
+connection:
+  default_port: 502
+  default_unit: 5
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+  limits:
+    max_registers: 125
+    min_interval_ms: 3
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Tx process image (slave → master) from register 5000, factory mapping (object 3602h)
+  - {key: state, label: Statusword (6041h), table: holding, address: 5000, type: u16, flags: statusword, poll: fast, note: 'CiA 402 status word; the state follows from bits 0–3, 5 and 6 (see notes).'}
+  - {key: x.mode_display, label: Modes Of Operation Display (6061h), table: holding, address: 5001, type: u16, bits: [0, 7], signed: true, enum: mode, poll: fast, note: INTEGER8 in the low byte; the high byte is a dummy object (always 0) for alignment.}
+  - {key: x.position_actual, label: Position Actual Value (6064h), table: holding, address: 5002, type: s32, poll: fast, note: In user-defined units (60A8h); factory setting tenths of a degree.}
+  - {key: x.velocity_actual, label: Velocity Actual Value (606Ch), table: holding, address: 5004, type: s32, unit: rpm, poll: fast, note: In user-defined units (60A9h); factory setting revolutions per minute.}
+  - {key: x.digital_inputs, label: Digital Inputs (60FDh), table: holding, address: 5006, type: u32, flags: digital_inputs, poll: fast}
+
+  # Rx process image (master → slave) from register 6000, factory mapping (object 3502h)
+  - {key: x.controlword, label: Controlword (6040h), table: holding, address: 6000, type: u16, writable: true, note: CiA 402 control word; bit 7 resets a fault.}
+  - {key: x.mode_of_operation, label: Modes Of Operation (6060h), table: holding, address: 6001, type: u16, bits: [0, 7], signed: true, enum: mode, writable: true, note: INTEGER8 in the low byte; the high byte is a dummy object for alignment.}
+  - {key: x.target_position, label: Target Position (607Ah), table: holding, address: 6002, type: s32, writable: true, note: In user-defined units.}
+  - {key: x.profile_velocity, label: Profile Velocity (6081h), table: holding, address: 6004, type: u32, writable: true, note: In user-defined units.}
+  - {key: x.target_velocity, label: Target Velocity (60FFh), table: holding, address: 6006, type: s32, writable: true, note: In user-defined units.}
+  - {key: x.digital_outputs, label: 'Digital Outputs – Physical Outputs (60FEh:01h)', table: holding, address: 6008, type: u32, flags: digital_outputs, writable: true}
+
+enums:
+  mode: {'-2': Auto setup, '-1': Clock-direction mode, '0': No mode, '1': Profile Position, '3': Profile Velocity, '4': Profile Torque, '5': Reserved, '6': Homing, '7': Interpolated Position, '8': Cyclic Synchronous Position, '9': Cyclic Synchronous Velocity, '10': Cyclic Synchronous Torque}
+
+flags:
+  statusword: {'0': Ready to switch on, '1': Switched on, '2': Operation enabled, '3': Fault, '4': Voltage enabled, '5': Quick stop (0 = quick stop active), '6': Switch on disabled, '7': Warning, '8': In sync with the fieldbus, '9': Remote (always 1), '10': Target reached, '11': Internal limit active, '12': Operation mode specific, '13': Operation mode specific, '15': Closed loop active}
+  digital_inputs: {'0': Negative limit switch, '1': Positive limit switch, '2': Home switch, '3': Interlock, '16': Input 1, '17': Input 2, '18': Input 3, '19': Input 4, '20': Input 5, '21': Input 6, '22': Input 7, '23': Input 8}
+  digital_outputs: {'0': Brake (1 = brake closed), '16': Output 1, '17': Output 2, '18': Output 3, '19': Output 4}
+
+problems:
+  - {when: {key: state, bit: 3}, kind: fault, text: Controller fault (status word bit 3)}
+  - {when: {key: state, bit: 7}, kind: warning, text: Controller warning (status word bit 7)}
+
+notes:
+- 'Stepper / BLDC motor controller, not an energy device: kind other. Its parameters are a CANopen-style object dictionary
+  (CiA 402); with plain Modbus function codes only the process images and the NanoJ registers can be read and written. Single
+  objects (e.g. 603Fh error code, 1003h error history, 4040h serial number, 1018h identity) need function 43 (2Bh, CAN encapsulation,
+  little-endian data), which this format can''t express, so the file has no identify.'
+- 'The process images are configurable (objects 3502h Rx and 3602h Tx, via function 2Bh or Plug & Drive Studio). The registers
+  here are the factory mapping: Tx from register 5000 = 6041h (16 bit), dummy (8 bit), 6061h (8 bit), 6064h, 606Ch, 60FDh
+  (32 bit each); Rx from register 6000 = 6040h (16 bit), dummy (8 bit), 6060h (8 bit), 607Ah, 6081h, 60FFh, 60FEh:01h (32
+  bit each). A changed mapping moves them.'
+- The data are packed without gaps, big-endian as stated for Modbus; that the 8-bit object after the dummy lands in the low
+  byte of its register, and that 32-bit values are high word first, follows from that but is not shown in the manual for this
+  mapping (not verified). Reads of the Tx image must start 4-byte aligned.
+- Addresses are the manual's decimal Modbus telegram addresses (0-based); 40001 / 30001 in Modicon notation is address 0.
+  The manual pairs function 03 with input registers and 04 with holding registers; both read the same registers.
+- 'CiA 402 states from the status word (bits 6, 5, 3…0): x0xx 0000 not ready to switch on, 1xx 0000 switch on disabled, 01x
+  0001 ready to switch on, 01x 0011 switched on, 01x 0111 operation enabled, 00x 0111 quick stop active, 0xx 1111 fault reaction
+  active, 0xx 1000 fault.'
+- 'Factory settings: slave address 5 (2028h), 19200 baud (202Ah, 7200…256000), even parity with 1 stop bit (202Dh; no parity
+  uses 2 stop bits), 8 data bits. Changes need a save (65766173h to 1010h:0Bh) and a restart. Wait at least 3 ms after a response
+  before the next request when several slaves share the bus.'
+- Position and velocity units are user-defined (60A8h / 60A9h); the factory settings are tenths of a degree and rpm. The units
+  can't follow a changed setting here.
+- 'Left out: NanoJ output registers (2500h, read from register 2000, 32 × 32 bit) and input registers (2400h, written from
+  register 3000), which only carry what a user''s NanoJ program puts there.'

@@ -1,0 +1,140 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Bonfiglioli Active Cube CM-MODBUS / CM2-MODBUS communication module manual (VEC383R4, 04/23)
+# and the Bonfiglioli Active Cube CM-Modbus/TCP / CM2-Modbus/TCP communication module manual (VEC1047R1, 03/23).
+
+modbusspec: 0
+id: bonfiglioli-active-cube
+manufacturer: Bonfiglioli
+name: ACTIVE (ACT) / ACTIVE Cube (ACU) frequency inverters with CM-MODBUS or CM-Modbus/TCP module
+kind: other
+
+sources:
+- title: Active Cube MODBUS Communication Module CM-MODBUS / CM2-MODBUS, Frequency Inverter 230 V / 400 V (ACT ACU CM232 485
+    Modbus VEC383R4)
+  version: VEC383R4, 04/23
+  url: https://www.bonfiglioli.com/_default_upload_bucket/ACT_ACU_CM232_485_Modbus_VEC383R4.pdf
+  sha256: 261c139ab2a3174224b240d5022eed9beb5d02fd0e5a5e72e7acb2bb1a1c3114
+- title: ACTIVE CUBE Modbus/TCP Communication module CM-Modbus/TCP / CM2-Modbus/TCP, Frequency inverter 230 V / 400 V (VEC1047R1)
+  version: VEC1047R1, 03/23
+  url: https://www.bonfiglioli.com/_default_upload_bucket/ACU_CM_ModbusTCP_EN_VEC1047R1%20%281%29.pdf
+  sha256: 324026ddc6838822384e20fa51d514d6f327298c1d6bdd73ae950ac976d40c1f
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  - ascii
+  serial:
+    baud: 19200
+    format: 8E1
+  limits:
+    max_registers: 2
+    max_gap: 0
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Live values
+  - {key: x.stator_frequency, label: Stator Frequency, table: holding, address: 210, type: s32, unit: Hz, scale: 0.01, poll: fast, verified: false, note: 'Named in the serial manual as a possible actual value (data type long, Hz) but not in its parameter list. The number of decimal places is not stated; assumed two, as for the other frequency parameters.'}
+  - {key: x.encoder1_speed, label: Encoder 1 Speed, table: holding, address: 218, type: s16, unit: rpm, poll: fast, optional: true, note: Only with a speed sensor. Data type int stated.}
+  - {key: x.internal_reference_frequency, label: Internal reference frequency, table: holding, address: 228, type: s32, unit: Hz, scale: 0.01, poll: fast, verified: false, note: 'Shown as xxx.xx Hz; 32-bit type not stated, assumed like Fixed Frequency 481 (32-bit, two decimals).'}
+  - {key: x.actual_speed, label: Actual speed, table: holding, address: 240, type: s32, unit: rpm, poll: fast, verified: false, note: Listed only in the Modbus/TCP manual. Range ±60000 rpm does not fit 16 bits; 32-bit assumed.}
+  - {key: x.ramp_reference_frequency, label: Reference Ramp Frequency, table: holding, address: 283, type: s32, unit: Hz, scale: 0.01, poll: fast, verified: false, note: 'Internal reference plus bus reference, at the ramp output. Range ±999.99 Hz; 32-bit with two decimals assumed.'}
+
+  # State and faults
+  - {key: state, label: Status Word, table: holding, address: 411, type: u16, flags: status_word, poll: fast}
+  - {key: x.voltage_enabled, label: Status Word bit 4 Voltage enabled, table: holding, address: 411, type: u16, bits: [4, 4], poll: fast}
+  - {key: x.active_data_set, label: Active Data Set, table: holding, address: 249, type: u16, poll: slow}
+  - {key: error_code, label: Actual Error, table: holding, address: 260, type: u16, poll: fast, note: '0 = no fault. High byte = error group, low byte = code within the group (e.g. F27 14 communication loss to PLC). Only readable over the field bus.'}
+  - {key: x.warnings, label: Warnings, table: holding, address: 270, type: u16, flags: warnings, poll: fast}
+  - {key: x.application_warnings, label: Application Warnings, table: holding, address: 274, type: u16, flags: application_warnings, poll: fast, note: ACU only.}
+
+  # Motion Control Interface (positioning configurations only)
+  - {key: x.mci_actual_position, label: Actual Position (MCI), table: holding, address: 1108, type: s32, unit: u, poll: fast, optional: true, note: User units; positioning configurations only.}
+
+  # Control and reference values
+  - {key: x.control_word, label: Control Word, table: holding, address: 410, type: u16, writable: true, persistent: false, poll: fast, note: 'Bit meanings depend on Local/Remote 412: virtual digital inputs (2) or state machine bits (1: 0 switch on, 1 enable voltage, 2 quick stop low active, 3 enable operation, 7 fault reset, 8 halt).'}
+  - {key: x.reference_frequency_ram, label: Reference Frequency RAM, table: holding, address: 484, type: s32, unit: Hz, scale: 0.01, writable: true, min: -999.99, max: 999.99, persistent: false, poll: slow, verified: false, note: Bus reference frequency; 32-bit with two decimals assumed.}
+  - {key: x.reference_percentage_ram, label: Reference Percentage RAM, table: holding, address: 524, type: s32, unit: '%', scale: 0.01, writable: true, min: -300, max: 300, persistent: false, poll: slow, verified: false, note: 'Data width not stated, 32-bit with two decimals assumed.'}
+  - {key: x.override_target_velocity, label: 'Override Target velocity vl [rpm]', table: holding, address: 1459, type: s16, unit: rpm, writable: true, min: -32768, max: 32767, poll: slow, note: Modbus/TCP manual.}
+
+  # Settings
+  - {key: x.local_remote, label: Local/Remote, table: holding, address: 412, type: u16, enum: local_remote, writable: true, persistent: true, poll: slow, note: Data-set related; see the data set note.}
+  - {key: x.data_set_selection, label: Data Set Selection, table: holding, address: 414, type: u16, writable: true, min: 0, max: 5, persistent: true, poll: slow, note: 0 = by digital inputs; 1…4 = that data set via the bus; 5 = switch only while not released.}
+  - {key: x.ramp_setpoint, label: Ramp Setpoint, table: holding, address: 434, type: u16, enum: ramp_setpoint, writable: true, persistent: true, poll: slow, note: Data-set related.}
+  - {key: x.state_transition_5, label: State Transition 5, table: holding, address: 392, type: u16, enum: transition_5, writable: true, persistent: true, poll: slow}
+  - {key: x.bus_error_behaviour, label: Bus Error Behaviour, table: holding, address: 388, type: u16, enum: bus_error_behaviour, writable: true, persistent: true, poll: slow, note: Modbus/TCP module.}
+  - {key: x.modbus_tcp_timeout, label: Modbus/TCP Timeout, table: holding, address: 1439, type: u16, unit: ms, writable: true, persistent: true, poll: slow, note: Modbus/TCP module; 0 = off. On timeout the inverter trips with F2735.}
+  - {key: x.baud_rate, label: Baud Rate, table: holding, address: 10, type: u16, enum: baud_rate, writable: true, persistent: true, poll: slow, note: Serial module; takes effect after a reset.}
+  - {key: x.protocol, label: Protocol, table: holding, address: 395, type: u16, enum: protocol, writable: true, persistent: true, poll: slow, note: Serial module.}
+  - {key: x.watchdog_timer, label: RS232/RS485 Watchdog Timer, table: holding, address: 413, type: u16, unit: s, writable: true, persistent: true, poll: slow, note: Serial module; 0 = off. On timeout the inverter trips with F2010.}
+  - {key: x.modbus_parity, label: Modbus Parity, table: holding, address: 1375, type: u16, enum: parity, writable: true, persistent: true, poll: slow, note: Serial module.}
+  - {key: x.modbus_address, label: Modbus Address, table: holding, address: 1376, type: u16, writable: true, min: 1, max: 247, persistent: true, poll: slow, note: Serial module.}
+
+enums:
+  local_remote: {'0': Control via contacts, '1': Control via state machine, '2': Control via remote contacts}
+  ramp_setpoint: {'1': Internal setpoint, '2': Line (bus) setpoint, '3': Internal + line setpoint}
+  transition_5: {'0': Coast to stop, '1': DC brake, '2': Ramp}
+  bus_error_behaviour: {'0': No response, '1': Error, '2': Stop, '3': Quick stop, '4': Shutdown + error, '5': Quick stop + error}
+  baud_rate: {'1': '2400', '2': '4800', '3': '9600', '4': '19200', '5': '57600', '6': '115200'}
+  protocol: {'0': VABus, '1': P-Bus, '2': Modbus RTU, '3': Modbus ASCII}
+  parity: {'0': Even, '1': Odd, '2': None}
+
+flags:
+  status_word: {'0': Ready to switch on, '1': Switched on, '2': Operation enabled, '3': Fault, '4': Voltage enabled (mains present), '5': Quick stop (low active), '6': Switch on disabled, '7': Warning, '8': Homing done / motion block in progress / phasing done (mode dependent), '9': Remote, '10': Reference value / target reached, '11': Internal limit active, '12': Mode dependent (MCI), '13': Mode dependent (MCI following / homing error), '15': Warning 2}
+  warnings: {'0': Ixt, '1': Short-time Ixt, '2': Long-time Ixt, '3': Heat sink temperature, '4': Inside temperature, '5': Current limit, '6': Init, '7': Motor temperature, '8': Mains phase failure, '9': Motor protective switch, '10': Fmax, '11': Analog input MFI1A, '12': Analog input MFI2A, '13': System bus slave in fault, '14': DC link voltage (Udc), '15': Application warning (ACU) / V-belt (ACT)}
+  application_warnings: {'0': V-belt, '1': Software limit switch clockwise, '2': Software limit switch anticlockwise, '3': Hardware limit switch clockwise, '4': Hardware limit switch anticlockwise, '5': Contouring error, '6': Absolute encoder, '7': User warning 1, '8': User warning 2}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Inverter fault (code 0x{value:X})'}
+  - {when: {key: state, bit: 3}, kind: fault, text: Inverter in fault state (status word bit 3)}
+  - {when: {key: state, bit: 15}, kind: warning, text: 'Critical warning, fault trip imminent (status word bit 15)'}
+  - {when: {key: x.voltage_enabled, equals: 0}, kind: mains_lost, text: No mains supply (status word bit 4 clear)}
+  - {when: {key: x.warnings, bit: 0}, kind: warning, text: Warning Ixt}
+  - {when: {key: x.warnings, bit: 3}, kind: warning, text: Warning heat sink temperature}
+  - {when: {key: x.warnings, bit: 4}, kind: warning, text: Warning inside temperature}
+  - {when: {key: x.warnings, bit: 5}, kind: warning, text: Warning current limit}
+  - {when: {key: x.warnings, bit: 7}, kind: warning, text: Warning motor temperature}
+  - {when: {key: x.warnings, bit: 8}, kind: warning, text: Warning mains phase failure}
+  - {when: {key: x.warnings, bit: 9}, kind: warning, text: Warning motor protective switch}
+  - {when: {key: x.warnings, bit: 10}, kind: warning, text: Warning Fmax}
+  - {when: {key: x.warnings, bit: 11}, kind: warning, text: Warning analog input MFI1A}
+  - {when: {key: x.warnings, bit: 12}, kind: warning, text: Warning analog input MFI2A}
+  - {when: {key: x.warnings, bit: 13}, kind: warning, text: Warning system bus}
+  - {when: {key: x.warnings, bit: 14}, kind: warning, text: Warning DC link voltage}
+  - {when: {key: x.warnings, bit: 15}, kind: warning, text: Application warning (ACU) / V-belt warning (ACT)}
+  - {when: {key: x.application_warnings, bit: 1}, kind: warning, text: Software limit switch clockwise}
+  - {when: {key: x.application_warnings, bit: 2}, kind: warning, text: Software limit switch anticlockwise}
+  - {when: {key: x.application_warnings, bit: 3}, kind: warning, text: Hardware limit switch clockwise}
+  - {when: {key: x.application_warnings, bit: 4}, kind: warning, text: Hardware limit switch anticlockwise}
+  - {when: {key: x.application_warnings, bit: 5}, kind: warning, text: Contouring error}
+  - {when: {key: x.application_warnings, bit: 6}, kind: warning, text: Absolute encoder warning}
+
+notes:
+- 'Drives, not energy devices: kind other.'
+- The Modbus register address is the inverter parameter number (low 12 bits) plus the data set 0…9 (high 4 bits); the addresses
+  here are the parameter numbers with data set 0. Data set 0 addresses parameters that exist once; for parameters kept in
+  four data sets (e.g. Local/Remote 412, Ramp Setpoint 434), a read with data set 0 only succeeds when all four hold the same
+  value, and a write with data set 0 sets all four. Data set + 5 (5…9) writes to RAM only, without an EEPROM write; use that
+  for cyclic writes.
+- 'Every request accesses exactly one parameter: function 3 with a count of 1 (16-bit parameter) or 2 (32-bit parameter);
+  a wrong width is refused. 32-bit access with function 3/16 needs ACU firmware 5.1.12 or later; on ACT it was not yet available,
+  so ACT 32-bit values are only readable with the vendor function 100 (101 writes), which this format can''t express.'
+- Values with decimals are sent as integers multiplied by 10, 100 or 1000. Neither manual lists the data width (16/32 bit)
+  of most actual values; the points marked unverified carry assumed widths and decimals.
+- 'Left out: VABus SST error register 11 (cleared on read; explains a slave-device-failure exception), Module Info 1431 (text,
+  length not stated), network settings 1432…1437, ramps 420…425, and the Motion Control Interface parameters (1104…1299, 1454…1460)
+  except those above.'
+- 'Serial (CM-232 point to point, CM-485 up to 247 inverters): Modbus is not the factory protocol; set Protocol 395 to 2 (RTU)
+  or 3 (ASCII). Factory settings 19200 baud, even parity, address 1; with no parity a second stop bit is sent.'
+- 'Consecutive parameter numbers are separate parameters even when 32 bits wide, so a 32-bit parameter here seems to cover
+  the next number too; this format can''t express that, so of neighbouring parameters only one is listed. Left out for that
+  reason: Encoder 1 Frequency 217 (long, Hz), Reference Bus Frequency 282 (±999.99 Hz), MCI Act. Speed 1107 (u/s) and Act.
+  Contouring Error 1109 (u).'
+- 'Modbus/TCP: port 502 only, one request per transaction; the unit id is ignored.'

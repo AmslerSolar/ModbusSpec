@@ -1,0 +1,157 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Grundfos functional profile Modbus for MIXIT (99349159 0726).
+
+modbusspec: 0
+id: grundfos-mixit
+manufacturer: Grundfos
+name: MIXIT mixing loop (heating / cooling controller)
+kind: boiler
+
+sources:
+- title: Functional profile Modbus for MIXIT
+  version: 99349159 0726
+  url: https://www.grundfos-eica.com/fileadmin/public/Redaktion/Dokumente/PDF/Functional_profiles/99349159_0726_Modbus_for_MIXIT_FP_GB_online.pdf
+  sha256: a164d79b15ea61ca019b70f9fddda9a8776f7ac2595174a2ebd8752fc61490eb
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # Grundfos unit family: MIXIT
+  - table: holding
+    address: 29
+    type: u16
+    equals: 47
+  # product software year
+  - table: holding
+    address: 36
+    type: bcd16
+    range:
+    - 2015
+    - 2099
+
+points:
+  # Device configuration and identity
+  - {key: x.bus_address, label: Config.BusAddress, table: holding, address: 2, type: u16, writable: true, min: 1, max: 247, persistent: true, poll: slow}
+  - {key: x.bit_rate, label: Config.BitRate, table: holding, address: 3, type: u16, enum: bit_rate, writable: true, persistent: true, poll: slow}
+  - {key: x.parity, label: Config.ModbusParity, table: holding, address: 8, type: u16, enum: parity, writable: true, persistent: true, poll: slow}
+  - {key: x.stop_bits, label: Config.ModbusStopBits, table: holding, address: 9, type: u16, enum: stop_bits, writable: true, persistent: true, poll: slow}
+  - {key: x.interface_version, label: VersionNumber, table: holding, address: 22, type: bcd16, poll: slow, note: Modbus interface software version.}
+  - {key: x.unit_family, label: GrundfosUnitFamily, table: holding, address: 29, type: u16, enum: unit_family, poll: slow}
+  - {key: x.unit_type, label: GrundfosUnitType, table: holding, address: 30, type: u16, poll: slow}
+  - {key: x.unit_version, label: GrundfosUnitVersion, table: holding, address: 31, type: u16, poll: slow}
+  - {key: firmware, label: ProductSoftwareVersion, table: holding, address: 33, type: bcd32, poll: slow, note: Eight BCD digits aa.bb.cc.dd (HI register first).}
+  - {key: x.software_year, label: ProductSoftwareYear, table: holding, address: 36, type: bcd16, poll: slow}
+  # Control (requires remote mode)
+  - {key: x.remote_access_request, label: ControlBits.RemoteAccessReq, table: holding, address: 100, type: u16, bits: [0, 0], writable: true, write_only: true, persistent: false, poll: slow, note: 1 = remote (bus) control. MIXIT returns to local control after a power failure or when not polled for a while (see notes).}
+  - {key: x.on_off, label: ControlBits.OnOff, table: holding, address: 100, type: u16, bits: [1, 1], writable: true, write_only: true, poll: slow, note: '1 = start, 0 = stop (requires remote mode).'}
+  - {key: x.reset_alarm, label: ControlBits.ResetAlarm, table: holding, address: 100, type: u16, bits: [2, 2], writable: true, write_only: true, poll: slow}
+  - {key: x.remote_setpoint, label: Control.SetTempSetpointRemote, table: holding, address: 101, type: u16, unit: °C, scale: 0.01, offset: -273.15, writable: true, write_only: true, poll: slow, note: Used when the setpoint source (116) is 2 (fieldbus).}
+  - {key: x.remote_outdoor_temperature, label: Control.SetOutdoorTempRemote, table: holding, address: 102, type: u16, unit: °C, scale: 0.01, offset: -273.15, writable: true, write_only: true, poll: slow, note: Used when the setpoint source (116) is 4.}
+  - {key: x.pump_control_mode_heat, label: Config.PumpControlModeHeat, table: holding, address: 112, type: u16, enum: pump_control_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.setpoint_source, label: Config.TempSetpointSource, table: holding, address: 116, type: u16, enum: setpoint_source, writable: true, persistent: true, poll: slow}
+  - {key: x.default_setpoint, label: Config.DefaultTempSetpoint, table: holding, address: 117, type: u16, unit: °C, scale: 0.01, offset: -273.15, writable: true, persistent: true, poll: slow, note: Fallback setpoint when the bus connection is lost.}
+  - {key: x.pump_control_mode_cool, label: Config.PumpControlModeCool, table: holding, address: 132, type: u16, enum: pump_control_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.thermal_application_type, label: Config.ThermalApplicationType, table: holding, address: 136, type: u16, enum: thermal_application, writable: true, persistent: true, poll: slow, note: Switches heating / cooling in combined mode (152 = 2).}
+  - {key: x.heating_cooling_selection, label: Config.HeatingCoolingSelection, table: holding, address: 152, type: u16, enum: heating_cooling, writable: true, persistent: true, poll: slow}
+  # Status
+  - {key: x.remote_active, label: Status.ActualRemoteAccess, table: holding, address: 200, type: u16, bits: [0, 0], enum: off_on}
+  - {key: x.fault, label: Status.Fault, table: holding, address: 200, type: u16, bits: [1, 1], enum: off_on}
+  - {key: x.ready, label: Status.Ready, table: holding, address: 200, type: u16, bits: [2, 2], enum: off_on}
+  - {key: x.running, label: Status.ActualRunStateSystem, table: holding, address: 200, type: u16, bits: [3, 3], enum: off_on}
+  - {key: x.warning_bits, label: Status warnings, table: holding, address: 203, type: u16, flags: warning_bits}
+  - {key: error_code, label: Status.AlarmCode, table: holding, address: 205, type: u16, enum: alarm_code, verified: false, note: 0 = no alarm is assumed (not stated).}
+  - {key: x.warning_code, label: Status.WarningCode, table: holding, address: 206, type: u16, enum: warning_code, verified: false, note: 0 = no warning is assumed (not stated).}
+  - {key: x.sub_alarm_code, label: Status.SubAlarmCode, table: holding, address: 207, type: u16}
+  - {key: x.sub_warning_code, label: Status.SubWarningCode, table: holding, address: 208, type: u16}
+  - {key: x.pump_control_mode, label: Status.PumpControlMode, table: holding, address: 209, type: u16, enum: pump_control_mode, note: Of the active thermal mode.}
+  - {key: x.application_type_heat, label: Status.ApplicationTypeHeat, table: holding, address: 210, type: u16, enum: application_type_heat, poll: slow}
+  - {key: state, label: Status.SystemState, table: holding, address: 211, type: u16, enum: system_state}
+  - {key: x.clock, label: Status.UnixRtc, table: holding, address: 215, type: u32, epoch: {start: '1970-01-01', unit: s}, poll: slow}
+  # System data
+  - {key: x.heating_power, label: MeasuredData.HeatingPower, table: holding, address: 304, type: u16, unit: kW, note: Under license.}
+  - {key: x.heat_temperature_difference, label: MeasuredData.HeatTempDifference, table: holding, address: 305, type: u16, unit: K, scale: 0.01, verified: false, note: Under license. Taken as a plain difference (not offset by 273.15); not stated.}
+  - {key: x.outdoor_temperature, label: MeasuredData.OutdoorTemp, table: holding, address: 309, type: u16, unit: °C, scale: 0.01, offset: -273.15}
+  - {key: x.flow_temperature, label: MeasuredData.FlowTemp, table: holding, address: 312, type: u16, unit: °C, scale: 0.01, offset: -273.15, note: 'Secondary side, measured by the pump.'}
+  - {key: x.supply_temperature, label: MeasuredData.SupplyTemp, table: holding, address: 313, type: u16, unit: °C, scale: 0.01, offset: -273.15, note: Measured at the valve.}
+  - {key: x.zone_air_temperature, label: MeasuredData.ZoneAirTemp, table: holding, address: 315, type: u16, unit: °C, scale: 0.01, offset: -273.15, optional: true}
+  - {key: x.valve_opening, label: MeasuredData.LogicalValveOpening, table: holding, address: 318, type: u16, unit: '%', scale: 0.01}
+  - {key: x.valve_supply_flow, label: MeasuredData.ValveSupplyFlow, table: holding, address: 319, type: u16, unit: m³/h, scale: 0.1}
+  - {key: x.actual_setpoint, label: MeasuredData.ActualTempSetpoint, table: holding, address: 320, type: u16, unit: °C, scale: 0.01, offset: -273.15}
+  - {key: x.return_temperature, label: MeasuredData.ReturnTemp, table: holding, address: 321, type: u16, unit: °C, scale: 0.01, offset: -273.15}
+  - {key: x.controlled_temperature, label: MeasuredData.ControlledTemp, table: holding, address: 322, type: u16, unit: °C, scale: 0.01, offset: -273.15}
+  - {key: x.heating_energy, label: MeasuredData.HeatingEnergy, table: holding, address: 324, type: u32, unit: kWh, poll: slow, note: Under license.}
+  - {key: x.cooling_power, label: MeasuredData.CoolingPower, table: holding, address: 326, type: u16, unit: kW}
+  - {key: x.heating_volume, label: MeasuredData.HeatingVolume, table: holding, address: 338, type: u32, unit: m³, scale: 0.01, poll: slow, note: Under license.}
+  - {key: x.cooling_volume, label: MeasuredData.CoolingVolume, table: holding, address: 340, type: u32, unit: m³, scale: 0.01, poll: slow, note: Under license.}
+  - {key: x.cooling_energy, label: MeasuredData.CoolingEnergy, table: holding, address: 342, type: u32, unit: kWh, poll: slow, note: Under license.}
+  # Pump data
+  - {key: x.pump_warning_code, label: MeasuredData.PumpWarningCode, table: holding, address: 400, type: u16}
+  - {key: x.pump_alarm_code, label: MeasuredData.PumpAlarmCode, table: holding, address: 401, type: u16}
+  - {key: x.pump_flow, label: MeasuredData.PumpFlow, table: holding, address: 403, type: u16, unit: m³/h, scale: 0.1}
+  - {key: x.pump_head, label: MeasuredData.PumpHead, table: holding, address: 404, type: u16, unit: m, scale: 0.01}
+  - {key: consumer_power, label: MeasuredData.PumpPower, table: holding, address: 405, type: u16, unit: W, positive: consumption, note: Electrical power of the connected pump.}
+  - {key: x.pump_speed, label: MeasuredData.PercentageSpeed, table: holding, address: 406, type: u16, unit: '%', scale: 0.01}
+  - {key: consumer_energy, label: MeasuredData.PumpEnergy, table: holding, address: 407, type: u32, unit: kWh, poll: slow, note: Energy of the connected pump.}
+  - {key: x.pump_operating_hours, label: MeasuredData.PumpOperatingHours, table: holding, address: 409, type: u32, unit: h, poll: slow}
+  - {key: x.mixit_operating_time, label: MeasuredData.MIXITOperatingHours, table: holding, address: 414, type: u32, unit: s, poll: slow, verified: false, note: 'Named operating hours, but the unit is given as s.'}
+
+enums:
+  bit_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200', '5': '38400', '6': '57600', '7': '76800', '8': '96000', '9': '115200', '255': Not available}
+  parity: {'0': None, '1': Even, '2': Odd}
+  stop_bits: {'0': 1 (default), '1': '1', '2': '2'}
+  off_on: {'0': 'No', '1': 'Yes'}
+  unit_family: {'0': '-', '1': MAGNA series, '2': MGE series, '7': Motor Protection Unit, '17': Multi-E booster, '21': MPC / Multi-B, '25': CR Monitor, '26': Dedicated Controls, '28': 'CIU, SEG AutoAdapt', '30': Smart digital dosing pump, '38': MAGNA3 multi-pump, '39': Multi-E model H/I, '46': SP Controller CU 2X1, '47': MIXIT, '48': Level controller LC 2x1, '255': N/A}
+  pump_control_mode: {'0': Constant pressure, '1': Proportional pressure, '2': Constant speed, '5': AUTOADAPT, '8': Constant flow, '255': Not available}
+  setpoint_source: {'0': Local input, '1': Analog input, '2': Fieldbus input, '3': Outdoor temperature analog input, '4': Outdoor temperature fieldbus input, '255': Not available}
+  thermal_application: {'0': Heating, '1': Cooling}
+  heating_cooling: {'0': Heating, '1': Cooling, '2': Combined}
+  application_type_heat: {'0': Radiator heating, '1': Floor heating, '2': Heating coil, '255': Not available}
+  system_state: {'0': Powering up, '1': Fault, '2': Ready, '3': Preheating heating coil, '4': Temperature control, '5': Coil frost protection, '6': Floor overheat protection, '7': Shut down (start signal removed), '8': Auto tuner on, '9': 'Backup control 1, valve 100 % open', '10': 'Backup control 2, return temperature control', '255': Not available}
+  alarm_code: {'10': Pump communication fault, '25': Wrong configuration, '39': Valve fault, '72': Internal hardware fault, '91': Flow temperature sensor fault, '132': Missing GSC file configuration, '203': Pump alarm, '230': MAC address not configured, '236': Pump faulty}
+  warning_code: {'84': Memory storage media fault, '91': Secondary flow temperature sensor fault (pump), '97': Missing analog input, '125': Outdoor sensor fault, '126': Remote air temperature sensor fault, '157': Real time clock battery fault, '161': 5 V / 12 V internal supply fault, '162': 24 V internal supply fault, '169': Flow sensor fault, '175': Supply (forward) temperature sensor fault, '176': Return temperature sensor fault, '236': Multi-pump alarm for pump 1, '237': Multi-pump alarm for pump 2}
+
+flags:
+  warning_bits: {'0': Return temperature high, '1': Thermal power high, '2': Supply flow high, '3': Flow temperature high (overheat), '4': Coil frost risk, '5': Differential temperature high}
+
+problems:
+  - {when: {key: x.fault, equals: 1}, kind: fault, text: MIXIT stopped by an alarm}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Alarm {value}: {text}'}
+  - {when: {key: x.warning_code, not: 0}, kind: warning, text: 'Warning {value}: {text}'}
+  - {when: {key: x.warning_bits, bit: 0}, kind: warning, text: Return temperature high (bit 0)}
+  - {when: {key: x.warning_bits, bit: 1}, kind: warning, text: Thermal power high (bit 1)}
+  - {when: {key: x.warning_bits, bit: 2}, kind: warning, text: Supply flow high (bit 2)}
+  - {when: {key: x.warning_bits, bit: 3}, kind: warning, text: Flow temperature high (bit 3)}
+  - {when: {key: x.warning_bits, bit: 4}, kind: warning, text: Coil frost risk (bit 4)}
+  - {when: {key: x.warning_bits, bit: 5}, kind: warning, text: Differential temperature high (bit 5)}
+
+notes:
+- The document numbers registers from 1 (00101 = register 101); addresses here are that number minus 1. A bit is written 00101.0
+  = bit 0 of register 101.
+- Function 03 and 04 read the same data. Values are unsigned unless stated. HI/LO pairs are adjacent with HI first, read as
+  u32.
+- Temperatures are in 0.01 K (absolute; 27315 = 0 °C), converted here to °C.
+- 'Modbus needs the CONNECT upgrade licence. Defaults: unit id 1, 9600 baud, even parity, 1 stop bit; Modbus TCP on port 502.'
+- 'Remote control: set 00101.0, select the setpoint source (00117 = 2), write the setpoint (00102), then start (00101.1).
+  Read 00201 about every 25 s to keep bus control, and resend the commands after a power failure. Don''t write the Config
+  registers cyclically (non-volatile memory).'
+- 'Left out: limiter settings (00106–00110, 00128–00132), pump duty points, controller parameters and the weather curve (00114–00116,
+  00126–00127, 00134–00151), heat curve status, volume-weighted average temperatures (00345–00352), simulation (00701–00709)
+  and the user labels (00751–00800).'
+- The Grundfos family code 47 (00030) identifies MIXIT; the alarm sub codes are described in the MIXIT installation manual,
+  not here.

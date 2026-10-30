@@ -1,0 +1,48 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: studer-xcom
+manufacturer: Studer Innotec
+name: Xtender system via Xcom (VarioTrack / VarioString)
+kind: inverter
+
+sources:
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/studer/studer
+
+connection:
+  default_port: 502
+  default_unit: 60
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - openwb
+
+models:
+  - {id: vs, name: VarioString}
+  - {id: vt, name: VarioTrack}
+
+points:
+  - {key: battery_soc, label: Battery state of charge, table: input, address: 4, type: f32, unit: '%'}
+  - {key: battery_power, label: Battery power, table: input, address: 6, type: f32, unit: W, positive: charge}
+  - {key: pv_power, label: Inverter power, table: input, address: 8, type: f32, unit: W, scale: 1000, models: [vt], note: Raw > 0 = generation (openWB's sign handling).}
+  - {key: x.bat_imported, label: Battery imported energy, table: input, address: 14, type: f32, unit: kWh, scale: 0.048}
+  - {key: x.bat_exported, label: Battery exported energy, table: input, address: 16, type: f32, unit: kWh, scale: 0.048}
+  - {key: pv_energy, label: Inverter exported energy, table: input, address: 18, type: f32, unit: kWh, scale: 1000, models: [vt]}
+  - {key: pv_power, label: Inverter power, table: input, address: 20, type: f32, unit: W, scale: 1000, models: [vs], note: Raw > 0 = generation (openWB's sign handling).}
+  - {key: pv_energy, label: Inverter exported energy, table: input, address: 46, type: f32, unit: kWh, scale: 1000, models: [vs]}
+
+notes:
+- openWB reads the PV values from each VarioString (unit 41, 42, …) or VarioTrack (unit 21, 22, …) and adds them up.
+- The models are openWB's settings for this device (which register map to read), not detected from the device.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

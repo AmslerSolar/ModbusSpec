@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DAE Instrument AMR Modbus Reference (revision 1.3e, 2014-06-18).
+
+modbusspec: 0
+id: daeinstrument-amr
+manufacturer: DAE Instrument
+name: AMR 16-channel auto meter reading module
+kind: meter
+
+sources:
+- title: AMR Auto Meter Reading Module Modbus Reference
+  version: 1.3e (2014-06-18)
+  url: http://www.daeinstrument.com/downloads/AMR%20Modbus%20Reference-1.3e.pdf
+  sha256: 3740ae88515e13a56663ae6eb6be0f7cde256facc628a73724504d24a48e2de7
+  archive_url: https://web.archive.org/web/20240613010038/http://www.daeinstrument.com/downloads/AMR%20Modbus%20Reference-1.3e.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+points:
+  - {key: x.ch1_pulses, label: Channel 1 pulse accumulator, table: holding, address: 0, type: u32, writable: true, poll: slow, min: 0, max: 999999, note: Scaled pulses (raw meter pulses divided by the pulse rate divider). Low word first. Channel n at address 2 × (n − 1). Writing sets the counter to a new value.}
+  - {key: x.ch2_pulses, label: Channel 2 pulse accumulator, table: holding, address: 2, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch3_pulses, label: Channel 3 pulse accumulator, table: holding, address: 4, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch4_pulses, label: Channel 4 pulse accumulator, table: holding, address: 6, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch5_pulses, label: Channel 5 pulse accumulator, table: holding, address: 8, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch6_pulses, label: Channel 6 pulse accumulator, table: holding, address: 10, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch7_pulses, label: Channel 7 pulse accumulator, table: holding, address: 12, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch8_pulses, label: Channel 8 pulse accumulator, table: holding, address: 14, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch9_pulses, label: Channel 9 pulse accumulator, table: holding, address: 16, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch10_pulses, label: Channel 10 pulse accumulator, table: holding, address: 18, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch11_pulses, label: Channel 11 pulse accumulator, table: holding, address: 20, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch12_pulses, label: Channel 12 pulse accumulator, table: holding, address: 22, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch13_pulses, label: Channel 13 pulse accumulator, table: holding, address: 24, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch14_pulses, label: Channel 14 pulse accumulator, table: holding, address: 26, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch15_pulses, label: Channel 15 pulse accumulator, table: holding, address: 28, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.ch16_pulses, label: Channel 16 pulse accumulator, table: holding, address: 30, type: u32, writable: true, poll: slow, min: 0, max: 999999}
+  - {key: x.pulse_rate_divider, label: Pulse rate divider, table: holding, address: 208, type: u16, enum: pulse_rate, poll: slow, note: The raw pulses are divided by this before counting and display. Read only here; changed through the protected sequence (see notes).}
+  - {key: x.device_address, label: Device address, table: holding, address: 210, type: u16, bits: [8, 15], poll: slow, note: '0 … 254, in the high byte (the conversion table says data mod 256, but the register table and the example put it in the high byte).'}
+  - {key: x.decimal_point, label: Decimal point, table: holding, address: 215, type: u16, bits: [8, 15], enum: decimal_point, poll: slow, note: Display only; doesn't change the counters. In the high byte.}
+
+enums:
+  pulse_rate: {'1': '1', '4': '4', '8': '8', '10': '10', '16': '16', '32': '32', '64': '64', '100': '100', '160': '160', '320': '320', '640': '640', '1000': '1000', '2000': '2000', '10000': '10000', '20000': '20000'}
+  decimal_point: {'0': X, '1': X.X, '2': X.XX}
+
+notes:
+- Addresses are the document's register addresses, which are already 0-based (its Modscan column "03:0001" = address 0). All
+  registers are read with function 03; the channel counters are written with function 16.
+- 'RS485, Modbus RTU only; 1200, 2400, 4800 or 9600 baud (default 9600), 8N1. The device address (0 … 254) is set on the front
+  panel or by Modbus; the document gives no factory default, so `default_unit: 1` is assumed. The device''s broadcast address
+  is 255, not 0.'
+- 'Malformed or unsupported requests and bad CRCs get no answer at all (no exception response): a reader sees a timeout. The
+  device answers within 300 ms.'
+- The document's read-device-address example reads register 208 (with unit 255), while its register table puts the address
+  at 210 and the pulse rate divider at 208. The register table is followed here.
+- 'Device address, baud rate, pulse rate and decimal point are written through a protected three-step sequence: enable with
+  function 05 on coil 48 / 55 / 56 / 57 (value 0x0000), write the new value (address, or an index into the baud, pulse rate
+  or decimal point table) in the high byte of holding register 48 / 55 / 56 / 57 with function 16, then disable with function
+  05 on the same coil (value 0xFF00). Display cycling (coil 58) and the meter type (coil 59, 0x0000 = electricity, 0xFF00
+  = water) are set with function 05 alone. These write-only controls aren''t listed as points.'
+- The document applies to firmware 061 and later.
+- The module has no identity or serial number register, so the file has no `identify`.

@@ -1,0 +1,111 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From cFos's Modbus register page for the Power Brain controller (EVSE device), below.
+
+modbusspec: 0
+id: cfos-power-brain
+manufacturer: cFos
+name: Power Brain wallbox / Power Brain controller (charging station)
+kind: charger
+
+sources:
+- title: cFos Power Brain Controller – Modbus Registers (web page)
+  version: retrieved 2026-10-24 (no version or date given)
+  url: https://cfos.de/en/cfos-power-brain/modbus-registers.htm
+  sha256: 0fdcf5fe6d816c3d2dd0479f2ae561a3c3c64547552273b9ca38e22172145315
+
+connection:
+  default_port: 4701
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 8008
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 8000
+    type: u32
+    equals: 52997
+  - table: holding
+    address: 8092
+    type: u16
+    range:
+    - 0
+    - 9
+
+points:
+  # Identification (same block on the EVSE and the S0 meters)
+  - {key: x.vendor_id, label: vendor_id, table: holding, address: 8000, type: u32, poll: slow, note: Always 0xCF05.}
+  - {key: x.product_id, label: product_id, table: holding, address: 8002, type: u16, poll: slow}
+  - {key: x.device_id, label: device_id, table: holding, address: 8003, type: u16, poll: slow, note: 'Device inside the product, documented as 0x100.'}
+  - {key: firmware, label: product_version, table: holding, address: 8004, type: u16, poll: slow, verified: false, note: 'Major.minor. The page lists it as 2 registers although product_build follows at 8005; read as one register here. Byte split (major high byte?) not stated.'}
+  - {key: x.product_build, label: product_build, table: holding, address: 8005, type: u16, poll: slow}
+  - {key: x.mapping_version, label: mapping_version, table: holding, address: 8006, type: u16, poll: slow, note: Major.minor of the register map.}
+  - {key: serial, label: serial_no, table: holding, address: 8008, type: str, length: 8, poll: slow}
+  - {key: x.name, label: name, table: holding, address: 8016, type: str, length: 16, poll: slow, note: 'Product name, e.g. "cFos Power Brain Controller".'}
+  - {key: x.slave_id, label: slave_id, table: holding, address: 8040, type: u16, writable: true, persistent: true, poll: slow}
+
+  # Attached meter (only when has_meter = 1)
+  - {key: x.meter_flags, label: meter_flags, table: holding, address: 8057, type: u16, flags: meter_flags, poll: slow}
+  - {key: consumer_energy, label: energy, table: holding, address: 8058, type: u64, unit: kWh, scale: 0.001, poll: slow, note: 'Active import of the attached meter, in Wh. Only when has_meter (8112) = 1.'}
+  - {key: consumer_power, label: power, table: holding, address: 8062, type: s32, unit: W, positive: consumption, verified: false, note: Active power of the attached meter. The page gives no signedness; signed and positive = charging assumed. Only when has_meter = 1.}
+  - {key: l1_current, label: current_l1, table: holding, address: 8064, type: s32, unit: A, scale: 0.1, verified: false, note: Signedness not stated. Only when has_meter = 1.}
+  - {key: l2_current, label: current_l2, table: holding, address: 8066, type: s32, unit: A, scale: 0.1, verified: false, note: Signedness not stated. Only when has_meter = 1.}
+  - {key: l3_current, label: current_l3, table: holding, address: 8068, type: s32, unit: A, scale: 0.1, verified: false, note: Signedness not stated. Only when has_meter = 1.}
+
+  # Charging station
+  - {key: x.def_fixed_current, label: def_fixed_current, table: holding, address: 8080, type: u16, unit: A, scale: 0.1, writable: true, persistent: true, poll: slow, note: Default for fixed_current after a reboot.}
+  - {key: x.def_charging_current_limit, label: def_charg_cur_limit, table: holding, address: 8081, type: u16, unit: A, scale: 0.1, writable: true, min: 6, max: 63, persistent: true, poll: slow, note: Default charging current limit after a reboot.}
+  - {key: x.def_charging_enable, label: def_charging_enable, table: holding, address: 8082, type: u16, writable: true, persistent: true, poll: slow, note: Default charging enable (0/1) after a reboot.}
+  - {key: x.fail_safe_duration, label: fail_safe_duration, table: holding, address: 8083, type: u32, unit: s, writable: true, persistent: true, poll: slow, note: 'Seconds without Modbus access before fail_safe_current applies; 0 = off, default 300.'}
+  - {key: x.fail_safe_current, label: fail_safe_current, table: holding, address: 8085, type: u16, unit: A, scale: 0.1, writable: true, persistent: true, poll: slow, note: 0 = stop charging while Modbus is silent.}
+  - {key: x.disconnect_cp, label: disconnect_cp, table: holding, address: 8086, type: u16, unit: s, writable: true, persistent: false, note: 'Write: switch CP off for this many seconds; read: seconds remaining.'}
+  - {key: x.relay_select, label: relay_select, table: holding, address: 8087, type: u16, writable: true, persistent: false, enum: relay_select, note: Only wallboxes that support phase switching (controller Rev. F or later).}
+  - {key: x.relay2, label: relay2, table: holding, address: 8088, type: u16, writable: true, persistent: false, note: '0 = relay 2 off, 1 = on (only while relay 1 is off); controller Rev. F or later.'}
+  - {key: x.cable_current, label: cable_current, table: holding, address: 8090, type: u16, unit: A, scale: 0.1, note: Cable rating from PP; 0 = no cable.}
+  - {key: x.fixed_current, label: fixed_current, table: holding, address: 8091, type: u16, unit: A, scale: 0.1, writable: true, persistent: false, note: Overrides cable_current.}
+  - {key: state, label: charge_pilot_state, table: holding, address: 8092, type: u16, enum: cp_state}
+  - {key: x.charging_current_limit, label: charging_cur_limit, table: holding, address: 8093, type: u16, unit: A, scale: 0.1, writable: true, persistent: false, note: 'Charging current limit 6–63 A, capped by the model (e.g. 16 A on the 11 kW wallbox).'}
+  - {key: x.charging_enable, label: charging_enable, table: holding, address: 8094, type: u16, writable: true, persistent: false, note: '0 = disabled, 1 = enabled.'}
+  - {key: x.charging_current, label: charging_current, table: holding, address: 8095, type: u16, unit: A, scale: 0.1, note: Current offered to the car (6–63 A).}
+  - {key: x.last_rfid, label: last_rfid, table: holding, address: 8096, type: str, length: 15, poll: slow, note: 'Last RFID seen, hex string.'}
+  - {key: x.detected_rfids, label: detected_rfids, table: holding, address: 8111, type: u16, poll: slow}
+  - {key: x.has_meter, label: has_meter, table: holding, address: 8112, type: u16, poll: slow, note: 1 = a meter is attached and 8057–8068 are readable.}
+  - {key: x.s0_inputs, label: s0_inputs, table: holding, address: 8113, type: u16, flags: s0_inputs}
+  - {key: x.restart_count, label: count_restart, table: holding, address: 8120, type: u32, writable: true, persistent: true, poll: slow}
+  - {key: temperature, label: temperature, table: holding, address: 8122, type: s16, unit: °C, verified: false, note: Controller temperature; only Wallbox Booster and Power Brain controller Rev. 3.0+. Signedness not stated.}
+
+enums:
+  cp_state: {'0': A – waiting, '1': B – vehicle detected, '2': C – charging, '3': D – charging with ventilation, '4': E – no current, '5': F – error, '9': DC sensor error}
+  relay_select: {'0': 3-phase contactor, '1': 1-phase contactor}
+
+flags:
+  meter_flags: {'0': Meter has individual phases}
+  s0_inputs: {'0': S0 input 1 active, '1': S0 input 2 active, '8': 1/3-phase switching allowed while plugged in, '9': Bit 10 is valid, '10': Second relay present (when bit 9 is set), '11': Relay 2 is controlled externally (register 8088)}
+
+problems:
+  - {when: {key: state, equals: 5}, kind: fault, text: Charging station error (CP state F)}
+  - {when: {key: state, equals: 9}, kind: fault, text: DC fault current sensor error}
+  - {when: {key: state, equals: 4}, kind: warning, text: No current from the charging station (CP state E)}
+
+notes:
+- Holding registers only, function 03 read, 06 / 16 write; same registers over Modbus TCP and RTU. The page prints decimal
+  addresses with no 40001 offset; they are taken as protocol addresses (unverified).
+- Each internal device has its own unit id and TCP port. Charging station unit 1 on port 4701 (an attached meter is read through
+  the station's registers); S0 meters unit 2 / 3 on ports 4702 / 4703 (file cfos-power-brain-meter).
+- Any charge_pilot_state value not listed in the table is an error as well.
+- Every write goes to flash except charging_cur_limit, fixed_current, charging_enable, disconnect_cp, relay_select and relay2;
+  write the other registers rarely.
+- The page gives no word order, signedness or serial settings; most significant word first and big-endian bytes are assumed.
+- The same registers are reachable over the HTTP API (cnf?cmd=modbus); not described here.

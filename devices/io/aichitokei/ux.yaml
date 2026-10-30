@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Aichi Tokei Denki Ultrasonic Flow meter for Fuel Gas Management UX/UZ Modbus RTU Communication
+# Specifications (TS-UX-001 ver. 1.1, 2020/03/27).
+
+modbusspec: 0
+id: aichitokei-ux
+manufacturer: Aichi Tokei Denki
+name: UX / UZ ultrasonic gas flow meter (bore 15 and 25, external power supply)
+kind: io
+
+sources:
+- title: Ultrasonic Flow meter for Fuel Gas Management UX/UZ (Bore 15 and 25) – Modbus RTU Communication Specifications (TS-UX-001)
+  version: 1.1 (2020-03-27)
+  url: https://www.aichitokei.co.jp/wp/wp-content/uploads/ux-rs485-01-spec-eng.pdf
+  sha256: 577815d5cb8b9bad68bb37ba6a0f4e148ce09f6cca1668fde20556c57d71a501
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 26
+    min_interval_ms: 100
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Flow meter information (function 03, read only)
+  - {key: x.flow_rate, label: Instantaneous flow rate, table: holding, address: 512, type: s32, unit: m³/h, scale: 0.01, note: 'Actual or converted (normal / standard) flow, as chosen in 0x010F.'}
+  - {key: x.gas_pressure, label: Used gas pressure set value (gage), table: holding, address: 514, type: u16, unit: kPa, scale: 0.01, poll: slow, note: The value set in 0x0110; not a measurement.}
+  - {key: x.gas_temperature, label: Temperature, table: holding, address: 515, type: s16, unit: °C, scale: 0.1}
+  - {key: x.positive_volume_high, label: Positive integration value (upper 2 bytes), table: holding, address: 516, type: u16, unit: m³, scale: 42949672.96, poll: slow, note: Upper 16 bits of the 6-byte counter (part of x.positive_volume).}
+  - {key: x.positive_volume_low, label: Positive integration value (middle and lower 2 bytes), table: holding, address: 517, type: u32, unit: m³, scale: 0.01, poll: slow, note: Lower 32 bits of the 6-byte counter (part of x.positive_volume).}
+  - {key: x.trip_volume_high, label: Trip integration value (upper 2 bytes), table: holding, address: 519, type: u16, unit: m³, scale: 42949672.96, poll: slow, note: Upper 16 bits of the 6-byte counter (part of x.trip_volume).}
+  - {key: x.trip_volume_low, label: Trip integration value (middle and lower 2 bytes), table: holding, address: 520, type: u32, unit: m³, scale: 0.01, poll: slow, note: Lower 32 bits of the 6-byte counter (part of x.trip_volume).}
+  - {key: x.error_info, label: Error information, table: holding, address: 522, type: u16, flags: error_info}
+
+  # Clear command (function 05)
+  - {key: x.clear_integration_alarm, label: Integration value upper limit alarm clear, table: coil, address: 768, type: bool, writable: true, note: Write 0 (0x0000) with function 05 to clear the integration value upper limit alarm; only that value is accepted.}
+
+  # Parameters (function 03 read, 06 / 10 write)
+  - {key: x.conversion_reference_temperature, label: Conversion reference temperature, table: holding, address: 256, type: s16, unit: °C, writable: true, min: -10, max: 60, poll: slow, note: Whole degrees.}
+  - {key: x.pulse_constant, label: Output pulse constant, table: holding, address: 257, type: u16, enum: pulse_constant, writable: true, poll: slow}
+  - {key: x.alarm_contact, label: Alarm output contact state, table: holding, address: 258, type: u16, enum: alarm_contact, writable: true, poll: slow}
+  - {key: x.flow_alarm_upper_limit, label: Alarm output upper limit, table: holding, address: 259, type: u32, unit: m³/h, scale: 0.1, writable: true, min: 0, max: 9999.9, poll: slow}
+  - {key: x.flow_alarm_lower_limit, label: Alarm output lower limit, table: holding, address: 261, type: u32, unit: m³/h, scale: 0.1, writable: true, min: 0, max: 9999.9, poll: slow}
+  - {key: x.flow_alarm_hysteresis, label: Alarm output hysteresis width, table: holding, address: 263, type: u32, unit: m³/h, scale: 0.1, writable: true, min: 0, max: 9999.9, poll: slow}
+  - {key: x.moving_average, label: Instantaneous flow moving average times, table: holding, address: 265, type: u16, writable: true, min: 1, max: 16, poll: slow, note: 1 = no averaging.}
+  - {key: x.analog_full_scale, label: Analog output full-scale flow rate, table: holding, address: 266, type: u32, unit: m³/h, scale: 0.1, writable: true, min: 0, max: 9999.9, poll: slow}
+  - {key: x.analog_output_function, label: Analog output switching, table: holding, address: 268, type: u16, enum: analog_output_function, writable: true, poll: slow}
+  - {key: x.baud_rate, label: Communication bit rate, table: holding, address: 269, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.rtu_address, label: RTU address, table: holding, address: 270, type: u16, writable: true, min: 1, max: 247, poll: slow, note: The meter answers the write with the old address and uses the new one afterwards.}
+  - {key: x.flow_conversion, label: Flow rate conversion select, table: holding, address: 271, type: u16, enum: flow_conversion, writable: true, poll: slow, note: 'Writing this register (even with the same value) sets the pulse constant to 1000 L/P. With conversion on, a reference temperature of 0 °C and reference pressure of 0 kPa give the normal flow, otherwise the standard flow.'}
+  - {key: x.gas_pressure_setting, label: Used gas pressure set value (gage), table: holding, address: 272, type: u16, unit: kPa, scale: 0.01, writable: true, poll: slow, note: 'UX 0–100.00 kPa, UZ 0–500.00 kPa.'}
+  - {key: x.test_mode_time, label: Test mode time select, table: holding, address: 273, type: u16, enum: test_mode_time, writable: true, poll: slow}
+  - {key: x.conversion_reference_pressure, label: Conversion reference pressure (gage), table: holding, address: 274, type: u16, unit: kPa, scale: 0.01, writable: true, min: 0, max: 10, poll: slow, note: Used only with flow conversion on.}
+  - {key: x.integration_alarm_threshold, label: Integration value upper limit alarm threshold, table: holding, address: 275, type: u32, unit: m³, scale: 0.01, writable: true, min: 0, max: 9999.99, poll: slow, note: Per hour.}
+  - {key: x.alarm_output_function, label: Alarm output select, table: holding, address: 277, type: u16, enum: alarm_output_function, writable: true, poll: slow}
+  - {key: x.gas_species, label: Gas species select, table: holding, address: 278, type: u16, enum: gas_species, writable: true, poll: slow, note: Set at the factory to the ordered gas; "Air" is for maintenance only.}
+
+derived:
+  - {key: x.positive_volume, label: Positive integration value, unit: m³, sum: [{key: x.positive_volume_high}, {key: x.positive_volume_low}], verified: false, note: Unsigned 6-byte counter in hundredths of m³. The document says the factor (1× to 100×) depends on the conversion setting 0x010F but only gives the 100× case; 100× is assumed throughout.}
+  - {key: x.trip_volume, label: Trip integration value, unit: m³, sum: [{key: x.trip_volume_high}, {key: x.trip_volume_low}], verified: false, note: As x.positive_volume (100× assumed).}
+
+enums:
+  pulse_constant: {'1': 10 L/P, '2': 100 L/P, '3': 1000 L/P, '4': 10000 L/P}
+  alarm_contact: {'0': Normally open, '1': Normally closed}
+  analog_output_function: {'0': Instantaneous flow rate, '1': Temperature, '2': Pressure}
+  baud_rate: {'0': 4800 bit/s, '1': 9600 bit/s}
+  flow_conversion: {'0': No conversion (actual flow), '1': Conversion (normal or standard flow)}
+  test_mode_time: {'0': 3 minutes, '1': 60 minutes, '2': No limit}
+  alarm_output_function: {'0': Flow rate upper / lower limit alarm, '1': Integration value upper limit alarm}
+  gas_species: {'0': 13A, '1': Propane, '2': Butane, '3': Nitrogen, '4': Air}
+
+flags:
+  error_info: {'0': Ultrasonic measurement abnormality, '1': Temperature measurement abnormality, '3': Supply power drop, '4': Flow rate upper / lower limit alarm, '5': Internal data abnormality, '6': Integration value upper limit alarm}
+
+problems:
+  - {when: {key: x.error_info, bit: 0}, kind: fault, text: Ultrasonic measurement abnormality (bit 0)}
+  - {when: {key: x.error_info, bit: 1}, kind: fault, text: Temperature measurement abnormality (bit 1)}
+  - {when: {key: x.error_info, bit: 3}, kind: warning, text: Supply power drop (bit 3)}
+  - {when: {key: x.error_info, bit: 4}, kind: warning, text: Flow rate upper / lower limit alarm (bit 4)}
+  - {when: {key: x.error_info, bit: 5}, kind: fault, text: Internal data abnormality (bit 5)}
+  - {when: {key: x.error_info, bit: 6}, kind: warning, text: Integration value upper limit alarm (bit 6)}
+
+notes:
+- Modbus RTU over RS485 only, up to 30 meters per bus; 4800 or 9600 bit/s (default 9600), 8N1; address 1–247 (default 1),
+  no broadcast. Functions 03, 05, 06 and 10 (hex).
+- Addresses are the hex protocol addresses the document gives. Readable ranges are 0x0100–0x0116 and 0x0200–0x020A, at most
+  26 registers per request; other addresses belong to the system and must not be used.
+- 32-bit values are two registers, upper word first; each half can also be read or written alone, but a write is refused when
+  the combined value leaves the allowed range. The 6-byte counters are split into a 16-bit upper part and a 32-bit lower part
+  and summed (derived values).
+- 'Response times: 40–200 ms for reads, up to 400 ms (one item) or 800 ms (all items) for writes; wait 100 ms after a response
+  before the next query. The meter itself has no TCP; port 502 is only the usual default for a Modbus TCP gateway in front
+  of it.'
+- A write with an invalid value is refused (exception 03); in a multiple write the values before the invalid one are still
+  taken.
+- The device can't be identified from its registers (no model, maker or serial number register).

@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: plexlog-datalogger
+manufacturer: Plexlog
+name: Plexlog data logger
+kind: energy_manager
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/plexlog.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.plexlog/src/io/openems/edge/meter/plexlog/MeterPlexlogDataloggerImpl.java
+
+connection:
+  default_port: 503
+  default_unit: 1
+  transports:
+  - tcp
+
+defaults:
+  verified: false
+  sources:
+  - evcc
+
+points:
+  - {key: x.grid_power_1, label: Grid power (part 1), table: input, address: 0, type: s32, unit: W, note: 'evcc reads it for the usages grid, pv. evcc negates it for the grid power.', sources: [evcc, openems]}
+  - {key: x.grid_power_2, label: Grid power (part 2), table: input, address: 2, type: s32, unit: W}
+  - {key: x.total_production, label: Total Production, table: input, address: 8, type: s32, unit: kWh, scale: 0.001, scale_exponent_from: {table: input, address: 10, type: s16}, sources: [openems]}
+  - {key: x.production_exponent, label: Production Exponent, table: input, address: 10, type: s16, sources: [openems]}
+  - {key: x.total_consumption, label: Total Consumption, table: input, address: 11, type: s32, unit: kWh, scale: 0.001, scale_exponent_from: {table: input, address: 13, type: s16}, sources: [openems]}
+  - {key: x.consumption_exponent, label: Consumption Exponent, table: input, address: 13, type: s16, sources: [openems]}
+  - {key: battery_soc, label: Battery state of charge, table: input, address: 36, type: u16, unit: '%'}
+  - {key: x.grid_power_3, label: Grid power (part 3), table: input, address: 37, type: s32, unit: W, note: 'evcc reads it for the usages grid, battery. evcc negates it for the grid power.'}
+
+derived:
+  - {key: grid_power, label: Grid power, unit: W, positive: import, sum: [{key: x.grid_power_1, factor: -1}, {key: x.grid_power_2}, {key: x.grid_power_3, factor: -1}]}
+
+notes:
+- 'evcc template `plexlog` (grid, pv, battery) lists: Plexlog.'
+- The driver's default meter type is PRODUCTION; OpenEMS doesn't say which way the device's own power value is positive, so
+  no direction is given.
+- OpenEMS has an 'Invert' option that negates the power values and swaps the two energy counters; the points here are the
+  reading with it off.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

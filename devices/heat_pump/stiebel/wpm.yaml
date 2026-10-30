@@ -1,0 +1,719 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Stiebel Eltron's ISG Modbus TCP/IP software documentation (321798-47824-0146); older editions
+# (Stand 9046, Stand 9535) checked for differences.
+
+modbusspec: 0
+id: stiebel-wpm
+manufacturer: STIEBEL ELTRON
+name: WPM heat pump managers (WPMsystem, WPM 3, WPM 3i) via ISG
+kind: heat_pump
+
+sources:
+- title: ISG Modbus TCP/IP software documentation (software extension for Internet Service Gateway)
+  version: 321798-47824-0146
+  url: https://www.stiebel-eltron.com/content/dam/ste/cdbassets/current/commissioning_manual/commissioning_manual_doc-00081716.pdf
+  sha256: 5a89d3d652312bab67408bc393b4d15ecf6ebb5d2f047e080b342c570bb18092
+- title: Software-Dokumentation Modbus TCP/IP (Software-Erweiterung für Internet Service Gateway)
+  version: Stand 9535
+  url: https://www.stiebel-eltron.ch/content/dam/ste/ch/de/downloads/kundenservice/smart-home/Modbus/Modbus%20Bedienungsanleitung.pdf
+  sha256: 621a102233049ad59c1da3d0af666c5b96c62417ccd950d3dc4c20bd8ddb756a
+  archive_url: https://web.archive.org/web/20220313111536/https://www.stiebel-eltron.ch/content/dam/ste/ch/de/downloads/kundenservice/smart-home/Modbus/Modbus%20Bedienungsanleitung.pdf
+- title: Software-Dokumentation Modbus TCP/IP (Software-Erweiterung für Internet Service Gateway)
+  version: Stand 9046
+  url: https://www.stiebel-eltron.de/content/dam/ste/de/de/home/services/Downloadlisten/ISG%20Modbus_Stiebel_Bedienungsanleitung.pdf
+  sha256: e82a86a074480936d5119b59b884679565ad867f00e3b3e4968ca7d6d03f54d4
+  archive_url: https://web.archive.org/web/20160422034647/https://www.stiebel-eltron.de/content/dam/ste/de/de/home/services/Downloadlisten/ISG%20Modbus_Stiebel_Bedienungsanleitung.pdf
+- id: openhab
+  title: openHAB add-ons (Modbus bindings)
+  url: https://github.com/openhab/openhab-addons
+  license: EPL-2.0
+  commit: 391d63d8597d9b5b535ee83c85f557cad4fba2c7
+  path: bundles/org.openhab.binding.modbus.stiebeleltron/src/main/java/org/openhab/binding/modbus/stiebeleltron/internal/handler,
+    bundles/org.openhab.binding.modbus.stiebeleltron/src/main/java/org/openhab/binding/modbus/stiebeleltron/internal/parser
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/consumers/stiebel/stiebel/consumer.py, packages/modules/smarthome/stiebel/on.py
+- id: pystiebeleltron
+  title: pystiebeleltron (Python library for STIEBEL ELTRON ISG Modbus)
+  url: https://github.com/ThyMYthOS/python-stiebel-eltron
+  license: MIT
+  commit: 8c03d84776e68c43bdb6ba038f853235b11a17a3
+  path: api/wpm_*.csv, pystiebeleltron/wpm.py, pystiebeleltron/__init__.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 48
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # outdoor −60…80 °C
+  - - table: input
+      address: 506
+      type: s16
+      range:
+      - -600
+      - 800
+    # or not available
+    - table: input
+      address: 506
+      type: s16
+      equals: -32768
+  # status bits only B0–B11
+  - table: input
+    address: 2500
+    type: u16
+    range:
+    - 0
+    - 4095
+  # fatal error
+  - table: input
+    address: 2503
+    type: u16
+    in:
+    - 0
+    - 1
+  # bus status
+  - table: input
+    address: 2504
+    type: s16
+    range:
+    - -4
+    - 0
+  any:
+  # controller identification
+  - table: input
+    address: 5001
+    type: u16
+    in:
+    - 390
+    - 391
+    - 449
+  # or none: the checks above decide
+  - table: input
+    address: 5001
+    type: u16
+    answers: false
+
+models:
+  - {id: wpmsystem, name: WPMsystem, match: {table: input, address: 5001, type: u16, equals: 449}}
+  - {id: wpm3, name: WPM 3, match: {table: input, address: 5001, type: u16, equals: 390}}
+  - {id: wpm3i, name: WPM 3i, match: {table: input, address: 5001, type: u16, equals: 391}}
+
+points:
+  # Block 1: system values (documented 501 ff.)
+  - {key: x.actual_temperature_fe7, label: Actual temperature FE7, table: input, address: 500, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.outside_temperature, label: Outside temperature, table: input, address: 506, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.actual_temperature_hk_1, label: Actual temperature HK 1, table: input, address: 507, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.actual_temperature_hk_2, label: Actual temperature HK 2, table: input, address: 510, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.actual_flow_temperature_wp, label: Actual flow temperature WP, table: input, address: 512, type: s16, unit: °C, scale: 0.1, invalid: [-32768], note: Only with a heat meter (MFG).}
+  - {key: x.actual_flow_temperature_nhz, label: Actual flow temperature NHZ, table: input, address: 513, type: s16, unit: °C, scale: 0.1, invalid: [-32768], note: Booster heater; only with a heat meter (MFG).}
+  - {key: x.actual_flow_temperature, label: Actual flow temperature, table: input, address: 514, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3]}
+  - {key: x.actual_return_temperature, label: Actual return temperature, table: input, address: 515, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.actual_buffer_temperature, label: Actual buffer temperature, table: input, address: 517, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.set_buffer_temperature, label: Set buffer temperature, table: input, address: 518, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.heating_pressure, label: Heating pressure, table: input, address: 519, type: s16, unit: bar, scale: 0.01, invalid: [-32768], note: Only with a heat meter (MFG).}
+  - {key: x.flow_rate, label: Flow rate, table: input, address: 520, type: s16, unit: l/min, scale: 0.01, invalid: [-32768], note: Only with a heat meter (MFG).}
+  - {key: x.actual_temperature_dhw, label: Actual temperature DHW, table: input, address: 521, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.set_temperature_dhw, label: Set temperature DHW, table: input, address: 522, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.source_temperature, label: Source temperature, table: input, address: 535, type: s16, unit: °C, scale: 0.1, invalid: [-32768]}
+  - {key: x.hot_gas_temperature, label: Hot gas temperature, table: input, address: 538, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpm3i]}
+  - {key: x.hot_gas_temperature_hp1, label: Hot gas temperature heat pump 1, table: input, address: 543, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3]}
+  - {key: x.actual_flow_temperature_wpm3i, label: Actual flow temperature WPM3i, table: input, address: 608, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpm3i], note: The WPM 3i's flow temperature (it has no 515).}
+  # Room values of heating circuits 1–5 (WPMsystem; documented 584 ff.)
+  - {key: x.room_temperature_hk_1, label: Actual room temperature heating circuit 1, table: input, address: 583, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_set_temperature_hk_1, label: Set room temperature heating circuit 1, table: input, address: 584, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_humidity_hk_1, label: Room humidity heating circuit 1, table: input, address: 585, type: s16, unit: '%', scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_temperature_hk_2, label: Actual room temperature heating circuit 2, table: input, address: 587, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_set_temperature_hk_2, label: Set room temperature heating circuit 2, table: input, address: 588, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_humidity_hk_2, label: Room humidity heating circuit 2, table: input, address: 589, type: s16, unit: '%', scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_temperature_hk_3, label: Actual room temperature heating circuit 3, table: input, address: 591, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_set_temperature_hk_3, label: Set room temperature heating circuit 3, table: input, address: 592, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_humidity_hk_3, label: Room humidity heating circuit 3, table: input, address: 593, type: s16, unit: '%', scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_temperature_hk_4, label: Actual room temperature heating circuit 4, table: input, address: 595, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_set_temperature_hk_4, label: Set room temperature heating circuit 4, table: input, address: 596, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_humidity_hk_4, label: Room humidity heating circuit 4, table: input, address: 597, type: s16, unit: '%', scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_temperature_hk_5, label: Actual room temperature heating circuit 5, table: input, address: 599, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_set_temperature_hk_5, label: Set room temperature heating circuit 5, table: input, address: 600, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  - {key: x.room_humidity_hk_5, label: Room humidity heating circuit 5, table: input, address: 601, type: s16, unit: '%', scale: 0.1, invalid: [-32768], models: [wpmsystem], optional: true}
+  # Block 2: system parameters (documented 1501 ff.)
+  - {key: x.operating_mode, label: Operating mode, table: holding, address: 1500, type: u16, enum: operating_mode, invalid: [32768], writable: true}
+  - {key: x.comfort_temperature_hk_1, label: Comfort temperature heating circuit 1 (room set), table: holding, address: 1501, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, poll: slow, min: 5, max: 30}
+  - {key: x.eco_temperature_hk_1, label: Eco temperature heating circuit 1 (room set), table: holding, address: 1502, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, poll: slow, min: 5, max: 30}
+  - {key: x.heating_curve_hk_1, label: Heating curve slope heating circuit 1, table: holding, address: 1503, type: s16, scale: 0.01, invalid: [-32768], writable: true, poll: slow, min: 0, max: 3}
+  - {key: x.comfort_temperature_hk_2, label: Comfort temperature heating circuit 2 (room set), table: holding, address: 1504, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, poll: slow, min: 5, max: 30}
+  - {key: x.eco_temperature_hk_2, label: Eco temperature heating circuit 2 (room set), table: holding, address: 1505, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, poll: slow, min: 5, max: 30}
+  - {key: x.heating_curve_hk_2, label: Heating curve slope heating circuit 2, table: holding, address: 1506, type: s16, scale: 0.01, invalid: [-32768], writable: true, poll: slow, min: 0, max: 3}
+  - {key: x.comfort_temperature_dhw, label: Comfort temperature DHW, table: holding, address: 1509, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, poll: slow, min: 10, max: 60}
+  - {key: x.eco_temperature_dhw, label: Eco temperature DHW, table: holding, address: 1510, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, poll: slow, min: 10, max: 60}
+  # Block 3: system status (documented 2501 ff.)
+  - {key: x.operating_status, label: Operating status, table: input, address: 2500, type: u16, flags: operating_status, invalid: [32768], note: The WPM 3i has no silent mode (B10/B11).}
+  - {key: x.utility_release, label: EVU release (utility enable), table: input, address: 2501, type: u16, bits: [0, 0], enum: no_yes, invalid: [32768], note: 'Bit-coded, data type 8; only bit 0 is defined.'}
+  - {key: x.wpm3_status, label: 'Operating status (compressors, buffer charging pumps, booster stages)', table: input, address: 2502, type: u16, flags: wpm3_status, invalid: [32768], models: [wpm3]}
+  - {key: x.fault_status, label: Fatal error, table: input, address: 2503, type: u16, enum: fatal_error, invalid: [32768], note: System fault; acknowledged only in SERVICEWELT.}
+  - {key: x.bus_status, label: Bus status, table: input, address: 2504, type: s16, enum: bus_status, invalid: [-32768], note: 'Range −4…0; the document''s type 6 is unsigned, but the negative codes only make sense read as signed.'}
+  - {key: x.defrost_initiated, label: Defrost, table: input, address: 2505, type: u16, enum: defrost, invalid: [32768], models: [wpmsystem, wpm3]}
+  - {key: x.active_fault_number, label: Active fault (fault number), table: input, address: 2506, type: u16, invalid: [32768], optional: true, note: Only in the older editions (Stand 9046 / 9535; all three managers); the current edition no longer lists it. Message number (WPMsystem) followed at documented 2508., verified: false}
+  # WPMsystem output states (documented 2509 ff.; 0 = off, 1 = on)
+  - {key: x.hk_pump_1, label: Heating circuit pump 1, table: input, address: 2508, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.hk_pump_2, label: Heating circuit pump 2, table: input, address: 2509, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.hk_pump_3, label: Heating circuit pump 3, table: input, address: 2510, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.buffer_pump_1, label: Buffer charging pump 1, table: input, address: 2511, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.buffer_pump_2, label: Buffer charging pump 2, table: input, address: 2512, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.dhw_pump, label: DHW charging pump, table: input, address: 2513, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.source_pump, label: Source pump, table: input, address: 2514, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.fault_output, label: Fault output, table: input, address: 2515, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.circulation_pump, label: Circulation pump, table: input, address: 2516, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.second_heat_source_dhw, label: 2nd heat generator DHW, table: input, address: 2517, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.second_heat_source_heating, label: 2nd heat generator heating, table: input, address: 2518, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.cooling_mode, label: Cooling mode, table: input, address: 2519, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.nhz_1, label: Booster heater stage 1, table: input, address: 2524, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.nhz_2, label: Booster heater stage 2, table: input, address: 2525, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.nhz_3, label: Booster heater stage 3, table: input, address: 2526, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem], note: NHZ 1/2 in the older edition Stand 9535.}
+  - {key: x.compressor_1, label: Compressor 1 (heat pump 1), table: input, address: 2541, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem]}
+  - {key: x.compressor_2, label: Compressor 2 (heat pump 2), table: input, address: 2542, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem], optional: true}
+  - {key: x.compressor_3, label: Compressor 3 (heat pump 3), table: input, address: 2543, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem], optional: true}
+  - {key: x.compressor_4, label: Compressor 4 (heat pump 4), table: input, address: 2544, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem], optional: true}
+  - {key: x.compressor_5, label: Compressor 5 (heat pump 5), table: input, address: 2545, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem], optional: true}
+  - {key: x.compressor_6, label: Compressor 6 (heat pump 6), table: input, address: 2546, type: u16, enum: off_on, invalid: [32768], models: [wpmsystem], optional: true}
+  - {key: x.extension_version, label: Extension (version ISG), table: input, address: 2569, type: u16, invalid: [32768], poll: slow}
+  - {key: x.major_version, label: Major version (version ISG), table: input, address: 2570, type: u16, invalid: [32768], poll: slow}
+  - {key: x.minor_version, label: Minor version (version ISG), table: input, address: 2571, type: u16, invalid: [32768], poll: slow}
+  - {key: x.revision, label: Revision (version ISG), table: input, address: 2572, type: u16, invalid: [32768], poll: slow}
+  # Block 4: energy data, all heat pumps (documented 3501 ff.); totals are a kWh part (0…999) plus an MWh part
+  - {key: x.vd_heating_day, label: VD heating day (amount of heat), table: input, address: 3500, type: u16, unit: kWh, invalid: [32768]}
+  - {key: x.vd_heating_total_low, label: 'VD heating total, kWh part (amount of heat)', table: input, address: 3501, type: u16, unit: kWh, invalid: [32768], poll: slow}
+  - {key: x.vd_heating_total_high, label: 'VD heating total, MWh part (amount of heat)', table: input, address: 3502, type: u16, unit: kWh, scale: 1000, invalid: [32768], poll: slow}
+  - {key: x.vd_dhw_day, label: VD DHW day (amount of heat), table: input, address: 3503, type: u16, unit: kWh, invalid: [32768]}
+  - {key: x.vd_dhw_total_low, label: 'VD DHW total, kWh part (amount of heat)', table: input, address: 3504, type: u16, unit: kWh, invalid: [32768], poll: slow}
+  - {key: x.vd_dhw_total_high, label: 'VD DHW total, MWh part (amount of heat)', table: input, address: 3505, type: u16, unit: kWh, scale: 1000, invalid: [32768], poll: slow}
+  - {key: x.nhz_heating_total_low, label: 'NHZ heating total, kWh part', table: input, address: 3506, type: u16, unit: kWh, invalid: [32768], poll: slow}
+  - {key: x.nhz_heating_total_high, label: 'NHZ heating total, MWh part', table: input, address: 3507, type: u16, unit: kWh, scale: 1000, invalid: [32768], poll: slow}
+  - {key: x.nhz_dhw_total_low, label: 'NHZ DHW total, kWh part', table: input, address: 3508, type: u16, unit: kWh, invalid: [32768], poll: slow}
+  - {key: x.nhz_dhw_total_high, label: 'NHZ DHW total, MWh part', table: input, address: 3509, type: u16, unit: kWh, scale: 1000, invalid: [32768], poll: slow}
+  - {key: x.vd_heating_day_consumed, label: VD heating day (power consumption), table: input, address: 3510, type: u16, unit: kWh, invalid: [32768]}
+  - {key: x.vd_heating_total_consumed_low, label: 'VD heating total, kWh part (power consumption)', table: input, address: 3511, type: u16, unit: kWh, invalid: [32768], poll: slow}
+  - {key: x.vd_heating_total_consumed_high, label: 'VD heating total, MWh part (power consumption)', table: input, address: 3512, type: u16, unit: kWh, scale: 1000, invalid: [32768], poll: slow}
+  - {key: x.vd_dhw_day_consumed, label: VD DHW day (power consumption), table: input, address: 3513, type: u16, unit: kWh, invalid: [32768]}
+  - {key: x.vd_dhw_total_consumed_low, label: 'VD DHW total, kWh part (power consumption)', table: input, address: 3514, type: u16, unit: kWh, invalid: [32768], poll: slow}
+  - {key: x.vd_dhw_total_consumed_high, label: 'VD DHW total, MWh part (power consumption)', table: input, address: 3515, type: u16, unit: kWh, scale: 1000, invalid: [32768], poll: slow}
+  # WPM 3i run times (documented 3517 ff.)
+  - {key: x.runtime_compressor_heating, label: VD heating run time, table: input, address: 3516, type: u16, unit: h, invalid: [32768], models: [wpm3i], poll: slow}
+  - {key: x.runtime_compressor_dhw, label: VD DHW run time, table: input, address: 3517, type: u16, unit: h, invalid: [32768], models: [wpm3i], poll: slow}
+  - {key: x.runtime_compressor_cooling, label: VD cooling run time, table: input, address: 3518, type: u16, unit: h, invalid: [32768], models: [wpm3i], poll: slow}
+  - {key: x.runtime_nhz_1, label: NHZ 1 run time, table: input, address: 3519, type: u16, unit: h, invalid: [32768], models: [wpm3i], poll: slow}
+  - {key: x.runtime_nhz_2, label: NHZ 2 run time, table: input, address: 3520, type: u16, unit: h, invalid: [32768], models: [wpm3i], poll: slow}
+  - {key: x.runtime_nhz_12, label: NHZ 1/2 run time, table: input, address: 3521, type: u16, unit: h, invalid: [32768], models: [wpm3i], poll: slow}
+  # Block 6: energy management information (documented 5001 ff.)
+  - {key: x.sg_ready_operating_state, label: Operating state (SG Ready), table: input, address: 5000, type: u16, enum: sg_ready_state, invalid: [32768]}
+  - {key: x.controller_identification, label: Software – controller identification, table: input, address: 5001, type: u16, enum: controller, invalid: [32768], poll: slow}
+  - {key: x.fixed_value_operation, label: Fixed Value Operation, table: holding, address: 1507, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.heating_dual_mode_temperature, label: Heating DualMode Temp, table: holding, address: 1508, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hotwater_stages, label: Hot Water Stages, table: holding, address: 1511, type: u16, invalid: [32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hotwater_dual_mode_temperature, label: Water DualMode Temp, table: holding, address: 1512, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.area_cooling_flow_temperature_setpoint, label: AC FlowTemp Setpoint, table: holding, address: 1513, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.flow_temp_hysteresis_area, label: Flow Temp Hysteresis Area, table: holding, address: 1514, type: s16, unit: K, scale: 0.1, invalid: [-32768], models: [wpm3, wpm3i], writable: true, note: Write range 1…5. Area cooling., verified: false, sources: [pystiebeleltron]}
+  - {key: x.area_cooling_room_temperature_setpoint, label: AC RoomTemp Setpoint, table: holding, address: 1515, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.fan_cooling_flow_temperature_setpoint, label: FC FlowTemp Setpoint, table: holding, address: 1516, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.fan_cooling_flow_temperature_hysteresis, label: FC FlowTemp Hyst, table: holding, address: 1517, type: s16, unit: K, scale: 0.1, invalid: [-32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.fan_cooling_room_temperature_setpoint, label: FC RoomTemp Setpoint, table: holding, address: 1518, type: s16, unit: °C, scale: 0.1, invalid: [-32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.reset, label: Reset, table: holding, address: 1519, type: u16, enum: reset, invalid: [32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.restart_isg, label: Restart ISG, table: holding, address: 1520, type: u16, enum: restart_isg, invalid: [32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.comfort_temperature_hk_3, label: Comfort Temperature HK 3, table: holding, address: 1550, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Write range 5…30. Heating circuit 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.eco_temperature_hk_3, label: Eco Temperature HK 3, table: holding, address: 1551, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Write range 5…30. Heating circuit 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_curve_rise_hk_3, label: Heating Curve Rise HK 3, table: holding, address: 1552, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], writable: true, note: Heating circuit 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.comfort_temperature_hk_4, label: Comfort Temperature HK 4, table: holding, address: 1553, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Heating circuit 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.eco_temperature_hk_4, label: Eco Temperature HK 4, table: holding, address: 1554, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Heating circuit 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_curve_rise_hk_4, label: Heating Curve Rise HK 4, table: holding, address: 1555, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], writable: true, note: Heating circuit 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.comfort_temperature_hk_5, label: Comfort Temperature HK 5, table: holding, address: 1556, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Heating circuit 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.eco_temperature_hk_5, label: Eco Temperature HK 5, table: holding, address: 1557, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Heating circuit 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_curve_rise_hk_5, label: Heating Curve Rise HK 5, table: holding, address: 1558, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], writable: true, note: Heating circuit 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_cc_1_hk_1, label: Set Temperature CC 1 HK 1, table: holding, address: 1603, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Set room temperature cooling circuit 1., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_cc_2_hk_2, label: Set Temperature CC 2 HK 2, table: holding, address: 1604, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Set room temperature cooling circuit 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_cc_3_hk_3, label: Set Temperature CC 3 HK 3, table: holding, address: 1605, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Set room temperature cooling circuit 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_cc_4_hk_4, label: Set Temperature CC 4 HK 4, table: holding, address: 1606, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Set room temperature cooling circuit 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_cc_5_hk_5, label: Set Temperature CC 5 HK 5, table: holding, address: 1607, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Set room temperature cooling circuit 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_flow_temperature_cc_1_hk_1, label: Set Flow Temperature CC 1 HK 1, table: holding, address: 1703, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Flow temperature cooling circuit 1., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_flow_temperature_cc_2_hk_2, label: Set Flow Temperature CC 2 HK 2, table: holding, address: 1704, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Flow temperature cooling circuit 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_flow_temperature_cc_3_hk_3, label: Set Flow Temperature CC 3 HK 3, table: holding, address: 1705, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Flow temperature cooling circuit 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_flow_temperature_cc_4_hk_4, label: Set Flow Temperature CC 4 HK 4, table: holding, address: 1706, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Flow temperature cooling circuit 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_flow_temperature_cc_5_hk_5, label: Set Flow Temperature CC 5 HK 5, table: holding, address: 1707, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Flow temperature cooling circuit 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_flow_temperature_fan_cooling, label: Set Flow Temperature Fan Cooling, table: holding, address: 1708, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.summer_mode_auto, label: Summer Mode Auto-, table: holding, address: 1749, type: u16, invalid: [32768], models: [wpmsystem], note: Summer mode auto., verified: false, sources: [pystiebeleltron]}
+  - {key: x.outside_temperature_summer_mode, label: Outside Temperature Summer Mode, table: holding, address: 1750, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: Summer mode outside switching temperature., verified: false, sources: [pystiebeleltron]}
+  - {key: x.summer_mode_building_heat_buffer, label: Summer Mode Building Heat Buffer, table: holding, address: 1751, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: Summer mode building attenuation., verified: false, sources: [pystiebeleltron]}
+  - {key: x.sg_ready_on_off_switch, label: SGReady On/Off Switch, table: holding, address: 4000, type: u16, enum: sg_ready_on_off_switch, invalid: [32768], writable: true, sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.sg_ready_input_1, label: SG Ready input 1, table: holding, address: 4001, type: s16, writable: true, note: 'openWB writes 1 to switch on, 0 to switch off.', sources: [openwb], conflicts: [{sources: [pystiebeleltron], type: u16, label: SG Ready Input 1}], verified: false}
+  - {key: x.sg_ready_input_2, label: SG Ready Input 2, table: holding, address: 4002, type: u16, invalid: [32768], writable: true, note: '0 = off, 1 = on.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.sg_ready_enabled, label: SG Ready Enabled, table: holding, address: 4249, type: u16, invalid: [32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.sg_ready_input, label: Sg-ready Input, table: holding, address: 4250, type: u16, invalid: [32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_buffer, label: Heating Buffer, table: holding, address: 4251, type: u16, invalid: [32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_hc1, label: Load Temperature HC1, table: holding, address: 4253, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_hc2, label: Load Temperature HC2, table: holding, address: 4254, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_dhw, label: Load Temperature DHW, table: holding, address: 4255, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.input_mode, label: Input Mode, table: holding, address: 4257, type: u16, invalid: [32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.power_limit, label: Power Limit, table: holding, address: 4258, type: u16, invalid: [32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_hc1_2, label: Load Temperature HC1_2, table: holding, address: 4271, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Load temperature HC1., verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_hc2_2, label: Load Temperature HC2_2, table: holding, address: 4272, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Load temperature HC2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_hc3, label: Load Temperature HC3, table: holding, address: 4273, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_hc4, label: Load Temperature HC4, table: holding, address: 4274, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_hc5, label: Load Temperature HC5, table: holding, address: 4275, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_buffer, label: Load Temperature Buffer, table: holding, address: 4276, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, verified: false, sources: [pystiebeleltron]}
+  - {key: x.load_temperature_dhw_2, label: Load Temperature DHW_2, table: holding, address: 4277, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], writable: true, note: Load temperature DHW., verified: false, sources: [pystiebeleltron]}
+  - {key: x.fe7_temperature_setpoint, label: FE7 Temp Setpoint, table: input, address: 501, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.fek_temperature, label: FEK Temperature, table: input, address: 502, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.fek_temperature_setpoint, label: FEK Temp Setpoint, table: input, address: 503, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.fek_humidity, label: FEK Humidity, table: input, address: 504, type: s16, unit: '%', scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.fek_dewpoint, label: FEK Dewpoint Temp, table: input, address: 505, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.set_temperature_hk_1_wpm3i, label: Set Temperature HK 1 Wpm3i, table: input, address: 508, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpm3i], note: The library's table lists this for WPM 3i only; a WPM 3i leaves it unavailable and reports the heating circuit 1 set temperature at input 509 instead., verified: false, sources: [pystiebeleltron]}
+  - {key: x.hc1_temperature_setpoint, label: HC1 Temp Setpoint, table: input, address: 509, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hc2_temperature_setpoint, label: HC2 Temp Setpoint, table: input, address: 511, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.fixed_temperature_setpoint, label: Fixed Temp Setpoint, table: input, address: 516, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.fan_cooling_temperature, label: FC Temperature, table: input, address: 523, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab], conflicts: [{sources: [pystiebeleltron], unit: K, label: Actual Temperature Fan}], verified: false}
+  - {key: x.fan_cooling_temperature_setpoint, label: FC Temperature Setpoint, table: input, address: 524, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab], conflicts: [{sources: [pystiebeleltron], unit: K, label: Set Temperature Fan}], verified: false}
+  - {key: x.area_cooling_temperature, label: AC Temperature, table: input, address: 525, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab], conflicts: [{sources: [pystiebeleltron], unit: K, label: Actual Temperature Area}], verified: false}
+  - {key: x.area_cooling_temperature_setpoint, label: AC Temperature Setpoint, table: input, address: 526, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab], conflicts: [{sources: [pystiebeleltron], unit: K, label: Set Temperature Area}], verified: false}
+  - {key: x.solar_thermal_collector_temperature, label: Solar Collector Temp, table: input, address: 527, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.solar_thermal_cylinder_temperature, label: Solar Cylinder Temperature, table: input, address: 528, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.solar_thermal_runtime, label: Solar Cylinder Runtime, table: input, address: 529, type: u16, unit: h, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.external_heat_source_temperature, label: Ext HeatSource Temp, table: input, address: 530, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.external_heat_source_temperature_setpoint, label: Ext HeatSource TempSetp, table: input, address: 531, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab], conflicts: [{sources: [pystiebeleltron], unit: K, models: [wpmsystem, wpm3], label: Set Temperature External}], verified: false}
+  - {key: x.lower_application_limit_heating, label: Lower Limit Heating, table: input, address: 532, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.lower_application_limit_hotwater, label: Lower Limit Water, table: input, address: 533, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.external_heat_source_runtime, label: Ext HeatSource Runtime, table: input, address: 534, type: u16, unit: h, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.min_source_temperature, label: Minimal Source Temp, table: input, address: 536, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.source_pressure, label: Source Pressure, table: input, address: 537, type: s16, unit: bar, scale: 0.01, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.high_pressure, label: High Pressure, table: input, address: 539, type: s16, unit: bar, scale: 0.01, invalid: [-32768], sources: [openhab], conflicts: [{sources: [pystiebeleltron], scale: 0.1, models: [wpm3i]}], verified: false}
+  - {key: x.low_pressure, label: Low Pressure, table: input, address: 540, type: s16, unit: bar, scale: 0.01, invalid: [-32768], sources: [openhab], conflicts: [{sources: [pystiebeleltron], scale: 0.1, models: [wpm3i]}], verified: false}
+  - {key: x.hp1_return_temperature, label: Return Temperature, table: input, address: 541, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_flow_temperature, label: Flow Temperature, table: input, address: 542, type: s16, unit: °C, scale: 0.1, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_low_pressure, label: Low Pressure, table: input, address: 544, type: s16, unit: bar, scale: 0.01, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_mean_pressure, label: Mean Pressure, table: input, address: 545, type: s16, unit: bar, scale: 0.01, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_high_pressure, label: High Pressure, table: input, address: 546, type: s16, unit: bar, scale: 0.01, invalid: [-32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_flow_rate, label: Flow Rate, table: input, address: 547, type: s16, unit: l/min, scale: 0.01, invalid: [-32768], sources: [openhab], conflicts: [{sources: [pystiebeleltron], scale: 0.1, models: [wpmsystem, wpm3], label: WP Water Flow Rate HP1}], verified: false}
+  - {key: x.return_temperature_hp2, label: Return Temperature HP2, table: input, address: 548, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.flow_temperature_hp2, label: Flow Temperature HP2, table: input, address: 549, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.hot_gas_temperature_hp2, label: Hot Gas Temperature HP2, table: input, address: 550, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.low_pressure_hp2, label: Low Pressure HP2, table: input, address: 551, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.mean_pressure_hp2, label: Mean Pressure HP2, table: input, address: 552, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.high_pressure_hp2, label: High Pressure HP2, table: input, address: 553, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.wp_water_flow_rate_hp2, label: WP Water Flow Rate HP2, table: input, address: 554, type: s16, unit: l/min, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.return_temperature_hp3, label: Return Temperature HP3, table: input, address: 555, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.flow_temperature_hp3, label: Flow Temperature HP3, table: input, address: 556, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.hot_gas_temperature_hp3, label: Hot Gas Temperature HP3, table: input, address: 557, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.low_pressure_hp3, label: Low Pressure HP3, table: input, address: 558, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.mean_pressure_hp3, label: Mean Pressure HP3, table: input, address: 559, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.high_pressure_hp3, label: High Pressure HP3, table: input, address: 560, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.wp_water_flow_rate_hp3, label: WP Water Flow Rate HP3, table: input, address: 561, type: s16, unit: l/min, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.return_temperature_hp4, label: Return Temperature HP4, table: input, address: 562, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.flow_temperature_hp4, label: Flow Temperature HP4, table: input, address: 563, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.hot_gas_temperature_hp4, label: Hot Gas Temperature HP4, table: input, address: 564, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.low_pressure_hp4, label: Low Pressure HP4, table: input, address: 565, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.mean_pressure_hp4, label: Mean Pressure HP4, table: input, address: 566, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.high_pressure_hp4, label: High Pressure HP4, table: input, address: 567, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.wp_water_flow_rate_hp4, label: WP Water Flow Rate HP4, table: input, address: 568, type: s16, unit: l/min, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.return_temperature_hp5, label: Return Temperature HP5, table: input, address: 569, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.flow_temperature_hp5, label: Flow Temperature HP5, table: input, address: 570, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.hot_gas_temperature_hp5, label: Hot Gas Temperature HP5, table: input, address: 571, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.low_pressure_hp5, label: Low Pressure HP5, table: input, address: 572, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.mean_pressure_hp5, label: Mean Pressure HP5, table: input, address: 573, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.high_pressure_hp5, label: High Pressure HP5, table: input, address: 574, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.wp_water_rate_hp5, label: WP Water Rate HP5, table: input, address: 575, type: s16, unit: l/min, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.return_temperature_hp6, label: Return Temperature HP6, table: input, address: 576, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.flow_temperature_hp6, label: Flow Temperature HP6, table: input, address: 577, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.hot_gas_hp6, label: Hot Gas HP6, table: input, address: 578, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.low_pressure_hp6, label: Low Pressure HP6, table: input, address: 579, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.mean_pressure_hp6, label: Mean Pressure HP6, table: input, address: 580, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.high_pressure_hp6, label: High Pressure HP6, table: input, address: 581, type: s16, unit: bar, scale: 0.01, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.wp_water_flow_rate_hp6, label: WP Water Flow Rate HP6, table: input, address: 582, type: s16, unit: l/min, scale: 0.1, invalid: [-32768], models: [wpmsystem, wpm3], note: Heat pump 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.dew_point_temperature_room_temp_hc1, label: Dew Point Temperature Room Temp HC1, table: input, address: 586, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, heating circuit 1.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.dew_point_temperature_room_temp_hc2, label: Dew Point Temperature Room Temp HC2, table: input, address: 590, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, heating circuit 2.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.dew_point_temperature_room_temp_hc3, label: Dew Point Temperature Room Temp HC3, table: input, address: 594, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, heating circuit 3.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.dew_point_temperature_room_temp_hc4, label: Dew Point Temperature Room Temp HC4, table: input, address: 598, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, heating circuit 4.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.dew_point_temperature_room_temp_hc5, label: Dew Point Temperature Room Temp HC5, table: input, address: 602, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, heating circuit 5.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_room_temp_cooling1, label: Set Temperature Room Temp Cooling1, table: input, address: 603, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, cooling circuit 1.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_room_temp_cooling2, label: Set Temperature Room Temp Cooling2, table: input, address: 604, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, cooling circuit 2.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_room_temp_cooling3, label: Set Temperature Room Temp Cooling3, table: input, address: 605, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, cooling circuit 3.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_room_temp_cooling4, label: Set Temperature Room Temp Cooling4, table: input, address: 606, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, cooling circuit 4.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_room_temp_cooling5, label: Set Temperature Room Temp Cooling5, table: input, address: 607, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: 'Room temperature, cooling circuit 5.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.actual_temperature_hk_3, label: Actual Temperature HK 3, table: input, address: 609, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: Only in recent manual revisions; not every controller answers it., verified: false, sources: [pystiebeleltron]}
+  - {key: x.set_temperature_hk_3, label: Set Temperature HK 3, table: input, address: 610, type: s16, unit: °C, scale: 0.1, invalid: [-32768], models: [wpmsystem], note: Only in recent manual revisions; not every controller answers it., verified: false, sources: [pystiebeleltron]}
+  - {key: x.hc1_pump_active, label: HC1 Pump Active, table: input, address: 2500, type: u16, bits: [0, 0], sources: [openhab], verified: false}
+  - {key: x.hc2_pump_active, label: HC2 Pump Active, table: input, address: 2500, type: u16, bits: [1, 1], sources: [openhab], verified: false}
+  - {key: x.heat_up_program_active, label: Heat-Up Program Active, table: input, address: 2500, type: u16, bits: [2, 2], sources: [openhab], verified: false}
+  - {key: x.nhz_stages_running, label: ER Active, table: input, address: 2500, type: u16, bits: [3, 3], sources: [openhab], verified: false}
+  - {key: x.hp_in_heating_mode, label: Currently Heating, table: input, address: 2500, type: u16, bits: [4, 4], sources: [openhab], verified: false}
+  - {key: x.hp_in_hotwater_mode, label: Currently Heating Water, table: input, address: 2500, type: u16, bits: [5, 5], sources: [openhab], verified: false}
+  - {key: x.compressor_running, label: Compressor Running, table: input, address: 2500, type: u16, bits: [6, 6], sources: [openhab], verified: false}
+  - {key: x.summer_mode_active, label: Summer Mode Active, table: input, address: 2500, type: u16, bits: [7, 7], sources: [openhab], verified: false}
+  - {key: x.cooling_mode_active, label: Currently Cooling, table: input, address: 2500, type: u16, bits: [8, 8], sources: [openhab], verified: false}
+  - {key: x.min_one_iws_in_defrosting_mode, label: IWS Defrosting Mode, table: input, address: 2500, type: u16, bits: [9, 9], sources: [openhab], verified: false}
+  - {key: x.power_off, label: Power Off, table: input, address: 2501, type: u16, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.compressor1_active, label: Compressor 1 Active, table: input, address: 2502, type: u16, bits: [0, 0], sources: [openhab], verified: false}
+  - {key: x.compressor2_active, label: Compressor 2 Active, table: input, address: 2502, type: u16, bits: [1, 1], sources: [openhab], verified: false}
+  - {key: x.compressor3_active, label: Compressor 3 Active, table: input, address: 2502, type: u16, bits: [2, 2], sources: [openhab], verified: false}
+  - {key: x.compressor4_active, label: Compressor 4 Active, table: input, address: 2502, type: u16, bits: [3, 3], sources: [openhab], verified: false}
+  - {key: x.compressor5_active, label: Compressor 5 Active, table: input, address: 2502, type: u16, bits: [4, 4], sources: [openhab], verified: false}
+  - {key: x.compressor6_active, label: Compressor 6 Active, table: input, address: 2502, type: u16, bits: [5, 5], sources: [openhab], verified: false}
+  - {key: x.buffer_charging_pump1_active, label: BufferPump1 Active, table: input, address: 2502, type: u16, bits: [6, 6], sources: [openhab], verified: false}
+  - {key: x.buffer_charging_pump2_active, label: BufferPump2 Active, table: input, address: 2502, type: u16, bits: [7, 7], sources: [openhab], verified: false}
+  - {key: x.buffer_charging_pump3_active, label: BufferPump3 Active, table: input, address: 2502, type: u16, bits: [8, 8], sources: [openhab], verified: false}
+  - {key: x.buffer_charging_pump4_active, label: BufferPump4 Active, table: input, address: 2502, type: u16, bits: [9, 9], sources: [openhab], verified: false}
+  - {key: x.silent_mode1_active, label: SilentMode1 Active, table: input, address: 2502, type: u16, bits: [10, 10], note: The binding also reads this bit as 'BufferPump5 Active' (depending on the controller)., sources: [openhab], verified: false}
+  - {key: x.silent_mode2_active, label: SilentMode2 Active, table: input, address: 2502, type: u16, bits: [11, 11], note: The binding also reads this bit as 'BufferPump6 Active' (depending on the controller)., sources: [openhab], verified: false}
+  - {key: x.nhz1_active, label: ER Stage1 Active, table: input, address: 2502, type: u16, bits: [12, 12], sources: [openhab], verified: false}
+  - {key: x.nhz2_active, label: ER Stage2 Active, table: input, address: 2502, type: u16, bits: [13, 13], sources: [openhab], verified: false}
+  - {key: x.message_number, label: Message Number, table: input, address: 2507, type: u16, invalid: [32768], models: [wpmsystem], verified: false, sources: [pystiebeleltron]}
+  - {key: x.mixer_open_hc2, label: Mixer Open HC2, table: input, address: 2520, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.mixer_close_hc2, label: Mixer Close HC2, table: input, address: 2521, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.mixer_open_hc3, label: Mixer Open HC3, table: input, address: 2522, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.mixer_close_hc3, label: Mixer Close HC3, table: input, address: 2523, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_circuit_pump_4, label: Heating Circuit Pump 4, table: input, address: 2527, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_circuit_pump_5, label: Heating Circuit Pump 5, table: input, address: 2528, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.buffer_charging_pump_3, label: Buffer Charging Pump 3, table: input, address: 2529, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.buffer_charging_pump_4, label: Buffer Charging Pump 4, table: input, address: 2530, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.buffer_charging_pump_5, label: Buffer Charging Pump 5, table: input, address: 2531, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.buffer_charging_pump_6, label: Buffer Charging Pump 6, table: input, address: 2532, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.diff_controller_pump_1, label: Diff Controller Pump 1, table: input, address: 2533, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.diff_controller_pump_2, label: Diff Controller Pump 2, table: input, address: 2534, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.pool_pump_primary, label: Pool Pump Primary, table: input, address: 2535, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.pool_pump_secondary, label: Pool Pump Secondary, table: input, address: 2536, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.mixer_open_hc4, label: Mixer Open HC4, table: input, address: 2537, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.mixer_close_hc4, label: Mixer Close HC4, table: input, address: 2538, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.mixer_open_hc5, label: Mixer Open HC5, table: input, address: 2539, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.mixer_close_hc5, label: Mixer Close HC5, table: input, address: 2540, type: u16, invalid: [32768], models: [wpmsystem], note: '0 = off, 1 = on. WPM Status.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.source_pump_1, label: Source Pump 1, table: input, address: 2560, type: u16, invalid: [32768], models: [wpmsystem], note: WPM status., verified: false, sources: [pystiebeleltron]}
+  - {key: x.source_pump_2, label: Source Pump 2, table: input, address: 2561, type: u16, invalid: [32768], models: [wpmsystem], note: WPM status., verified: false, sources: [pystiebeleltron]}
+  - {key: x.source_pump_3, label: Source Pump 3, table: input, address: 2562, type: u16, invalid: [32768], models: [wpmsystem], note: WPM status., verified: false, sources: [pystiebeleltron]}
+  - {key: x.source_pump_4, label: Source Pump 4, table: input, address: 2563, type: u16, invalid: [32768], models: [wpmsystem], note: WPM status., verified: false, sources: [pystiebeleltron]}
+  - {key: x.source_pump_5, label: Source Pump 5, table: input, address: 2564, type: u16, invalid: [32768], models: [wpmsystem], note: WPM status., verified: false, sources: [pystiebeleltron]}
+  - {key: x.source_pump_6, label: Source Pump 6, table: input, address: 2565, type: u16, invalid: [32768], models: [wpmsystem], note: WPM status., verified: false, sources: [pystiebeleltron]}
+  - {key: x.hp1_production_heat_today, label: Heat Quantity Today, table: input, address: 3522, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_production_heat_total_low, label: Heat Quantity Total (kWh part), table: input, address: 3523, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_production_heat_total_high, label: Heat Quantity Total (MWh part), table: input, address: 3524, type: u16, unit: kWh, scale: 1000, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_production_water_today, label: Water Heat Today, table: input, address: 3525, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_production_water_total_low, label: Water Heat Total (kWh part), table: input, address: 3526, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_production_water_total_high, label: Water Heat Total (MWh part), table: input, address: 3527, type: u16, unit: kWh, scale: 1000, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_production_nhz_heat_total_low, label: ER Heat Total (kWh part), table: input, address: 3528, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_production_nhz_heat_total_high, label: ER Heat Total (MWh part), table: input, address: 3529, type: u16, unit: kWh, scale: 1000, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_production_nhz_water_total_low, label: ER Water Total (kWh part), table: input, address: 3530, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_production_nhz_water_total_high, label: ER Water Total (MWh part), table: input, address: 3531, type: u16, unit: kWh, scale: 1000, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_consumption_heat_today, label: P.Consump Heating Today, table: input, address: 3532, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_consumption_heat_total_low, label: P.Consump Heating Total (kWh part), table: input, address: 3533, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_consumption_heat_total_high, label: P.Consump Heating Total (MWh part), table: input, address: 3534, type: u16, unit: kWh, scale: 1000, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_consumption_water_today, label: P.Consump Water Today, table: input, address: 3535, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_consumption_water_total_low, label: P.Consump Water Total (kWh part), table: input, address: 3536, type: u16, unit: kWh, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_consumption_water_total_high, label: P.Consump Water Total (MWh part), table: input, address: 3537, type: u16, unit: kWh, scale: 1000, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_cp1_heating_runtime, label: Heating Comp1 Runtime, table: input, address: 3538, type: u16, unit: h, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_cp2_heating_runtime, label: Heating Comp2 Runtime, table: input, address: 3539, type: u16, unit: h, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_cp12_heating_runtime, label: Heating Comp1/2 Runtime, table: input, address: 3540, type: u16, unit: h, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_cp1_hotwater_runtime, label: HotWater Comp1 Runtime, table: input, address: 3541, type: u16, unit: h, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_cp2_hotwater_runtime, label: HotWater Comp2 Runtime, table: input, address: 3542, type: u16, unit: h, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_cp_12_hotwater_runtime, label: Hp1 cp 12 hotwater runtime, table: input, address: 3543, type: u16, unit: h, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.hp1_cooling_runtime, label: Cooling Comp Runtime, table: input, address: 3544, type: u16, unit: h, invalid: [32768], sources: [openhab, pystiebeleltron], verified: false}
+  - {key: x.nhz_1_reheating, label: NHZ 1 Reheating, table: input, address: 3545, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime reheating stage., verified: false, sources: [pystiebeleltron]}
+  - {key: x.nhz_2_reheating, label: NHZ 2 Reheating, table: input, address: 3546, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime reheating stage., verified: false, sources: [pystiebeleltron]}
+  - {key: x.nhz_1_2_reheating, label: NHZ 1_2 Reheating, table: input, address: 3547, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime reheating stage., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_hp_2, label: VD Heating Day HP 2, table: input, address: 3548, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_2_low, label: VD Heating Total HP 2, table: input, address: 3549, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_2_high, label: VD Heating Total HP 2, table: input, address: 3550, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 2.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_hp_2, label: VD DHW Day HP 2, table: input, address: 3551, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_2_low, label: VD DHW Total HP 2, table: input, address: 3552, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_2_high, label: VD DHW Total HP 2, table: input, address: 3553, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 2.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_consumed_hp_2, label: VD Heating Day Consumed HP 2, table: input, address: 3554, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_2_low, label: VD Heating Total Consumed HP 2, table: input, address: 3555, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_2_high, label: VD Heating Total Consumed HP 2, table: input, address: 3556, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 2.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_consumed_hp_2, label: VD DHW Day Consumed HP 2, table: input, address: 3557, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_2_low, label: VD DHW Total Consumed HP 2, table: input, address: 3558, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_2_high, label: VD DHW Total Consumed HP 2, table: input, address: 3559, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 2.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_heating_hp_2, label: VD 1 Heating HP 2, table: input, address: 3560, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_heating_hp_2, label: VD 2 Heating HP 2, table: input, address: 3561, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_heating_hp_2, label: VD 1_2 Heating HP 2, table: input, address: 3562, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_dhw_hp_2, label: VD 1 DHW HP 2, table: input, address: 3563, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_dhw_hp_2, label: VD 2 DHW HP 2, table: input, address: 3564, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_dhw_hp_2, label: VD 1_2 DHW HP 2, table: input, address: 3565, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_cooling_hp_2, label: VD Cooling HP 2, table: input, address: 3566, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_hp_3, label: VD Heating Day HP 3, table: input, address: 3567, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_3_low, label: VD Heating Total HP 3, table: input, address: 3568, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_3_high, label: VD Heating Total HP 3, table: input, address: 3569, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 3.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_hp_3, label: VD DHW Day HP 3, table: input, address: 3570, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_3_low, label: VD DHW Total HP 3, table: input, address: 3571, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_3_high, label: VD DHW Total HP 3, table: input, address: 3572, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 3.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_consumed_hp_3, label: VD Heating Day Consumed HP 3, table: input, address: 3573, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_3_low, label: VD Heating Total Consumed HP 3, table: input, address: 3574, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_3_high, label: VD Heating Total Consumed HP 3, table: input, address: 3575, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 3.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_consumed_hp_3, label: VD DHW Day Consumed HP 3, table: input, address: 3576, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_3_low, label: VD DHW Total Consumed HP 3, table: input, address: 3577, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_3_high, label: VD DHW Total Consumed HP 3, table: input, address: 3578, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 3.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_heating_hp_3, label: VD 1 Heating HP 3, table: input, address: 3579, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_heating_hp_3, label: VD 2 Heating HP 3, table: input, address: 3580, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_heating_hp_3, label: VD 1_2 Heating HP 3, table: input, address: 3581, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_dhw_hp_3, label: VD 1 DHW HP 3, table: input, address: 3582, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_dhw_hp_3, label: VD 2 DHW HP 3, table: input, address: 3583, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_dhw_hp_3, label: VD 1_2 DHW HP 3, table: input, address: 3584, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_cooling_hp_3, label: VD Cooling HP 3, table: input, address: 3585, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_hp_4, label: VD Heating Day HP 4, table: input, address: 3586, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_4_low, label: VD Heating Total HP 4, table: input, address: 3587, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_4_high, label: VD Heating Total HP 4, table: input, address: 3588, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 4.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_hp_4, label: VD DHW Day HP 4, table: input, address: 3589, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_4_low, label: VD DHW Total HP 4, table: input, address: 3590, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_4_high, label: VD DHW Total HP 4, table: input, address: 3591, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 4.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_consumed_hp_4, label: VD Heating Day Consumed HP 4, table: input, address: 3592, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_4_low, label: VD Heating Total Consumed HP 4, table: input, address: 3593, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_4_high, label: VD Heating Total Consumed HP 4, table: input, address: 3594, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 4.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_consumed_hp_4, label: VD DHW Day Consumed HP 4, table: input, address: 3595, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_4_low, label: VD DHW Total Consumed HP 4, table: input, address: 3596, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_4_high, label: VD DHW Total Consumed HP 4, table: input, address: 3597, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 4.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_heating_hp_4, label: VD 1 Heating HP 4, table: input, address: 3598, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_heating_hp_4, label: VD 2 Heating HP 4, table: input, address: 3599, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_heating_hp_4, label: VD 1/2 Heating HP 4, table: input, address: 3600, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_dhw_hp_4, label: VD 1 DHW HP 4, table: input, address: 3601, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_dhw_hp_4, label: VD 2 DHW HP 4, table: input, address: 3602, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_dhw_hp_4, label: VD 1/2 DHW HP 4, table: input, address: 3603, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_cooling_hp_4, label: VD Cooling HP 4, table: input, address: 3604, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_hp_5, label: VD Heating Day HP 5, table: input, address: 3605, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_5_low, label: VD Heating Total HP 5, table: input, address: 3606, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_5_high, label: VD Heating Total HP 5, table: input, address: 3607, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 5.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_hp_5, label: VD DHW Day HP 5, table: input, address: 3608, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_5_low, label: VD DHW Total HP 5, table: input, address: 3609, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_5_high, label: VD DHW Total HP 5, table: input, address: 3610, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 5.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_consumed_hp_5, label: VD Heating Day Consumed HP 5, table: input, address: 3611, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_5_low, label: VD Heating Total Consumed HP 5, table: input, address: 3612, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_5_high, label: VD Heating Total Consumed HP 5, table: input, address: 3613, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 5.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_consumed_hp_5, label: VD DHW Day Consumed HP 5, table: input, address: 3614, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_5_low, label: VD DHW Total Consumed HP 5, table: input, address: 3615, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_5_high, label: VD DHW Total Consumed HP 5, table: input, address: 3616, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 5.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_heating_hp_5, label: VD 1 Heating HP 5, table: input, address: 3617, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_heating_hp_5, label: VD 2 Heating HP 5, table: input, address: 3618, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_heating_hp_5, label: VD 1/2 Heating HP 5, table: input, address: 3619, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_dhw_hp_5, label: VD 1 DHW HP 5, table: input, address: 3620, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_dhw_hp_5, label: VD 2 DHW HP 5, table: input, address: 3621, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_dhw_hp_5, label: VD 1/2 DHW HP 5, table: input, address: 3622, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_cooling_hp_5, label: VD Cooling HP 5, table: input, address: 3623, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_hp_6, label: VD Heating Day HP 6, table: input, address: 3624, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_6_low, label: VD Heating Total HP 6, table: input, address: 3625, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_6_high, label: VD Heating Total HP 6, table: input, address: 3626, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 6.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_hp_6, label: VD DHW Day HP 6, table: input, address: 3627, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Amount of heat HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_6_low, label: VD DHW Total HP 6, table: input, address: 3628, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Amount of heat HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_6_high, label: VD DHW Total HP 6, table: input, address: 3629, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Amount of heat HP 6.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_day_consumed_hp_6, label: VD Heating Day Consumed HP 6, table: input, address: 3630, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_6_low, label: VD Heating Total Consumed HP 6, table: input, address: 3631, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_6_high, label: VD Heating Total Consumed HP 6, table: input, address: 3632, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 6.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_day_consumed_hp_6, label: VD DHW Day Consumed HP 6, table: input, address: 3633, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Power consumption HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_6_low, label: VD DHW Total Consumed HP 6, table: input, address: 3634, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem, wpm3], note: Low part of a counter (the total is derived). Power consumption HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_6_high, label: VD DHW Total Consumed HP 6, table: input, address: 3635, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem, wpm3], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption HP 6.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_heating_hp_6, label: VD 1 Heating HP 6, table: input, address: 3636, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_heating_hp_6, label: VD 2 Heating HP 6, table: input, address: 3637, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_heating_hp_6, label: VD 1/2 Heating HP 6, table: input, address: 3638, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_dhw_hp_6, label: VD 1 DHW HP 6, table: input, address: 3639, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_2_dhw_hp_6, label: VD 2 DHW HP 6, table: input, address: 3640, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_1_2_dhw_hp_6, label: VD 1/2 DHW HP 6, table: input, address: 3641, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_cooling_hp_6, label: VD Cooling HP 6, table: input, address: 3642, type: u16, unit: h, invalid: [32768], models: [wpmsystem, wpm3], note: Runtime HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_hp_1, label: VD Heating HP 1, table: input, address: 3643, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 1., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_hp_1, label: VD DHW HP 1, table: input, address: 3644, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 1., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_hp_2, label: VD Heating HP 2, table: input, address: 3645, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_hp_2, label: VD DHW HP 2, table: input, address: 3646, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 2., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_hp_3, label: VD Heating HP 3, table: input, address: 3647, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_hp_3, label: VD DHW HP 3, table: input, address: 3648, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 3., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_hp_4, label: VD Heating HP 4, table: input, address: 3649, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_hp_4, label: VD DHW HP 4, table: input, address: 3650, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 4., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_hp_5, label: VD Heating HP 5, table: input, address: 3651, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_hp_5, label: VD DHW HP 5, table: input, address: 3652, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 5., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_hp_6, label: VD Heating HP 6, table: input, address: 3653, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_hp_6, label: VD DHW HP 6, table: input, address: 3654, type: u16, unit: h, invalid: [32768], models: [wpmsystem], note: Runtime HP 6., verified: false, sources: [pystiebeleltron]}
+  - {key: x.inverter_power_iws_1, label: Inverter Power IWS 1, table: input, address: 3679, type: s16, unit: W, scale: 100, invalid: [-32768], models: [wpmsystem], note: One decimal place., verified: false, sources: [pystiebeleltron]}
+  - {key: x.inverter_power_iws_2, label: Inverter Power IWS 2, table: input, address: 3680, type: s16, unit: W, scale: 100, invalid: [-32768], models: [wpmsystem], note: One decimal place., verified: false, sources: [pystiebeleltron]}
+  - {key: x.inverter_power_iws_3, label: Inverter Power IWS 3, table: input, address: 3681, type: s16, unit: W, scale: 100, invalid: [-32768], models: [wpmsystem], note: One decimal place., verified: false, sources: [pystiebeleltron]}
+  - {key: x.inverter_power_iws_4, label: Inverter Power IWS 4, table: input, address: 3682, type: s16, unit: W, scale: 100, invalid: [-32768], models: [wpmsystem], note: One decimal place., verified: false, sources: [pystiebeleltron]}
+  - {key: x.inverter_power_iws_5, label: Inverter Power IWS 5, table: input, address: 3683, type: s16, unit: W, scale: 100, invalid: [-32768], models: [wpmsystem], note: One decimal place., verified: false, sources: [pystiebeleltron]}
+  - {key: x.inverter_power_iws_6, label: Inverter Power IWS 6, table: input, address: 3684, type: s16, unit: W, scale: 100, invalid: [-32768], models: [wpmsystem], note: One decimal place., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_heating_1_24_h_low, label: Amount Of Heat Heating 1–24 h, table: input, address: 3689, type: u16, unit: kWh, scale: 0.001, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_heating_1_24_h_high, label: Amount Of Heat Heating 1–24 h, table: input, address: 3690, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of Wh (the total is derived).', verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_heating_1_12_low, label: Amount Of Heat Heating 1–12, table: input, address: 3691, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_heating_1_12_high, label: Amount Of Heat Heating 1–12, table: input, address: 3692, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived).', verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_heating_13_24_low, label: Amount Of Heat Heating 13–24, table: input, address: 3693, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_heating_13_24_high, label: Amount Of Heat Heating 13–24, table: input, address: 3694, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived).', verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_cooling_1_24_h_low, label: Amount Of Heat Cooling 1–24 h, table: input, address: 3695, type: u16, unit: kWh, scale: 0.001, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_cooling_1_24_h_high, label: Amount Of Heat Cooling 1–24 h, table: input, address: 3696, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of Wh (the total is derived).', verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_cooling_1_12_m_low, label: Amount Of Heat Cooling 1–12 M, table: input, address: 3697, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_cooling_1_12_m_high, label: Amount Of Heat Cooling 1–12 M, table: input, address: 3698, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived).', verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_cooling_13_24_low, label: Amount Of Heat Cooling 13–24, table: input, address: 3699, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_cooling_13_24_high, label: Amount Of Heat Cooling 13–24, table: input, address: 3700, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived).', verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_dhw_1_24_h_wh_wh_low, label: Amount Of Heat DHW 1–24 h Wh Wh, table: input, address: 3701, type: u16, unit: kWh, scale: 0.001, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_dhw_1_24_h_wh_wh_high, label: Amount Of Heat DHW 1–24 h, table: input, address: 3702, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of Wh (the total is derived).', verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_dhw_1_12_m_low, label: Amount Of Heat DHW 1–12 M, table: input, address: 3703, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_dhw_1_12_m_high, label: Amount Of Heat DHW 1–12 M, table: input, address: 3704, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived).', verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_dhw_13_24_m_low, label: Amount Of Heat DHW 13–24 M, table: input, address: 3705, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_dhw_13_24_m_high, label: Amount Of Heat DHW 13–24 M, table: input, address: 3706, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived).', verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_24h_low, label: Heating 24h, table: input, address: 3707, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived). Power consumption - heating 24h., verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_24h_high, label: Heating 24h, table: input, address: 3708, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived). The library''s table gives this register''s unit as kWh, but the library sums it with weight 1000. Power consumption - heating 24h whole.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_12m_low, label: Heating 12m, table: input, address: 3709, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived). Power consumption - heating 12m fraction., verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_12m_high, label: Heating 12m, table: input, address: 3710, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived). The library''s table gives this register''s unit as kWh, but the library sums it with weight 1000. Power consumption - heating 12m whole.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_13_24_low, label: Heating 13-24, table: input, address: 3711, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived). Power consumption - heating 13-24 fraction., verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_13_24_high, label: Heating 13-24, table: input, address: 3712, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption - heating 13-24 whole.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.cooling_24h_low, label: Cooling 24h, table: input, address: 3713, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived). Power consumption - cooling 24h fraction., verified: false, sources: [pystiebeleltron]}
+  - {key: x.cooling_24h_high, label: Cooling 24h, table: input, address: 3714, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived). The library''s table gives this register''s unit as kWh, but the library sums it with weight 1000. Power consumption - cooling 24h whole.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.cooling_12m_low, label: Cooling 12m, table: input, address: 3715, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived). Power consumption - cooling 12m., verified: false, sources: [pystiebeleltron]}
+  - {key: x.cooling_12m_high, label: Cooling 12m, table: input, address: 3716, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption - cooling 13-24 whole.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.cooling_13_24_low, label: Cooling 13-24, table: input, address: 3717, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived). Power consumption - cooling 13-24 fraction., verified: false, sources: [pystiebeleltron]}
+  - {key: x.cooling_13_24_high, label: Cooling 13-24, table: input, address: 3718, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption - cooling 13-24 whole.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.dhw_24h_low, label: DHW 24h, table: input, address: 3719, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived). Power consumption - DHW 24h fraction., verified: false, sources: [pystiebeleltron]}
+  - {key: x.dhw_24h_high, label: DHW 24h, table: input, address: 3720, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived). The library''s table gives this register''s unit as kWh, but the library sums it with weight 1000. Power consumption - DHW 24h whole.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.dhw_12m_low, label: DHW 12m, table: input, address: 3721, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived). Power consumption - DHW 12m fraction., verified: false, sources: [pystiebeleltron]}
+  - {key: x.dhw_12m_high, label: DHW 12m, table: input, address: 3722, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived). The library''s table gives this register''s unit as kWh, but the library sums it with weight 1000. Power consumption - DHW 12m whole.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.dhw_13_24_low, label: DHW 13-24, table: input, address: 3723, type: u16, unit: kWh, invalid: [32768], models: [wpmsystem], note: Low part of a counter (the total is derived). Power consumption - DHW 13-24 fraction., verified: false, sources: [pystiebeleltron]}
+  - {key: x.dhw_13_24_high, label: DHW 13-24, table: input, address: 3724, type: u16, unit: kWh, scale: 1000, invalid: [32768], models: [wpmsystem], note: 'High part of a counter, thousands of kWh (the total is derived). Power consumption - DHW 13-24 whole.', verified: false, sources: [pystiebeleltron]}
+  - {key: x.efficiency_heating_1_24_h, label: Efficiency Heating 1–24 h, table: input, address: 3725, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], note: The manual gives no data type; the library scales by 0.01 as observed on WPMsystem installations (405 = 4.05)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.efficiency_heating_1_12_m, label: Efficiency Heating 1–12 M, table: input, address: 3726, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], note: The manual gives no data type; the library scales by 0.01 as observed on WPMsystem installations (405 = 4.05)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.efficiency_heating_13_24_m, label: Efficiency Heating 13–24 M, table: input, address: 3727, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], note: The manual gives no data type; the library scales by 0.01 as observed on WPMsystem installations (405 = 4.05)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.efficiency_cooling_1_24_h, label: Efficiency Cooling 1–24 h, table: input, address: 3728, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], note: The manual gives no data type; the library scales by 0.01 as observed on WPMsystem installations (405 = 4.05)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.efficiency_cooling_1_12_m, label: Efficiency Cooling 1–12 M, table: input, address: 3729, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], note: The manual gives no data type; the library scales by 0.01 as observed on WPMsystem installations (405 = 4.05)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.efficiency_cooling_13_24_m, label: Efficiency Cooling 13–24 M, table: input, address: 3730, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], note: The manual gives no data type; the library scales by 0.01 as observed on WPMsystem installations (405 = 4.05)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.efficiency_dhw_1_24_h, label: Efficiency DHW 1–24 h, table: input, address: 3731, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], note: The manual gives no data type; the library scales by 0.01 as observed on WPMsystem installations (405 = 4.05)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.efficiency_dhw_1_12_m, label: Efficiency DHW 1–12 M, table: input, address: 3732, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], note: The manual gives no data type; the library scales by 0.01 as observed on WPMsystem installations (405 = 4.05)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.efficiency_dhw_13_24_m, label: Efficiency DHW 13–24 M, table: input, address: 3733, type: s16, scale: 0.01, invalid: [-32768], models: [wpmsystem], note: The manual gives no data type; the library scales by 0.01 as observed on WPMsystem installations (405 = 4.05)., verified: false, sources: [pystiebeleltron]}
+  - {key: x.sg_ready_inputs_active, label: SG Ready Inputs Active, table: input, address: 5219, type: u16, invalid: [32768], models: [wpmsystem], verified: false, sources: [pystiebeleltron]}
+  - {key: x.sg_ready_bit_1, label: SG Ready Bit 1, table: input, address: 5220, type: u16, invalid: [32768], models: [wpmsystem], verified: false, sources: [pystiebeleltron]}
+  - {key: x.sg_ready_bit_2, label: SG Ready Bit 2, table: input, address: 5221, type: u16, invalid: [32768], models: [wpmsystem], verified: false, sources: [pystiebeleltron]}
+  - {key: x.user_power_limit, label: User Power Limit, table: input, address: 5229, type: u16, unit: W, invalid: [32768], models: [wpmsystem], verified: false, sources: [pystiebeleltron]}
+  - {key: x.electrical_power_limit_requested, label: Electrical Power Limit Requested, table: input, address: 5230, type: u16, unit: W, invalid: [32768], models: [wpmsystem], note: Electrical power limit., verified: false, sources: [pystiebeleltron]}
+
+derived:
+  - {key: x.vd_heating_total, label: VD heating total (amount of heat), unit: kWh, sum: [{key: x.vd_heating_total_high}, {key: x.vd_heating_total_low}]}
+  - {key: x.vd_dhw_total, label: VD DHW total (amount of heat), unit: kWh, sum: [{key: x.vd_dhw_total_high}, {key: x.vd_dhw_total_low}]}
+  - {key: x.nhz_heating_total, label: NHZ heating total, unit: kWh, sum: [{key: x.nhz_heating_total_high}, {key: x.nhz_heating_total_low}]}
+  - {key: x.nhz_dhw_total, label: NHZ DHW total, unit: kWh, sum: [{key: x.nhz_dhw_total_high}, {key: x.nhz_dhw_total_low}]}
+  - {key: x.vd_heating_total_consumed, label: VD heating total (power consumption), unit: kWh, sum: [{key: x.vd_heating_total_consumed_high}, {key: x.vd_heating_total_consumed_low}]}
+  - {key: x.vd_dhw_total_consumed, label: VD DHW total (power consumption), unit: kWh, sum: [{key: x.vd_dhw_total_consumed_high}, {key: x.vd_dhw_total_consumed_low}]}
+  - {key: x.consumed_today, label: Electrical energy today (VD heating + VD DHW day), unit: kWh, sum: [{key: x.vd_heating_day_consumed}, {key: x.vd_dhw_day_consumed}], note: Sum of heating and DHW; the booster heater has no electrical counter.}
+  - {key: x.heat_today, label: Amount of heat today (VD heating + VD DHW day), unit: kWh, sum: [{key: x.vd_heating_day}, {key: x.vd_dhw_day}], note: Sum of heating and DHW.}
+  - {key: x.consumed_total, label: Electrical energy total (VD heating + VD DHW), unit: kWh, sum: [{key: x.vd_heating_total_consumed}, {key: x.vd_dhw_total_consumed}], note: Sum of heating and DHW; the booster heater has no electrical counter.}
+  - {key: x.heat_total, label: Amount of heat total (VD heating + VD DHW), unit: kWh, sum: [{key: x.vd_heating_total}, {key: x.vd_dhw_total}], note: Sum of heating and DHW.}
+  - {key: x.hp1_production_heat_total, label: Heat Quantity Total, unit: kWh, sum: [{key: x.hp1_production_heat_total_low}, {key: x.hp1_production_heat_total_high}], sources: [openhab], verified: false}
+  - {key: x.hp1_production_water_total, label: Water Heat Total, unit: kWh, sum: [{key: x.hp1_production_water_total_low}, {key: x.hp1_production_water_total_high}], sources: [openhab], verified: false}
+  - {key: x.hp1_production_nhz_heat_total, label: ER Heat Total, unit: kWh, sum: [{key: x.hp1_production_nhz_heat_total_low}, {key: x.hp1_production_nhz_heat_total_high}], sources: [openhab], verified: false}
+  - {key: x.hp1_production_nhz_water_total, label: ER Water Total, unit: kWh, sum: [{key: x.hp1_production_nhz_water_total_low}, {key: x.hp1_production_nhz_water_total_high}], sources: [openhab], verified: false}
+  - {key: x.hp1_consumption_heat_total, label: P.Consump Heating Total, unit: kWh, sum: [{key: x.hp1_consumption_heat_total_low}, {key: x.hp1_consumption_heat_total_high}], sources: [openhab], verified: false}
+  - {key: x.hp1_consumption_water_total, label: P.Consump Water Total, unit: kWh, sum: [{key: x.hp1_consumption_water_total_low}, {key: x.hp1_consumption_water_total_high}], sources: [openhab], verified: false}
+  - {key: x.vd_heating_total_hp_1, label: VD Heating Total HP 1, unit: kWh, sum: [{key: x.hp1_production_heat_total_low}, {key: x.hp1_production_heat_total_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_1, label: VD DHW Total HP 1, unit: kWh, sum: [{key: x.hp1_production_water_total_low}, {key: x.hp1_production_water_total_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.nhz_heating_total_hp_1, label: NHZ Heating Total HP 1, unit: kWh, sum: [{key: x.hp1_production_nhz_heat_total_low}, {key: x.hp1_production_nhz_heat_total_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.nhz_dhw_total_hp_1, label: NHZ DHW Total HP 1, unit: kWh, sum: [{key: x.hp1_production_nhz_water_total_low}, {key: x.hp1_production_nhz_water_total_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_1, label: VD Heating Total Consumed HP 1, unit: kWh, sum: [{key: x.hp1_consumption_heat_total_low}, {key: x.hp1_consumption_heat_total_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_1, label: VD DHW Total Consumed HP 1, unit: kWh, sum: [{key: x.hp1_consumption_water_total_low}, {key: x.hp1_consumption_water_total_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_2, label: VD Heating Total HP 2, unit: kWh, sum: [{key: x.vd_heating_total_hp_2_low}, {key: x.vd_heating_total_hp_2_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_2, label: VD DHW Total HP 2, unit: kWh, sum: [{key: x.vd_dhw_total_hp_2_low}, {key: x.vd_dhw_total_hp_2_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_2, label: VD Heating Total Consumed HP 2, unit: kWh, sum: [{key: x.vd_heating_total_consumed_hp_2_low}, {key: x.vd_heating_total_consumed_hp_2_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_2, label: VD DHW Total Consumed HP 2, unit: kWh, sum: [{key: x.vd_dhw_total_consumed_hp_2_low}, {key: x.vd_dhw_total_consumed_hp_2_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_3, label: VD Heating Total HP 3, unit: kWh, sum: [{key: x.vd_heating_total_hp_3_low}, {key: x.vd_heating_total_hp_3_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_3, label: VD DHW Total HP 3, unit: kWh, sum: [{key: x.vd_dhw_total_hp_3_low}, {key: x.vd_dhw_total_hp_3_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_3, label: VD Heating Total Consumed HP 3, unit: kWh, sum: [{key: x.vd_heating_total_consumed_hp_3_low}, {key: x.vd_heating_total_consumed_hp_3_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_3, label: VD DHW Total Consumed HP 3, unit: kWh, sum: [{key: x.vd_dhw_total_consumed_hp_3_low}, {key: x.vd_dhw_total_consumed_hp_3_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_4, label: VD Heating Total HP 4, unit: kWh, sum: [{key: x.vd_heating_total_hp_4_low}, {key: x.vd_heating_total_hp_4_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_4, label: VD DHW Total HP 4, unit: kWh, sum: [{key: x.vd_dhw_total_hp_4_low}, {key: x.vd_dhw_total_hp_4_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_4, label: VD Heating Total Consumed HP 4, unit: kWh, sum: [{key: x.vd_heating_total_consumed_hp_4_low}, {key: x.vd_heating_total_consumed_hp_4_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_4, label: VD DHW Total Consumed HP 4, unit: kWh, sum: [{key: x.vd_dhw_total_consumed_hp_4_low}, {key: x.vd_dhw_total_consumed_hp_4_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_5, label: VD Heating Total HP 5, unit: kWh, sum: [{key: x.vd_heating_total_hp_5_low}, {key: x.vd_heating_total_hp_5_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_5, label: VD DHW Total HP 5, unit: kWh, sum: [{key: x.vd_dhw_total_hp_5_low}, {key: x.vd_dhw_total_hp_5_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_5, label: VD Heating Total Consumed HP 5, unit: kWh, sum: [{key: x.vd_heating_total_consumed_hp_5_low}, {key: x.vd_heating_total_consumed_hp_5_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_5, label: VD DHW Total Consumed HP 5, unit: kWh, sum: [{key: x.vd_dhw_total_consumed_hp_5_low}, {key: x.vd_dhw_total_consumed_hp_5_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_hp_6, label: VD Heating Total HP 6, unit: kWh, sum: [{key: x.vd_heating_total_hp_6_low}, {key: x.vd_heating_total_hp_6_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_hp_6, label: VD DHW Total HP 6, unit: kWh, sum: [{key: x.vd_dhw_total_hp_6_low}, {key: x.vd_dhw_total_hp_6_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_heating_total_consumed_hp_6, label: VD Heating Total Consumed HP 6, unit: kWh, sum: [{key: x.vd_heating_total_consumed_hp_6_low}, {key: x.vd_heating_total_consumed_hp_6_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.vd_dhw_total_consumed_hp_6, label: VD DHW Total Consumed HP 6, unit: kWh, sum: [{key: x.vd_dhw_total_consumed_hp_6_low}, {key: x.vd_dhw_total_consumed_hp_6_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_heating_1_24_h, label: Amount Of Heat Heating 1–24 h, unit: Wh, sum: [{key: x.amount_of_heat_heating_1_24_h_low}, {key: x.amount_of_heat_heating_1_24_h_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_heating_1_12, label: Amount Of Heat Heating 1–12, unit: kWh, sum: [{key: x.amount_of_heat_heating_1_12_low}, {key: x.amount_of_heat_heating_1_12_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_heating_13_24, label: Amount Of Heat Heating 13–24, unit: kWh, sum: [{key: x.amount_of_heat_heating_13_24_low}, {key: x.amount_of_heat_heating_13_24_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_cooling_1_24_h, label: Amount Of Heat Cooling 1–24 h, unit: Wh, sum: [{key: x.amount_of_heat_cooling_1_24_h_low}, {key: x.amount_of_heat_cooling_1_24_h_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_cooling_1_12_m, label: Amount Of Heat Cooling 1–12 M, unit: kWh, sum: [{key: x.amount_of_heat_cooling_1_12_m_low}, {key: x.amount_of_heat_cooling_1_12_m_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_cooling_13_24, label: Amount Of Heat Cooling 13–24, unit: kWh, sum: [{key: x.amount_of_heat_cooling_13_24_low}, {key: x.amount_of_heat_cooling_13_24_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_dhw_1_24_h_wh_wh, label: Amount Of Heat DHW 1–24 h Wh Wh, unit: Wh, sum: [{key: x.amount_of_heat_dhw_1_24_h_wh_wh_low}, {key: x.amount_of_heat_dhw_1_24_h_wh_wh_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_dhw_1_12_m, label: Amount Of Heat DHW 1–12 M, unit: kWh, sum: [{key: x.amount_of_heat_dhw_1_12_m_low}, {key: x.amount_of_heat_dhw_1_12_m_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.amount_of_heat_dhw_13_24_m, label: Amount Of Heat DHW 13–24 M, unit: kWh, sum: [{key: x.amount_of_heat_dhw_13_24_m_low}, {key: x.amount_of_heat_dhw_13_24_m_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_24h, label: Heating 24h, unit: kWh, sum: [{key: x.heating_24h_low}, {key: x.heating_24h_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_12m, label: Heating 12m, unit: kWh, sum: [{key: x.heating_12m_low}, {key: x.heating_12m_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.heating_13_24, label: Heating 13-24, unit: kWh, sum: [{key: x.heating_13_24_low}, {key: x.heating_13_24_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.cooling_24h, label: Cooling 24h, unit: kWh, sum: [{key: x.cooling_24h_low}, {key: x.cooling_24h_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.cooling_12m, label: Cooling 12m, unit: kWh, sum: [{key: x.cooling_12m_low}, {key: x.cooling_12m_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.cooling_13_24, label: Cooling 13-24, unit: kWh, sum: [{key: x.cooling_13_24_low}, {key: x.cooling_13_24_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.dhw_24h, label: DHW 24h, unit: kWh, sum: [{key: x.dhw_24h_low}, {key: x.dhw_24h_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.dhw_12m, label: DHW 12m, unit: kWh, sum: [{key: x.dhw_12m_low}, {key: x.dhw_12m_high}], verified: false, sources: [pystiebeleltron]}
+  - {key: x.dhw_13_24, label: DHW 13-24, unit: kWh, sum: [{key: x.dhw_13_24_low}, {key: x.dhw_13_24_high}], verified: false, sources: [pystiebeleltron]}
+
+enums:
+  operating_mode: {'0': Emergency operation, '1': Standby, '2': Programmed operation, '3': Comfort, '4': Eco, '5': DHW mode}
+  fatal_error: {'0': No fault, '1': Fault}
+  bus_status: {'0': OK, '-1': Fault, '-2': Fault, '-3': CAN error, '-4': Line fault}
+  defrost: {'0': 'Off', '1': Initiated}
+  off_on: {'0': 'Off', '1': 'On'}
+  no_yes: {'0': 'No', '1': 'Yes'}
+  sg_ready_state: {'1': '1 – blocked, frost protection only', '2': 2 – normal operation, '3': 3 – increased temperatures, '4': 4 – maximum temperatures}
+  controller: {'103': LWZ integral unit, '104': LWZ integral unit (SOL / INV), '165': WPM 2, '190': WPM I, '219': WPM X PLUS, '220': WPM X, '325': WPM IW, '331': WPM 2_1, '340': WPM ME, '390': WPM 3, '391': WPM 3i, '449': WPMsystem (WPM 4)}
+  reset: {'0': 'Off', '1': System Reset (Factory Reset) !!!, '2': Fault List Reset, '3': Heat Pump Reset}
+  restart_isg: {'0': 'Off', '1': Restart, '2': Service Key}
+  sg_ready_on_off_switch: {'0': 'Off', '1': 'On'}
+
+flags:
+  wpm3_status: {'0': Compressor 1, '1': Compressor 2, '2': Compressor 3, '3': Compressor 4, '4': Compressor 5, '5': Compressor 6, '6': Buffer charging pump 1, '7': Buffer charging pump 2, '8': Buffer charging pump 3, '9': Buffer charging pump 4, '10': Buffer charging pump 5, '11': Buffer charging pump 6, '12': Booster heater stage 1, '13': Booster heater stage 2}
+  operating_status: {'0': Heating circuit 1 pump, '1': Heating circuit 2 pump, '2': Heat-up program, '3': Electric emergency / booster heater, '4': Heating, '5': DHW heating, '6': Compressor, '7': Summer mode, '8': Cooling mode, '9': Defrost, '10': Silent mode 1, '11': Silent mode 2 (off)}
+
+problems:
+  - {when: {key: x.fault_status, equals: 1}, kind: fault, text: System fault (fatal error)}
+  - {when: {key: x.bus_status, in: [-1, -2]}, kind: warning, text: 'Bus fault (bus status {value})'}
+  - {when: {key: x.bus_status, equals: -3}, kind: warning, text: 'CAN bus error (bus status {value})'}
+  - {when: {key: x.bus_status, equals: -4}, kind: warning, text: 'Bus line fault (bus status {value})'}
+
+notes:
+- Read through the ISG (web, plus or Connect) with the Modbus TCP/IP software extension. It can't be combined with other ISG
+  software extensions, except read-only use alongside EMI energy management.
+- The document numbers registers from 1 ("to read 30501, address 501 with function 04"); the protocol addresses here are one
+  lower. The document adds that some configurations need an offset of 1, so a reader may have to try both.
+- Raw 0x8000 (32768) is the ISG's "not available" value for every register, signed or unsigned.
+- 'Data types: 2 = signed × 0.1, 6 = unsigned × 1, 7 = signed × 0.01, 8 = 0…255.'
+- Only WPM 3, WPM 3i and WPMsystem use this register map. Integral ventilation units (LWZ, codes 103/104) and older managers
+  (WPM I/2/X …) use other maps.
+- Energy totals are split into a kWh part (0…999) and an MWh part in the next register (see derived). Day counters are whole
+  kWh. The booster heater has no electrical counter.
+- The ISG reports no instantaneous electrical power for WPM 3 / WPM 3i (WPMsystem has inverter power for IWS units only, not
+  covered here).
+- The document gives no request limit; reading 501…548 as one 48-register block (single registers when refused) is assumed
+  to work. The current edition names no port or unit id; the older editions (Stand 9046, 9535) give TCP port 502 and slave
+  id 1, fixed.
+- Active cooling can be taken as B8 (cooling mode) and B6 (compressor) both set; reading B8 as active cooling is unconfirmed.
+- In documented numbers, 539 (WPM 3i hot gas) can stand in when 544 is missing and 609 when 515 is missing; whether a WPM
+  3i refuses or answers 0x8000 for the heat pump 1 registers 542…548 is unconfirmed.
+- 'Bus status texts differ between editions: the current one has OK, fault, fault, CAN error, line fault (0 … −4); the older
+  ones (Stand 9046, 9535) name them Status OK, Status error, Error passive, Bus off, Physical error.'
+- 'WPMsystem only (left out): dew points of heating circuits 1–5 (documented 587, 591 … 603), cooling circuit 1–5 room set
+  temperatures (604 … 608), heating circuit 3–5 actual / set temperatures (610 … 615), the WPE expansion outputs (2528 … 2541)
+  and the source pump states (2561 ff., with IWS units only). Documented 608 is the cooling circuit 5 set temperature in every
+  edition; the WPM 3i flow temperature at documented 609 is only in the current one.'
+- 'WPM 3 (left out): energy and run times per heat pump in blocks of 26 registers from documented 3523 (heat pump 1: heat
+  amounts 3523 … 3532, power consumption 3533 … 3538, run times 3539 … 3548), laid out like the totals.'
+- Heat-pump-specific energy and runtime values repeat every 26 registers per heat pump (and system values per heat pump in
+  their own spacing); only heat pump 1 is listed.
+- The binding treats 0x8000 (−32768 signed) as 'not available' and then stops reading that feature.
+- Taken from the openHAB binding (see sources); not checked against manufacturer documents.
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- Read through the STIEBEL ELTRON ISG web gateway (Modbus TCP; the Modbus module of the ISG must be enabled).
+- Addresses are 0-based protocol addresses; the manual numbers the registers from 1 (one higher).
+- Raw 0x8000 means the value is not available on this machine.
+- 'Input 5001 holds the controller identification: 103 = LWZ, 104 = LWZ x04 SOL, 390 = WPM 3, 391 = WPM 3i, 449 = WPMsystem,
+  551 = LWZ R290.'
+- The 'extended' blocks (energy management, efficiency, inverter power and, on WPM, versions and extra circuits) are not served
+  by every controller and firmware; such a controller answers with an illegal data address exception, so read them separately
+  from the rest.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

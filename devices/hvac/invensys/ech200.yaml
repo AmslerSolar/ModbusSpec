@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Invensys MODBUS for ECH 200 Serial Communication Protocol (2002/04, code 8MA10018).
+
+modbusspec: 0
+id: invensys-ech200
+manufacturer: Invensys Controls Italy
+name: ECH 200 chiller / heat pump controller
+kind: hvac
+
+sources:
+- title: MODBUS for ECH 200 Serial Communication Protocol (8MA10018)
+  version: 2002/04
+  url: https://mosinv.ru/Documentation/ECH/MODBUS%20x%20ECH200%20eng%204-2002.pdf
+  sha256: 28f42bc57edfbd0f5885206b8a019c83c676c617c4754d85bed1c5dc9395cfee
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  limits:
+    max_registers: 16
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # RAM area (area index 8): one byte per register, in the low byte
+  - {key: x.machine_state, label: Machine status - state, table: holding, address: 16468, type: u16, bits: [0, 1], enum: machine_state, writable: true}
+  - {key: x.on_off, label: Machine status - on / off, table: holding, address: 16468, type: u16, bits: [2, 2], enum: off_on, writable: true}
+  - {key: x.test_mode, label: Test bit (COLL), table: holding, address: 16396, type: u16, bits: [1, 1], enum: off_on, writable: true, poll: slow, note: '1 = test mode: all regulators stop, so outputs and display can be set over Modbus. Leave at 0 for normal operation.'}
+  - {key: x.probe1_high, label: ST1 input more significant byte, table: holding, address: 16415, type: u16}
+  - {key: x.probe1_low, label: ST1 input less significant byte, table: holding, address: 16416, type: u16}
+  - {key: x.probe2_high, label: ST2 input more significant byte, table: holding, address: 16417, type: u16}
+  - {key: x.probe2_low, label: ST2 input less significant byte, table: holding, address: 16418, type: u16}
+  - {key: x.probe3_high, label: ST3 input more significant byte, table: holding, address: 16419, type: u16, verified: false, note: The document labels 0x72 / 0x73 as ST2 again; taken to be ST3 from the order.}
+  - {key: x.probe3_low, label: ST3 input less significant byte, table: holding, address: 16420, type: u16, verified: false}
+  - {key: x.probe4_high, label: ST4 input more significant byte, table: holding, address: 16421, type: u16, verified: false, note: The document labels 0x74 / 0x75 as ST2 again; taken to be ST4 from the order.}
+  - {key: x.probe4_low, label: ST4 input less significant byte, table: holding, address: 16422, type: u16, verified: false}
+  - {key: x.display_1, label: Display digit 1 (KPS_RAMD), table: holding, address: 16424, type: u16, poll: slow, note: Raw display contents; the encoding isn't described.}
+  - {key: x.display_2, label: Display digit 2 (KPS_RAMD), table: holding, address: 16425, type: u16, poll: slow}
+  - {key: x.display_3, label: Display digit 3 (KPS_RAMD), table: holding, address: 16426, type: u16, poll: slow}
+  - {key: x.leds, label: Display LEDs, table: holding, address: 16427, type: u16, flags: leds}
+  - {key: x.digital_inputs, label: Digital inputs, table: holding, address: 16404, type: u16, flags: digital_inputs}
+  - {key: x.digital_outputs, label: Digital outputs, table: holding, address: 16469, type: u16, flags: digital_outputs, note: Bit 4 (24 V alarm output) is active at 0.}
+  - {key: x.fan_speed, label: VELPER fan speed proportional value, table: holding, address: 16483, type: u16, note: Raw value; range and unit aren't stated.}
+  - {key: x.auto_alarms_1, label: Automatic alarms 1, table: holding, address: 16492, type: u16, flags: alarms_1}
+  - {key: x.auto_alarms_2, label: Automatic alarms 2, table: holding, address: 16493, type: u16, flags: alarms_2}
+  - {key: x.auto_alarms_3, label: Automatic alarms 3, table: holding, address: 16494, type: u16, flags: alarms_3}
+  - {key: x.manual_alarms_1, label: Manual alarms 1, table: holding, address: 16495, type: u16, flags: alarms_1}
+  - {key: x.manual_alarms_2, label: Manual alarms 2, table: holding, address: 16496, type: u16, flags: alarms_2}
+  - {key: x.manual_alarms_3, label: Manual alarms 3, table: holding, address: 16497, type: u16, flags: alarms_3}
+  # VER area (area index 9), function 04
+  - {key: x.family_address, label: Mask and version - family address, table: input, address: 18433, type: u16, bits: [8, 15], poll: slow}
+  - {key: firmware, label: Mask and version - version, table: input, address: 18433, type: u16, bits: [0, 7], poll: slow}
+
+derived:
+  - {key: x.probe1, label: Probe ST1, unit: '', sum: [{key: x.probe1_high, factor: 256}, {key: x.probe1_low}], verified: false, note: 'High byte × 256 + low byte, as the document says. Unit, scale and sign aren''t stated.'}
+  - {key: x.probe2, label: Probe ST2, unit: '', sum: [{key: x.probe2_high, factor: 256}, {key: x.probe2_low}], verified: false, note: 'Unit, scale and sign aren''t stated.'}
+  - {key: x.probe3, label: Probe ST3, unit: '', sum: [{key: x.probe3_high, factor: 256}, {key: x.probe3_low}], verified: false, note: 'Unit, scale and sign aren''t stated.'}
+  - {key: x.probe4, label: Probe ST4, unit: '', sum: [{key: x.probe4_high, factor: 256}, {key: x.probe4_low}], verified: false, note: 'Unit, scale and sign aren''t stated.'}
+
+enums:
+  machine_state: {'0': Standby, '1': Cooling, '2': Heating}
+  off_on: {'0': 'Off', '1': 'On'}
+
+flags:
+  leds: {'0': Resistance (heater) LED, '1': Defrost LED, '2': Compressor LED, '3': Minus sign LED}
+  digital_inputs: {'0': Digital input on ST4, '1': Digital input on ST2, '2': Digital input on ST1, '3': Digital input ID3, '4': Digital input ID4, '5': Digital input ID5, '6': Digital input ID1, '7': Digital input ID2}
+  digital_outputs: {'0': Relay 1, '1': Relay 2, '2': Relay 3, '3': Relay 4, '4': 24 V alarm output (active at 0)}
+  alarms_1: {'0': Remote on / off, '1': High pressure (digital), '2': Low pressure (digital), '3': Flow switch, '4': Fan thermal, '5': Internal circuit antifreeze, '6': External circuit antifreeze, '7': High pressure (analogue)}
+  alarms_2: {'0': Low pressure (analogue), '1': Machine discharged, '2': Configuration, '3': Probe 1, '4': Probe 2, '5': Probe 3, '6': Probe 4, '7': Control temperature high}
+  alarms_3: {'0': Compressor 1 thermal switch, '1': Compressor 2 thermal switch}
+
+problems:
+  - {when: {key: x.auto_alarms_1, bit: 0}, kind: warning, text: Remote on / off alarm}
+  - {when: {key: x.auto_alarms_1, bit: 1}, kind: fault, text: High pressure alarm (digital)}
+  - {when: {key: x.auto_alarms_1, bit: 2}, kind: fault, text: Low pressure alarm (digital)}
+  - {when: {key: x.auto_alarms_1, bit: 3}, kind: fault, text: Flow switch alarm}
+  - {when: {key: x.auto_alarms_1, bit: 4}, kind: fault, text: Fan thermal alarm}
+  - {when: {key: x.auto_alarms_1, bit: 5}, kind: fault, text: Internal circuit antifreeze alarm}
+  - {when: {key: x.auto_alarms_1, bit: 6}, kind: fault, text: External circuit antifreeze alarm}
+  - {when: {key: x.auto_alarms_1, bit: 7}, kind: fault, text: High pressure alarm (analogue)}
+  - {when: {key: x.auto_alarms_2, bit: 0}, kind: fault, text: Low pressure alarm (analogue)}
+  - {when: {key: x.auto_alarms_2, bit: 1}, kind: fault, text: Machine discharged alarm}
+  - {when: {key: x.auto_alarms_2, bit: 2}, kind: fault, text: Configuration alarm}
+  - {when: {key: x.auto_alarms_2, bit: 3}, kind: fault, text: Probe 1 alarm}
+  - {when: {key: x.auto_alarms_2, bit: 4}, kind: fault, text: Probe 2 alarm}
+  - {when: {key: x.auto_alarms_2, bit: 5}, kind: fault, text: Probe 3 alarm}
+  - {when: {key: x.auto_alarms_2, bit: 6}, kind: fault, text: Probe 4 alarm}
+  - {when: {key: x.auto_alarms_2, bit: 7}, kind: warning, text: Control temperature high}
+  - {when: {key: x.auto_alarms_3, bit: 0}, kind: fault, text: Compressor 1 thermal switch alarm}
+  - {when: {key: x.auto_alarms_3, bit: 1}, kind: fault, text: Compressor 2 thermal switch alarm}
+  - {when: {key: x.manual_alarms_1, bit: 0}, kind: warning, text: Remote on / off alarm (manual reset)}
+  - {when: {key: x.manual_alarms_1, bit: 1}, kind: fault, text: 'High pressure alarm (digital, manual reset)'}
+  - {when: {key: x.manual_alarms_1, bit: 2}, kind: fault, text: 'Low pressure alarm (digital, manual reset)'}
+  - {when: {key: x.manual_alarms_1, bit: 3}, kind: fault, text: Flow switch alarm (manual reset)}
+  - {when: {key: x.manual_alarms_1, bit: 4}, kind: fault, text: Fan thermal alarm (manual reset)}
+  - {when: {key: x.manual_alarms_1, bit: 5}, kind: fault, text: Internal circuit antifreeze alarm (manual reset)}
+  - {when: {key: x.manual_alarms_1, bit: 6}, kind: fault, text: External circuit antifreeze alarm (manual reset)}
+  - {when: {key: x.manual_alarms_1, bit: 7}, kind: fault, text: 'High pressure alarm (analogue, manual reset)'}
+  - {when: {key: x.manual_alarms_2, bit: 0}, kind: fault, text: 'Low pressure alarm (analogue, manual reset)'}
+  - {when: {key: x.manual_alarms_2, bit: 1}, kind: fault, text: Machine discharged alarm (manual reset)}
+  - {when: {key: x.manual_alarms_2, bit: 2}, kind: fault, text: Configuration alarm (manual reset)}
+  - {when: {key: x.manual_alarms_2, bit: 3}, kind: fault, text: Probe 1 alarm (manual reset)}
+  - {when: {key: x.manual_alarms_2, bit: 4}, kind: fault, text: Probe 2 alarm (manual reset)}
+  - {when: {key: x.manual_alarms_2, bit: 5}, kind: fault, text: Probe 3 alarm (manual reset)}
+  - {when: {key: x.manual_alarms_2, bit: 6}, kind: fault, text: Probe 4 alarm (manual reset)}
+  - {when: {key: x.manual_alarms_2, bit: 7}, kind: warning, text: Control temperature high (manual reset)}
+  - {when: {key: x.manual_alarms_3, bit: 0}, kind: fault, text: Compressor 1 thermal switch alarm (manual reset)}
+  - {when: {key: x.manual_alarms_3, bit: 1}, kind: fault, text: Compressor 2 thermal switch alarm (manual reset)}
+
+notes:
+- Modbus RTU, 9600 baud, 8E1 (fixed). Function 03 for reading the parameter and RAM areas, 04 for the version. Port 502 is
+  only for a Modbus TCP gateway on the RS485 line; the document names none.
+- 'The register address is a 5-bit area index followed by an 11-bit index: area 8 (RAM) starts at 0x4000, area 9 (version)
+  at 0x4800, area 1 (parameters) at 0x0800. A RAM byte at controller address X (the document''s 0x4F–0x14E) is read at 0x4000
+  + (X − 0x4F); the document''s own example reads byte A3h at 0x4054. Each register returns one byte, in the low half.'
+- Probe values are split over two RAM bytes; the probe value is high × 256 + low. The document doesn't give their unit, scale
+  or sign; check against the controller's display.
+- The serial address is set by parameters H44 (family) and H45 (device), each 0–14, at least one non-zero; how they make up
+  the Modbus unit id isn't stated, so unit 1 here is a placeholder.
+- Receive and transmit buffers hold 38 bytes, so a read returns at most 16 registers (derived). The controller answers no
+  sooner than 4 ms after a request.
+- Automatic alarms clear themselves when the condition ends; manual-reset alarms stay set until reset at the controller.
+- 'Left out: the parameter area (area 1, address 0x0800 + index + 1); the document''s index table isn''t consistent, so parameters
+  (set points etc.) aren''t listed. Also left out: EEPROM area 6 and the visibility area 17.'
+- Changes to H26, H44, H45 need a power cycle of the controller.

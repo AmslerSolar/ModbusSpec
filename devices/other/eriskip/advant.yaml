@@ -1,0 +1,144 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Eriskip RS485 protocol for the Advant S, Advant and Advant 2 gas analysers (undated).
+
+modbusspec: 0
+id: eriskip-advant
+manufacturer: Eriskip
+name: Advant S / Advant / Advant 2 gas analysers
+kind: other
+
+sources:
+- title: Протокол обмена RS485 для газоанализаторов Advant S, Advant, Advant 2
+  version: '-'
+  url: https://eriskip.com/uploads/files/ru/14/595/protokol-obmena-rs485-dla-gazoanalizatorov-advant-s-advant-advant-2.pdf
+  sha256: e6dbef9f85db95173366eebaca54bc3acb50d67c6664f253ffd8b7685baf1046
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 1
+    type: u32
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    equals: 58287
+
+points:
+  # Holding registers (function 03; 06 / 16 write)
+  - {key: x.module_id, label: Module ID, table: holding, address: 0, type: u16, poll: slow, note: Always 0xE3AF.}
+  - {key: serial, label: Factory number, table: holding, address: 1, type: u32, poll: slow}
+  - {key: x.rs485_baud, label: RS485 baud rate, table: holding, address: 3, type: u16, bits: [0, 3], enum: baud, writable: true, poll: slow}
+  - {key: x.rs485_parity, label: RS485 parity, table: holding, address: 3, type: u16, bits: [4, 5], enum: parity, writable: true, poll: slow}
+  - {key: x.rs485_stop_bits, label: RS485 stop bits, table: holding, address: 3, type: u16, bits: [6, 6], enum: stop_bits, writable: true, poll: slow}
+  - {key: x.modbus_address, label: RS485 network address, table: holding, address: 3, type: u16, bits: [8, 15], writable: true, poll: slow}
+  - {key: x.hart_address, label: HART address, table: holding, address: 4, type: u16, writable: true, poll: slow}
+  - {key: x.comment, label: Comment, table: holding, address: 16, type: str, length: 8, writable: true, poll: slow}
+  - {key: x.ch1_gas, label: Channel 1 gas name, table: holding, address: 8224, type: str, length: 8, poll: slow}
+  - {key: x.ch1_range_low, label: Channel 1 lower range value, table: holding, address: 8192, type: u16, poll: slow}
+  - {key: x.ch1_range_high, label: Channel 1 upper range value, table: holding, address: 8193, type: u32, poll: slow}
+  - {key: x.ch1_threshold_1, label: Channel 1 threshold 1, table: holding, address: 8200, type: u16, writable: true, poll: slow, note: 'Raw, in the channel''s unit and decimal places (settings).'}
+  - {key: x.ch1_threshold_2, label: Channel 1 threshold 2, table: holding, address: 8201, type: u16, writable: true, poll: slow, note: 'Raw, in the channel''s unit and decimal places (settings).'}
+  - {key: x.ch2_gas, label: Channel 2 gas name, table: holding, address: 8480, type: str, length: 8, poll: slow, note: The protocol lists the second register as 0x2021; 0x2120…0x2127 is taken as meant (as for channel 1).}
+  - {key: x.ch2_range_low, label: Channel 2 lower range value, table: holding, address: 8448, type: u16, poll: slow}
+  - {key: x.ch2_range_high, label: Channel 2 upper range value, table: holding, address: 8449, type: u32, poll: slow}
+  - {key: x.ch2_threshold_1, label: Channel 2 threshold 1, table: holding, address: 8456, type: u16, writable: true, poll: slow, note: 'Raw, in the channel''s unit and decimal places (settings).'}
+  - {key: x.ch2_threshold_2, label: Channel 2 threshold 2, table: holding, address: 8457, type: u16, writable: true, poll: slow, note: 'Raw, in the channel''s unit and decimal places (settings).'}
+  # Input registers (function 04)
+  - {key: firmware, label: Software version code, table: input, address: 259, type: u16, poll: slow}
+  - {key: x.firmware_build, label: Software version build, table: input, address: 260, type: u16, poll: slow}
+  - {key: x.state, label: State, table: input, address: 262, type: u16, flags: dev_state, poll: fast}
+  - {key: temperature, label: Temperature, table: input, address: 263, type: u16, unit: °C, scale: 0.1, poll: fast, note: The protocol types it uint16.}
+  - {key: x.supply, label: External supply of the detector, table: input, address: 264, type: u16, poll: fast, verified: false, note: Unit and scaling not stated.}
+  - {key: x.hardware_faults, label: System hardware faults, table: input, address: 269, type: u32, poll: fast, note: Bits not described.}
+  - {key: x.uptime, label: Time since power-on, table: input, address: 272, type: u32, poll: slow, note: Unit not stated.}
+  - {key: x.config_errors, label: Configuration errors at power-on, table: input, address: 277, type: u32, poll: slow, note: 'Not 0: the detector settings need checking.'}
+  - {key: x.operating_minutes, label: Detector operating time, table: input, address: 279, type: u32, unit: min, poll: slow}
+  - {key: x.ch1_state, label: Channel 1 state, table: input, address: 320, type: u16, flags: ch_state, poll: fast}
+  - {key: x.ch1_concentration_raw, label: Channel 1 concentration (integer), table: input, address: 321, type: u32, poll: fast, note: Raw; decimal places from the channel's settings (bits 4…5). Use the float register from firmware 1.5 on.}
+  - {key: x.ch1_current_calc, label: Channel 1 current output (calculated), table: input, address: 324, type: u16, unit: mA, scale: 0.01, poll: fast}
+  - {key: x.ch1_current, label: Channel 1 current output, table: input, address: 325, type: u16, unit: mA, scale: 0.01, poll: fast}
+  - {key: x.ch1_unit, label: Channel 1 unit, table: input, address: 326, type: u16, bits: [0, 3], enum: measure_unit, poll: slow}
+  - {key: x.ch1_decimals, label: Channel 1 decimal places, table: input, address: 326, type: u16, bits: [4, 5], poll: slow, note: '0 = XXXX, 1 = XXX.X, 2 = XX.XX, 3 = X.XXX.'}
+  - {key: x.ch2_state, label: Channel 2 state, table: input, address: 332, type: u16, flags: ch_state, poll: fast, optional: true}
+  - {key: x.ch2_concentration_raw, label: Channel 2 concentration (integer), table: input, address: 333, type: u32, poll: fast, optional: true, note: Raw; decimal places from the channel's settings (bits 4…5).}
+  - {key: x.ch2_current_calc, label: Channel 2 current output (calculated), table: input, address: 336, type: u16, unit: mA, scale: 0.01, poll: fast, optional: true}
+  - {key: x.ch2_current, label: Channel 2 current output, table: input, address: 337, type: u16, unit: mA, scale: 0.01, poll: fast, optional: true}
+  - {key: x.ch2_unit, label: Channel 2 unit, table: input, address: 338, type: u16, bits: [0, 3], enum: measure_unit, poll: slow, optional: true}
+  - {key: x.ch2_decimals, label: Channel 2 decimal places, table: input, address: 338, type: u16, bits: [4, 5], poll: slow, optional: true}
+  # Float values, firmware 1.5 and later
+  - {key: x.ch1_concentration, label: Channel 1 concentration (used), table: input, address: 4220, type: f32, poll: fast, note: In the channel's unit (base unit or mg/m³ per settings bit 8). Firmware 1.5 and later.}
+  - {key: x.ch1_concentration_original, label: Channel 1 concentration (original), table: input, address: 4222, type: f32, poll: fast}
+  - {key: x.ch1_concentration_mgm3, label: Channel 1 concentration in mg/m³, table: input, address: 4224, type: f32, unit: mg/m³, poll: fast}
+  - {key: x.ch1_iout_current, label: Channel 1 measured output current, table: input, address: 4226, type: f32, unit: A, poll: fast}
+  - {key: x.ch1_iout_voltage, label: Channel 1 measured output voltage, table: input, address: 4228, type: f32, unit: V, poll: fast}
+  - {key: x.ch1_load_resistance, label: Channel 1 output load resistance, table: input, address: 4230, type: u16, unit: Ω, poll: slow}
+  - {key: x.ch1_supply_voltage, label: Channel 1 supply voltage, table: input, address: 4231, type: f32, unit: V, poll: fast}
+  - {key: x.ch1_warmup, label: Channel 1 sensor warm-up time left, table: input, address: 4233, type: u16, poll: fast, note: Unit not stated.}
+  - {key: x.ch2_concentration, label: Channel 2 concentration (used), table: input, address: 4476, type: f32, poll: fast, optional: true, note: Firmware 1.5 and later.}
+  - {key: x.ch2_concentration_original, label: Channel 2 concentration (original), table: input, address: 4478, type: f32, poll: fast, optional: true}
+  - {key: x.ch2_concentration_mgm3, label: Channel 2 concentration in mg/m³, table: input, address: 4480, type: f32, unit: mg/m³, poll: fast, optional: true}
+  - {key: x.ch2_iout_current, label: Channel 2 measured output current, table: input, address: 4482, type: f32, unit: A, poll: fast, optional: true}
+  - {key: x.ch2_iout_voltage, label: Channel 2 measured output voltage, table: input, address: 4484, type: f32, unit: V, poll: fast, optional: true}
+
+enums:
+  baud: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200', '5': '38400', '6': '57600'}
+  parity: {'0': None, '1': Odd, '2': Even}
+  stop_bits: {'0': '1', '1': '2'}
+  measure_unit: {'0': '% vol', '1': ppm, '2': ppb, '3': '% LEL'}
+
+flags:
+  dev_state: {'0': Always 1, '1': Threshold 1, '2': Threshold 2, '3': Sensor missing or damaged, '4': Maintenance mode, '5': Signal over range, '6': Module initialising, '7': Service mode, '8': No link to sensor, '9': Fault (sensor problem)}
+  ch_state: {'0': Channel in working mode, '1': Threshold 1, '2': Threshold 2, '3': Sensor missing or damaged, '4': Maintenance mode, '5': Signal over range, '6': Module initialising, '7': Register write access, '8': No link to sensor, '9': Fault (sensor problem), '10': 'DAC: no link', '11': 'DAC: current not reached (possible line break)', '12': 'Current output: DAC overheated', '13': 'Current output: resistance too low (possible short circuit)', '14': 'Current output: resistance too high (possible break or long line)'}
+
+problems:
+  - {when: {key: x.state, bit: 1}, kind: warning, text: Gas threshold 1 exceeded (bit 1)}
+  - {when: {key: x.state, bit: 2}, kind: warning, text: Gas threshold 2 exceeded (bit 2)}
+  - {when: {key: x.state, bit: 3}, kind: fault, text: Sensor missing or damaged (bit 3)}
+  - {when: {key: x.state, bit: 5}, kind: warning, text: Signal over range (bit 5)}
+  - {when: {key: x.state, bit: 8}, kind: fault, text: No link to sensor (bit 8)}
+  - {when: {key: x.state, bit: 9}, kind: fault, text: Sensor fault (bit 9)}
+  - {when: {key: x.ch1_state, bit: 10}, kind: warning, text: 'Channel 1: DAC no link (bit 10)'}
+  - {when: {key: x.ch1_state, bit: 11}, kind: warning, text: 'Channel 1: DAC current not reached, possible line break (bit 11)'}
+  - {when: {key: x.ch1_state, bit: 12}, kind: warning, text: 'Channel 1: current output DAC overheated (bit 12)'}
+  - {when: {key: x.ch1_state, bit: 13}, kind: warning, text: 'Channel 1: current output short circuit suspected (bit 13)'}
+  - {when: {key: x.ch1_state, bit: 14}, kind: warning, text: 'Channel 1: current output line break or long line suspected (bit 14)'}
+  - {when: {key: x.ch2_state, bit: 10}, kind: warning, text: 'Channel 2: DAC no link (bit 10)'}
+  - {when: {key: x.ch2_state, bit: 11}, kind: warning, text: 'Channel 2: DAC current not reached, possible line break (bit 11)'}
+  - {when: {key: x.ch2_state, bit: 12}, kind: warning, text: 'Channel 2: current output DAC overheated (bit 12)'}
+  - {when: {key: x.ch2_state, bit: 13}, kind: warning, text: 'Channel 2: current output short circuit suspected (bit 13)'}
+  - {when: {key: x.ch2_state, bit: 14}, kind: warning, text: 'Channel 2: current output line break or long line suspected (bit 14)'}
+
+notes:
+- 'Addresses are the protocol''s hex register addresses, 0-based as printed. Holding registers: function 03 read, 06 / 16
+  write; input registers: function 04. 32-bit values: high register first, big-endian bytes (as the protocol''s examples show).'
+- RS485 factory setting 9600 bit/s, 8N1. The factory Modbus address is the last two digits of the factory number, so there
+  is no fixed default; unit 1 is assumed. Modbus RTU only; the TCP port is the usual default for a gateway.
+- 'Integer concentrations (0x0141 / 0x014D) need the channel''s decimal places (settings bits 4…5: ×1, ×10, ×100, ×1000) and
+  unit (bits 0…3). From firmware 1.5 the float registers 0x107C / 0x117C give the scaled concentration directly; older firmware
+  may not answer them.'
+- The device state register exists in the holding table too (0x0005); the input copy (0x0106) is used. Per-channel states
+  are also at 0x0120 / 0x0124, with the integer concentration at 0x0121 / 0x0125 and the sensor states at 0x0123 / 0x0127;
+  the 0x0140 block was chosen because the protocol's example reads it. The same identity, version, state and temperature registers
+  repeat at 0x1070… and 0x1170….
+- 'Left out: current output settings for initialisation / maintenance / fault modes, calibration registers, HART tags and
+  descriptor, hysteresis, threshold delays, fault auto-reset time, dead zone, calibration gas concentrations, manual state
+  control, mg/m³ range, and per-channel settings in the holding table (0x2028 / 0x2128). Module relay, light-sound alarm and
+  BLE on/off are bits 13…15 of holding 0x0006.'
+- The second channel is only present on two-channel analysers (marked optional). Gas threshold alarms are given as warnings.
+- Temperature (0x0107) is typed uint16 in the protocol; how temperatures below 0 °C are reported is not stated.

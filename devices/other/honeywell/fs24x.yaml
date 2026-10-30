@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Honeywell technical note FS20X, FS24X Modbus Communications Interface (1998-0887 Rev 1,
+# September 2015).
+
+modbusspec: 0
+id: honeywell-fs24x
+manufacturer: Honeywell
+name: FS20X / FS24X flame detector
+kind: other
+
+sources:
+- title: FS20X, FS24X Modbus Communications Interface (technical note 1998-0887)
+  version: Rev 1 (September 2015)
+  url: https://www.austdynatech.com.au/wp-content/uploads/19980887_FS20X_FS24X_Modbus_Interface.pdf
+  sha256: 90755592d602a55b47e51690a6ccaa3dbcde567d546589214134e4eb6e13507a
+  archive_url: https://web.archive.org/web/20240808220615/https://www.austdynatech.com.au/wp-content/uploads/19980887_FS20X_FS24X_Modbus_Interface.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  limits:
+    max_registers: 1
+    min_interval_ms: 500
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.status, label: Status word (register 40001), table: holding, address: 0, type: u16, flags: status_bits, note: Bits 8–15 are always 0. Bit 3 toggles as a heartbeat and is not a fault.}
+
+flags:
+  status_bits: {'0': Flame alarm, '1': Internal PCB fault, '2': Voltage fault, '3': Heartbeat, '4': High-temperature fault, '5': Self-test fault, '6': Relay coil fault, '7': Lid-off fault}
+
+problems:
+  - {when: {key: x.status, bit: 0}, kind: warning, text: Flame alarm (bit 0)}
+  - {when: {key: x.status, bit: 1}, kind: fault, text: Internal PCB fault (bit 1)}
+  - {when: {key: x.status, bit: 2}, kind: fault, text: Voltage fault (bit 2)}
+  - {when: {key: x.status, bit: 4}, kind: fault, text: High-temperature fault (bit 4)}
+  - {when: {key: x.status, bit: 5}, kind: fault, text: Self-test fault (bit 5)}
+  - {when: {key: x.status, bit: 6}, kind: fault, text: Relay coil fault (bit 6)}
+  - {when: {key: x.status, bit: 7}, kind: fault, text: Lid-off fault (bit 7)}
+
+notes:
+- The detector has a single holding register (40001, address 0) and only answers function 03; it is read-only and stays silent
+  (no exception) on anything else.
+- The unit id (1–127) is set with DIP switch SW1 positions 4–10, and SW3 must be in position 2 for Modbus; there is no default
+  unit id, 1 is assumed.
+- Send at most one request every 500 ms.
+- 'Some products label RS-485 A and B the other way round: swap the wires if there is no answer.'
+- The flame alarm is reported as a `warning` problem since the detector itself is working; there is no problem kind for an
+  alarm of the monitored process.

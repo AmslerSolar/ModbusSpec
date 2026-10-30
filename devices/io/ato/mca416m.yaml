@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the ATO MCA416M/426M Modbus output tilt sensor user manual (V2.9).
+
+modbusspec: 0
+id: ato-mca416m
+manufacturer: ATO
+name: MCA416M / MCA426M tilt sensor (Modbus RTU)
+kind: io
+
+sources:
+- title: MCA416M/426M Modbus output tilt sensor user manual
+  version: V2.9
+  url: https://www.ato.com/Content/doc/mca416m-426m-modbus-output-tilt-sensor-user-manual.pdf
+  sha256: f795b001336602361016cb3c12b5714705bc416a6e4456c3bdcc8092a8634a80
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: little
+  word_order: little
+
+
+model_choice: user
+
+models:
+  - {id: r10, name: ±10° measuring range}
+  - {id: r15, name: ±15° measuring range}
+  - {id: r30, name: ±30° measuring range}
+  - {id: r45, name: ±45° measuring range}
+  - {id: r60, name: ±60° measuring range}
+  - {id: r90, name: ±90° measuring range}
+
+points:
+  - {key: x.x_angle, label: X axis angle, table: holding, address: 2, type: u32, unit: °, scale: 0.01, offset: -10, models: [r10], verified: false}
+  - {key: x.x_angle, label: X axis angle, table: holding, address: 2, type: u32, unit: °, scale: 0.01, offset: -15, models: [r15], verified: false}
+  - {key: x.x_angle, label: X axis angle, table: holding, address: 2, type: u32, unit: °, scale: 0.01, offset: -30, models: [r30], verified: false}
+  - {key: x.x_angle, label: X axis angle, table: holding, address: 2, type: u32, unit: °, scale: 0.01, offset: -45, models: [r45]}
+  - {key: x.x_angle, label: X axis angle, table: holding, address: 2, type: u32, unit: °, scale: 0.01, offset: -60, models: [r60], verified: false}
+  - {key: x.x_angle, label: X axis angle, table: holding, address: 2, type: u32, unit: °, scale: 0.01, offset: -90, models: [r90]}
+  - {key: x.y_angle, label: Y axis angle, table: holding, address: 4, type: u32, unit: °, scale: 0.01, offset: -10, models: [r10], verified: false}
+  - {key: x.y_angle, label: Y axis angle, table: holding, address: 4, type: u32, unit: °, scale: 0.01, offset: -15, models: [r15], verified: false}
+  - {key: x.y_angle, label: Y axis angle, table: holding, address: 4, type: u32, unit: °, scale: 0.01, offset: -30, models: [r30], verified: false}
+  - {key: x.y_angle, label: Y axis angle, table: holding, address: 4, type: u32, unit: °, scale: 0.01, offset: -45, models: [r45]}
+  - {key: x.y_angle, label: Y axis angle, table: holding, address: 4, type: u32, unit: °, scale: 0.01, offset: -60, models: [r60], verified: false}
+  - {key: x.y_angle, label: Y axis angle, table: holding, address: 4, type: u32, unit: °, scale: 0.01, offset: -90, models: [r90]}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 8, type: u16, enum: baud_rate, writable: true, poll: slow, note: Written with function 06; whether it can be read back isn't stated., verified: false}
+  - {key: x.char_format, label: Character format, table: holding, address: 9, type: u16, enum: char_format, writable: true, poll: slow, note: Takes effect after a power cycle. Written with function 06; reading it back isn't described., verified: false}
+  - {key: x.zero_mode, label: Relative / absolute zero, table: holding, address: 16, type: u16, writable: true, poll: slow, note: 'Write 0x00FF (any non-zero value) to take the current position as zero, 0 for the absolute zero. Written with function 06; reading it back isn''t described.', verified: false}
+  - {key: x.unit_address, label: Unit address, table: holding, address: 17, type: u16, writable: true, poll: slow, note: Written with function 06; reading it back isn't described., verified: false}
+
+enums:
+  baud_rate: {'161': '4800', '162': '9600', '163': '19200', '164': '38400', '165': '115200'}
+  char_format: {'0': '8 data bits, even parity, 1 stop bit', '1': '8 data bits, no parity, 1 stop bit'}
+
+notes:
+- Each angle is a 32-bit count of 0.01° steps sent with the low byte first (the manual's example bytes 50 46 00 00 give 0x4650
+  = 18000), so both byte and word order are little-endian.
+- 'The count starts at the bottom of the measuring range: angle = 0.01 × count − range (e.g. ±90°: 9000 = 0°).'
+- The manual works through the ±90° and ±45° ranges; the other offsets follow the same rule and are marked unverified.
+- The single-axis ranges ±180°, 0–360° and −3…+93° are left out because their offset isn't stated.
+- The measuring range is part of the order code (MCA416M = single axis, MCA426M = dual axis) and can't be read from the sensor,
+  so the user picks it.
+- Factory serial setting is 9600 baud 8E1; the default unit id isn't stated, the examples use 1.
+- Holding registers, addresses as written in the manual's frames (0-based).

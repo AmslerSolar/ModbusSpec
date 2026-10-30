@@ -1,0 +1,106 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Comac Cal CALOR 38 MODBUS RTU communication protocol specification (d.v. 18/03/2024), with the
+# earlier issue (d.v. 26/11/2019) for the older register map.
+
+modbusspec: 0
+id: comaccal-calor38
+manufacturer: Comac Cal
+name: CALOR 38 heat / cooling meter
+kind: io
+
+sources:
+- title: CALOR 38 (combined heat/cooling meter) communication protocol specification MODBUS RTU
+  version: d.v. 18/03/2024
+  url: https://www.comaccal.com/storage/typ/C38/CALOR38_MODBUS_RTU_Epm.pdf
+  sha256: b56eb95ea03bcc7198796257310dbba6c2cb0a79b97d544706c7d6870e3301e3
+- title: CALOR 38 communication protocol specification MODBUS RTU
+  version: d.v. 26/11/2019
+  url: https://www.comaccal.com/storage/typ/C38/CALOR-38-MODBUS-RTU.pdf
+  sha256: 5261af50958911ab5431d516ff04ac613110031dd29e0589650ac4d6b25ef912
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    min_interval_ms: 250
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 0
+    type: u32
+
+
+model_choice: user
+
+models:
+  - {id: heat_cooling, name: CALOR 38 combined heat / cooling meter (2024 register map)}
+  - {id: heat, name: CALOR 38 (2019 register map)}
+
+points:
+  - {key: serial, label: Fabrication No., table: holding, address: 0, type: u32, poll: slow}
+
+  # 2024 register map (combined heat / cooling meter)
+  - {key: x.energy_plus, label: Energy plus, table: holding, address: 2, type: u32, models: [heat_cooling], poll: slow, note: In display digits; scale and unit follow the meter's display resolution (see notes)., verified: false}
+  - {key: x.energy_plus_under_dtmin, label: Energy plus under dTmin, table: holding, address: 4, type: u32, models: [heat_cooling], poll: slow, note: In display digits (see notes)., verified: false}
+  - {key: x.energy_minus, label: Energy minus, table: holding, address: 6, type: u32, models: [heat_cooling], poll: slow, note: In display digits (see notes). Plus / minus presumably heating / cooling energy; not stated in the document., verified: false}
+  - {key: x.energy_minus_under_dtmin, label: Energy minus under dTmin, table: holding, address: 8, type: u32, models: [heat_cooling], poll: slow, note: In display digits (see notes)., verified: false}
+  - {key: x.volume, label: Volume +, table: holding, address: 10, type: u32, models: [heat_cooling], poll: slow, note: In display digits (see notes)., verified: false}
+  - {key: x.flow, label: Flow, table: holding, address: 12, type: s32, models: [heat_cooling], note: 'In display digits (see notes); the document''s example: 5.6 m³/h reads 56.', verified: false}
+  - {key: x.thermal_power, label: Power, table: holding, address: 14, type: s32, models: [heat_cooling], note: In display digits (see notes). The meaning of the sign isn't stated., verified: false}
+  - {key: x.inlet_temperature, label: Inlet temperature, table: holding, address: 16, type: s32, scale: 0.01, unit: °C, models: [heat_cooling]}
+  - {key: x.outlet_temperature, label: Outlet temperature, table: holding, address: 18, type: s32, scale: 0.01, unit: °C, models: [heat_cooling]}
+  - {key: x.temperature_difference, label: Temperature difference, table: holding, address: 20, type: s32, scale: 0.01, unit: °C, models: [heat_cooling]}
+  - {key: error_code, label: Error code, table: holding, address: 22, type: u16, flags: errors, models: [heat_cooling]}
+
+  # 2019 register map
+  - {key: x.energy_total, label: Energy ∑, table: holding, address: 2, type: u32, models: [heat], poll: slow, note: In display digits; scale and unit follow the meter's display resolution (see notes)., verified: false}
+  - {key: x.energy_under_dtmin, label: Energy under dTmin, table: holding, address: 4, type: u32, models: [heat], poll: slow, note: In display digits (see notes)., verified: false}
+  - {key: x.energy_user, label: Energy user (resettable), table: holding, address: 6, type: u32, models: [heat], poll: slow, note: In display digits (see notes)., verified: false}
+  - {key: x.volume, label: Volume +, table: holding, address: 8, type: u32, models: [heat], poll: slow, note: In display digits (see notes)., verified: false}
+  - {key: x.flow, label: Flow, table: holding, address: 10, type: s32, models: [heat], note: 'In display digits (see notes); the document''s example: 5.6 m³/h reads 56.', verified: false}
+  - {key: x.thermal_power, label: Power, table: holding, address: 12, type: s32, models: [heat], note: In display digits (see notes)., verified: false}
+  - {key: x.inlet_temperature, label: Inlet temperature, table: holding, address: 14, type: s32, scale: 0.01, unit: °C, models: [heat]}
+  - {key: x.outlet_temperature, label: Outlet temperature, table: holding, address: 16, type: s32, scale: 0.01, unit: °C, models: [heat]}
+  - {key: x.temperature_difference, label: Temperature difference, table: holding, address: 18, type: s32, scale: 0.01, unit: °C, models: [heat]}
+  - {key: error_code, label: Error code, table: holding, address: 20, type: u16, flags: errors, models: [heat]}
+
+flags:
+  errors: {'0': Volume overflow (unreasonable increment), '1': FRAM memory error, '2': Empty tube, '3': Pulse output 1 overflow, '4': Current coil, '5': Pulse output 2 overflow, '6': Temperature measurement, '7': Bad CRC}
+
+problems:
+  - {when: {key: error_code, bit: 0}, kind: warning, text: 'Volume overflow, unreasonable increment (error bit 0)'}
+  - {when: {key: error_code, bit: 1}, kind: fault, text: FRAM memory error (error bit 1)}
+  - {when: {key: error_code, bit: 2}, kind: warning, text: Empty tube (error bit 2)}
+  - {when: {key: error_code, bit: 3}, kind: warning, text: Pulse output 1 overflow (error bit 3)}
+  - {when: {key: error_code, bit: 4}, kind: fault, text: Current coil error (error bit 4)}
+  - {when: {key: error_code, bit: 5}, kind: warning, text: Pulse output 2 overflow (error bit 5)}
+  - {when: {key: error_code, bit: 6}, kind: fault, text: Temperature measurement error (error bit 6)}
+  - {when: {key: error_code, bit: 7}, kind: fault, text: Bad CRC (error bit 7)}
+
+notes:
+- 'Two register maps: the 2024 issue (combined heat / cooling meter: energy plus and minus, each also under dTmin) and the
+  2019 issue (energy total, under dTmin and a resettable user counter); from the error code on, everything sits two registers
+  later in the 2024 map. They can''t be told apart over Modbus: pick the one that matches the meter.'
+- 'Addresses are the document''s hex register addresses (0-based), read with function 03 only. Two-register values: high word
+  first (from the document''s read example).'
+- Energy, volume, flow and power are the digits the meter's display shows, without the decimal point (e.g. 53.4 GJ reads 534,
+  689.89 l reads 68989); scale and unit therefore depend on the meter's display resolution and unit, which the document doesn't
+  list. Temperatures are in 0.01 °C.
+- The error code's high byte is always 0; the bits are in the low byte. Which bits stop the measurement isn't stated; the
+  fault / warning split here is assumed.
+- RS485, 1200 / 2400 / 4800 / 9600 baud (default 9600), 8 data bits, 1 stop bit, no parity stated. Unit ids 1 … 255; the default
+  unit id isn't stated (1 assumed). Response time 160 … 250 ms; at least 250 ms between a response and the next request.
+- 'Left out: the raw ADC values for flow and both temperatures (diagnostics, 2024 map 0x17 / 0x19 / 0x1B, 2019 map 0x15 /
+  0x17 / 0x19). Registers 0xFE00 … 0xFFFF are system registers and blocked.'

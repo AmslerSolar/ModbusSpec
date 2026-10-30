@@ -1,0 +1,152 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from APsystems' SunSpec Modbus document (Rev 3.3) and the SunSpec models workbook.
+
+modbusspec: 0
+id: apsystems-ecu
+manufacturer: APsystems
+name: Microinverters behind an ECU-R / ECU-C (SunSpec over the ECU)
+kind: inverter
+
+sources:
+- title: APsystems SunSpec Modbus
+  version: Rev 3.3
+  url: https://global.apsystems.com/wp-content/uploads/2025/01/SunSpec-Modbus.pdf
+  sha256: a06880a8646202bec5617d9f3e7f3f102717d2bde7116fb6c138b67d024c99a4
+- title: SunSpec Information Models (models workbook)
+  version: models_workbook.xlsx, master 2026-10-21
+  url: https://github.com/sunspec/models/raw/master/models_workbook.xlsx
+- id: sunspec2
+  title: ha-sunspec2 (Home Assistant integration)
+  url: https://github.com/hilman2/ha-sunspec2
+  license: MIT
+  commit: 2efb4dd6e51e55a5f07d960f56a6281831eb58de
+  path: custom_components/sunspec2/vendors/__init__.py, custom_components/sunspec2/vendors/apsystems.py, custom_components/sunspec2/vendors/profile.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    format: 8N1
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40052
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: APsystems
+
+sunspec: true
+
+models:
+  - {id: single_phase, name: Single-phase microinverter (SunSpec model 111), match: {table: holding, address: 40122, type: u16, equals: 111}}
+  - {id: three_phase, name: Three-phase microinverter (SunSpec model 113), match: {table: holding, address: 40122, type: u16, equals: 113}}
+
+points:
+  - {key: x.manufacturer, label: Mn (manufacturer), table: holding, address: 40004, type: str, length: 16, poll: slow}
+  - {key: x.model, label: Md (model), table: holding, address: 40020, type: str, length: 16, poll: slow}
+  - {key: x.options, label: Opt (options), table: holding, address: 40036, type: str, length: 8, poll: slow}
+  - {key: firmware, label: Vr (version), table: holding, address: 40044, type: str, length: 8, poll: slow}
+  - {key: serial, label: SN (serial number), table: holding, address: 40052, type: str, length: 16, poll: slow}
+  - {key: x.device_address, label: DA (device address), table: holding, address: 40068, type: u16, poll: slow}
+  - {key: x.ac_current, label: A (AC current), table: holding, address: 40124, type: f32, unit: A}
+  - {key: l1_current, label: AphA, table: holding, address: 40126, type: f32, unit: A}
+  - {key: l2_current, label: AphB, table: holding, address: 40128, type: f32, unit: A, models: [three_phase]}
+  - {key: l3_current, label: AphC, table: holding, address: 40130, type: f32, unit: A, models: [three_phase]}
+  - {key: l1_voltage, label: PhVphA, table: holding, address: 40138, type: f32, unit: V, models: [single_phase], note: The three-phase model leaves the phase-to-neutral voltages unimplemented.}
+  - {key: x.ac_power, label: W (AC power), table: holding, address: 40144, type: f32, unit: W, positive: generation, note: No sign documented; + = AC output assumed., verified: false}
+  - {key: frequency, label: Hz, table: holding, address: 40146, type: f32, unit: Hz}
+  - {key: apparent_power, label: VA, table: holding, address: 40148, type: f32, unit: VA}
+  - {key: reactive_power, label: VAr, table: holding, address: 40150, type: f32, unit: var}
+  - {key: x.power_factor_pct, label: PF, table: holding, address: 40152, type: f32, unit: '%'}
+  - {key: pv_energy, label: WH (AC energy), table: holding, address: 40154, type: f32, unit: kWh, scale: 0.001, poll: slow, note: 'APsystems only says ''AC Energy'' (Wh). Lifetime yield is assumed, but an ECU-R register dump published with ha-sunspec2 suggests it resets every night (today''s energy).', verified: false}
+  - {key: temperature, label: TmpCab (cabinet temperature), table: holding, address: 40162, type: f32, unit: °C}
+  - {key: state, label: St (operating state), table: holding, address: 40170, type: u16, enum: inverter_state, note: APsystems' float tables end at TmpCab; St is documented only in the int + SF model (40108). Its place in the float model (SunSpec offset 48) is assumed., verified: false}
+  - {key: x.vendor_state, label: StVnd, table: holding, address: 40171, type: u16, note: Not in APsystems' float table; unimplemented in the int + SF model., verified: false}
+  - {key: x.events, label: Evt1, table: holding, address: 40172, type: u32, flags: evt1, note: APsystems' float tables end at TmpCab; Evt1 is documented only in the int + SF model (40110). Its place in the float model (SunSpec offset 50) is assumed., verified: false}
+  - {key: x.dc1_voltage, label: DC Voltage (DCV1), table: holding, address: 40214, type: f32, unit: V}
+  - {key: x.dc2_voltage, label: DC Voltage (DCV2), table: holding, address: 40216, type: f32, unit: V}
+  - {key: x.dc3_voltage, label: DC Voltage (DCV3), table: holding, address: 40218, type: f32, unit: V, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc4_voltage, label: DC Voltage (DCV4), table: holding, address: 40220, type: f32, unit: V, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc5_voltage, label: DC Voltage (DCV5), table: holding, address: 40222, type: f32, unit: V, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc6_voltage, label: DC Voltage (DCV6), table: holding, address: 40224, type: f32, unit: V, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc7_voltage, label: DC Voltage (DCV7), table: holding, address: 40226, type: f32, unit: V, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc8_voltage, label: DC Voltage (DCV8), table: holding, address: 40228, type: f32, unit: V, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc1_current, label: DC Amps (DCA1), table: holding, address: 40230, type: f32, unit: A}
+  - {key: x.dc2_current, label: DC Amps (DCA2), table: holding, address: 40232, type: f32, unit: A}
+  - {key: x.dc3_current, label: DC Amps (DCA3), table: holding, address: 40234, type: f32, unit: A, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc4_current, label: DC Amps (DCA4), table: holding, address: 40236, type: f32, unit: A, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc5_current, label: DC Amps (DCA5), table: holding, address: 40238, type: f32, unit: A, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc6_current, label: DC Amps (DCA6), table: holding, address: 40240, type: f32, unit: A, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc7_current, label: DC Amps (DCA7), table: holding, address: 40242, type: f32, unit: A, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc8_current, label: DC Amps (DCA8), table: holding, address: 40244, type: f32, unit: A, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc1_power, label: DC Watt (DCW1), table: holding, address: 40246, type: f32, unit: W}
+  - {key: x.dc2_power, label: DC Watt (DCW2), table: holding, address: 40248, type: f32, unit: W}
+  - {key: x.dc3_power, label: DC Watt (DCW3), table: holding, address: 40250, type: f32, unit: W, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc4_power, label: DC Watt (DCW4), table: holding, address: 40252, type: f32, unit: W, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc5_power, label: DC Watt (DCW5), table: holding, address: 40254, type: f32, unit: W, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc6_power, label: DC Watt (DCW6), table: holding, address: 40256, type: f32, unit: W, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc7_power, label: DC Watt (DCW7), table: holding, address: 40258, type: f32, unit: W, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+  - {key: x.dc8_power, label: DC Watt (DCW8), table: holding, address: 40260, type: f32, unit: W, note: 'Depends on the inverter model (APsystems: only inputs 1 and 2 are always supported).'}
+
+enums:
+  inverter_state: {'1': 'Off', '2': Sleeping, '3': Starting, '4': MPPT (producing), '5': Throttled, '6': Shutting down, '7': Fault, '8': Standby}
+
+flags:
+  evt1: {'0': Ground fault, '1': DC over-voltage, '2': AC disconnect open, '3': DC disconnect open, '4': Grid disconnected, '5': Cabinet open, '6': Manual shutdown, '7': Over-temperature, '8': Grid over-frequency, '9': Grid under-frequency, '10': Grid over-voltage, '11': Grid under-voltage, '12': Blown string fuse, '13': Under-temperature, '14': Memory loss, '15': Hardware test failure}
+
+problems:
+  - {when: {key: state, equals: 7}, kind: fault, text: Inverter fault (St 7)}
+  - {when: {key: x.events, bit: 0}, kind: fault, text: Ground fault (Evt1 bit 0)}
+  - {when: {key: x.events, bit: 1}, kind: fault, text: DC over-voltage (Evt1 bit 1)}
+  - {when: {key: x.events, bit: 2}, kind: fault, text: AC disconnect open (Evt1 bit 2)}
+  - {when: {key: x.events, bit: 3}, kind: fault, text: DC disconnect open (Evt1 bit 3)}
+  - {when: {key: x.events, bit: 4}, kind: mains_lost, text: Grid disconnected (Evt1 bit 4)}
+  - {when: {key: x.events, bit: 5}, kind: warning, text: Cabinet open (Evt1 bit 5)}
+  - {when: {key: x.events, bit: 6}, kind: warning, text: Manual shutdown (Evt1 bit 6)}
+  - {when: {key: x.events, bit: 7}, kind: warning, text: Over-temperature (Evt1 bit 7)}
+  - {when: {key: x.events, bit: 8}, kind: mains_lost, text: Grid over-frequency (Evt1 bit 8)}
+  - {when: {key: x.events, bit: 9}, kind: mains_lost, text: Grid under-frequency (Evt1 bit 9)}
+  - {when: {key: x.events, bit: 10}, kind: mains_lost, text: Grid over-voltage (Evt1 bit 10)}
+  - {when: {key: x.events, bit: 11}, kind: mains_lost, text: Grid under-voltage (Evt1 bit 11)}
+  - {when: {key: x.events, bit: 12}, kind: fault, text: Blown string fuse (Evt1 bit 12)}
+  - {when: {key: x.events, bit: 13}, kind: warning, text: Under-temperature (Evt1 bit 13)}
+  - {when: {key: x.events, bit: 14}, kind: fault, text: Memory loss (Evt1 bit 14)}
+  - {when: {key: x.events, bit: 15}, kind: fault, text: Hardware test failure (Evt1 bit 15)}
+
+notes:
+- 'Supported ECUs: ECU-R (2160… from firmware 1.3.7, 2162… from 2.0.2) and ECU-C (215… from C1.1.3); not ECU-B. Switch SunSpec
+  Modbus on in the EMA Manager app (ECU APP → Workspace → Modbus Configuration) and give every microinverter its Modbus address
+  there.'
+- 'Each microinverter is its own device: the unit id is the address set for it (1 in APsystems'' example). TCP port 502 (fixed);
+  RTU over the ECU''s RS485 port, 8N1, baud rate chosen in the app.'
+- 'Addresses as on the wire: ''SunS'' at 40000, Common at 40002 (length 66), inverter model 101 / 103 (int + SF) at 40070
+  and 111 / 113 (float) at 40122, controls 123 at 40184.'
+- 'DC values per input are in APsystems'' model 114 at 40212 (values 40214-40261, float32). In APsystems'' table model 123
+  ends at 40209, so walking the SunSpec chain doesn''t reach 114: read it at its fixed address.'
+- The inverter models leave DC current, voltage and power unimplemented; solar power = sum of the model-114 DC powers.
+- 'No grid meter and no battery: grid and house load come from another device.'
+- The ECU serves each micro inverter as a SunSpec device on its own unit id (set in EMA Manager). The DC values per input
+  sit at 40214…40261 behind the SunSpec end marker (APsystems calls the block model 114), so a SunSpec scan doesn't find them.
+  Inputs an inverter doesn't have read 0.
+- Identification as sunspec2 recognises the device (not checked against a document).

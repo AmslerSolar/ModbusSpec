@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the NPP Sensor SENS adapter LIN-RS485/232 operating manual SENS.426459.059RE (09.04.2025).
+
+modbusspec: 0
+id: nppsensor-lin-rs485
+manufacturer: NPP Sensor
+name: SENS adapter LIN-RS485/232 (DIN, DIN2, ECO)
+kind: other
+
+sources:
+- title: Устройство «СЕНС» Адаптер ЛИН-RS485/232-DIN, -DIN2, -ECO, руководство по эксплуатации СЕНС.426459.059РЭ
+  version: 09.04.2025
+  url: https://www.exzotron.com/RE-Adapter-LIN-RS485-RS232-_DIN__DIN2__ESO_-ot-09.04.2025.pdf
+  sha256: 3faff35fdf7853ccbae7e850a699c74803a9b68e43621f991a3c52e4470309cb
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+points:
+  - {key: x.line_cycle, label: SENS line cycle, table: input, address: 501, type: u16, unit: s, scale: 0.1}
+  - {key: firmware, label: Software version, table: input, address: 502, type: u16, poll: slow}
+  - {key: x.slot1_value, label: Slot 1 parameter value (float32), table: input, address: 1000, type: f32, note: 'Slot N at 1000 + 2·(N−1), N = 1 … 250 (up to 1498). 0xFFFFFFFF = measurement error or transmitter lost (from version B888). Low word first.'}
+  - {key: x.slot1_value_int, label: Slot 1 parameter value (int16), table: input, address: 1500, type: s16, invalid: [-32768], note: 'Slot N at 1500 + N − 1 (up to 1749), scaled by the slot''s multiplier (holding 1500 + N − 1, ×10^x). 0x8000 = error or lost (from version B887).'}
+  - {key: x.slot1_age, label: Time since slot 1 was last answered, table: input, address: 2000, type: s16, unit: s, scale: 0.1, invalid: [32767], note: 'Slot N at 2000 + N − 1 (up to 2249). 0x7FFF = never read since power-up, or no answer for F line cycles.'}
+  - {key: x.protocol_switch, label: Protocol switch, table: holding, address: 38, type: u16, enum: protocol, writable: true, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 505, type: u16, enum: baud_rate, writable: true, poll: slow, note: Used only with the speed switch in its 9.6 position (600 … 115200 by this register); in the 19.2 position the adapter runs at 19200.}
+  - {key: x.slot1_parameter, label: Slot 1 parameter number and device address, table: holding, address: 1000, type: u16, writable: true, poll: slow, note: 'High byte = parameter number, low byte = SENS line address of the transmitter. Slot N at 1000 + 2·(N−1); offset in table at 1001 + 2·(N−1) (0xFFFF for a plain parameter).'}
+  - {key: x.slot1_multiplier, label: Slot 1 multiplier exponent, table: holding, address: 1500, type: s16, writable: true, poll: slow, note: 'Exponent x of 10^x for the int16 value: positive multiplies, negative divides. Slot N at 1500 + N − 1.'}
+
+enums:
+  protocol: {'0': By hardware switch, '1': Modbus RTU, '2': SENS}
+  baud_rate: {'0': '600', '1': '1200', '2': '2400', '3': '4800', '4': '9600', '5': '14400', '6': '19200', '7': '38400', '8': '56000', '9': '57600', '10': '115200'}
+
+notes:
+- A gateway between the SENS three-wire line (level and pressure transmitters PMP-118, PMP-128, PMP-201, SENS-PT, SENS-PD
+  and others) and RS485/RS232. What each of the 250 polling slots holds is configured by the user (SENS software or holding
+  registers 1000 ff.); only slot 1 is listed here, the other slots follow the address rules in the notes of each point.
+- The document numbers registers both from 1 (register 1001 at address 1000) and, in its appendix tables, as addresses; the
+  addresses here are the appendix's 0-based ones.
+- 'Float values: the first register of a slot holds the low word, the second the high word (word order little).'
+- 'Transmitter alarm states: input registers 3000–3249, one per SENS line address (register = address): low byte = state byte
+  (bits set by limit levels configured in the transmitter), high byte = seconds since the state arrived; 0xFF = never seen
+  on the line, 0xFE = lost. Not listed as points.'
+- Remapping tables (holding 5000–5249 for float, 5500–5749 for int16) move a slot's value to another input address; calibration
+  commands at holding 4000/4001. Not listed.
+- 'Defaults: Modbus address 1, speed setting 4 (9600 baud). The speed switch (19200, or the rate from holding 505) and the
+  parity (8E1, 8O1, 8N2, 8N1) are set by slide switches; 9600 8N1 is assumed as the default. The adapter also has a modem
+  mode without Modbus.'
+- No register identifies the adapter; it answers function 17 (Report Slave ID).

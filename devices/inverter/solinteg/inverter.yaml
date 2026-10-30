@@ -1,0 +1,190 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: solinteg-inverter
+manufacturer: Solinteg
+name: Integ ONE GEN3
+kind: inverter
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/solinteg-gen3.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/mtec/mtec
+- id: solax-modbus
+  title: homeassistant-solax-modbus (Home Assistant integration)
+  url: https://github.com/wills106/homeassistant-solax-modbus
+  license: Apache-2.0
+  commit: d644181940210c4a00a6b4637888495c7a7d6217
+  path: custom_components/solax_modbus/plugin_solinteg.py
+
+connection:
+  default_port: 502
+  default_unit: 255
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - solax-modbus
+
+models:
+  - {id: openwb_generation_2, name: Generation 2}
+  - {id: solax_modbus_x3_hybrid_mppt2, name: X3 | HYBRID | MPPT2, match: {table: holding, address: 10008, type: u16, in: [7680, 7681, 7682, 7683, 7684, 7685, 7686, 7687, 7688, 7689]}}
+  - {id: solax_modbus_x1_hybrid_mppt2, name: X1 | HYBRID | MPPT2, match: {table: holding, address: 10008, type: u16, in: [7936, 7937, 7938, 7939, 7940, 7941, 7942, 7943, 10241, 10242, 10243, 10244, 10245]}}
+  - {id: solax_modbus_x1_hybrid, name: X1 | HYBRID, match: {table: holding, address: 10008, type: u16, in: [7944, 7945, 10240]}}
+  - {id: solax_modbus_x3_hybrid_mppt4, name: X3 | HYBRID | MPPT4, match: {table: holding, address: 10008, type: u16, in: [8192, 8193, 8194, 8195, 8196, 10496, 10497, 10498, 10499, 10500]}}
+  - {id: solax_modbus_x3_hybrid_mppt6, name: X3 | HYBRID | MPPT6, match: {table: holding, address: 10008, type: u16, in: [11008, 11009, 11010, 11011, 11012, 11013]}}
+  - {id: solax_modbus_x1_mppt2, name: X1 | MPPT2}
+
+points:
+  - {key: x.inverter_status, label: Inverter Status, table: holding, address: 10105, type: u16, enum: inverter_status}
+  - {key: x.operation_flags, label: Inverter Operation Flags, table: holding, address: 10110, type: u32, flags: operation_flags}
+  - {key: x.fault_flags1, label: Fault Flags1, table: holding, address: 10112, type: u32, flags: fault_flags1}
+  - {key: x.fault_flags2, label: Fault Flags2, table: holding, address: 10114, type: u32, flags: fault_flags2}
+  - {key: x.fault_flags3, label: Fault Flags3, table: holding, address: 10120, type: u32, flags: fault_flags3}
+  - {key: l1_power, label: Grid L1 power, table: holding, address: 10994, type: s32, unit: W, positive: export, sources: [evcc, openwb, solax-modbus]}
+  - {key: l2_power, label: Grid L2 power, table: holding, address: 10996, type: s32, unit: W, positive: export, sources: [evcc, openwb, solax-modbus]}
+  - {key: l3_power, label: Grid L3 power, table: holding, address: 10998, type: s32, unit: W, positive: export, sources: [evcc, openwb, solax-modbus]}
+  - {key: grid_power, label: Grid power, table: holding, address: 11000, type: s32, unit: W, positive: export, sources: [evcc, openwb, solax-modbus]}
+  - {key: x.meter_grid_export_total, label: Meter Grid Export Total, table: holding, address: 11002, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.meter_grid_import_total, label: Meter Grid Import Total, table: holding, address: 11004, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.grid_voltage_l1, label: Inverter Voltage L1, table: holding, address: 11009, type: u16, unit: V, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.grid_current_l1, label: Inverter Current L1, table: holding, address: 11010, type: u16, unit: A, scale: 0.1}
+  - {key: x.grid_voltage_l2, label: Inverter Voltage L2, table: holding, address: 11011, type: u16, unit: V, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.grid_current_l2, label: Inverter Current L2, table: holding, address: 11012, type: u16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.grid_voltage_l3, label: Inverter Voltage L3, table: holding, address: 11013, type: u16, unit: V, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.grid_current_l3, label: Inverter Current L3, table: holding, address: 11014, type: u16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: frequency, label: Inverter Frequency, table: holding, address: 11015, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.inverter_load, label: AC Power, table: holding, address: 11016, type: s32, unit: W}
+  - {key: x.energy_ac_generation_today, label: Energy AC Generation Today, table: holding, address: 11018, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.energy_ac_generation_total, label: Energy AC Generation Total, table: holding, address: 11020, type: u32, unit: kWh, scale: 0.1}
+  - {key: pv_power, label: PV power, table: holding, address: 11028, type: u32, unit: W, sources: [evcc, openwb, solax-modbus]}
+  - {key: x.inv_temp_r, label: Inv Temperature Phase-R, table: holding, address: 11032, type: u16, unit: °C, scale: 0.1}
+  - {key: x.inv_temp_s, label: Inv.Temperature Phase-S, table: holding, address: 11033, type: u16, unit: °C, scale: 0.1}
+  - {key: x.inv_temp_t, label: Inv.Temperature Phase-T, table: holding, address: 11034, type: u16, unit: °C, scale: 0.1}
+  - {key: x.inv_temperature_rad, label: Inv.Temperature Radiator, table: holding, address: 11035, type: u16, unit: °C, scale: 0.1}
+  - {key: x.pv_voltage_1, label: PV Voltage 1, table: holding, address: 11038, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv_current_1, label: PV Current 1, table: holding, address: 11039, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv_voltage_2, label: PV Voltage 2, table: holding, address: 11040, type: u16, unit: V, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6, solax_modbus_x1_mppt2]}
+  - {key: x.pv_current_2, label: PV Current 2, table: holding, address: 11041, type: u16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6, solax_modbus_x1_mppt2]}
+  - {key: x.pv_voltage_3, label: PV Voltage 3, table: holding, address: 11042, type: u16, unit: V, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_current_3, label: PV Current 3, table: holding, address: 11043, type: u16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_voltage_4, label: PV Voltage 4, table: holding, address: 11044, type: u16, unit: V, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_current_4, label: PV Current 4, table: holding, address: 11045, type: u16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_voltage_5, label: PV Voltage 5, table: holding, address: 11046, type: u16, unit: V, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_current_5, label: PV Current 5, table: holding, address: 11047, type: u16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_voltage_6, label: PV Voltage 6, table: holding, address: 11048, type: u16, unit: V, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_current_6, label: PV Current 6, table: holding, address: 11049, type: u16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_power_1, label: PV Power 1, table: holding, address: 11062, type: u32, unit: W}
+  - {key: x.pv_power_2, label: PV Power 2, table: holding, address: 11064, type: u32, unit: W, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6, solax_modbus_x1_mppt2]}
+  - {key: x.pv_power_3, label: PV Power 3, table: holding, address: 11066, type: u32, unit: W, models: [solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_power_4, label: PV Power 4, table: holding, address: 11068, type: u32, unit: W, models: [solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_power_5, label: PV Power 5, table: holding, address: 11070, type: u32, unit: W, models: [solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.pv_power_6, label: PV Power 6, table: holding, address: 11072, type: u32, unit: W, models: [solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.fault_arm_flags1, label: Fault ARM Flags1, table: holding, address: 18000, type: u32, flags: fault_arm_flags1}
+  - {key: x.fault_arm_flags2, label: Fault ARM Flags2, table: holding, address: 18004, type: u32, flags: fault_arm_flags2}
+  - {key: x.battery_soc_reset, label: battery_soc_reset, table: holding, address: 21001, type: u16, enum: simple_switch, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.shadow_scan, label: Shadow Scan, table: holding, address: 25020, type: u16, enum: mppt_dd, writable: true, note: The project converts the raw value with a function.}
+  - {key: x.export_limit_switch, label: export_limit_switch, table: holding, address: 25100, type: u16, enum: simple_switch, writable: true}
+  - {key: x.export_limit_value, label: export_limit_value, table: holding, address: 25103, type: s16, scale: 0.1, writable: true}
+  - {key: x.backup_power, label: Backup Power, table: holding, address: 30230, type: s32, unit: W, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], note: Only when the integration option read_eps is on.}
+  - {key: battery_voltage, label: Battery Voltage, table: holding, address: 30254, type: u16, unit: V, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.battery_current, label: Battery Current, table: holding, address: 30255, type: s16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: battery_power, label: Battery power, table: holding, address: 30258, type: s32, unit: W, positive: discharge, sources: [evcc, openwb, solax-modbus]}
+  - {key: x.grid_export_today, label: Grid Export Today, table: holding, address: 31000, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.grid_import_today, label: Grid Import Today, table: holding, address: 31001, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.battery_charge_today, label: Battery Charge Today, table: holding, address: 31003, type: u16, unit: kWh, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.battery_discharge_today, label: Battery Discharge Today, table: holding, address: 31004, type: u16, unit: kWh, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.energy_generation_today, label: Energy Generation Today, table: holding, address: 31005, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.house_energy_today, label: House Energy Today, table: holding, address: 31006, type: u16, unit: kWh, scale: 0.1}
+  - {key: grid_export_energy, label: Grid return energy, table: holding, address: 31102, type: u32, unit: kWh, scale: 0.1, sources: [evcc, solax-modbus]}
+  - {key: grid_import_energy, label: Grid energy, table: holding, address: 31104, type: u32, unit: kWh, scale: 0.1, sources: [evcc, solax-modbus]}
+  - {key: x.battery_returnenergy, label: Battery return energy, table: holding, address: 31108, type: u32, unit: kWh, scale: 0.1, sources: [evcc, solax-modbus]}
+  - {key: x.battery_energy, label: Battery energy, table: holding, address: 31110, type: u32, unit: kWh, scale: 0.1, sources: [evcc, solax-modbus]}
+  - {key: pv_energy, label: PV energy, table: holding, address: 31112, type: u32, unit: kWh, scale: 0.1, sources: [evcc, solax-modbus]}
+  - {key: x.house_energy_total, label: House Energy Total, table: holding, address: 31114, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.battery_firmware, label: Battery Firmware, table: holding, address: 32003, type: u16, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], note: The project converts the raw value with a function.}
+  - {key: x.battery_hardware, label: Battery Hardware, table: holding, address: 32004, type: u16, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], note: The project converts the raw value with a function.}
+  - {key: x.battery_rated_capacity, label: Battery Rated Capacity, table: holding, address: 32007, type: u32, unit: kWh, scale: 0.001, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.battery_manufacturer, label: Battery Manufacturer, table: holding, address: 32020, type: str, length: 8, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 33000, type: u16, unit: '%', scale: 0.01, sources: [evcc, openwb, solax-modbus]}
+  - {key: battery_soh, label: Battery SOH, table: holding, address: 33001, type: u16, unit: '%', scale: 0.01, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: battery_temperature, label: Battery Temperature, table: holding, address: 33003, type: u16, unit: °C, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.battery_max_cell_voltage_id, label: Bat. Max Cell Voltage ID, table: holding, address: 33012, type: u16, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.battery_max_cell_voltage, label: Bat. Max Cell Voltage, table: holding, address: 33013, type: u16, unit: V, scale: 0.001, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.battery_min_cell_voltage_id, label: Bat. Min Cell Voltage ID, table: holding, address: 33014, type: u16, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.battery_min_cell_voltage, label: Bat. Min Cell Voltage, table: holding, address: 33015, type: u16, unit: V, scale: 0.001, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.battery_charge_limit, label: Battery Charge Limit, table: holding, address: 33021, type: u16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.battery_discharge_limit, label: Battery Discharge Limit, table: holding, address: 33023, type: u16, unit: A, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6]}
+  - {key: x.bat_power_40258, label: Battery power, table: holding, address: 40258, type: s32, unit: W, models: [openwb_generation_2], sources: [openwb]}
+  - {key: x.bat_soc_43000, label: Battery state of charge, table: holding, address: 43000, type: u16, unit: '%', scale: 0.01, models: [openwb_generation_2], sources: [openwb]}
+  - {key: x.batterymode_50000, label: Battery mode control (write), table: holding, address: 50000, type: u16, writable: true, note: 'evcc writes battery mode normal: 257; battery mode hold: 258; battery mode charge: 259.', sources: [evcc, openwb, solax-modbus]}
+  - {key: x.ups_function, label: ups_function, table: holding, address: 50001, type: u16, enum: simple_switch, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.grid_unbalanced_output, label: grid_unbalanced_output, table: holding, address: 50006, type: u16, enum: simple_switch, writable: true}
+  - {key: x.import_limit_switch, label: import_limit_switch, table: holding, address: 50007, type: u16, enum: simple_switch, writable: true}
+  - {key: x.import_limit_value, label: import_limit_value, table: holding, address: 50009, type: u16, scale: 0.1, writable: true}
+  - {key: x.battery_soc_prot_relax, label: battery_soc_prot_relax, table: holding, address: 50012, type: u16, enum: simple_switch, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.peak_shaving_max_grid_import_power, label: peak_shaving_max_grid_import_power, table: holding, address: 50016, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.peak_shaving_minimum_soc, label: peak_shaving_minimum_soc, table: holding, address: 50017, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.peak_shaving_battery_max_grid_charge, label: peak_shaving_battery_max_grid_charge, table: holding, address: 50018, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.maximum_battery_charge_power, label: maximum_battery_charge_power, table: holding, address: 50020, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.maximum_battery_discharge_power, label: maximum_battery_discharge_power, table: holding, address: 50021, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.peak_shaving_switch, label: peak_shaving_switch, table: holding, address: 50022, type: u16, enum: simple_switch, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.ems_acctrl_mode, label: ems_acctrl_mode, table: holding, address: 50202, type: u16, enum: ems_acctrl_mode, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.ems_acctrl_total_power, label: ems_acctrl_total_power, table: holding, address: 50203, type: s16, scale: 0.01, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.ems_acctrl_phase_a_power, label: ems_acctrl_phase_a_power, table: holding, address: 50204, type: s16, scale: 0.01, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.ems_acctrl_phase_b_power, label: ems_acctrl_phase_b_power, table: holding, address: 50205, type: s16, scale: 0.01, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.ems_acctrl_phase_c_power, label: ems_acctrl_phase_c_power, table: holding, address: 50206, type: s16, scale: 0.01, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.battery_charge_discharge_power_target, label: battery_charge_discharge_power_target, table: holding, address: 50207, type: s16, scale: 0.01, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.ems_battctrl_max_ac_power_limit, label: ems_battctrl_max_ac_power_limit, table: holding, address: 50208, type: s16, scale: 0.01, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.ems_battctrl_min_ac_power_limit, label: ems_battctrl_min_ac_power_limit, table: holding, address: 50209, type: s16, scale: 0.01, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.ems_battctrl_priority_power_output, label: ems_battctrl_priority_power_output, table: holding, address: 50210, type: u16, enum: ems_battctrl_priority_power_output, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.battery_soc_prot_ongrid, label: battery_soc_prot_ongrid, table: holding, address: 52502, type: u16, enum: simple_switch, writable: true}
+  - {key: x.battery_soc_min_ongrid, label: battery_soc_min_ongrid, table: holding, address: 52503, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.battery_soc_prot_offgrid, label: battery_soc_prot_offgrid, table: holding, address: 52504, type: u16, enum: simple_switch, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.battery_soc_min_offgrid, label: battery_soc_min_offgrid, table: holding, address: 52505, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.charge_cutoff_soc, label: charge_cutoff_soc, table: holding, address: 52506, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.battery_charge_current_limit, label: battery_charge_current_limit, table: holding, address: 52601, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+  - {key: x.battery_discharge_current_limit, label: battery_discharge_current_limit, table: holding, address: 52603, type: u16, scale: 0.1, models: [solax_modbus_x3_hybrid_mppt2, solax_modbus_x1_hybrid_mppt2, solax_modbus_x1_hybrid, solax_modbus_x3_hybrid_mppt4, solax_modbus_x3_hybrid_mppt6], writable: true}
+
+enums:
+  inverter_status: {'0': Waiting, '1': Self checking, '2': On Grid generating, '3': Fault, '4': Firmware upgrade, '5': Off Grid generating}
+  simple_switch: {'0': 'off', '1': 'on'}
+  ems_battctrl_priority_power_output: {'0': PV, '1': Battery}
+  ems_acctrl_mode: {'0': 'Off', '1': Total Power Setting, '2': Power Setting on each Phase}
+  mppt_dd: {'0': 'off', '32767': 'on'}
+
+flags:
+  operation_flags: {'0': WorkMode Abn., '1': Emergency Stop, '2': DC Abn., '3': Mains Abn., '4': OffGrid Dis., '5': Batt. Abn., '6': Cmd Stop, '7': SocLow&NoPV, '8': ComErr Slave, '9': Meter Abn., '10': Bypass Wait, '11': NPD Standby, '12': Generator Abn., '13': S14 Undefined, '14': OffGrid, '15': NPD Clearing, '16': Cmd PLim, '17': OFreq PLim, '18': OTemp PLim, '19': OCurr PLim, '20': Reactive PLim, '21': Exp PLim, '22': Slow Loading, '23': OVolt PLim, '24': System PLim, '25': EMS CmdLim, '26': S27 Undefined, '27': S28 Undefined, '28': S29 Undefined, '29': S30 Undefined, '30': S31 Undefined, '31': PV PLim}
+  fault_flags1: {'0': Mains Lost, '1': Grid Voltage Fault, '2': Grid Frequency Fault, '3': DCI Fault, '4': ISO Over Limitation, '5': GFCI Fault, '6': PV Over Voltage, '7': Bus Voltage Fault, '8': Inverter OverTemperature}
+  fault_flags2: {'1': SPI Fault, '2': E2 Fault, '3': GFCI Device Fault, '4': AC Transducer Fault, '5': Relay Check Fail, '6': Internal Fan Fault, '7': External Fan Fault}
+  fault_flags3: {'0': Bus Hardware Fault, '1': PV Power Low, '2': Batt.Voltage Fault, '3': BAK Voltage Fault, '4': Bus Voltage Low, '5': Sys Hardware Fault, '6': BAK Over Power, '7': Inverter Over Voltage, '8': Inverter Over Freq, '9': Inverter Over Current, '10': Phase Order Err}
+  fault_arm_flags1: {'0': SCI Fault, '1': FLASH Fault, '2': Meter Comm Fault, '3': BMS Comm Fault}
+  fault_arm_flags2: {'0': BMS Comm Fault}
+
+notes:
+- 'evcc template `solinteg-gen3` (grid, pv, battery) lists: Solinteg Integ ONE GEN3; M-TEC Energy Butler GEN3; Wattsonic 3p
+  AIO Series GEN3; Sunways STH Series GEN3; A-Tronix Hybridpower AX2 GEN3; SunEnergyBox SEB Series GEN3.'
+- The models are openWB's settings for this device (which register map to read), not detected from the device.
+- 'Model detection: holding register 10008 holds the model code (high byte = series, low byte = model); the model matches
+  list the codes the project names, other codes of the same series get the same type bits.'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

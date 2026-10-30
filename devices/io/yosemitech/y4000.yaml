@@ -1,0 +1,83 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Yosemitech Y4000-Sonde-1.6-ModbusInstruction-en (1.6).
+
+modbusspec: 0
+id: yosemitech-y4000
+manufacturer: Yosemitech
+name: Y4000 multi-parameter sonde
+kind: io
+
+sources:
+- title: Yosemitech Multi-Parameter Sensor Modbus RTU Programmer Manual (Y4000-Sonde-1.6-ModbusInstruction-en)
+  version: '1.6'
+  url: https://github.com/EnviroDIY/YosemitechModbus/blob/0d300ac8fad83a24e979ee278fd00111ca6c8943/doc/Y4000-Sonde-1.6-ModbusInstruction-en.pdf
+  sha256: 545582f8b9f5d3b283b9d4d2fade36f50cd08b18acc51278c8dfd0e96d71071c
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+  write_multiple: true
+
+encoding:
+  byte_order: little
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 5120
+    type: str
+    length: 6
+    byte_order: big
+
+points:
+  # Measurements (one block of 16 registers from 0x2601)
+  - {key: x.dissolved_oxygen, label: DO, table: holding, address: 9729, type: f32, unit: mg/L, note: 0 when the probe is not fitted (as for every value in this block).}
+  - {key: x.turbidity, label: Tur, table: holding, address: 9731, type: f32, unit: NTU, verified: false, note: Not stated in the document; NTU assumed.}
+  - {key: x.conductivity, label: CT, table: holding, address: 9733, type: f32, verified: false, note: Conductivity; the document gives no unit.}
+  - {key: x.ph, label: pH, table: holding, address: 9735, type: f32, unit: pH}
+  - {key: x.water_temperature, label: Temp, table: holding, address: 9737, type: f32, unit: °C, verified: false, note: Not stated in the document; °C assumed.}
+  - {key: x.orp, label: Orp, table: holding, address: 9739, type: f32, unit: mV, verified: false, note: Oxidation-reduction potential. Not stated in the document; mV assumed.}
+  - {key: x.chlorophyll, label: Chl, table: holding, address: 9741, type: f32, verified: false, note: Chlorophyll; the document gives no unit.}
+  - {key: x.blue_green_algae, label: BGA, table: holding, address: 9743, type: f32, verified: false, note: Blue-green algae; the document gives no unit.}
+  # State
+  - {key: x.error_flag, label: Error Flag, table: holding, address: 2048, type: u16, flags: error_flag, note: 0 = no error.}
+  - {key: x.supply_voltage, label: Supply voltage, table: holding, address: 7680, type: f32, unit: V, note: 'The document''s table says one register, but its example reads two and returns a float (12.31 V).'}
+  # Settings
+  - {key: x.brush_interval, label: Brush interval of time, table: holding, address: 3584, type: u16, unit: min, writable: true, poll: slow, note: Time between wiper rotations; default 30 min.}
+  - {key: x.clock, label: Real time, table: holding, address: 4864, type: datetime, length: 4, byte_order: big, writable: true, poll: slow, datetime: {second: {register: 0, bits: [8, 15], bcd: true}, minute: {register: 0, bits: [0, 7], bcd: true}, hour: {register: 1, bits: [8, 15], bcd: true}, day: {register: 1, bits: [0, 7], bcd: true}, month: {register: 2, bits: [8, 15], bcd: true}, year: {register: 3, bits: [8, 15], bcd: true, offset: 2000}}, note: 'BCD bytes in transmission order: second, minute, hour, day, month, 0, year (two digits), 0.'}
+  - {key: x.modbus_address, label: Slave address, table: holding, address: 12288, type: u16, bits: [0, 7], writable: true, min: 1, max: 247, poll: slow, note: First byte of the register.}
+  # Identity
+  - {key: serial, label: SN, table: holding, address: 5120, type: str, length: 6, byte_order: big, poll: slow, note: '12 ASCII characters, e.g. YL0114010022.'}
+
+flags:
+  error_flag: {'0': Brush problem, '1': Humidity communication, '2': 12V voltage problem, '4': Sensor is in water}
+
+problems:
+  - {when: {key: x.error_flag, bit: 0}, kind: warning, text: Wiper (brush) problem (bit 0)}
+  - {when: {key: x.error_flag, bit: 1}, kind: warning, text: Humidity communication error (bit 1)}
+  - {when: {key: x.error_flag, bit: 2}, kind: warning, text: 12 V supply voltage problem (bit 2)}
+
+notes:
+- Addresses are the start addresses in the document's request frames (0-based protocol addresses, as written). The measurement
+  block really starts at the odd address 0x2601 in the document's frame. The remark that addresses start at 1 is general Modbus
+  text and doesn't apply.
+- Only functions 03 (read) and 0x10 (write) are supported. The document asks for the 8 measurements as one read of 16 registers
+  from 0x2601, at most once a minute.
+- 'Floats are IEEE 754 single precision stored fully little-endian (7.90 comes as bytes CD CC FC 40): low word first, low
+  byte first. The 16-bit values (brush interval, error flag, slave address) are also low byte first; serial and clock bytes
+  are in transmission order.'
+- 'The error flag values are given as 0x01, 0x02, 0x04 and 0x10, read here as bits. ''Sensor is in water'' (bit 4) is listed
+  among them but is not treated as a problem: in water is where a sonde normally is.'
+- 'Not stated in the document: a default unit id; 1 (the address used in the examples) is assumed. 9600 baud, 8 data bits,
+  no parity, 1 stop bit.'
+- 'Left out: the wipe-now command (write zero registers at 0x2F00); the document recommends wiping once after power-on.'

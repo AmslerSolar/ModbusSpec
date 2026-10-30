@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: hydac-cooling-unit
+manufacturer: HYDAC
+name: Fluid cooling unit (chiller)
+kind: other
+
+sources:
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.fluidcooling.hydac/src/io/openems/edge/fluidcooling/hydac/HydacImpl.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+
+defaults:
+  verified: false
+  sources:
+  - openems
+
+points:
+  - {key: x.chiller_on, label: Chiller on, table: coil, address: 4100, type: bool, writable: true}
+  - {key: x.chiller_off, label: Chiller off, table: coil, address: 4101, type: bool, writable: true}
+  - {key: x.clear_error, label: Clear error, table: coil, address: 4103, type: bool, writable: true}
+  - {key: x.cooling_circuit_1_set_point, label: Cooling circuit 1 set point, table: holding, address: 2000, type: s16, unit: °C, scale: 0.01, writable: true}
+  - {key: x.cooling_circuit_1_set_point_offset, label: Cooling circuit 1 set point offset, table: holding, address: 2001, type: u16, unit: ml/min, scale: 0.01, writable: true}
+  - {key: x.cooling_circuit_1_flow_alarm_setpoint, label: Cooling circuit 1 flow alarm setpoint, table: holding, address: 2002, type: u16, unit: ml/min, scale: 0.01}
+  - {key: x.cooling_circuit_1_conductance_setpoint, label: Cooling circuit 1 conductance setpoint, table: holding, address: 2003, type: u16, scale: 0.01}
+  - {key: x.cooling_circuit_1_control_mode, label: Cooling circuit 1 control mode, table: holding, address: 2004, type: u16}
+  - {key: x.cooling_circuit_1_set_point_min, label: Cooling circuit 1 set point min, table: holding, address: 2011, type: u16, unit: °C, scale: 0.01, writable: true}
+  - {key: x.cooling_circuit_1_set_point_max, label: Cooling circuit 1 set point max, table: holding, address: 2012, type: u16, unit: °C, scale: 0.01, writable: true}
+  - {key: x.outlet_temperature, label: Outlet temperature, table: input, address: 1020, type: s16, unit: °C, scale: 0.01}
+  - {key: x.pump_outlet_temperature, label: Pump outlet temperature, table: input, address: 1021, type: s16, unit: °C, scale: 0.01}
+  - {key: x.cooling_circuit_1_flow, label: Cooling circuit 1 flow, table: input, address: 1023, type: u16, unit: ml/min, scale: 10}
+  - {key: x.cooling_circuit_1_conductance, label: Cooling circuit 1 conductance, table: input, address: 1024, type: u16, unit: µS/cm, scale: 0.1}
+  - {key: x.ambient_temperature, label: Ambient temperature, table: input, address: 1025, type: u16, unit: °C, scale: 0.01}
+  - {key: x.input_1030_bits, label: Status and alarm bits (register 1030), table: input, address: 1030, type: u16, flags: input_1030_bits}
+  - {key: x.chiller_ready, label: Chiller ready, table: input, address: 1030, type: u16, bits: [0, 0]}
+  - {key: x.cooling_required, label: Cooling required, table: input, address: 1030, type: u16, bits: [1, 1]}
+  - {key: x.chiller_running, label: Chiller running, table: input, address: 1030, type: u16, bits: [2, 2]}
+  - {key: x.warning_active, label: Warning active, table: input, address: 1030, type: u16, bits: [3, 3]}
+  - {key: x.alarm_active, label: Alarm active, table: input, address: 1030, type: u16, bits: [4, 4]}
+  - {key: x.compressor, label: Compressor, table: input, address: 1031, type: u16, bits: [0, 0]}
+  - {key: x.pump, label: Pump, table: input, address: 1031, type: u16, bits: [1, 1]}
+  - {key: x.heater, label: Heater, table: input, address: 1031, type: u16, bits: [2, 2]}
+  - {key: x.input_1032_bits, label: Status and alarm bits (register 1032), table: input, address: 1032, type: u16, flags: input_1032_bits}
+  - {key: x.input_1033_bits, label: Status and alarm bits (register 1033), table: input, address: 1033, type: u16, flags: input_1033_bits}
+  - {key: x.high_pressure_alarm, label: High pressure alarm, table: input, address: 1034, type: u16, bits: [0, 0]}
+  - {key: x.low_pressure_alarm, label: Low pressure alarm, table: input, address: 1034, type: u16, bits: [1, 1]}
+  - {key: x.input_1035_bits, label: Status and alarm bits (register 1035), table: input, address: 1035, type: u16, flags: input_1035_bits}
+  - {key: x.inverter_error_compressor, label: Inverter error compressor, table: input, address: 1035, type: u16, bits: [1, 1]}
+
+flags:
+  input_1030_bits: {'5': System error, '6': Gateway error (Cooling Unit to EDGE communication has failed)}
+  input_1032_bits: {'0': 'Dry running protection [E03] (fill level too low)', '2': 'Under temperature [E10]', '3': 'Over temperature [E11]'}
+  input_1033_bits: {'0': 'Tank fill level low [U01] (Heating not available)', '2': 'Under temperature warning [U10] (Flow temperature deviates more than 3 K from setpoint)', '3': 'Over temperature warning [U11] (Flow temperature deviates more than 3 K from setpoint)'}
+  input_1035_bits: {'0': 'Sensor error temperature [Errors E80 to E93]', '2': 'Motor protection switch pump [E02]', '5': 'Fan malfunction [E53]'}
+
+problems:
+  - {when: {key: x.input_1030_bits, bit: 5}, kind: fault, text: System error}
+  - {when: {key: x.input_1030_bits, bit: 6}, kind: warning, text: Gateway error (Cooling Unit to EDGE communication has failed)}
+  - {when: {key: x.input_1032_bits, bit: 0}, kind: fault, text: 'Dry running protection [E03] (fill level too low)'}
+  - {when: {key: x.input_1032_bits, bit: 2}, kind: fault, text: 'Under temperature [E10]'}
+  - {when: {key: x.input_1032_bits, bit: 3}, kind: fault, text: 'Over temperature [E11]'}
+  - {when: {key: x.input_1033_bits, bit: 0}, kind: warning, text: 'Tank fill level low [U01] (Heating not available)'}
+  - {when: {key: x.input_1035_bits, bit: 0}, kind: fault, text: 'Sensor error temperature [Errors E80 to E93]'}
+  - {when: {key: x.input_1035_bits, bit: 2}, kind: fault, text: 'Motor protection switch pump [E02]'}
+  - {when: {key: x.input_1035_bits, bit: 5}, kind: fault, text: 'Fan malfunction [E53]'}
+
+notes:
+- The sources don't state the default unit id; 1 is a guess.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

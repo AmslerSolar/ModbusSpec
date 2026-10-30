@@ -1,0 +1,123 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Belimo Modbus Register Energy Valve (V3, en-gb 2026-06).
+
+modbusspec: 0
+id: belimo-energy-valve
+manufacturer: Belimo
+name: Energy Valve (EV..R+BAC, EV..R3+BAC, EV..F+BAC)
+kind: hvac
+
+sources:
+- title: Modbus Register Energy Valve V3
+  version: V3 (en-gb, 2026-06; general information dated 26.01.2018)
+  url: https://www.belimo.com/mam/general-documents/system_integration/belimo_Modbus-Register_Energy-Valve_V3_en-gb.pdf
+  sha256: f0e857f8f028733174afed6fb34e91c5c08653f84b4db3c7d33471597935fdfe
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 38400
+    format: 8N1
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  checks:
+  # actuator type: Energy Valve
+  - table: holding
+    address: 3
+    type: u16
+    equals: 4
+
+points:
+  # Operation (0–41)
+  - {key: x.setpoint, label: Setpoint, table: holding, address: 0, type: u16, unit: '%', scale: 0.01, writable: true, min: 0, max: 100, note: 'Meaning depends on the control mode (140): relative position, share of Vmax (flow control) or share of Pmax (power control). Used only with setpoint source Bus (144).'}
+  - {key: x.override_control, label: Override control, table: holding, address: 1, type: u16, enum: override, writable: true, note: Falls back to None after 2 hours.}
+  - {key: x.actuator_type, label: Actuator type, table: holding, address: 3, type: u16, enum: actuator_type, poll: slow}
+  - {key: x.relative_position, label: Relative position, table: holding, address: 4, type: u16, unit: '%', scale: 0.01}
+  - {key: x.absolute_position, label: Absolute position, table: holding, address: 5, type: u16, unit: °, scale: 0.01}
+  - {key: x.relative_flow, label: Relative flow, table: holding, address: 6, type: u16, unit: '%', scale: 0.01, note: Share of the active Vmax.}
+  - {key: x.flow, label: Absolute volumetric flow, table: holding, address: 9, type: u32, unit: l/s, scale: 0.001}
+  - {key: x.flow_gpm, label: Absolute volumetric flow, table: holding, address: 11, type: u32, unit: gpm, scale: 0.001}
+  - {key: x.setpoint_analog, label: Setpoint analog, table: holding, address: 15, type: u16, unit: V, scale: 0.01, note: Only with setpoint source Analog (144).}
+  - {key: x.temperature_remote, label: Temperature 1 (remote sensor), table: holding, address: 16, type: s16, unit: °C, scale: 0.01}
+  - {key: x.temperature_embedded, label: Temperature 2 (embedded sensor), table: holding, address: 18, type: s16, unit: °C, scale: 0.01}
+  - {key: x.delta_temperature, label: Delta temperature, table: holding, address: 20, type: u16, unit: K, scale: 0.01}
+  - {key: x.glycol_concentration, label: Glycol concentration, table: holding, address: 22, type: u16, unit: '%', scale: 0.01, note: Measured value or an override value set in the web server.}
+  - {key: x.relative_power, label: Relative power, table: holding, address: 23, type: u16, unit: '%', scale: 0.01}
+  - {key: x.thermal_power, label: Absolute power, table: holding, address: 26, type: u32, unit: kW, scale: 0.001, note: 'Thermal power through the coil; unsigned, the direction (heating or cooling) isn''t given.'}
+  - {key: x.thermal_power_kbtuh, label: Absolute power, table: holding, address: 28, type: u32, unit: kBTU/h, scale: 0.001}
+  - {key: x.cooling_energy, label: Energy cooling, table: holding, address: 32, type: u32, unit: kWh, poll: slow}
+  - {key: x.cooling_energy_kbtu, label: Energy cooling, table: holding, address: 34, type: u32, unit: kBTU, poll: slow}
+  - {key: x.heating_energy, label: Energy heating, table: holding, address: 38, type: u32, unit: kWh, poll: slow}
+  - {key: x.heating_energy_kbtu, label: Energy heating, table: holding, address: 40, type: u32, unit: kBTU, poll: slow}
+
+  # Service (100–144)
+  - {key: x.serial_part1, label: Series number 1st part, table: holding, address: 100, type: u16, poll: slow, note: 'The printed series number has four parts (e.g. 00839-31324-064-008); parts 1, 2 and 4 are on Modbus (100, 101, 102).'}
+  - {key: x.serial_part2, label: Series number 2nd part, table: holding, address: 101, type: u16, poll: slow}
+  - {key: x.serial_part4, label: Series number 4th part, table: holding, address: 102, type: u16, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 103, type: u16, scale: 0.01, poll: slow, note: Communication module firmware; 302 = version 3.02.}
+  - {key: x.malfunction, label: Malfunction and service information, table: holding, address: 104, type: u16, flags: malfunction, note: Also readable bit by bit as discrete inputs 1664–1679 (address × 16 + bit).}
+  - {key: x.vmax, label: Vmax, table: holding, address: 105, type: u16, unit: '%', scale: 0.01, writable: true, min: 30, max: 100, persistent: true, poll: slow, note: Share of Vnom.}
+  - {key: x.vmax_absolute, label: Absolute Vmax, table: holding, address: 106, type: u32, unit: l/s, scale: 0.001, writable: true, persistent: true, poll: slow}
+  - {key: x.vnom, label: Nominal volumetric flow, table: holding, address: 112, type: u32, unit: l/s, scale: 0.001, poll: slow}
+  - {key: x.pmax, label: Pmax, table: holding, address: 116, type: u16, unit: '%', scale: 0.01, writable: true, min: 0.5, max: 100, persistent: true, poll: slow, note: Share of Pnom.}
+  - {key: x.pmax_absolute, label: Absolute Pmax, table: holding, address: 117, type: u32, unit: kW, scale: 0.001, writable: true, persistent: true, poll: slow}
+  - {key: x.pnom, label: Nominal power, table: holding, address: 123, type: u32, unit: kW, scale: 0.001, poll: slow}
+  - {key: x.delta_t_limitation, label: DeltaT limitation, table: holding, address: 130, type: u16, enum: delta_t_limitation, writable: true, persistent: true, poll: slow}
+  - {key: x.delta_t_manager_status, label: DeltaT manager status, table: holding, address: 131, type: u16, enum: delta_t_manager_status}
+  - {key: x.delta_t_setpoint, label: Setpoint DeltaT, table: holding, address: 132, type: u16, unit: K, scale: 0.01, writable: true, min: 1, max: 55, persistent: true, poll: slow}
+  - {key: x.flow_setpoint_at_delta_t, label: Setpoint flow at DeltaT, table: holding, address: 134, type: u32, unit: l/s, scale: 0.001}
+  - {key: x.control_mode, label: Control mode, table: holding, address: 140, type: u16, enum: control_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.unit_selection_flow, label: Unit selection flow, table: holding, address: 141, type: u16, enum: flow_unit, writable: true, persistent: true, poll: slow}
+  - {key: x.unit_selection_power, label: Unit selection power, table: holding, address: 142, type: u16, enum: power_unit, writable: true, persistent: true, poll: slow}
+  - {key: x.unit_selection_energy, label: Unit selection energy, table: holding, address: 143, type: u16, enum: energy_unit, writable: true, persistent: true, poll: slow}
+  - {key: x.setpoint_source, label: Setpoint source, table: holding, address: 144, type: u16, enum: setpoint_source, writable: true, persistent: true, poll: slow}
+
+enums:
+  override: {'0': None, '1': Close, '2': Open, '3': Vnom, '4': Vmax, '5': Motor stop, '6': Pnom, '7': Pmax}
+  actuator_type: {'0': Unknown, '1': Air & Water, '2': EPIV / VAV, '3': Fire, '4': Energy Valve, '5': 6-way EPIV}
+  delta_t_limitation: {'0': Disabled, '1': dT manager, '2': dT manager scaling}
+  delta_t_manager_status: {'0': Not selected, '1': Standby, '2': Active, '3': Scaling standby, '4': Scaling active}
+  control_mode: {'0': Position control, '1': Flow control, '2': Power control}
+  flow_unit: {'0': m³/s, '1': m³/h, '2': l/s, '3': l/min, '4': l/h, '5': gpm, '6': cfm}
+  power_unit: {'0': W, '1': kW, '2': BTU/h, '3': kBTU/h, '4': Tons}
+  energy_unit: {'0': J, '1': kWh, '2': MWh, '3': kBTU, '4': ton·h, '5': MJ, '6': GJ}
+  setpoint_source: {'0': Analog (0–10 V), '1': Bus}
+
+flags:
+  malfunction: {'0': Remote temperature sensor (T1) error, '1': Embedded temperature sensor (T2) error, '2': Flow sensor error, '3': Actuator cannot move, '4': Flow with closed valve, '5': Air bubbles, '6': Flow not reached, '7': Power not realised, '9': Gear train disengaged, '11': Reverse flow detected, '12': Internal (MP) communication faulty, '13': Freeze warning}
+
+problems:
+  - {when: {key: x.malfunction, bit: 0}, kind: fault, text: Remote temperature sensor T1 error (bit 0)}
+  - {when: {key: x.malfunction, bit: 1}, kind: fault, text: Embedded temperature sensor T2 error (bit 1)}
+  - {when: {key: x.malfunction, bit: 2}, kind: fault, text: Flow sensor error (bit 2)}
+  - {when: {key: x.malfunction, bit: 3}, kind: fault, text: 'Actuator cannot move, e.g. blocked valve (bit 3)'}
+  - {when: {key: x.malfunction, bit: 4}, kind: warning, text: Flow measured with the valve closed (bit 4)}
+  - {when: {key: x.malfunction, bit: 5}, kind: warning, text: Air bubbles in the system; running in position control (bit 5)}
+  - {when: {key: x.malfunction, bit: 6}, kind: warning, text: Flow setpoint not reached within 10 min (bit 6)}
+  - {when: {key: x.malfunction, bit: 7}, kind: warning, text: Power setpoint not reached within 10 min (bit 7)}
+  - {when: {key: x.malfunction, bit: 9}, kind: warning, text: Gear train disengaged (bit 9)}
+  - {when: {key: x.malfunction, bit: 11}, kind: warning, text: Reverse flow detected (bit 11)}
+  - {when: {key: x.malfunction, bit: 12}, kind: fault, text: Internal communication between sensor and actuator faulty (bit 12)}
+  - {when: {key: x.malfunction, bit: 13}, kind: warning, text: Freeze warning (bit 13)}
+
+notes:
+- 'Addresses are the document''s 0-based addresses (register number − 1). The device makes no difference between the tables:
+  functions 03 and 04 read the same registers.'
+- Values are unsigned except the °C temperatures (16, 18). 32-bit values are two registers, low word first; write both at
+  once with function 16.
+- A register the device or its configuration doesn't support reads 65535.
+- Modbus RTU (9600…115200 Bd, default 38400 8N1, address 1–247, default 1) and Modbus TCP (port 502 by default). Settings
+  are made in the built-in web server.
+- 'Left out: the values in the selected units (7, 13, 24, 30, 36, 110, 121) and the remaining °F / gpm / kBTU/h duplicates
+  (17, 19, 21, 108, 114, 119, 125, 133, 136). The unit selections (141–143) only affect those selected-unit registers.'

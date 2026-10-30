@@ -1,0 +1,160 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From Free2move eSolutions' Modbus RTU configuration guide for the eProWallbox family (below).
+
+modbusspec: 0
+id: free2move-eprowallbox
+manufacturer: Free2move eSolutions
+name: eProWallbox, eProWallbox Move (Modbus RTU)
+kind: charger
+
+sources:
+- title: eProWallbox / eProWallbox Move – Modbus communication map (MODBUS RTU Configuration Guide)
+  version: V1 2023 (PDF dated 2022-08-01)
+  url: https://esolutions.free2move.com/eu/de_at//eprowallbox-eprowallbox-move_modbus-communication-map-v12023
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 115200
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40000
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 40101
+    type: u16
+    range:
+    - 0
+    - 9
+  - table: holding
+    address: 40102
+    type: u16
+    range:
+    - 0
+    - 8
+  # serial number; a device answering 0 or FFFFh everywhere is not this one
+  - table: holding
+    address: 40000
+    type: str
+    length: 8
+    printable: true
+
+points:
+  # Identity
+  - {key: serial, label: SERIAL_NUMBER, table: holding, address: 40000, type: str, length: 8, poll: slow}
+  - {key: firmware, label: SW_VERSION, table: holding, address: 40008, type: str, length: 4, poll: slow, note: 'ASCII, xx.yy.zz.'}
+  - {key: x.modbus_version, label: MDBUS_VERSION, table: holding, address: 40012, type: str, length: 4, poll: slow}
+  - {key: x.hw_type, label: HW_TYPE, table: holding, address: 40016, type: u16, poll: slow, note: Meaning not yet defined in the document (default 1).}
+  - {key: x.device_type, label: DEVICE_TYPE, table: holding, address: 40017, type: u16, enum: device_type, poll: slow}
+  - {key: x.hw_current_limit, label: HW_CURRENT_LIMIT, table: holding, address: 40018, type: u32, unit: A, scale: 0.001, poll: slow, note: mA; set by the rotary switch.}
+
+  # Status
+  - {key: error_code, label: ACTUAL_ERROR, table: holding, address: 40100, type: u16, note: Current error; the document lists no codes.}
+  - {key: x.cp_state, label: GENERAL_STATUS, table: holding, address: 40101, type: u16, enum: iec61851_state}
+  - {key: state, label: OCPP_STATUS, table: holding, address: 40102, type: u16, enum: ocpp_status}
+  - {key: x.user_current_limit, label: USER_CURRENT_LIMIT, table: holding, address: 40103, type: u32, unit: A, scale: 0.001, poll: slow, note: mA; set by the user in the app.}
+  - {key: x.unbalance_limiting, label: LOAD_UNBALANCE_LIMITING, table: holding, address: 40106, type: u16, enum: limiting}
+  - {key: x.dpm_limiting, label: DPM_LIMITING, table: holding, address: 40107, type: u16, enum: limiting}
+  - {key: x.temp_derating, label: TEMP_DERATING_STAUTS, table: holding, address: 40108, type: u16, enum: temp_derating}
+
+  # Bus settings
+  - {key: x.rtu_address, label: RTU_ADR, table: holding, address: 40200, type: u16, poll: slow, note: '1–32, default 1.'}
+  - {key: x.new_rtu_address, label: NEW_RTU_ADR, table: holding, address: 40201, type: u16, writable: true, min: 1, max: 32, poll: slow}
+  - {key: x.activate_rtu_address, label: ACTIVATE_NEW_RTU_ADR, table: holding, address: 40202, type: u16, writable: true, write_only: true, poll: slow, note: 0x5555 applies 40201.}
+  - {key: x.baud_rate, label: BAUD_RATE, table: holding, address: 40210, type: u16, enum: baud_rate, poll: slow}
+  - {key: x.new_baud_rate, label: NEW_BAUD_RATE, table: holding, address: 40211, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.activate_baud_rate, label: ACTIVATE_NEW_BAUD_RATE, table: holding, address: 40212, type: u16, writable: true, write_only: true, poll: slow, note: 0x5555 applies 40211.}
+
+  # Settings
+  - {key: x.dpm_enabled, label: DPM_ENABLED, table: holding, address: 40400, type: u16, enum: disabled_enabled, writable: true, poll: slow}
+  - {key: x.mid_meter_enabled, label: MID_METER_ENABLED, table: holding, address: 40401, type: u16, enum: disabled_enabled, writable: true, poll: slow, note: 1 = external MID meter connected.}
+  - {key: x.unbalance_enabled, label: LOAD_UNBALANCE_ENABLED, table: holding, address: 40402, type: u16, enum: disabled_enabled, writable: true, poll: slow, note: Three-phase installations only.}
+  - {key: x.unbalance_current, label: LOAD_UNBALANCE_CURRENT, table: holding, address: 40403, type: u32, unit: A, scale: 0.001, writable: true, poll: slow, note: 'mA; largest allowed difference between phases, default 32000.'}
+  - {key: x.on_off_input, label: ON_OFF_INPUT, table: holding, address: 40406, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.current_limit, label: CURRENT_LIMIT, table: holding, address: 40407, type: u32, unit: A, scale: 0.001, writable: true, min: 6, note: mA; the EMS limit; a lower rotary-switch limit always wins.}
+  - {key: x.fallback_current, label: FALLBACK_CURRENT, table: holding, address: 40409, type: u32, unit: A, scale: 0.001, writable: true, poll: slow, note: 'mA; used when the EMS is lost, default 32000.'}
+  - {key: x.meter_used, label: METER_USED, table: holding, address: 40411, type: u16, enum: meter_used, writable: true, poll: slow}
+  - {key: x.watchdog_enabled, label: WATCHDOG_TIMER_ENABLED, table: holding, address: 40412, type: u16, enum: disabled_enabled, writable: true, poll: slow, note: 'When enabled, fallback current and load unbalance apply after the watchdog time runs out without a reset (40502).'}
+  - {key: x.watchdog_timer, label: WATCHDOG_TIMER, table: holding, address: 40413, type: u16, unit: s, writable: true, poll: slow, note: Default 600 s.}
+
+  # Commands (write 0x5555)
+  - {key: x.reset_last_errors, label: RESET_LAST_ERRORS, table: holding, address: 40500, type: u16, writable: true, write_only: true, poll: slow, note: Write 0x5555.}
+  - {key: x.reset_energy, label: RESET_ENERGY, table: holding, address: 40501, type: u16, writable: true, write_only: true, poll: slow, note: 0x5555 clears the per-phase energies.}
+  - {key: x.reset_watchdog, label: RESET_WTCH_DOG, table: holding, address: 40502, type: u16, writable: true, write_only: true, poll: slow, note: Write 0x5555.}
+  - {key: x.set_defaults, label: SET_DEFAULT_VALUE, table: holding, address: 40503, type: u16, writable: true, write_only: true, poll: slow, note: Resets the parameters to defaults (value not stated).}
+
+  # Measurements
+  - {key: x.charge_time, label: CHARGE_TIME, table: holding, address: 40600, type: u32, unit: s, note: Duration of the charging session.}
+  - {key: temperature, label: TEMPERATURE, table: holding, address: 40602, type: f32, unit: °C, offset: -273.15, poll: slow, note: The document gives kelvin; converted here.}
+  - {key: l1_voltage, label: L1_Vac, table: holding, address: 40604, type: f32, unit: V, verified: false, note: 'The table says V, the description mV; V assumed.'}
+  - {key: l2_voltage, label: L2_Vac, table: holding, address: 40606, type: f32, unit: V, verified: false, note: 'The table says V, the description mV; V assumed.'}
+  - {key: l3_voltage, label: L3_Vac, table: holding, address: 40608, type: f32, unit: V, verified: false, note: 'The table says V, the description mV; V assumed.'}
+  - {key: x.l1_thd_v, label: L1_THD_V, table: holding, address: 40610, type: f32, unit: '%', poll: slow}
+  - {key: x.l2_thd_v, label: L2_THD_V, table: holding, address: 40612, type: f32, unit: '%', poll: slow}
+  - {key: x.l3_thd_v, label: L3_THD_V, table: holding, address: 40614, type: f32, unit: '%', poll: slow}
+  - {key: l1_current, label: L1_Iac, table: holding, address: 40620, type: f32, unit: A}
+  - {key: l2_current, label: L2_Iac, table: holding, address: 40622, type: f32, unit: A}
+  - {key: l3_current, label: L3_Iac, table: holding, address: 40624, type: f32, unit: A}
+  - {key: x.l1_thd_i, label: L1_THD_I, table: holding, address: 40626, type: f32, unit: '%', poll: slow}
+  - {key: x.l2_thd_i, label: L2_THD_I, table: holding, address: 40628, type: f32, unit: '%', poll: slow}
+  - {key: x.l3_thd_i, label: L3_THD_I, table: holding, address: 40630, type: f32, unit: '%', poll: slow}
+  - {key: l1_power, label: L1_Pac, table: holding, address: 40636, type: f32, unit: W, positive: consumption, verified: false, note: The document doesn't give a sign convention (consumption assumed).}
+  - {key: l2_power, label: L2_Pac, table: holding, address: 40638, type: f32, unit: W, positive: consumption, verified: false, note: The document doesn't give a sign convention (consumption assumed).}
+  - {key: l3_power, label: L3_Pac, table: holding, address: 40640, type: f32, unit: W, positive: consumption, verified: false, note: The document doesn't give a sign convention (consumption assumed).}
+  - {key: x.l1_reactive_power, label: L1_Qac, table: holding, address: 40642, type: f32, unit: var, poll: slow}
+  - {key: x.l2_reactive_power, label: L2_Qac, table: holding, address: 40644, type: f32, unit: var, poll: slow}
+  - {key: x.l3_reactive_power, label: L3_Qac, table: holding, address: 40646, type: f32, unit: var, poll: slow}
+  - {key: x.l1_apparent_power, label: L1_Sac, table: holding, address: 40648, type: f32, unit: VA, poll: slow}
+  - {key: x.l2_apparent_power, label: L2_Sac, table: holding, address: 40650, type: f32, unit: VA, poll: slow}
+  - {key: x.l3_apparent_power, label: L3_Sac, table: holding, address: 40652, type: f32, unit: VA, poll: slow}
+  - {key: x.energy_l1, label: L1_ACTIVE_ENERGY, table: holding, address: 40658, type: f32, unit: kWh, scale: 0.001, poll: slow, note: Wh.}
+  - {key: x.energy_l2, label: L2_ACTIVE_ENERGY, table: holding, address: 40660, type: f32, unit: kWh, scale: 0.001, poll: slow, note: Wh.}
+  - {key: x.energy_l3, label: L3_ACTIVE_ENERGY, table: holding, address: 40662, type: f32, unit: kWh, scale: 0.001, poll: slow, note: Wh.}
+  - {key: x.l1_reactive_energy, label: L1_REACTIVE_ENERGY, table: holding, address: 40664, type: f32, unit: varh, poll: slow}
+  - {key: x.l2_reactive_energy, label: L2_REACTIVE_ENERGY, table: holding, address: 40666, type: f32, unit: varh, poll: slow}
+  - {key: x.l3_reactive_energy, label: L3_REACTIVE_ENERGY, table: holding, address: 40668, type: f32, unit: varh, poll: slow}
+
+derived:
+  - {key: consumer_power, label: Total active power (L1 + L2 + L3), unit: W, positive: consumption, verified: false, sum: [{key: l1_power}, {key: l2_power}, {key: l3_power}]}
+  - {key: x.energy_total, label: Active energy (L1 + L2 + L3), unit: kWh, sum: [{key: x.energy_l1}, {key: x.energy_l2}, {key: x.energy_l3}], note: Cleared with the per-phase energies by RESET_ENERGY (40501).}
+
+enums:
+  device_type: {'0': AC 1-phase, '1': AC 3-phase}
+  iec61851_state: {'0': A1, '1': A2, '2': B1, '3': B2, '4': C1, '5': C2, '6': D1, '7': D2, '8': E (error), '9': F (fault)}
+  ocpp_status: {'0': Available, '1': Preparing, '2': Charging, '3': SuspendedEV, '4': SuspendedEVSE, '5': Finishing, '6': Reserved, '7': Unavailable, '8': Faulted}
+  limiting: {'0': Function disabled, '1': Limiting the charging current}
+  temp_derating: {'0': Not derating, '1': Derating (over 85 °C)}
+  baud_rate: {'0': '9600', '1': '19200', '2': '38400', '3': '57600', '4': '115200'}
+  disabled_enabled: {'0': Disabled, '1': Enabled}
+  on_off: {'0': Charging station disabled, '1': Charging station enabled}
+  meter_used: {'0': External meter, '1': Internal meter}
+
+problems:
+  - {when: {key: state, equals: 8}, kind: fault, text: Charging station faulted (OCPP status 8)}
+  - {when: {key: x.cp_state, equals: 8}, kind: fault, text: Vehicle state E (error)}
+  - {when: {key: x.cp_state, equals: 9}, kind: fault, text: State F (charging station fault)}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charging station error (code {value})'}
+  - {when: {key: x.temp_derating, equals: 1}, kind: warning, text: 'Charging current reduced: over temperature'}
+
+notes:
+- Modbus RTU on the two RS485 ports (daisy chain); the wallbox is the slave. Factory defaults per the guide - address 1 (1–32),
+  115200 baud (9600–115200 via registers 40210–40212). Data bits, parity and stop bits aren't stated.
+- 'The guide numbers registers from 40000 (SERIAL_NUMBER = 40000), so they can''t be 40001-style references; they are taken
+  as the literal protocol addresses. The function code isn''t stated: FC 03 (holding) is assumed. Both unverified.'
+- The guide doesn't state byte or word order; big endian for both is assumed (unverified). Floats are IEEE 754.
+- There is no total-power or total-energy register; the totals are derived from the phases. RESET_ENERGY (40501) clears the
+  per-phase energies.
+- The ACTUAL_ERROR codes aren't listed in the guide.

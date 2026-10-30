@@ -1,0 +1,196 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Schneider Electric's Modbus Registers Map – Conext CL Three Phase PV Inverter 20/25kVA (503-0243-01-01, 1.5) and the SunSpec models workbook.
+
+modbusspec: 0
+id: schneider-conext-cl
+manufacturer: Schneider Electric
+name: Conext CL 18 / 20 / 25 (NA and E) PV inverters
+kind: inverter
+
+sources:
+- title: Modbus Registers Map – Conext CL Three Phase PV Inverter 20/25kVA (503-0243-01-01)
+  version: 1.5 (2016-03-15)
+  url: https://solar.se.com/au/wp-content/uploads/sites/3/2021/11/Conext-CL_Modbus-Registers-Map_Rev1.5.pdf
+  sha256: bfcf85406df277367a8c26d2dea5f26f6a7094bfb0cb7198cb1f871e716ce8c2
+- title: SunSpec models workbook (official model definitions)
+  url: https://github.com/sunspec/models/raw/master/models_workbook.xlsx
+
+connection:
+  default_port: 502
+  default_unit: 10
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+    max_gap: 8
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40052
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: SCHNEIDER
+  - table: holding
+    address: 40070
+    type: u16
+    equals: 103
+
+sunspec: true
+
+points:
+  # SunSpec Common model (1) at 0x9C42
+  - {key: x.common_length, label: C_SunSpec_Length, table: holding, address: 40003, type: u16, poll: slow, note: 'Says 65, but a pad register (0x9C85) follows, so model 103 starts at 0x9C86 (66 registers).'}
+  - {key: x.manufacturer, label: C_Manufacturer, table: holding, address: 40004, type: str, length: 16, poll: slow}
+  - {key: x.model, label: C_Model, table: holding, address: 40020, type: str, length: 16, poll: slow}
+  - {key: x.options, label: C_Options, table: holding, address: 40036, type: str, length: 8, poll: slow}
+  - {key: firmware, label: C_Version, table: holding, address: 40044, type: str, length: 8, poll: slow}
+  - {key: serial, label: C_SerialNumber, table: holding, address: 40052, type: str, length: 16, poll: slow}
+  - {key: x.device_address, label: C_DeviceAddress, table: holding, address: 40068, type: u16, poll: slow}
+
+  # SunSpec inverter model 103 at 0x9C86
+  - {key: x.ac_current, label: I_AC_Current, table: holding, address: 40072, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40076, type: s16}, invalid: [65535]}
+  - {key: l1_current, label: I_AC_CurrentA, table: holding, address: 40073, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40076, type: s16}, invalid: [65535]}
+  - {key: l2_current, label: I_AC_CurrentB, table: holding, address: 40074, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40076, type: s16}, invalid: [65535]}
+  - {key: l3_current, label: I_AC_CurrentC, table: holding, address: 40075, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40076, type: s16}, invalid: [65535]}
+  - {key: l1_voltage, label: I_AC_VoltageAN, table: holding, address: 40080, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40083, type: s16}, invalid: [65535]}
+  - {key: l2_voltage, label: I_AC_VoltageBN, table: holding, address: 40081, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40083, type: s16}, invalid: [65535]}
+  - {key: l3_voltage, label: I_AC_VoltageCN, table: holding, address: 40082, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40083, type: s16}, invalid: [65535]}
+  - {key: x.ac_power, label: I_AC_Power, table: holding, address: 40084, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40085, type: s16}, invalid: [-32768], note: 'Scale factor 2: 100 W steps.'}
+  - {key: frequency, label: I_AC_Frequency, table: holding, address: 40086, type: u16, unit: Hz, scale_exponent_from: {table: holding, address: 40087, type: s16}, invalid: [65535]}
+  - {key: apparent_power, label: I_AC_VA, table: holding, address: 40088, type: s16, unit: VA, scale_exponent_from: {table: holding, address: 40089, type: s16}, invalid: [-32768]}
+  - {key: reactive_power, label: I_AC_VAR, table: holding, address: 40090, type: s16, unit: var, scale_exponent_from: {table: holding, address: 40091, type: s16}, invalid: [-32768]}
+  - {key: x.power_factor, label: I_AC_PF, table: holding, address: 40092, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40093, type: s16}, invalid: [-32768], verified: false, note: 'The map gives the unit % with scale factor −4 (÷ 10 000), which suggests a fraction (−1…1) rather than percent; unclear.'}
+  - {key: x.ac_energy, label: I_AC_Energy_WH, table: holding, address: 40094, type: u32, unit: Wh, scale_exponent_from: {table: holding, address: 40096, type: s16}, invalid: [4294967295], poll: slow, verified: false, note: 'The map lists WH_SF as "1 (multiply by 1)", which can mean exponent 1 (×10) or factor 1. Readers prefer pv_energy (0x0802).'}
+  - {key: x.dc_power, label: I_DC_Power, table: holding, address: 40101, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40102, type: s16}, invalid: [-32768], note: Not available on the CL (reads 0x8000); solar power is the sum of the two MPPT inputs.}
+  - {key: temperature, label: I_Temp_Cab, table: holding, address: 40103, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40107, type: s16}, invalid: [-32768], note: Ambient temperature inside the inverter.}
+  - {key: x.heat_sink_temperature, label: I_Temp_Sink, table: holding, address: 40104, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40107, type: s16}, invalid: [-32768], note: Not available on the CL (reads 0x8000).}
+  - {key: state, label: I_Status, table: holding, address: 40108, type: u16, enum: sunspec_state}
+  - {key: x.vendor_state, label: I_Status_Vendor, table: holding, address: 40109, type: u16, enum: vendor_state}
+  - {key: x.events, label: I_Event_1, table: holding, address: 40110, type: u32, flags: evt1, invalid: [4294967295], note: The map lists it as not available (0xFFFFFFFF); bit meanings from the SunSpec models.}
+
+  # SunSpec multiple MPPT model 160 at 0x9CBA, two inputs
+  - {key: x.mppt_inputs, label: Number of modules, table: holding, address: 40130, type: u16, poll: slow}
+  - {key: x.pv1_current, label: DC Current (input 1), table: holding, address: 40141, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40124, type: s16}, invalid: [65535]}
+  - {key: x.pv1_voltage, label: DC Voltage (input 1), table: holding, address: 40142, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40125, type: s16}, invalid: [65535]}
+  - {key: x.pv1_power, label: DC Power (input 1), table: holding, address: 40143, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40126, type: s16}, note: 'Int16 in the map (SunSpec: uint16); 1 W steps (DCW_SF 0).'}
+  - {key: x.pv1_energy, label: DC Energy (input 1), table: holding, address: 40144, type: u32, unit: Wh, scale_exponent_from: {table: holding, address: 40127, type: s16}, poll: slow, note: Not available on the CL (reads 0; DCWH_SF 0x8000).}
+  - {key: x.pv1_state, label: MPPT Operating State (input 1), table: holding, address: 40149, type: u16, enum: mppt_state}
+  - {key: x.pv1_events, label: DC MPPT Events (input 1), table: holding, address: 40150, type: u32, flags: dc_events, invalid: [4294967295], note: Not available on the CL (0xFFFFFFFF); bit meanings from the SunSpec models.}
+  - {key: x.pv2_current, label: DC Current (input 2), table: holding, address: 40161, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40124, type: s16}, invalid: [65535]}
+  - {key: x.pv2_voltage, label: DC Voltage (input 2), table: holding, address: 40162, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40125, type: s16}, invalid: [65535]}
+  - {key: x.pv2_power, label: DC Power (input 2), table: holding, address: 40163, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40126, type: s16}, note: 'Int16 in the map (SunSpec: uint16); 1 W steps (DCW_SF 0).'}
+  - {key: x.pv2_energy, label: DC Energy (input 2), table: holding, address: 40164, type: u32, unit: Wh, scale_exponent_from: {table: holding, address: 40127, type: s16}, poll: slow, note: Not available on the CL (reads 0; DCWH_SF 0x8000).}
+  - {key: x.pv2_state, label: MPPT Operating State (input 2), table: holding, address: 40169, type: u16, enum: mppt_state}
+  - {key: x.pv2_events, label: DC MPPT Events (input 2), table: holding, address: 40170, type: u32, flags: dc_events, invalid: [4294967295], note: Not available on the CL (0xFFFFFFFF); bit meanings from the SunSpec models.}
+
+  # Vendor registers
+  - {key: pv_energy, label: kWh Energy Produced, table: holding, address: 2050, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295], poll: slow}
+  - {key: pv_energy_today, label: Energy Today, table: holding, address: 2052, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295]}
+  - {key: x.pv_energy_yesterday, label: Energy Today -1, table: holding, address: 2054, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295], poll: slow}
+  - {key: x.operating_hours, label: Unit operation Hours (life time), table: holding, address: 2078, type: u32, unit: h, invalid: [4294967295], poll: slow}
+  - {key: error_code, label: Inverter Alarm code, table: holding, address: 6184, type: u16, enum: alarm_code, invalid: [65535], note: The one active alarm with the highest priority; 0 = none.}
+
+derived:
+  - {key: pv_power, label: Solar power (DC power input 1 + input 2), unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}], note: Sum of the two inputs; model 103 has no DC power on the CL.}
+
+enums:
+  sunspec_state: {'1': 'Off', '2': Sleeping, '3': Starting, '4': Producing (MPPT), '5': Throttled, '6': Shutting down, '7': Fault, '8': Standby}
+  vendor_state: {'2': Reconnecting to grid, '3': 'Online, producing', '21': No PV, '22': Offline (service or error), '23': Derating}
+  mppt_state: {'1': 'Off', '2': Sleeping, '3': Starting, '4': MPPT, '5': Throttled, '6': Shutting down, '7': Fault, '8': Standby, '9': Test}
+  # Services: the unit stops and needs manual intervention
+  # Errors: the unit stops and recovers by itself
+  # Warnings: the unit keeps running
+  # Internal events (for Schneider's analysis)
+  alarm_code: {'0': No active alarm, '10': AC relay fault, '31': AC current sensor fault, '32': AC temperature sensor fault, '33': DC temperature sensor fault, '47': AC voltage sensor fault, '131': Low efficiency fault, '203': DC initialisation fault, '204': DC self-test fault, '205': AC initialisation fault, '206': AC self-test fault, '701': DC injection fault, '702': RCMU fault, '703': Arc fault (AFCI), '704': Arc fault self-test failed, '705': PV input reversed, '706': DC injection high current, '708': RCMU fault, '709': Arc fault, '710': System configuration fault, '711': Shared system configuration fault, '712': AC internal configuration fault, '713': DC internal configuration fault, '714': RPO power module error, '2018': AC internal communication error, '2060': AC low temperature, '2061': AC modules over-temperature, '2062': DC modules over-temperature, '2101': DC internal communication error, '2102': DC-AC communication error, '2401': Grid under-frequency (fast), '2402': Grid over-frequency (fast), '2406': Grid under-voltage (fast), '2407': Grid over-voltage (fast), '2408': Grid under-voltage (instantaneous), '2410': Grid over-voltage (instantaneous), '2411': AC over-current (instantaneous), '2415': Grid over-voltage (10 min average), '2416': Grid under-frequency (slow), '2417': Grid over-frequency (slow), '2418': Grid under-voltage (slow), '2419': Grid over-voltage (slow), '2450': Grid not available, '2460': AC over-current, '2605': PV 1 over-voltage, '2606': PV 2 over-voltage, '2616': PV insulation error, '2624': PV 1 and 2 over-current, '2631': PV under-voltage, '2633': PV 1 over-current (PV 1 off), '2634': PV 2 over-current (PV 2 off), '2646': RCMU error, '2647': RCMU error, '2648': Low efficiency error, '4003': Replace fan, '4004': Loss of cooling, '4061': Ambient over-temperature derating, '4065': DC module 1 over-temperature derating, '4066': DC module 2 over-temperature derating, '4068': 'DC module 1 over-temperature, PV 1 off', '4069': 'DC module 2 over-temperature, PV 2 off', '4656': PV 1 under-voltage, '4657': PV 2 under-voltage, '4660': AC module over-temperature derating, '4661': PV 1 surge protection needs service, '4662': PV 2 surge protection needs service, '4663': AC surge protection needs service, '4680': Invalid date, '4700': Low power, '7000': Communication processor internal error, '8000': AC processor internal error, '9000': DC processor internal error}
+
+flags:
+  evt1: {'0': Ground fault, '1': DC over-voltage, '2': AC disconnect open, '3': DC disconnect open, '4': Grid disconnected, '5': Cabinet open, '6': Manual shutdown, '7': Over-temperature, '8': Grid over-frequency, '9': Grid under-frequency, '10': Grid over-voltage, '11': Grid under-voltage, '12': Blown string fuse, '13': Under-temperature, '14': Memory loss, '15': Hardware test failure}
+  dc_events: {'0': Ground fault, '1': Input over-voltage, '3': DC disconnect open, '5': Cabinet open, '6': Manual shutdown, '7': Over-temperature, '12': Blown fuse, '13': Under-temperature, '14': Memory loss, '15': Arc detected, '20': Test failed, '21': Input under-voltage, '22': Input over-current}
+
+problems:
+  - {when: {key: state, equals: 7}, kind: fault, text: Inverter fault (St 7)}
+  - {when: {key: x.events, bit: 0}, kind: fault, text: Ground fault (Evt1 bit 0)}
+  - {when: {key: x.events, bit: 1}, kind: fault, text: DC over-voltage (Evt1 bit 1)}
+  - {when: {key: x.events, bit: 2}, kind: fault, text: AC disconnect open (Evt1 bit 2)}
+  - {when: {key: x.events, bit: 3}, kind: fault, text: DC disconnect open (Evt1 bit 3)}
+  - {when: {key: x.events, bit: 4}, kind: mains_lost, text: Grid disconnected (Evt1 bit 4)}
+  - {when: {key: x.events, bit: 5}, kind: warning, text: Cabinet open (Evt1 bit 5)}
+  - {when: {key: x.events, bit: 6}, kind: warning, text: Manual shutdown (Evt1 bit 6)}
+  - {when: {key: x.events, bit: 7}, kind: warning, text: Over-temperature (Evt1 bit 7)}
+  - {when: {key: x.events, bit: 8}, kind: mains_lost, text: Grid over-frequency (Evt1 bit 8)}
+  - {when: {key: x.events, bit: 9}, kind: mains_lost, text: Grid under-frequency (Evt1 bit 9)}
+  - {when: {key: x.events, bit: 10}, kind: mains_lost, text: Grid over-voltage (Evt1 bit 10)}
+  - {when: {key: x.events, bit: 11}, kind: mains_lost, text: Grid under-voltage (Evt1 bit 11)}
+  - {when: {key: x.events, bit: 12}, kind: fault, text: Blown string fuse (Evt1 bit 12)}
+  - {when: {key: x.events, bit: 13}, kind: warning, text: Under-temperature (Evt1 bit 13)}
+  - {when: {key: x.events, bit: 14}, kind: fault, text: Memory loss (Evt1 bit 14)}
+  - {when: {key: x.events, bit: 15}, kind: fault, text: Hardware test failure (Evt1 bit 15)}
+  - {when: {key: x.pv1_state, equals: 7}, kind: fault, text: 'PV input 1: fault (DCSt 7)'}
+  - {when: {key: x.pv2_state, equals: 7}, kind: fault, text: 'PV input 2: fault (DCSt 7)'}
+  - {when: {key: x.pv1_events, bit: 0}, kind: fault, text: 'PV input 1: ground fault (DCEvt bit 0)'}
+  - {when: {key: x.pv1_events, bit: 1}, kind: fault, text: 'PV input 1: input over-voltage (DCEvt bit 1)'}
+  - {when: {key: x.pv1_events, bit: 3}, kind: fault, text: 'PV input 1: DC disconnect open (DCEvt bit 3)'}
+  - {when: {key: x.pv1_events, bit: 5}, kind: warning, text: 'PV input 1: cabinet open (DCEvt bit 5)'}
+  - {when: {key: x.pv1_events, bit: 6}, kind: warning, text: 'PV input 1: manual shutdown (DCEvt bit 6)'}
+  - {when: {key: x.pv1_events, bit: 7}, kind: warning, text: 'PV input 1: over-temperature (DCEvt bit 7)'}
+  - {when: {key: x.pv1_events, bit: 12}, kind: fault, text: 'PV input 1: blown fuse (DCEvt bit 12)'}
+  - {when: {key: x.pv1_events, bit: 13}, kind: warning, text: 'PV input 1: under-temperature (DCEvt bit 13)'}
+  - {when: {key: x.pv1_events, bit: 14}, kind: fault, text: 'PV input 1: memory loss (DCEvt bit 14)'}
+  - {when: {key: x.pv1_events, bit: 15}, kind: fault, text: 'PV input 1: arc detected (DCEvt bit 15)'}
+  - {when: {key: x.pv1_events, bit: 20}, kind: fault, text: 'PV input 1: test failed (DCEvt bit 20)'}
+  - {when: {key: x.pv1_events, bit: 22}, kind: fault, text: 'PV input 1: input over-current (DCEvt bit 22)'}
+  - {when: {key: x.pv2_events, bit: 0}, kind: fault, text: 'PV input 2: ground fault (DCEvt bit 0)'}
+  - {when: {key: x.pv2_events, bit: 1}, kind: fault, text: 'PV input 2: input over-voltage (DCEvt bit 1)'}
+  - {when: {key: x.pv2_events, bit: 3}, kind: fault, text: 'PV input 2: DC disconnect open (DCEvt bit 3)'}
+  - {when: {key: x.pv2_events, bit: 5}, kind: warning, text: 'PV input 2: cabinet open (DCEvt bit 5)'}
+  - {when: {key: x.pv2_events, bit: 6}, kind: warning, text: 'PV input 2: manual shutdown (DCEvt bit 6)'}
+  - {when: {key: x.pv2_events, bit: 7}, kind: warning, text: 'PV input 2: over-temperature (DCEvt bit 7)'}
+  - {when: {key: x.pv2_events, bit: 12}, kind: fault, text: 'PV input 2: blown fuse (DCEvt bit 12)'}
+  - {when: {key: x.pv2_events, bit: 13}, kind: warning, text: 'PV input 2: under-temperature (DCEvt bit 13)'}
+  - {when: {key: x.pv2_events, bit: 14}, kind: fault, text: 'PV input 2: memory loss (DCEvt bit 14)'}
+  - {when: {key: x.pv2_events, bit: 15}, kind: fault, text: 'PV input 2: arc detected (DCEvt bit 15)'}
+  - {when: {key: x.pv2_events, bit: 20}, kind: fault, text: 'PV input 2: test failed (DCEvt bit 20)'}
+  - {when: {key: x.pv2_events, bit: 22}, kind: fault, text: 'PV input 2: input over-current (DCEvt bit 22)'}
+  - {when: {key: error_code, in: [10, 31, 32, 33, 47, 131, 203, 204, 205, 206, 701, 702, 703, 704, 705, 706, 708, 709, 710, 711, 712, 713, 714]}, kind: fault, text: 'Inverter service fault (alarm code {value})'}
+  - {when: {key: error_code, in: [2018, 2060, 2061, 2062, 2101, 2102, 2411, 2460, 2605, 2606, 2616, 2624, 2633, 2634, 2646, 2647, 2648]}, kind: fault, text: 'Inverter error (alarm code {value})'}
+  - {when: {key: error_code, in: [2401, 2402, 2406, 2407, 2408, 2410, 2415, 2416, 2417, 2418, 2419, 2450]}, kind: mains_lost, text: 'Grid out of range or missing (alarm code {value})'}
+  - {when: {key: error_code, in: [4003, 4004, 4061, 4065, 4066, 4068, 4069, 4660, 4661, 4662, 4663, 4680]}, kind: warning, text: 'Inverter warning (alarm code {value})'}
+
+notes:
+- All registers are holding registers (function 03); addresses are 0-based as sent on the wire. 32-bit vendor values are high
+  word first.
+- 'SunSpec map at 0x9C40: Common (1) at 0x9C42, inverter model 103 at 0x9C86, multiple MPPT model 160 at 0x9CBA (two inputs),
+  end marker at 0x9CEC. The Common model''s length register says 65 although a pad register at 0x9C85 makes it 66: a reader
+  walking the chain with 65 lands on the pad register. Use 66 when 0x9C43 reads 65 and 0x9C86 holds 103.'
+- Model 103 gives AC power, VA and var in 100 W steps and has no DC power; solar power is the sum of the two MPPT inputs (pv_power
+  under derived, 1 W) and the yield comes from the vendor counters (0x0802 lifetime, 0x0804 today).
+- Model 160's input IDs read 161 / 162 (inputs 1 and 2 here).
+- Unused addresses read 0xFF bytes without an exception, so reads may span gaps.
+- 'Problems from the alarm code (0x1828): any other non-zero code not listed counts as a fault; the internal events (7000,
+  8000, 9000) and the PV under-voltage / low power codes (2631, 4656, 4657, 4700), which also appear at dawn and dusk, are
+  not problems.'
+- The inverter can be identified by a manufacturer containing "Schneider" (any case); the CL map shows "SCHNEIDER", the CL
+  60 map "Schneider Electric".
+- Evt1 and DCEvt bit meanings come from the SunSpec models; this map marks both as not available on the CL. DCEvt bit 21 (input
+  under-voltage) is normal at dusk and not reported.
+- There is no grid meter; grid and house consumption come from another device.

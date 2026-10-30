@@ -1,0 +1,151 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the ORNO Rejestry OR-WE-524, OR-WE-525 i OR-WE-526 (undated).
+
+modbusspec: 0
+id: orno-we525
+manufacturer: ORNO
+name: OR-WE-524 / OR-WE-525 / OR-WE-526 single-phase energy meters
+kind: meter
+
+sources:
+- title: ORNO Rejestry OR-WE-524, OR-WE-525 i OR-WE-526 (OR-WE-525 rejestry)
+  version: undated
+  url: https://files.orno.pl/support/Others/ORNO/ORWE525_5908254827846/OR-WE-525_rejestry.pdf
+  sha256: 2772abe683686f3502e403eed950ba08aa8a4507c85da8e8892be9b5ffb46d44
+  archive_url: https://web.archive.org/web/20260924193922/https://files.orno.pl/support/Others/ORNO/ORWE525_5908254827846/OR-WE-525_rejestry.pdf
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/orno1p525.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - - table: input
+      address: 256
+      type: s32
+      range:
+      - 9900
+      - 12100
+    - table: input
+      address: 256
+      type: s32
+      range:
+      - 20700
+      - 25300
+  serial:
+    table: holding
+    address: 4097
+    type: bcd32
+
+
+points:
+  # Instantaneous values. The document doesn't name the function code; input registers (04) assumed.
+  - {key: l1_voltage, label: Voltage, table: input, address: 256, type: s32, unit: V, scale: 0.001, verified: false}
+  - {key: l1_current, label: Current, table: input, address: 258, type: s32, unit: A, scale: 0.001, note: Signed by the energy direction (forward / reverse)., verified: false}
+  - {key: grid_power, label: Active power, table: input, address: 260, type: s32, unit: W, positive: import, note: The document gives the power a sign by forward / reverse direction but doesn't say which is positive; assumed forward (import) = positive., verified: false}
+  - {key: apparent_power, label: Apparent power, table: input, address: 262, type: s32, unit: VA, verified: false}
+  - {key: reactive_power, label: Reactive power, table: input, address: 264, type: s32, unit: var, verified: false}
+  - {key: frequency, label: Frequency, table: input, address: 266, type: s16, unit: Hz, scale: 0.1, verified: false}
+  - {key: power_factor, label: Power factor, table: input, address: 267, type: s16, scale: 0.001, note: Carries the sign of the active power direction., verified: false}
+
+  # Energy counters
+  - {key: grid_import_energy, label: Total forward active energy, table: input, address: 270, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.import_t1, label: T1 total forward active energy, table: input, address: 272, type: s32, unit: kWh, scale: 0.01, poll: slow, note: Without tariffs T1 equals the total., verified: false}
+  - {key: x.import_t2, label: T2 total forward active energy, table: input, address: 274, type: s32, unit: kWh, scale: 0.01, poll: slow, note: 0 without tariffs., verified: false}
+  - {key: x.import_t3, label: T3 total forward active energy, table: input, address: 276, type: s32, unit: kWh, scale: 0.01, poll: slow, note: 0 without tariffs., verified: false}
+  - {key: x.import_t4, label: T4 total forward active energy, table: input, address: 278, type: s32, unit: kWh, scale: 0.01, poll: slow, note: 0 without tariffs., verified: false}
+  - {key: grid_export_energy, label: Total reverse active energy, table: input, address: 280, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.export_t1, label: T1 total reverse active energy, table: input, address: 282, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.export_t2, label: T2 total reverse active energy, table: input, address: 284, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.export_t3, label: T3 total reverse active energy, table: input, address: 286, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.export_t4, label: T4 total reverse active energy, table: input, address: 288, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.total_active_energy, label: Total active energy, table: input, address: 290, type: s32, unit: kWh, scale: 0.01, poll: slow, note: What it counts is set by the combined code (holding 0x100F)., verified: false}
+  - {key: x.total_active_t1, label: T1 total active energy, table: input, address: 292, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.total_active_t2, label: T2 total active energy, table: input, address: 294, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.total_active_t3, label: T3 total active energy, table: input, address: 296, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.total_active_t4, label: T4 total active energy, table: input, address: 298, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.reactive_import, label: Total forward reactive energy, table: input, address: 300, type: s32, unit: kvarh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.reactive_export, label: Total reverse reactive energy, table: input, address: 310, type: s32, unit: kvarh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.reactive_total, label: Total reactive energy, table: input, address: 320, type: s32, unit: kvarh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.reactive_q1, label: Total reactive energy in the first quadrant, table: input, address: 330, type: s32, unit: kvarh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.reactive_q2, label: Total reactive energy in the second quadrant, table: input, address: 340, type: s32, unit: kvarh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.reactive_q3, label: Total reactive energy in the third quadrant, table: input, address: 350, type: s32, unit: kvarh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.reactive_q4, label: Total reactive energy in the fourth quadrant, table: input, address: 360, type: s32, unit: kvarh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.resettable_active_energy, label: Resettable total active energy, table: input, address: 370, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false}
+  - {key: x.resettable_reactive_energy, label: Resettable total reactive energy, table: input, address: 372, type: s32, unit: kvarh, scale: 0.01, poll: slow, verified: false}
+
+  # Demand
+  - {key: x.import_demand, label: Forward active demand, table: input, address: 374, type: s32, unit: W, scale: 0.1, poll: slow, verified: false}
+  - {key: x.max_import_demand, label: Forward maximum active demand, table: input, address: 376, type: s32, unit: W, scale: 0.1, poll: slow, verified: false}
+  - {key: x.export_demand, label: Reverse active demand, table: input, address: 378, type: s32, unit: W, scale: 0.1, poll: slow, verified: false}
+  - {key: x.max_export_demand, label: Reverse maximum active demand, table: input, address: 380, type: s32, unit: W, scale: 0.1, poll: slow, verified: false}
+  - {key: x.reactive_import_demand, label: Forward reactive demand, table: input, address: 384, type: s32, unit: var, scale: 0.1, poll: slow, verified: false}
+  - {key: x.max_reactive_import_demand, label: Forward maximum reactive demand, table: input, address: 386, type: s32, unit: var, scale: 0.1, poll: slow, verified: false}
+  - {key: x.reactive_export_demand, label: Reverse reactive demand, table: input, address: 388, type: s32, unit: var, scale: 0.1, poll: slow, verified: false}
+  - {key: x.max_reactive_export_demand, label: Reverse maximum reactive demand, table: input, address: 390, type: s32, unit: var, scale: 0.1, poll: slow, verified: false}
+
+  # Meter parameters (holding registers; written with function 10h)
+  - {key: x.serial_upper, label: Serial number (first 4 digits), table: holding, address: 4096, type: bcd16, poll: slow}
+  - {key: x.serial_lower, label: Serial number (last 8 digits), table: holding, address: 4097, type: bcd32, poll: slow}
+  - {key: x.modbus_id, label: Modbus ID, table: holding, address: 4099, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: firmware, label: FW version, table: holding, address: 4100, type: u16, poll: slow}
+  - {key: x.hardware_version, label: HW version, table: holding, address: 4101, type: u16, poll: slow}
+  - {key: x.firmware_checksum, label: FW checksum, table: holding, address: 4102, type: u16, poll: slow}
+  - {key: x.scroll_time, label: Scrolling time, table: holding, address: 4107, type: u16, writable: true, min: 0, max: 99, poll: slow, note: Unit not stated.}
+  - {key: x.baud_rate, label: 485 baud rate, table: holding, address: 4108, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.parity, label: 485 check digit, table: holding, address: 4109, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: x.stop_bits, label: 485 stop bit, table: holding, address: 4110, type: u16, writable: true, min: 1, max: 2, poll: slow}
+  - {key: x.combined_code, label: Combined code, table: holding, address: 4111, type: u16, enum: combined_code, writable: true, poll: slow}
+  - {key: x.demand_mode, label: Demand mode, table: holding, address: 4112, type: u16, enum: demand_mode, writable: true, poll: slow}
+  - {key: x.demand_cycle, label: Demand cycle, table: holding, address: 4113, type: u16, unit: min, writable: true, min: 1, max: 30, poll: slow, note: Default 15.}
+  - {key: x.running_time, label: Meter running time, table: holding, address: 4120, type: u32, writable: true, poll: slow, note: OR-WE-526 tariff version only. Counts while the current is above the timing current (0x101A); writing 0 clears it. Unit not stated.}
+  - {key: x.timing_current, label: Timing current value, table: holding, address: 4122, type: u32, unit: mA, writable: true, poll: slow, note: Default is the start-up current.}
+  - {key: x.reactive_import_t1, label: Tariff 1 Reactive Import, table: input, address: 302, type: s32, unit: kvarh, scale: 0.01, sources: [mbmd], verified: false}
+  - {key: x.reactive_import_t2, label: Tariff 2 Reactive Import, table: input, address: 304, type: s32, unit: kvarh, scale: 0.01, sources: [mbmd], verified: false}
+  - {key: x.reactive_export_t1, label: Tariff 1 Reactive Export, table: input, address: 312, type: s32, unit: kvarh, scale: 0.01, sources: [mbmd], verified: false}
+  - {key: x.reactive_export_t2, label: Tariff 2 Reactive Export, table: input, address: 314, type: s32, unit: kvarh, scale: 0.01, sources: [mbmd], verified: false}
+  - {key: x.reactive_sum_t1, label: Tariff 1 Reactive, table: input, address: 322, type: s32, unit: kvarh, scale: 0.01, sources: [mbmd], verified: false}
+  - {key: x.reactive_sum_t2, label: Tariff 2 Reactive, table: input, address: 324, type: s32, unit: kvarh, scale: 0.01, sources: [mbmd], verified: false}
+
+derived:
+  - {key: serial, label: Serial number, sum: [{key: x.serial_upper, factor: 100000000}, {key: x.serial_lower}]}
+
+enums:
+  baud_rate: {'6': '9600', '7': '19200', '8': '38400', '9': '115200'}
+  parity: {'0': None, '1': Odd, '2': Even}
+  combined_code: {'1': Total = forward, '2': Total = reverse, '3': Total = forward + reverse, '4': Total = forward − reverse}
+  demand_mode: {'0': Interval, '1': Slip}
+
+notes:
+- Addresses are the hex register addresses the document lists (0-based protocol addresses).
+- 'Scaling: the document writes formats as INT32(i+d), i integer and d decimal digits; d decimals give scale 10^−d (e.g. voltage
+  INT32(3+3) = 0.001 V, energy INT32(6+2) = 0.01 kWh, demand INT32(6+1) = 0.1 W).'
+- The document doesn't name the function code for the measurement and energy registers; input registers (function 04) are
+  assumed. The meter parameters are read/write and written with function 10h, so they are holding registers. Word order (high
+  word first) is assumed too.
+- 'Serial number: 12 decimal digits stored as hex digits (BCD) over three registers at 0x1000; it is read here as a BCD register
+  plus a BCD double register. `identify.serial` uses only the last 8 digits.'
+- 'Serial line: the document lists 9600, 19200, 38400 and 115200 baud, parity and 1 or 2 stop bits but not the defaults; the
+  default Modbus ID is not stated either (1 assumed).'
+- 'Left out: the reactive energy tariff registers (T1 … T4 after each reactive total), the clock at 0x1007 (four registers,
+  OR-WE-526 tariff version only, byte coding not stated), the display cycle content (0x1012), the LCD password (0x1016), the
+  write-only clear commands (0x2002 resettable energy, 0x2003 maximum demand) and the tariff tables at 0x1700 … 0x176C.'
+- Identification as mbmd recognises the device (not checked against a document).
+- mbmd (type code ORNO1p525) detects the meter by reading Voltage (input register 256, s32, scale 0.01); its bus scan accepts
+  a value within 10% of 110 or 230 V.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

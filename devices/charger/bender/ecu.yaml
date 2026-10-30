@@ -1,0 +1,175 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Bender ECU-BRx and ECU-BBx Modbus TCP server specification (1.07, 2022-06-10).
+
+modbusspec: 0
+id: bender-ecu
+manufacturer: Bender
+name: ECU-BRx / ECU-BBx charge controller (MENNEKES AMTRON Professional, AMTRON Charge Control, AMEDIO Professional)
+kind: charger
+
+sources:
+- title: ECU-BRx and ECU-BBx Modbus TCP Server Specification
+  version: 1.07 (2022-06-10)
+  url: https://www.mennekes.de/fileadmin/MEN-Deutschland/emobility/01_documents/04_installer/ECU_modbus_tcp_server_spec_rev_1.07.pdf
+  sha256: dfd8f91eac4752693b88a40469ce34c34724f6d0a6934362d24415e58132538c
+  archive_url: https://web.archive.org/web/20230123113233/https://www.mennekes.de/fileadmin/MEN-Deutschland/emobility/01_documents/04_installer/ECU_modbus_tcp_server_spec_rev_1.07.pdf
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.evse.chargepoint.bender/src/io/openems/edge/evse/chargepoint/bender/AbstractEvseChargePointBender.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    max_gap: 16
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 122
+    type: u16
+    range:
+    - 0
+    - 5
+  # firmware version text; a device answering 0 or FFFFh everywhere is not this one
+  - table: holding
+    address: 100
+    type: str
+    length: 2
+    printable: true
+
+models:
+  - {id: amedio_professional, name: MENNEKES AMEDIO Professional, match: {table: holding, address: 142, type: str, length: 10, prefix: ICC1622}}
+  - {id: amtron_professional, name: MENNEKES AMTRON Professional, match: {table: holding, address: 142, type: str, length: 10, prefix: CC612}}
+  - {id: amtron_charge_control, name: MENNEKES AMTRON Charge Control, match: {table: holding, address: 142, type: str, length: 10, prefix: _CC}}
+  - {id: ecu, name: Bender ECU (other charge point)}
+
+points:
+  # General system information
+  - {key: firmware, label: FIRMWARE_VERSION, table: holding, address: 100, type: str, length: 2, poll: slow, note: 'ASCII, e.g. "5.22".'}
+  - {key: state, label: OCPP_CP_STATUS, table: holding, address: 104, type: u16, enum: ocpp_status}
+  - {key: x.error_codes, label: ERROR_CODES_4, table: holding, address: 111, type: u32, word_order: little, byte_order: little, flags: error_bits, note: Bits 0–21 (the only defined ones) of the 128-bit error mask; low word first and low byte first in each word. ERROR_CODES_1–3 (105–110) are read along but hold only reserved bits., conflicts: [{sources: [openems], type: u16, byte_order: big, label: Status and alarm bits (register 111)}]}
+  - {key: x.protocol_version, label: PROTOCOL_VERSION, table: holding, address: 120, type: str, length: 2, poll: slow}
+  - {key: x.vehicle_state, label: VEHICLE_STATE, table: holding, address: 122, type: u16, enum: vehicle_state}
+  - {key: x.cp_availability, label: CP_AVAILABILITY, table: holding, address: 124, type: u16, writable: true, poll: slow, note: 'Software < 5.22: 0 available, 1 unavailable; ≥ 5.22 the other way round.'}
+  - {key: x.address_offset, label: MODBUS_ADDRESS_OFFSET, table: holding, address: 130, type: u16, writable: true, poll: slow, note: Default 0; any other value shifts every address in this file.}
+  - {key: x.safe_current, label: SAFE_CURRENT, table: holding, address: 131, type: u16, unit: A, writable: true, poll: slow}
+  - {key: x.comm_timeout, label: COMM_TIMEOUT, table: holding, address: 132, type: u16, unit: s, writable: true, poll: slow}
+  - {key: x.operator_current_limit, label: OPERATOR_CURRENT_LIMIT, table: holding, address: 134, type: u16, unit: A, poll: slow, note: Software ≥ 5.22.}
+  - {key: x.model, label: CHARGEPOINT_MODEL_1–5, table: holding, address: 142, type: str, length: 10, poll: slow, note: Software ≥ 5.22.}
+  - {key: x.plug_lock, label: PLUG_LOCK_STATUS, table: holding, address: 152, type: u16, enum: plug_lock, poll: slow, note: Software ≥ 5.22.}
+
+  # Meter values from the OCPP primary meter (unsigned 32-bit, 0xFFFFFFFF = no meter / not available)
+  - {key: x.energy_l1, label: METER_ENERG_L1, table: holding, address: 200, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow, note: Wh. Holds the total energy where 218 is missing (software < 5.22) or the meter has no per-phase energy.}
+  - {key: x.energy_l2, label: METER_ENERG_L2, table: holding, address: 202, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow}
+  - {key: x.energy_l3, label: METER_ENERG_L3, table: holding, address: 204, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow}
+  - {key: l1_power, label: METER_POW_L1, table: holding, address: 206, type: u32, unit: W, positive: consumption, invalid: [4294967295], verified: false, note: 'Unsigned, so positive = consumption (derived). Holds the total power where 220 is missing or L2/L3 aren''t available (e.g. NZR S85 meter).'}
+  - {key: l2_power, label: METER_POW_L2, table: holding, address: 208, type: u32, unit: W, positive: consumption, invalid: [4294967295], verified: false, note: 'Unsigned, so positive = consumption (derived).'}
+  - {key: l3_power, label: METER_POW_L3, table: holding, address: 210, type: u32, unit: W, positive: consumption, invalid: [4294967295], verified: false, note: 'Unsigned, so positive = consumption (derived).'}
+  - {key: l1_current, label: METER_CUR_L1, table: holding, address: 212, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: l2_current, label: METER_CUR_L2, table: holding, address: 214, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: l3_current, label: METER_CUR_L3, table: holding, address: 216, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: consumer_energy, label: METER_TOTAL_ENERG, table: holding, address: 218, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow, note: Wh; software ≥ 5.22.}
+  - {key: consumer_power, label: METER_TOTAL_POW, table: holding, address: 220, type: u32, unit: W, positive: consumption, invalid: [4294967295], verified: false, note: 'Software ≥ 5.22. Meter values are unsigned, so positive = consumption (derived). Without it: the sum of 206–210, or 206 alone when L2/L3 read 0xFFFFFFFF.'}
+  - {key: l1_voltage, label: METER_VOL_L1, table: holding, address: 222, type: u32, unit: V, invalid: [4294967295], note: Software ≥ 5.22; not with every meter (e.g. EMH eHZ).}
+  - {key: l2_voltage, label: METER_VOL_L2, table: holding, address: 224, type: u32, unit: V, invalid: [4294967295], note: Software ≥ 5.22; not with every meter (e.g. EMH eHZ).}
+  - {key: l3_voltage, label: METER_VOL_L3, table: holding, address: 226, type: u32, unit: V, invalid: [4294967295], note: Software ≥ 5.22; not with every meter (e.g. EMH eHZ).}
+
+  # Dynamic load management (all but 600 only on a DLM master, 600 = 1 or 2)
+  - {key: x.dlm_mode, label: DLM_MODE, table: holding, address: 600, type: u16, enum: dlm_mode, poll: slow}
+  - {key: x.dlm_limit_l1, label: DLM_EVSE_SUB_DISTRIBUTION_LIMIT_L1, table: holding, address: 610, type: u16, unit: A}
+  - {key: x.dlm_limit_l2, label: DLM_EVSE_SUB_DISTRIBUTION_LIMIT_L2, table: holding, address: 611, type: u16, unit: A}
+  - {key: x.dlm_limit_l3, label: DLM_EVSE_SUB_DISTRIBUTION_LIMIT_L3, table: holding, address: 612, type: u16, unit: A}
+  - {key: x.dlm_operator_limit_l1, label: DLM_OPERATOR_EVSE_SUB_DISTRIBUTION_LIMIT_L1, table: holding, address: 613, type: u16, unit: A, writable: true}
+  - {key: x.dlm_operator_limit_l2, label: DLM_OPERATOR_EVSE_SUB_DISTRIBUTION_LIMIT_L2, table: holding, address: 614, type: u16, unit: A, writable: true}
+  - {key: x.dlm_operator_limit_l3, label: DLM_OPERATOR_EVSE_SUB_DISTRIBUTION_LIMIT_L3, table: holding, address: 615, type: u16, unit: A, writable: true}
+  - {key: x.dlm_external_meter, label: DLM_EXTERNAL_METER_SUPPORT, table: holding, address: 620, type: u16, enum: disabled_enabled, poll: slow}
+  - {key: x.dlm_slaves_connected, label: DLM_NUM_SLAVES_CONNECTED, table: holding, address: 621, type: u16, poll: slow}
+  - {key: x.dlm_applied_l1, label: DLM_OVERALL_CURRENT_APPLIED_L1, table: holding, address: 630, type: u16, unit: A}
+  - {key: x.dlm_applied_l2, label: DLM_OVERALL_CURRENT_APPLIED_L2, table: holding, address: 631, type: u16, unit: A}
+  - {key: x.dlm_applied_l3, label: DLM_OVERALL_CURRENT_APPLIED_L3, table: holding, address: 632, type: u16, unit: A}
+  - {key: x.dlm_available_l1, label: DLM_OVERALL_CURRENT_AVAILABLE_L1, table: holding, address: 633, type: u16, unit: A}
+  - {key: x.dlm_available_l2, label: DLM_OVERALL_CURRENT_AVAILABLE_L2, table: holding, address: 634, type: u16, unit: A}
+  - {key: x.dlm_available_l3, label: DLM_OVERALL_CURRENT_AVAILABLE_L3, table: holding, address: 635, type: u16, unit: A}
+
+  # Charge process
+  - {key: x.session_energy_16, label: CHARGED_ENERGY (16-bit), table: holding, address: 705, type: u16, unit: kWh, scale: 0.001, note: Wh; stays at its maximum when it overflows. Use 716 where available.}
+  - {key: x.signalled_current, label: SIGNALED_CURRENT, table: holding, address: 706, type: u16, unit: A}
+  - {key: x.charge_duration_16, label: CHARGE_DURATION (16-bit), table: holding, address: 709, type: u16, unit: s, note: Stays at its maximum when it overflows. Use 718 where available.}
+  - {key: x.min_current, label: MINIMUM_CUR_LIMIT, table: holding, address: 712, type: u16, unit: A}
+  - {key: x.max_current_ev, label: MAX_CUR_EV, table: holding, address: 715, type: u16, unit: A, note: Lower of the cable's PR value and the car's ISO 15118 maximum; software ≥ 5.22.}
+  - {key: session_energy, label: CHARGED_ENERGY (32-bit), table: holding, address: 716, type: u32, unit: kWh, scale: 0.001, note: Wh; software ≥ 5.22.}
+  - {key: x.charge_duration, label: CHARGE_DURATION (32-bit), table: holding, address: 718, type: u32, unit: s, note: Software ≥ 5.22.}
+
+  # HEMS
+  - {key: x.hems_current_limit, label: HEMS_CURRENT_LIMIT, table: holding, address: 1000, type: u16, unit: A, writable: true, note: 0 pauses the session; default 32 A from software 5.22 (6 A before).}
+  - {key: x.raw_device_id, label: Raw device ID, table: holding, address: 141, type: u16, verified: false, sources: [openems]}
+  - {key: x.software_version_major, label: Software version major, table: holding, address: 153, type: u16, verified: false, sources: [openems]}
+  - {key: x.software_version_minor, label: Software version minor, table: holding, address: 154, type: u16, verified: false, sources: [openems]}
+  - {key: x.software_version_patch, label: Software version patch, table: holding, address: 155, type: u16, verified: false, sources: [openems]}
+
+enums:
+  ocpp_status: {'0': Available, '1': Occupied (OCPP 1.5), '2': Reserved, '3': Unavailable, '4': Faulted, '5': Preparing, '6': Charging, '7': SuspendedEVSE, '8': SuspendedEV, '9': Finishing}
+  vehicle_state: {'1': A (no car), '2': B (car connected), '3': C (charging), '4': D (charging with ventilation), '5': E (error)}
+  plug_lock: {'0': Unlocked, '1': Locked}
+  dlm_mode: {'0': Disabled, '1': Master (with internal slave), '2': Master (standalone), '3': Slave (master auto-discovery), '4': Slave (master fixed IP)}
+  disabled_enabled: {'0': Disabled, '1': Enabled}
+
+flags:
+  error_bits: {'0': Residual current detected (RCM), '1': Vehicle signals error (state E), '2': Vehicle diode check failed, '3': Type 2 socket MCB triggered, '4': Domestic socket MCB triggered, '5': RCD triggered, '6': Contactor welded, '7': Backend disconnected, '8': Plug locking failed, '9': Locking without plug, '10': 'Actuator stuck, cannot unlock', '11': Actuator detection failed, '12': Firmware update running, '13': Charge point tilted, '14': CP/PR wiring issue, '15': 'Car current overload, charging stopped', '16': Actuator unlocked while charging, '17': 'Tilted, no charging until reboot', '18': PIC24 error, '19': USB stick handling in progress, '20': Incorrect phase rotation, '21': No power on mains}
+
+problems:
+  - {when: {key: x.error_codes, bit: 0}, kind: fault, text: Residual current detected (error bit 0)}
+  - {when: {key: x.error_codes, bit: 1}, kind: fault, text: Vehicle state E (error bit 1)}
+  - {when: {key: x.error_codes, bit: 2}, kind: fault, text: Vehicle diode check failed (error bit 2)}
+  - {when: {key: x.error_codes, bit: 3}, kind: fault, text: Type 2 socket MCB triggered (error bit 3)}
+  - {when: {key: x.error_codes, bit: 4}, kind: fault, text: Domestic socket MCB triggered (error bit 4)}
+  - {when: {key: x.error_codes, bit: 5}, kind: fault, text: RCD triggered (error bit 5)}
+  - {when: {key: x.error_codes, bit: 6}, kind: fault, text: Contactor welded (error bit 6)}
+  - {when: {key: x.error_codes, bit: 7}, kind: warning, text: Backend disconnected (error bit 7)}
+  - {when: {key: x.error_codes, bit: 8}, kind: fault, text: Plug locking failed (error bit 8)}
+  - {when: {key: x.error_codes, bit: 9}, kind: fault, text: Locking without plug (error bit 9)}
+  - {when: {key: x.error_codes, bit: 10}, kind: fault, text: Actuator stuck (error bit 10)}
+  - {when: {key: x.error_codes, bit: 11}, kind: fault, text: Actuator detection failed (error bit 11)}
+  - {when: {key: x.error_codes, bit: 12}, kind: warning, text: Firmware update running (error bit 12)}
+  - {when: {key: x.error_codes, bit: 13}, kind: fault, text: Charge point tilted (error bit 13)}
+  - {when: {key: x.error_codes, bit: 14}, kind: fault, text: CP/PR wiring issue (error bit 14)}
+  - {when: {key: x.error_codes, bit: 15}, kind: fault, text: Car current overload (error bit 15)}
+  - {when: {key: x.error_codes, bit: 16}, kind: fault, text: Actuator unlocked while charging (error bit 16)}
+  - {when: {key: x.error_codes, bit: 17}, kind: fault, text: 'Tilted, reboot required (error bit 17)'}
+  - {when: {key: x.error_codes, bit: 18}, kind: fault, text: PIC24 error (error bit 18)}
+  - {when: {key: x.error_codes, bit: 19}, kind: warning, text: USB stick handling (error bit 19)}
+  - {when: {key: x.error_codes, bit: 20}, kind: warning, text: Incorrect phase rotation (error bit 20)}
+  - {when: {key: x.error_codes, bit: 21}, kind: fault, text: No power on mains (error bit 21)}
+  - {when: {key: state, equals: 4}, kind: fault, text: Charge point faulted (OCPP status 4)}
+  - {when: {key: x.vehicle_state, equals: 5}, kind: fault, text: Vehicle state E (error)}
+
+notes:
+- The Modbus TCP server needs ECU software ≥ 5.12 and is switched on in the charge controller's web interface ("Modbus TCP
+  Server"); the "Register Address Set" there must be the one this document describes (its exact name in the UI is unverified).
+- The server answers any unit id 1–255. Port = the configured base port (502 by default); a second connector (e.g. AMEDIO
+  with two charge points) answers on base port + 1 as its own device.
+- 'The document doesn''t name the function code: FC 03 (holding) is assumed; if the device answers "illegal function", try
+  FC 04 (input) (unverified).'
+- Everything is high byte and high word first, except the ERROR_CODES registers (105–112), which are low word and low byte
+  first.
+- 0xFFFF in 16-bit registers is taken as "not available" (assumed; the document says so only for the 32-bit meter values).
+  Error bits 22–31 are reserved.
+- Model detection uses the CHARGEPOINT_MODEL prefixes the document lists (software ≥ 5.22). Whether the SMA EV Charger Business
+  uses the same register set is unverified.
+- The MENNEKES AMTRON 4You / 4Business (mennekes-amtron) use a similar register layout but are a different product.
+- 'Left out: Status and alarm bits (register 112) (holding 112, u16) from openems overlaps x.error_codes from the documents.'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

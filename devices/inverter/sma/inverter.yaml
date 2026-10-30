@@ -1,0 +1,303 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from SMA's Modbus technical information documents and device register lists below.
+
+modbusspec: 0
+id: sma-inverter
+manufacturer: SMA
+name: Sunny Boy, Sunny Tripower, Sunny Boy Smart Energy and Sunny Island (SMA Modbus profile)
+kind: inverter
+
+sources:
+- title: SMA and SunSpec Modbus Interface (technical information)
+  version: SMA-Modbus-general-TI-en-10 (1.0)
+  url: https://files.sma.de/downloads/SMA-Modbus-general-TI-en-10.pdf
+  sha256: 1cda68d8bcfd39c4a8694e8d9b7e7159d16425c92014f4f13c45addce903cd58
+  archive_url: https://web.archive.org/web/20260826022008/https://files.sma.de/downloads/SMA-Modbus-general-TI-en-10.pdf
+- title: SMA Modbus Interface ennexOS (technical information)
+  version: SMAModbus-ennexOS-TI-en-14
+  url: https://files.sma.de/downloads/SMAModbus-ennexOS-TI-en-14.pdf
+  sha256: ad53784a9459c2ba5f11fa6c7cda702c514824f162c8fd6bf8e700544372c8c7
+- title: Remote control of Sunny Tripower Storage X / Sunny Island X via Modbus (technical information)
+  version: SMAModbus-STPS-X-SI-X-TI-en-11 (1.1)
+  url: https://files.sma.de/downloads/SMAModbus-STPS-X-SI-X-TI-en-11.pdf
+  sha256: 48dd7a6f418bdf7f85486b204cfb986b2e6c8f53d185b973703a277c881d5e27
+  archive_url: https://web.archive.org/web/20260428082242/https://files.sma.de/downloads/SMAModbus-STPS-X-SI-X-TI-en-11.pdf
+- title: SMA Modbus register lists per device family (SMA_Modbus-TI-en-31.xlsx in SMA_Modbus-de-en_V25.zip)
+  version: '3.1'
+  url: https://files.sma.de/downloads/SMA_Modbus-de-en_V25.zip
+  sha256: a8c84a2be947aad4b4bf5fedc8f840d5ba62344ef271e651b25f442010f9475b
+  archive_url: https://web.archive.org/web/20241125210856/http://files.sma.de/downloads/SMA_Modbus-de-en_V25.zip
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/sma-inverter-modbus.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/sma/sma_sunny_boy
+- id: sunspec2
+  title: ha-sunspec2 (Home Assistant integration)
+  url: https://github.com/hilman2/ha-sunspec2
+  license: MIT
+  commit: 2efb4dd6e51e55a5f07d960f56a6281831eb58de
+  path: custom_components/sunspec2/vendors/sma.py
+
+connection:
+  default_port: 502
+  default_unit: 3
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    max_gap: 100
+    min_interval_ms: 10000
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 30057
+    type: u32
+  checks:
+  - table: holding
+    address: 30051
+    type: u32
+    range:
+    - 8000
+    - 8999
+  # device type given
+  - table: holding
+    address: 30053
+    type: u32
+    not_in:
+    - 16777213
+    - 16777215
+    - 4294967295
+  # serial number given
+  - table: holding
+    address: 30057
+    type: u32
+    not_in:
+    - 0
+    - 4294967295
+
+models:
+  # battery power registers with a value: presumably a Sunny Island too (assumed)
+  - {id: sunny_island, name: Sunny Island (SI 3.0M / 4.4M / 6.0H / 8.0H -11), match_any: [{table: holding, address: 30053, type: u32, in: [9223, 9224, 9278, 9279]}, {table: holding, address: 31393, type: u32, answers: true, not: 4294967295}, {table: holding, address: 31395, type: u32, answers: true, not: 4294967295}]}
+  - {id: pv_inverter, name: Sunny Boy / Sunny Tripower / Sunny Boy Smart Energy and other SMA inverters, match: {table: holding, address: 30051, type: u32, range: [8000, 8999]}}
+  - {id: default, name: default}
+  - {id: core2, name: core2}
+
+points:
+  - {key: x.device_class, label: Device class, table: holding, address: 30051, type: u32, bits: [0, 23], enum: device_class, invalid: [16777213, 16777215, 4294967295], poll: slow}
+  - {key: x.device_type, label: Device type, table: holding, address: 30053, type: u32, bits: [0, 23], enum: device_type, invalid: [16777213, 16777215, 4294967295], poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 30057, type: u32, invalid: [4294967295], poll: slow}
+  - {key: firmware, label: Software package, table: holding, address: 30059, type: u32, invalid: [4294967295], poll: slow, note: 'SMA FW format: bytes major (BCD), minor (BCD), build, release type (0 N, 1 E, 2 A, 3 B, 4 R, 5 S).'}
+  - {key: x.event_number, label: Current event number, table: holding, address: 30197, type: u32, invalid: [4294967295], note: Shown with condition 35 / 455 as the fault code.}
+  - {key: x.feed_in_wait, label: Waiting time until feed-in, table: holding, address: 30199, type: u32, unit: s, invalid: [4294967295]}
+  - {key: x.condition, label: Condition, table: holding, address: 30201, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.nominal_power_ok, label: Nominal power in Ok Mode, table: holding, address: 30203, type: u32, unit: W, invalid: [4294967295], poll: slow}
+  - {key: x.recommended_action, label: Recommended action, table: holding, address: 30211, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.message, label: Message, table: holding, address: 30213, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.fault_correction, label: Fault correction measure, table: holding, address: 30215, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.grid_relay, label: Grid relay/contactor, table: holding, address: 30217, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.derating, label: Derating, table: holding, address: 30219, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.insulation_resistance, label: Insulation resistance, table: holding, address: 30225, type: u32, unit: Ω, invalid: [4294967295]}
+  - {key: x.max_active_power, label: Maximum active power device, table: holding, address: 30231, type: u32, unit: W, invalid: [4294967295], poll: slow}
+  - {key: x.active_power_limit_set, label: Set active power limit, table: holding, address: 30233, type: u32, unit: W, invalid: [4294967295]}
+  - {key: x.backup_mode, label: Backup mode status, table: holding, address: 30235, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295], note: 'Listed only in the US device sheets (1440 grid mode, 1441 separate network mode).'}
+  - {key: x.event_number_manufacturer, label: Current event number for manufacturer, table: holding, address: 30247, type: u32, invalid: [4294967295]}
+  - {key: x.restart_block, label: Restart block status, table: holding, address: 30251, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295], note: Listed only in the JP device sheets.}
+  - {key: pv_energy, label: Total yield, table: holding, address: 30513, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], models: [pv_inverter], poll: slow}
+  - {key: x.ac_energy_fed, label: Total AC energy fed in on all line conductors, table: holding, address: 30513, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], models: [sunny_island], poll: slow}
+  - {key: pv_energy_today, label: Daily yield, table: holding, address: 30517, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], models: [pv_inverter]}
+  - {key: x.operating_time, label: Operating time, table: holding, address: 30521, type: u64, unit: s, invalid: [18446744073709551615], poll: slow}
+  - {key: x.feed_in_time, label: Feed-in time, table: holding, address: 30525, type: u64, unit: s, invalid: [18446744073709551615], poll: slow}
+  - {key: x.total_yield_u32, label: Total yield, table: holding, address: 30529, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], models: [pv_inverter], poll: slow, note: Used when the U64 at 30513 is not available.}
+  - {key: x.total_yield_kwh_u32, label: Total yield, table: holding, address: 30531, type: u32, unit: kWh, invalid: [4294967295], models: [pv_inverter], poll: slow, note: Whole kWh (FIX0); 30529 gives the same in Wh.}
+  - {key: x.daily_yield_u32, label: Daily yield, table: holding, address: 30535, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], models: [pv_inverter], note: Used when the U64 at 30517 is not available.}
+  - {key: x.operating_time_u32, label: Operating time, table: holding, address: 30541, type: u32, unit: s, invalid: [4294967295], poll: slow}
+  - {key: x.feed_in_time_u32, label: Feed-in time, table: holding, address: 30543, type: u32, unit: s, invalid: [4294967295], poll: slow}
+  - {key: x.events_user, label: Number of events for user, table: holding, address: 30559, type: u32, invalid: [4294967295]}
+  - {key: x.events_installer, label: Number of events for installer, table: holding, address: 30561, type: u32, invalid: [4294967295]}
+  - {key: x.generator_starts, label: Number of generator starts, table: holding, address: 30565, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.battery_charge_ah, label: Amp hours counter for battery charge, table: holding, address: 30567, type: u32, unit: Ah, invalid: [4294967295], poll: slow}
+  - {key: x.battery_discharge_ah, label: Amp hours counter for battery discharge, table: holding, address: 30569, type: u32, unit: Ah, invalid: [4294967295], poll: slow}
+  - {key: x.consumption_meter, label: Meter reading consumption meter, table: holding, address: 30571, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow}
+  - {key: x.grid_import_today, label: Energy consumed from grid (today), table: holding, address: 30577, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.grid_export_today, label: Energy fed into grid (today), table: holding, address: 30579, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: grid_import_energy, label: Grid reference counter reading, table: holding, address: 30581, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow}
+  - {key: grid_export_energy, label: Grid feed-in counter reading, table: holding, address: 30583, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow}
+  - {key: x.power_outage_time, label: Power outage, table: holding, address: 30585, type: u32, unit: s, invalid: [4294967295], poll: slow}
+  - {key: x.pv_generation_counter, label: PV generation counter reading, table: holding, address: 30587, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow}
+  - {key: x.self_consumption_rise_today, label: Rise in self-consumption today, table: holding, address: 30591, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.grid_connections, label: Number of grid connections, table: holding, address: 30599, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.dc1_current, label: 'DC current input [1]', table: holding, address: 30769, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: x.dc1_voltage, label: 'DC voltage input [1]', table: holding, address: 30771, type: s32, unit: V, scale: 0.01, invalid: [-2147483648]}
+  - {key: x.dc1_power, label: 'DC power input [1]', table: holding, address: 30773, type: s32, unit: W, invalid: [-2147483648], note: 'Solar power: see derived.'}
+  - {key: x.ac_power, label: Power, table: holding, address: 30775, type: s32, unit: W, positive: generation, invalid: [-2147483648], note: The sheets give no sign; + = AC output assumed., verified: false}
+  - {key: l1_power, label: Power L1, table: holding, address: 30777, type: s32, unit: W, positive: export, invalid: [-2147483648], note: The sheets give no sign; + = AC output assumed., verified: false}
+  - {key: l2_power, label: Power L2, table: holding, address: 30779, type: s32, unit: W, positive: export, invalid: [-2147483648], note: The sheets give no sign; + = AC output assumed., verified: false}
+  - {key: l3_power, label: Power L3, table: holding, address: 30781, type: s32, unit: W, positive: export, invalid: [-2147483648], note: The sheets give no sign; + = AC output assumed., verified: false}
+  - {key: l1_voltage, label: Grid voltage phase L1, table: holding, address: 30783, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l2_voltage, label: Grid voltage phase L2, table: holding, address: 30785, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l3_voltage, label: Grid voltage phase L3, table: holding, address: 30787, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.l1_l2_voltage, label: Grid voltage phase L1 against L2, table: holding, address: 30789, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.l2_l3_voltage, label: Grid voltage phase L2 against L3, table: holding, address: 30791, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.l3_l1_voltage, label: Grid voltage phase L3 against L1, table: holding, address: 30793, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.grid_current, label: Grid current, table: holding, address: 30795, type: u32, unit: A, scale: 0.001, invalid: [4294967295]}
+  - {key: x.l1_current_u32, label: Grid current phase L1, table: holding, address: 30797, type: u32, unit: A, scale: 0.001, invalid: [4294967295], note: Used when the S32 at 30977 is not available.}
+  - {key: x.l2_current_u32, label: Grid current phase L2, table: holding, address: 30799, type: u32, unit: A, scale: 0.001, invalid: [4294967295], note: Used when the S32 at 30979 is not available.}
+  - {key: x.l3_current_u32, label: Grid current phase L3, table: holding, address: 30801, type: u32, unit: A, scale: 0.001, invalid: [4294967295], note: Used when the S32 at 30981 is not available.}
+  - {key: frequency, label: Grid frequency, table: holding, address: 30803, type: u32, unit: Hz, scale: 0.01, invalid: [4294967295]}
+  - {key: reactive_power, label: Reactive power, table: holding, address: 30805, type: s32, unit: var, invalid: [-2147483648]}
+  - {key: apparent_power, label: Apparent power, table: holding, address: 30813, type: s32, unit: VA, invalid: [-2147483648]}
+  - {key: x.feed_in_management, label: Operating mode of feed-in management, table: holding, address: 30835, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.active_power_limitation, label: 'Active power limitation P, active power configuration', table: holding, address: 30837, type: u32, unit: W, invalid: [4294967295]}
+  - {key: x.active_power_limitation_pct, label: 'Active power limitation P, active power configuration', table: holding, address: 30839, type: u32, unit: '%', invalid: [4294967295]}
+  - {key: battery_current, label: Battery current, table: holding, address: 30843, type: s32, unit: A, scale: 0.001, positive: charge, invalid: [-2147483648], note: 'No direction in the documents; + = charging assumed. Where available, 30955 gives the direction.', verified: false}
+  - {key: battery_soc, label: Current battery state of charge, table: holding, address: 30845, type: u32, unit: '%', invalid: [4294967295], note: 'STPS X: the ''user SOC'' (actual SOC minus the upper and lower limits).'}
+  - {key: battery_soh, label: Current battery capacity, table: holding, address: 30847, type: u32, unit: '%', invalid: [4294967295], note: 'SMA: current battery capacity in %; taken here as state of health.', verified: false}
+  - {key: battery_temperature, label: Battery temperature, table: holding, address: 30849, type: s32, unit: °C, scale: 0.1, invalid: [-2147483648]}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 30851, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.battery_charging_mode, label: Active battery charging mode, table: holding, address: 30853, type: u32, bits: [0, 23], invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.battery_charging_set_voltage, label: Current battery charging set voltage, table: holding, address: 30855, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.battery_charge_throughputs, label: Number of battery charge throughputs, table: holding, address: 30857, type: s32, invalid: [-2147483648], poll: slow}
+  - {key: load_power, label: Load power, table: holding, address: 30861, type: s32, unit: W, invalid: [-2147483648], models: [sunny_island]}
+  - {key: x.grid_import_power, label: Power grid reference, table: holding, address: 30865, type: s32, unit: W, positive: import, invalid: [-2147483648], note: 'Power drawn from the grid (≥ 0), from the energy meter. Grid power: see derived.', conflicts: [{sources: [openwb], type: u32, label: Counter power (part)}]}
+  - {key: x.grid_export_power, label: Power grid feed-in, table: holding, address: 30867, type: s32, unit: W, positive: export, invalid: [-2147483648], note: 'Power fed into the grid (≥ 0), from the energy meter.', conflicts: [{sources: [openwb], type: u32, label: Counter power (part)}]}
+  - {key: x.pv_power_generated, label: PV power generated, table: holding, address: 30869, type: s32, unit: W, invalid: [-2147483648], note: 'Sunny Island: PV power of other devices on the Speedwire network; not counted as this device''s solar power.'}
+  - {key: x.self_consumption, label: Current self-consumption, table: holding, address: 30871, type: u32, unit: W, invalid: [4294967295]}
+  - {key: x.self_consumption_rise, label: Current rise in self-consumption, table: holding, address: 30873, type: s32, unit: W, invalid: [-2147483648]}
+  - {key: x.power_supply_status, label: Power supply status, table: holding, address: 30877, type: u32, bits: [0, 23], invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.plant_mains_connection, label: Plant mains connection, table: holding, address: 30881, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.utility_grid_status, label: Status of utility grid, table: holding, address: 30883, type: u32, bits: [0, 23], invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.external_frequency, label: Grid frequency of external power connection, table: holding, address: 30901, type: u32, unit: Hz, scale: 0.01, invalid: [4294967295]}
+  - {key: x.external_voltage_a, label: Voltage external power connection phase A, table: holding, address: 30903, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.external_voltage_b, label: Voltage external power connection phase B, table: holding, address: 30905, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.external_voltage_c, label: Voltage external power connection phase C, table: holding, address: 30907, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.external_current_a, label: Electricity external power connection phase A, table: holding, address: 30909, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: x.external_current_b, label: Electricity external power connection phase B, table: holding, address: 30911, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: x.external_current_c, label: Electricity external power connection phase C, table: holding, address: 30913, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: x.generator_status, label: Generator status, table: holding, address: 30917, type: u32, bits: [0, 23], invalid: [16777213, 16777215, 4294967295]}
+  - {key: power_factor, label: Displacement power factor, table: holding, address: 30949, type: u32, unit: '', scale: 0.001, invalid: [4294967295]}
+  - {key: temperature, label: Internal temperature, table: holding, address: 30953, type: s32, unit: °C, scale: 0.1, invalid: [-2147483648]}
+  - {key: x.battery_status, label: Battery oper. status, table: holding, address: 30955, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295], note: 2292 charging / 2293 discharging gives the battery power's direction (STPS X TI).}
+  - {key: x.dc2_current, label: 'DC current input [2]', table: holding, address: 30957, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: x.dc2_voltage, label: 'DC voltage input [2]', table: holding, address: 30959, type: s32, unit: V, scale: 0.01, invalid: [-2147483648]}
+  - {key: x.dc2_power, label: 'DC power input [2]', table: holding, address: 30961, type: s32, unit: W, invalid: [-2147483648]}
+  - {key: x.intermediate_circuit_voltage, label: Intermediate circuit voltage, table: holding, address: 30975, type: s32, unit: V, scale: 0.01, invalid: [-2147483648]}
+  - {key: l1_current, label: Grid current phase L1, table: holding, address: 30977, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: l2_current, label: Grid current phase L2, table: holding, address: 30979, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: l3_current, label: Grid current phase L3, table: holding, address: 30981, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: x.pv_output, label: Output of photovoltaics, table: holding, address: 30983, type: u32, unit: W, invalid: [4294967295]}
+  - {key: x.battery_temperature_min, label: Lowest measured battery temperature, table: holding, address: 30997, type: s32, unit: °C, scale: 0.1, invalid: [-2147483648], poll: slow}
+  - {key: x.battery_temperature_max, label: Highest measured battery temperature, table: holding, address: 30999, type: s32, unit: °C, scale: 0.1, invalid: [-2147483648], poll: slow}
+  - {key: x.battery_voltage_max, label: Max. occurred battery voltage, table: holding, address: 31001, type: u32, unit: V, scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.time_to_full, label: Remaining time until full charge, table: holding, address: 31003, type: u32, unit: s, invalid: [4294967295]}
+  - {key: x.lower_discharge_limit, label: Lower discharge limit for private consumption range, table: holding, address: 31009, type: u32, unit: '%', invalid: [4294967295], poll: slow}
+  - {key: x.status_master, label: Operating status Master (Phase L1), table: holding, address: 31015, type: u32, bits: [0, 23], invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.ip_address, label: Current speedwire IP address, table: holding, address: 31017, type: str, length: 16, poll: slow, note: 'STR32: UTF-8, zero-terminated.'}
+  - {key: x.status_slave1, label: Operating status Slave1 (Phase L2), table: holding, address: 31053, type: u32, bits: [0, 23], invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.status_slave2, label: Operating status Slave2 (Phase L3), table: holding, address: 31055, type: u32, bits: [0, 23], invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.pv_energy_total, label: Total energy of photovoltaics, table: holding, address: 31063, type: u32, unit: kWh, invalid: [4294967295], poll: slow}
+  - {key: x.pv_energy_today, label: Total energy of photovoltaics current day, table: holding, address: 31065, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.battery_full_charges, label: Number of battery full charges, table: holding, address: 31069, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.eei_displacement_pf, label: EEI displacement power factor, table: holding, address: 31221, type: s32, unit: '', scale: 0.001, invalid: [-2147483648]}
+  - {key: x.residual_current, label: Residual current, table: holding, address: 31247, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: x.battery_state, label: Battery state of charge, table: holding, address: 31391, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295], note: 'Storage X (STPS X TI): despite the name a state tag list: 35 error, 303 off, 307 ok, 455 warning.'}
+  - {key: x.battery_charge_power, label: 'Battery charging: current battery state of charge', table: holding, address: 31393, type: u32, unit: W, positive: charge, invalid: [4294967295], note: Named 'state of charge' in the SI sheets but with unit W; read as charging power (≥ 0). Battery power is under derived., verified: false, conflicts: [{sources: [openwb], type: s32, label: Battery power (part)}]}
+  - {key: x.battery_discharge_power, label: 'Battery discharging: current battery state of charge', table: holding, address: 31395, type: u32, unit: W, positive: discharge, invalid: [4294967295], note: Named 'state of charge' in the SI sheets but with unit W; read as discharging power (≥ 0)., verified: false, conflicts: [{sources: [openwb], type: s32, label: Battery power (part)}]}
+  - {key: x.battery_charged_energy, label: Battery state of charge, table: holding, address: 31397, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], poll: slow, note: 'SI sheets: U64 Wh, the energy charged into the battery.'}
+  - {key: x.battery_discharged_energy, label: Battery state of discharge, table: holding, address: 31401, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], poll: slow, note: 'SI sheets: U64 Wh, the energy taken from the battery.'}
+  - {key: x.external_power, label: Output external power connection, table: holding, address: 31417, type: s32, unit: W, invalid: [-2147483648]}
+  - {key: x.external_power_a, label: Output external power connection phase A, table: holding, address: 31419, type: s32, unit: W, invalid: [-2147483648]}
+  - {key: x.external_power_b, label: Output external power connection phase B, table: holding, address: 31421, type: s32, unit: W, invalid: [-2147483648]}
+  - {key: x.external_power_c, label: Output external power connection phase C, table: holding, address: 31423, type: s32, unit: W, invalid: [-2147483648]}
+  - {key: state, label: Operating status, table: holding, address: 40029, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.rated_battery_capacity, label: Rated battery capacity, table: holding, address: 40031, type: u32, unit: Ah, invalid: [4294967295], poll: slow}
+  - {key: x.battery_type, label: Battery type, table: holding, address: 40035, type: u32, bits: [0, 23], invalid: [16777213, 16777215, 4294967295], poll: slow}
+  - {key: x.rated_battery_voltage, label: Rated battery voltage, table: holding, address: 40037, type: u32, unit: V, invalid: [4294967295], poll: slow}
+  - {key: x.firmware_main, label: Firmware version of the main processor, table: holding, address: 40063, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.firmware_logic, label: Firmware version of the logic component, table: holding, address: 40065, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.serial_40067, label: Serial number, table: holding, address: 40067, type: u32, invalid: [4294967295], poll: slow, note: An alternative when 30057 is not available.}
+  - {key: x.country_standard, label: Country standard set, table: holding, address: 40109, type: u32, bits: [0, 23], invalid: [16777213, 16777215, 4294967295], poll: slow}
+  - {key: x.max_apparent_power, label: Maximum apparent power device, table: holding, address: 40185, type: u32, unit: VA, invalid: [4294967295], poll: slow}
+  - {key: x.battery_nominal_capacity, label: Battery nominal capacity, table: holding, address: 40187, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow}
+  - {key: x.battery_max_charge_power, label: Batt. manuf's max. charge capac., table: holding, address: 40189, type: u32, unit: W, invalid: [4294967295], poll: slow}
+  - {key: x.battery_max_discharge_power, label: Batt. manuf's max. disch. capac., table: holding, address: 40191, type: u32, unit: W, invalid: [4294967295], poll: slow}
+  - {key: x.sma_device_class, label: Device class, table: holding, address: 30051, type: u32, enum: sma_device_class, invalid: [4294967295], verified: false, sources: [sunspec2]}
+  - {key: x.sma_device_type, label: Device type code, table: holding, address: 30053, type: u32, invalid: [4294967295], verified: false, sources: [sunspec2]}
+  - {key: x.sma_device_vendor, label: Vendor, table: holding, address: 30055, type: u32, invalid: [4294967295], verified: false, sources: [sunspec2]}
+  - {key: x.pv_energy_30513, label: PV energy, table: holding, address: 30513, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], verified: false, sources: [evcc], models: [core2, default]}
+  - {key: x.inverter_exported_30529, label: Inverter exported energy, table: holding, address: 30529, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], models: [default], verified: false, sources: [openwb]}
+  - {key: x.inverter_power_40084, label: Inverter power, table: holding, address: 40084, type: s16, unit: W, scale: 10, invalid: [-32768], models: [core2], note: Raw > 0 = generation (openWB's sign handling)., verified: false, sources: [openwb]}
+  - {key: x.inverter_exported_40094, label: Inverter exported energy, table: holding, address: 40094, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295], models: [core2], verified: false, sources: [openwb]}
+  - {key: x.inverter_dc_power, label: Inverter DC power, table: holding, address: 40101, type: u32, unit: W, scale: 100, invalid: [4294967295], models: [core2], note: Raw > 0 = generation (openWB's sign handling)., verified: false, sources: [openwb]}
+  - {key: x.bat_write_40149, label: Battery register 40149, table: holding, address: 40149, type: s32, unit: W, writable: true, note: openWB writes 0 here (and computed values)., verified: false, sources: [openwb, sunspec2]}
+  - {key: x.bat_write_40151, label: Battery register 40151, table: holding, address: 40151, type: u32, writable: true, note: 'openWB writes 802, 803 here.', verified: false, sources: [openwb, sunspec2]}
+  - {key: x.sma_setpoint_timeout, label: External setpoint timeout, table: holding, address: 41195, type: u32, unit: s, invalid: [4294967295], verified: false, sources: [sunspec2]}
+
+derived:
+  - {key: pv_power, label: Solar power (DC power input 1 + 2), unit: W, sum: [{key: x.dc1_power}, {key: x.dc2_power}], note: Sum of the two inputs.}
+  - {key: grid_power, label: Grid power (feed-in − reference), unit: W, positive: export, sum: [{key: x.grid_export_power}, {key: x.grid_import_power, factor: -1}]}
+  - {key: battery_power, label: Battery power (discharging − charging), unit: W, positive: discharge, sum: [{key: x.battery_discharge_power}, {key: x.battery_charge_power, factor: -1}], verified: false}
+
+enums:
+  status: {'35': Fault, '51': Closed, '55': Communication impaired, '295': MPP, '303': 'Off', '307': Ok, '308': 'On', '309': Operation, '311': Open, '336': Contact manufacturer, '337': Contact installer, '338': Invalid, '381': Stop, '443': Constant voltage, '455': Warning, '557': Temperature derating, '569': Switched on, '884': Not active, '885': None, '886': None, '887': None, '1041': Leading, '1042': Lagging, '1077': Active power limitation P in W, '1078': Active power limitation as % of Pmax, '1079': Active power limitation via PV system control, '1295': Standby, '1392': Fault, '1393': Waiting for PV voltage, '1394': Waiting for valid AC grid, '1395': DC area, '1396': AC grid, '1440': Grid mode, '1441': Separate network mode, '1455': Emergency stop, '1466': Waiting, '1467': Start, '1468': MPP search, '1469': Shut down, '1470': Disturbance, '1479': Waiting after grid interruption, '1480': Waiting for utility company, '1779': Separated, '1780': Public electricity mains, '1781': Island mains, '1795': Blocked, '1855': Stand-alone operation, '2119': Derating, '2291': Battery standby, '2292': Battery charging, '2293': Battery discharging}
+  device_class: {'8001': Solar inverter, '8009': Hybrid inverter}
+  device_type: {'9225': SB 5000SE-10, '9226': SB 3600SE-10, '9074': SB 3000TL-21, '9165': SB 3600TL-21, '9075': SB 4000TL-21, '9076': SB 5000TL-21, '9184': SB 2500TLST-21, '9185': SB 3000TLST-21, '9161': SB 3000TL-JP-22, '9162': SB 3500TL-JP-22, '9163': SB 4000TL-JP-22, '9164': SB 4500TL-JP-22, '9317': SB 5400TL-JP-22, '9198': SB 3000TL-US-22, '9199': SB 3800TL-US-22, '9200': SB 4000TL-US-22, '9201': SB 5000TL-US-22, '9274': SB 6000TL-US-22, '9275': SB 7000TL-US-22, '9293': SB 7700TL-US-22, '9101': STP 8000TL-10, '9067': STP 10000TL-10, '9068': STP 12000TL-10, '9069': STP 15000TL-10, '9070': STP 17000TL-10, '9182': STP 15000TLEE-10, '9181': STP 20000TLEE-10, '9222': STP 10000TLEE-JP-10, '9271': STP 20000TLEE-JP-11, '9272': STP 10000TLEE-JP-11, '9194': STP 12000TL-US-10, '9195': STP 15000TL-US-10, '9196': STP 20000TL-US-10, '9197': STP 24000TL-US-10, '9310': STP 30000TL-US-10, '9098': STP 5000TL-20, '9099': STP 6000TL-20, '9100': STP 7000TL-20, '9103': STP 8000TL-20, '9102': STP 9000TL-20, '9281': STP 10000TL-20, '9282': STP 11000TL-20, '9283': STP 12000TL-20, '9354': STP 24500TL-JP-30, '9311': STP 25000TL-JP-30, '9278': SI3.0M-11, '9279': SI4.4M-11, '9223': SI6.0H-11, '9224': SI8.0H-11}
+  sma_device_class: {'8001': PV inverter, '8002': Wind inverter, '8007': Battery inverter, '8033': Load, '8064': Sensor, '8065': Energy meter, '8128': Communication product}
+
+problems:
+  - {when: {key: x.condition, equals: 35}, kind: fault, text: Fault (condition 35; event number in 30197)}
+  - {when: {key: x.condition, equals: 455}, kind: warning, text: Warning (condition 455; event number in 30197)}
+  - {when: {key: state, equals: 1392}, kind: fault, text: Fault (operating status 1392)}
+  - {when: {key: x.derating, equals: 557}, kind: warning, text: Temperature derating}
+  - {when: {key: x.backup_mode, equals: 1441}, kind: backup_mode, text: 'Backup: separate network mode (1441)'}
+  - {when: {key: x.battery_state, equals: 35}, kind: fault, text: Battery error (35)}
+  - {when: {key: x.battery_state, equals: 455}, kind: warning, text: Battery warning (455)}
+
+notes:
+- SMA profile on unit id 3 (settable 3-123); SunSpec is served on unit id + 123 (126) and isn't used here. Addresses are SMA's
+  register numbers, used as they are on the wire (SMA subtracts 1 only from SunSpec numbers).
+- SMA answers function codes 03 and 04 alike for these registers (1-125 registers per request). They are listed as holding
+  registers, as the open-source projects read them; SMA's Storage X document uses 04.
+- 'Big-endian; 32- and 64-bit values high word first. Status (ENUM / TAGLIST) values use the low 24 bits; 0xFFFFFD means ''information
+  not available''. Not available: U32 0xFFFFFFFF, S32 0x80000000, U64 0xFFFFFFFFFFFFFFFF, STR32 zero.'
+- FIXn = n decimals (scale 10^-n), TEMP = 0.1 °C, Duration in seconds, FW = firmware bytes.
+- A block read is answered if it holds at least one defined register (undefined ones read as not available); a block without
+  any defined register gives an exception.
+- 'SMA: older Speedwire devices want at least 10 s between Modbus transfers (ennexOS: 1 s).'
+- 'Sunny Island: grid and battery power as derived; house load 30861; today''s grid energy 30577 / 30579; no solar power of
+  its own. A device on which 31393 or 31395 is available is presumably a Sunny Island too (assumed; in the model match).'
+- 'SB Smart Energy: battery power = |30851 × 30843| with the direction from 30955 (2292 charging, 2293 discharging, 2291 standby
+  = 0).'
+- 'Device class: the documents name 8001 (solar inverter, register lists) and 8009 (hybrid inverter, Storage X document);
+  any class in 8000-8999 is assumed to be an inverter (not documented).'
+- 'Storage X / Sunny Island X and newer models have no full register list in these documents: only 30201, 30233, 30845, 30955,
+  31391, 40029 and 40187 are documented for them.'
+- Models core2 come from projects and are listed after a model without a match, so detection never reaches them; their points
+  apply only when a reader selects such a model by hand.
+- 'evcc template `sma-inverter-modbus` (pv) lists: SMA Wechselrichter (Modbus).'
+- The models are openWB's settings for this device (which register map to read), not detected from the device.
+- 'SMA serves its own profile and SunSpec on one port: SunSpec on the SMA unit id + 123 (126 with the factory unit id 3).
+  The registers here are on the SMA unit id. ha-sunspec2 reads every SMA register one below its number; SMA addresses its
+  own registers by their number (only SunSpec numbers are 1-based), as evcc does, so the addresses here are the SMA numbers.'
+- Status registers carry their value in the low 24 bits; 0xFFFFFD there means not available.
+- 'External battery setpoint: needs the active power mode ''external setpoint'' (1079) set in the inverter; write the control
+  flag (40151, 802 = active) and then, a second or more later, the setpoint (40149, W, negative = charge). It lapses after
+  the device''s timeout (41195), so it has to be rewritten (ha-sunspec2: every 30 s). SMA only allows these setpoints to be
+  written cyclically; other writable registers are stored in flash.'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

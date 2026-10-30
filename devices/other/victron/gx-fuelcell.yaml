@@ -1,0 +1,77 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Victron's GX Modbus-TCP register list dbus_modbustcp 744e228 (revision 55) and dbus_modbustcp's attributes.csv.
+
+modbusspec: 0
+id: victron-gx-fuelcell
+manufacturer: Victron Energy
+name: 'GX Modbus-TCP: fuel cell (com.victronenergy.fuelcell)'
+kind: other
+
+sources:
+- title: Victron GX Modbus-TCP register list (CCGX-Modbus-TCP-register-list)
+  version: dbus_modbustcp 744e228 (revision 55)
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/CCGX-Modbus-TCP-register-list.xlsx
+- title: dbus_modbustcp attributes.csv (Victron's register table in the Modbus-TCP service source)
+  version: commit 744e228
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/attributes.csv
+- id: hass-victron
+  title: hass-victron (Home Assistant integration)
+  url: https://github.com/sfstar/hass-victron
+  license: Apache-2.0
+  commit: 3d3ec1e6cb7768d3c6d49ed23e9b52814477c205
+  path: custom_components/victron/const.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.dc_0_voltage, label: Battery voltage, table: holding, address: 4000, type: u16, unit: V, scale: 0.01}
+  - {key: x.dc_0_current, label: Battery current, table: holding, address: 4001, type: s16, unit: A, scale: 0.1}
+  - {key: x.dc_1_voltage, label: Auxiliary voltage, table: holding, address: 4002, type: u16, unit: V, scale: 0.01, verified: false, note: attributes.csv gives int16 with scale factor 10 (0.1 V); the list (which fixed only the DC source's register in revision 54) gives uint16 / 100.}
+  - {key: x.dc_0_temperature, label: Temperature, table: holding, address: 4003, type: s16, unit: °C, scale: 0.1}
+  - {key: x.history_energy_out, label: Total energy produced, table: holding, address: 4004, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.alarms_low_voltage, label: Low voltage alarm, table: holding, address: 4006, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_high_voltage, label: High voltage alarm, table: holding, address: 4007, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_low_starter_voltage, label: Low auxiliary voltage alarm, table: holding, address: 4008, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_high_starter_voltage, label: High auxiliary voltage alarm, table: holding, address: 4009, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_low_temperature, label: Low temperature alarm, table: holding, address: 4010, type: u16, enum: alarms_low_voltage}
+  - {key: x.alarms_high_temperature, label: High temperature alarm, table: holding, address: 4011, type: u16, enum: alarms_low_voltage}
+
+enums:
+  alarms_low_voltage: {'0': Ok, '1': Warning, '2': Alarm}
+
+problems:
+  - {when: {key: x.alarms_low_voltage, equals: 2}, kind: warning, text: Low voltage alarm}
+  - {when: {key: x.alarms_low_voltage, equals: 1}, kind: warning, text: Low voltage alarm (warning)}
+  - {when: {key: x.alarms_high_voltage, equals: 2}, kind: warning, text: High voltage alarm}
+  - {when: {key: x.alarms_high_voltage, equals: 1}, kind: warning, text: High voltage alarm (warning)}
+  - {when: {key: x.alarms_low_starter_voltage, equals: 2}, kind: warning, text: Low auxiliary voltage alarm}
+  - {when: {key: x.alarms_low_starter_voltage, equals: 1}, kind: warning, text: Low auxiliary voltage alarm (warning)}
+  - {when: {key: x.alarms_high_starter_voltage, equals: 2}, kind: warning, text: High auxiliary voltage alarm}
+  - {when: {key: x.alarms_high_starter_voltage, equals: 1}, kind: warning, text: High auxiliary voltage alarm (warning)}
+  - {when: {key: x.alarms_low_temperature, equals: 2}, kind: warning, text: Low temperature alarm}
+  - {when: {key: x.alarms_low_temperature, equals: 1}, kind: warning, text: Low temperature alarm (warning)}
+  - {when: {key: x.alarms_high_temperature, equals: 2}, kind: warning, text: High temperature alarm}
+  - {when: {key: x.alarms_high_temperature, equals: 1}, kind: warning, text: High temperature alarm (warning)}
+
+notes:
+- 'No fixed unit id: the GX assigns them (since Venus OS 2.60), normally the device instance; see Settings → Integrations
+  → Modbus TCP server → Available services. 1 is only a placeholder.'
+- Addresses are the list's numbers, which are the protocol addresses (no 30001/40001 offset); read them as holding registers
+  (function 03). Strings carry two characters per register, first character in the high byte.
+- Registers the device or firmware doesn't have make the GX answer the whole request with an exception; read them in separate
+  requests or skip them.
+- Taken from the register list dbus_modbustcp 744e228 (revision 55); attributes.csv (Victron's dbus_modbustcp source) filled
+  in what the list leaves out.
+- The unit id is the GX device instance of this service; hass-victron finds it by scanning a fixed list of unit ids.

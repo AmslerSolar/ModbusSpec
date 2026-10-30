@@ -1,0 +1,45 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Elx "Карта на Modbus-регистрите в Matrix3" (Matrix3 Modbus register map, no version).
+
+modbusspec: 0
+id: elx-matrix3
+manufacturer: Elx
+name: Matrix3 three-tariff energy counter
+kind: meter
+
+sources:
+- title: Карта на Modbus-регистрите в Matrix3 (Matrix3 Modbus register map, Bulgarian)
+  version: no version
+  url: https://elx.bg/image/catalog/pdf/743fece45a0a3c0eedc72dcdbd9a081a-Mx3-ModbusRegisterMap.pdf
+  sha256: 79d621db6c46bfcffad9490bba618a405b8964a2044318e4e308d586b86086cb
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.energy_tariff3, label: Energy tariff 3 (peak), table: input, address: 0, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.energy_tariff2, label: Energy tariff 2 (day), table: input, address: 2, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.energy_tariff1, label: Energy tariff 1 (night), table: input, address: 4, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.clock, label: Clock and calendar, table: holding, address: 0, type: datetime, length: 4, datetime: {hour: {register: 0, bits: [8, 15], bcd: true}, minute: {register: 0, bits: [0, 7], bcd: true}, second: {register: 1, bits: [8, 15], bcd: true}, day: {register: 2, bits: [8, 15], bcd: true}, month: {register: 2, bits: [0, 7], bcd: true}, year: {register: 3, bits: [8, 15], bcd: true, offset: 2000}}, poll: slow, verified: false, note: 'Registers HHNN, SSxx, DDMM, YYxx, all BCD. The document gives a two-digit year; the century (2000) is assumed.'}
+
+derived:
+  - {key: x.energy_total, label: 'Energy, all tariffs', unit: kWh, sum: [{key: x.energy_tariff1}, {key: x.energy_tariff2}, {key: x.energy_tariff3}]}
+
+notes:
+- The register map (Bulgarian) names the device Matrix3 and is published by Elx; it names no maker itself.
+- Addresses are given as protocol addresses (0x00 …) and used as they are.
+- Each tariff counter is two registers, high part first, in hundredths of a kWh. Whether the counters are imported or exported
+  energy is not stated, so they have no standard key.
+- The writable-ness of the clock registers is not stated.

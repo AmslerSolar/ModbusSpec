@@ -1,0 +1,385 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the KSTAR Hybrid Inverter MODBUS RS485 Communication Protocol (V2.9.1, 2024.07.21).
+
+modbusspec: 0
+id: kstar-hybrid
+manufacturer: KSTAR
+name: KSE / BluE-S / E-KT hybrid inverters
+kind: inverter
+
+sources:
+- title: KSTAR Hybrid Inverter MODBUS RS485 Communication Protocol (SFT-KSE-001)
+  version: V2.9.1 (2024.07.21)
+  url: https://github.com/user-attachments/files/17555061/KSTAR.Hybrid.Inverter.Modbus.V2.9.1_2024.07.21.pdf
+  sha256: 02d9357b8f3571808f9898f0aafee711c798e34d9cef3291d17baeb7cb1754a9
+- id: solarman
+  title: ha-solarman (Home Assistant integration)
+  url: https://github.com/davidrapan/ha-solarman
+  license: MIT
+  commit: ac1d88b83268beeb0511b8a1b7fc8e17deddc044
+  path: custom_components/solarman/inverter_definitions/kstar_hybrid.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 3228
+    type: str
+    length: 11
+
+models:
+  - {id: single_phase, name: 'Single-phase models (KSE, BluE-S)', match: {table: input, address: 3045, type: u16, range: [0, 31]}}
+  - {id: three_phase, name: 'Three-phase models (E8KT, E10KT, E12KT)', match: {table: input, address: 3045, type: u16, range: [32, 47]}}
+
+points:
+  # PV (input registers, function 04)
+  - {key: x.pv1_voltage, label: PV1 input voltage, table: input, address: 3000, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_voltage, label: PV2 input voltage, table: input, address: 3001, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: PV1 input current, table: input, address: 3012, type: s16, unit: A, scale: 0.01}
+  - {key: x.pv2_current, label: PV2 input current, table: input, address: 3013, type: s16, unit: A, scale: 0.01}
+  - {key: x.pv1_power, label: PV1 input power, table: input, address: 3024, type: s16, unit: W}
+  - {key: x.pv2_power, label: PV2 input power, table: input, address: 3025, type: s16, unit: W}
+  - {key: pv_energy_today, label: Day energy (PV), table: input, address: 3036, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.pv_energy_month, label: Month energy (PV), table: input, address: 3037, type: u32, unit: kWh, poll: slow}
+  - {key: x.pv_energy_year, label: Year energy (PV), table: input, address: 3039, type: u32, unit: kWh, poll: slow}
+  - {key: pv_energy, label: Total energy (PV), table: input, address: 3041, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  # State
+  - {key: x.working_mode, label: Inverter working mode, table: input, address: 3044, type: u16, enum: working_mode, writable: true}
+  - {key: x.inverter_model, label: Inverter model, table: input, address: 3045, type: u16, enum: inverter_model, poll: slow}
+  - {key: state, label: SYS_STATE, table: input, address: 3046, type: u16, enum: sys_state}
+  - {key: x.inv_state, label: INV_STATE, table: input, address: 3047, type: u16, enum: inv_state}
+  - {key: x.dcdc_state, label: DCDC_STATE, table: input, address: 3048, type: u16, enum: dcdc_state}
+  - {key: x.dsp_alarm, label: DSP alarm code, table: input, address: 3049, type: u32, flags: dsp_alarm, conflicts: [{sources: [solarman], type: u16, label: DSP Alarm Code (2)}]}
+  - {key: x.dsp_error, label: DSP error code, table: input, address: 3051, type: u32, flags: dsp_error, conflicts: [{sources: [solarman], type: u16, label: DSP Error Code (2)}]}
+  - {key: x.bus_voltage, label: BUS voltage, table: input, address: 3053, type: u16, unit: V, scale: 0.1}
+  - {key: x.dc_bus_voltage, label: DCBUS voltage, table: input, address: 3054, type: u16, unit: V, scale: 0.1}
+  - {key: temperature, label: INV radiator temperature, table: input, address: 3055, type: s16, unit: °C, scale: 0.1}
+  - {key: x.bat_radiator_temperature, label: BAT radiator temperature, table: input, address: 3056, type: s16, unit: °C, scale: 0.1}
+  - {key: x.inside_temperature, label: Inside environment temperature, table: input, address: 3057, type: s16, unit: °C, scale: 0.1}
+  - {key: x.pv_temperature, label: PV temperature, table: input, address: 3156, type: s16, unit: °C, scale: 0.1, models: [three_phase]}
+  - {key: x.llc_temperature, label: LLC temperature, table: input, address: 3157, type: s16, unit: °C, scale: 0.1, models: [three_phase]}
+  # Battery
+  - {key: x.discharge_depth_enable, label: Discharge depth enable, table: input, address: 3059, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.bms_dod_enable, label: BMS DOD enable, table: input, address: 3060, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.offgrid_dod, label: Off-grid DOD, table: input, address: 3061, type: u16, unit: '%', writable: true, min: 5, max: 90, poll: slow, note: Default 90.}
+  - {key: x.battery_type, label: BAT type, table: input, address: 3062, type: u16, enum: battery_type, poll: slow}
+  - {key: battery_voltage, label: BAT voltage, table: input, address: 3063, type: u16, unit: V, scale: 0.01}
+  - {key: x.battery_current, label: BAT current, table: input, address: 3064, type: s16, unit: A, scale: 0.1, verified: false, note: Signed; the document doesn't say which direction is positive (DCDC_STATE 3048 tells charging from discharging).}
+  - {key: x.battery_power, label: BAT CHG/DISCHG power, table: input, address: 3065, type: s16, unit: W, verified: false, note: Signed; the document doesn't say which direction is positive.}
+  - {key: battery_soc, label: BAT_SOC, table: input, address: 3066, type: u16, unit: '%', scale: 0.1}
+  - {key: battery_temperature, label: BAT_Temp, table: input, address: 3067, type: s16, unit: °C, scale: 0.1}
+  - {key: x.ongrid_discharge_depth, label: On-grid discharge depth, table: input, address: 3068, type: u16, unit: '%', writable: true, min: 10, max: 95, poll: slow, note: Default 90.}
+  - {key: x.battery_charge_voltage, label: BAT_CHG_VOLT, table: input, address: 3069, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery_charge_current_limit, label: BAT_CHG_LIMIT_CURR, table: input, address: 3070, type: u16, unit: A}
+  - {key: x.battery_discharge_current_limit, label: BAT_DISCHG_LIMIT_CURR, table: input, address: 3071, type: u16, unit: A}
+  - {key: x.min_battery_discharge_voltage, label: Min bat discharge voltage, table: input, address: 3072, type: u16, unit: V, scale: 0.1, writable: true, min: 40, max: 48, poll: slow, note: Default 43.2 V.}
+  - {key: x.max_battery_charge_voltage, label: Max bat charge voltage, table: input, address: 3073, type: u16, unit: V, scale: 0.1, writable: true, min: 52, max: 58.5, poll: slow, note: Default 57.5 V.}
+  - {key: x.battery_capacity, label: BAT_CAP_AH, table: input, address: 3074, type: u16, unit: Ah, writable: true, min: 50, max: 1000, poll: slow, note: Only for lead-acid batteries; default 100.}
+  - {key: battery_soh, label: BAT health, table: input, address: 3075, type: u16, unit: '%', scale: 0.1, poll: slow}
+  - {key: x.battery_pack_count, label: Number of battery packs, table: input, address: 3077, type: u16, poll: slow}
+  - {key: x.battery_discharge_power_set, label: BAT discharge power set, table: input, address: 3078, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, note: Default 100.}
+  - {key: x.battery_charge_power_set, label: BAT charge power set, table: input, address: 3079, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, note: Default 100.}
+  - {key: x.battery_float_voltage, label: BAT_SET_FLOAT_VOLT, table: input, address: 3080, type: u16, unit: V, scale: 0.1, writable: true, min: 52, max: 58, poll: slow, note: Default 56.5 V.}
+  - {key: x.battery_absorption_voltage, label: BAT_SET_AVERA_VOLT, table: input, address: 3081, type: u16, unit: V, scale: 0.1, writable: true, min: 52, max: 57.5, poll: slow, note: Default 56.0 V.}
+  - {key: x.battery_charge_current_set, label: BAT_SET_CHG_CURR, table: input, address: 3082, type: u16, unit: A, writable: true, poll: slow, note: 'Single phase 1 … 100 A (default 60), three phase 1 … 160 A (default 160).'}
+  - {key: x.bms_wakeup_enable, label: Wake-up BMS enable, table: input, address: 3083, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.bms_wakeup_time, label: Wake-up BMS time, table: input, address: 3084, type: u16, unit: min, writable: true, min: 5, max: 300, poll: slow}
+  - {key: x.force_charge_discharge, label: Force charge / discharge, table: input, address: 3086, type: u16, enum: force_mode, writable: true}
+  - {key: x.battery_discharge_total, label: Total battery discharge, table: input, address: 3292, type: u32, unit: kWh, poll: slow}
+  - {key: x.battery_discharge_today, label: Daily battery discharge, table: input, address: 3294, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.battery_charge_total, label: Total battery charge, table: input, address: 3299, type: u32, unit: kWh, poll: slow}
+  - {key: x.battery_charge_today, label: Daily battery charge, table: input, address: 3301, type: u16, unit: kWh, scale: 0.1}
+  # Grid (meter side; S and T phase three-phase only)
+  - {key: l1_voltage, label: R phase grid voltage, table: input, address: 3097, type: u16, unit: V, scale: 0.1}
+  - {key: frequency, label: R phase grid frequency, table: input, address: 3098, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.meter_l1_current, label: R phase meter current, table: input, address: 3099, type: s16, unit: A, scale: 0.001, verified: false, note: Signed; direction not stated.}
+  - {key: x.meter_l1_power, label: R phase meter power, table: input, address: 3100, type: s16, unit: W, verified: false, note: Signed; the document doesn't say whether positive is import or export., conflicts: [{sources: [solarman], scale: -1, label: Grid L1 Power}]}
+  - {key: l2_voltage, label: S phase grid voltage, table: input, address: 3101, type: u16, unit: V, scale: 0.1, models: [three_phase]}
+  - {key: x.grid_l2_frequency, label: S phase grid frequency, table: input, address: 3102, type: u16, unit: Hz, scale: 0.01, models: [three_phase]}
+  - {key: x.meter_l2_current, label: S phase meter current, table: input, address: 3103, type: s16, unit: A, scale: 0.001, models: [three_phase], verified: false}
+  - {key: x.meter_l2_power, label: S phase meter power, table: input, address: 3104, type: s16, unit: W, models: [three_phase], verified: false, conflicts: [{sources: [solarman], scale: -1, label: Grid L2 Power}]}
+  - {key: l3_voltage, label: T phase grid voltage, table: input, address: 3105, type: u16, unit: V, scale: 0.1, models: [three_phase]}
+  - {key: x.grid_l3_frequency, label: T phase grid frequency, table: input, address: 3106, type: u16, unit: Hz, scale: 0.01, models: [three_phase]}
+  - {key: x.meter_l3_current, label: T phase meter current, table: input, address: 3107, type: s16, unit: A, scale: 0.001, models: [three_phase], verified: false}
+  - {key: x.meter_l3_power, label: T phase meter power, table: input, address: 3108, type: s16, unit: W, models: [three_phase], verified: false, conflicts: [{sources: [solarman], scale: -1, label: Grid L3 Power}]}
+  - {key: x.import_energy_today, label: Day energy (BUY), table: input, address: 3109, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.import_energy_month, label: Month energy (BUY), table: input, address: 3110, type: u32, unit: kWh, poll: slow}
+  - {key: x.import_energy_year, label: Year energy (BUY), table: input, address: 3112, type: u32, unit: kWh, poll: slow, verified: false, note: Type not given; U32 as for the other month / year counters.}
+  - {key: grid_import_energy, label: Total energy (BUY), table: input, address: 3114, type: u32, unit: kWh, scale: 0.1, poll: slow, verified: false, note: Type not given; U32 as for the other totals.}
+  - {key: x.export_energy_today, label: Day energy (SELL), table: input, address: 3116, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.export_energy_month, label: Month energy (SELL), table: input, address: 3117, type: u32, unit: kWh, poll: slow}
+  - {key: x.export_energy_year, label: Year energy (SELL), table: input, address: 3119, type: u32, unit: kWh, poll: slow}
+  - {key: grid_export_energy, label: Total energy (SELL), table: input, address: 3121, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  # Inverter output (S and T three-phase only)
+  - {key: x.inv_l1_voltage, label: R-INV voltage, table: input, address: 3123, type: u16, unit: V, scale: 0.1}
+  - {key: x.inv_l1_current, label: R-INV current, table: input, address: 3124, type: s16, unit: A, scale: 0.01}
+  - {key: x.inv_l1_frequency, label: R-INV frequency, table: input, address: 3125, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.inv_l1_power, label: R-INV power, table: input, address: 3126, type: s16, unit: W, verified: false, note: Signed; direction not stated.}
+  - {key: x.inv_l2_voltage, label: S-INV voltage, table: input, address: 3127, type: u16, unit: V, scale: 0.1, models: [three_phase]}
+  - {key: x.inv_l2_current, label: S-INV current, table: input, address: 3128, type: s16, unit: A, scale: 0.01, models: [three_phase]}
+  - {key: x.inv_l2_frequency, label: S-INV frequency, table: input, address: 3129, type: u16, unit: Hz, scale: 0.01, models: [three_phase]}
+  - {key: x.inv_l2_power, label: S-INV power, table: input, address: 3130, type: s16, unit: W, models: [three_phase], verified: false}
+  - {key: x.inv_l3_voltage, label: T-INV voltage, table: input, address: 3131, type: u16, unit: V, scale: 0.1, models: [three_phase]}
+  - {key: x.inv_l3_current, label: T-INV current, table: input, address: 3132, type: s16, unit: A, scale: 0.01, models: [three_phase]}
+  - {key: x.inv_l3_frequency, label: T-INV frequency, table: input, address: 3133, type: u16, unit: Hz, scale: 0.01, models: [three_phase]}
+  - {key: x.inv_l3_power, label: T-INV power, table: input, address: 3134, type: s16, unit: W, models: [three_phase], verified: false}
+  # Backup output (S and T three-phase only)
+  - {key: x.backup_l1_voltage, label: R-BackUp voltage, table: input, address: 3135, type: u16, unit: V, scale: 0.1}
+  - {key: x.backup_l1_current, label: R-BackUp current, table: input, address: 3136, type: u16, unit: A, scale: 0.01}
+  - {key: x.backup_l1_power, label: R-BackUp power, table: input, address: 3137, type: u16, unit: W}
+  - {key: x.backup_l2_voltage, label: S-BackUp voltage, table: input, address: 3138, type: u16, unit: V, scale: 0.1, models: [three_phase]}
+  - {key: x.backup_l2_current, label: S-BackUp current, table: input, address: 3139, type: u16, unit: A, scale: 0.01, models: [three_phase]}
+  - {key: x.backup_l2_power, label: S-BackUp power, table: input, address: 3140, type: u16, unit: W, models: [three_phase]}
+  - {key: x.backup_l3_voltage, label: T-BackUp voltage, table: input, address: 3141, type: u16, unit: V, scale: 0.1, models: [three_phase]}
+  - {key: x.backup_l3_current, label: T-BackUp current, table: input, address: 3142, type: u16, unit: A, scale: 0.01, models: [three_phase]}
+  - {key: x.backup_l3_power, label: T-BackUp power, table: input, address: 3143, type: u16, unit: W, models: [three_phase]}
+  # Load
+  - {key: x.load_l1_power, label: R-Load power, table: input, address: 3144, type: u16, unit: W}
+  - {key: x.load_l2_power, label: S-Load power, table: input, address: 3145, type: u16, unit: W, models: [three_phase], optional: true}
+  - {key: x.load_l3_power, label: T-Load power, table: input, address: 3146, type: u16, unit: W, models: [three_phase], optional: true}
+  - {key: x.load_energy_today, label: Day energy (LOAD), table: input, address: 3147, type: u16, unit: kWh, scale: 0.1}
+  - {key: x.load_energy_month, label: Month energy (LOAD), table: input, address: 3148, type: u32, unit: kWh, poll: slow}
+  - {key: x.load_energy_year, label: Year energy (LOAD), table: input, address: 3150, type: u32, unit: kWh, poll: slow}
+  - {key: x.load_energy_total, label: Total energy (LOAD), table: input, address: 3152, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.on_grid_count, label: On_GRID_COUNT, table: input, address: 3154, type: u32, poll: slow}
+  # Time-of-use (peak shift) windows: four ASCII digits "HHMM", written with function 16 in one go per block
+  - {key: x.charge_start_1, label: Charge start time 1, table: input, address: 3160, type: str, length: 2, writable: true, write_multiple: true, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Timed Charge 1 Start (1)}]}
+  - {key: x.charge_end_1, label: Charge end time 1, table: input, address: 3162, type: str, length: 2, writable: true, write_multiple: true, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Timed Charge 1 End (1)}]}
+  - {key: x.discharge_start_1, label: Discharge start time 1, table: input, address: 3164, type: str, length: 2, writable: true, write_multiple: true, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Timed Discharge 1 Start (1)}]}
+  - {key: x.discharge_end_1, label: Discharge end time 1, table: input, address: 3166, type: str, length: 2, writable: true, write_multiple: true, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Timed Discharge 1 End (1)}]}
+  - {key: x.charge_start_2, label: Charge start time 2, table: input, address: 3168, type: str, length: 2, writable: true, write_multiple: true, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Timed Charge 2 Start (1)}]}
+  - {key: x.charge_end_2, label: Charge end time 2, table: input, address: 3170, type: str, length: 2, writable: true, write_multiple: true, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Timed Charge 2 End (1)}]}
+  - {key: x.discharge_start_2, label: Discharge start time 2, table: input, address: 3172, type: str, length: 2, writable: true, write_multiple: true, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Timed Discharge 2 Start (1)}]}
+  - {key: x.discharge_end_2, label: Discharge end time 2, table: input, address: 3174, type: str, length: 2, writable: true, write_multiple: true, poll: slow, conflicts: [{sources: [solarman], type: u16, label: Timed Discharge 2 End (1)}]}
+  - {key: x.timing_mode, label: Timing charge / discharge, table: input, address: 3176, type: u16, enum: timing_mode, poll: slow, note: Meaningful in peak-shift working mode.}
+  # Settings
+  - {key: x.pv_input_mode, label: PV input mode, table: input, address: 3179, type: u16, enum: pv_input_mode, writable: true, poll: slow}
+  - {key: x.pv_start_voltage, label: PV start voltage, table: input, address: 3180, type: u16, unit: V, scale: 0.1, models: [three_phase], writable: true, min: 200, max: 350, poll: slow, note: Default 350.0 V.}
+  - {key: x.anti_reflux_enable, label: Anti-reflux (export limit) enable, table: input, address: 3182, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.anti_reflux_value, label: Anti-reflux value, table: input, address: 3183, type: u16, writable: true, poll: slow, note: Unit not stated.}
+  - {key: x.backup_output_enable, label: BackUp output enable, table: input, address: 3184, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.remote_enable, label: Remote enable, table: input, address: 3185, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.remote_off_state, label: Remote off state, table: input, address: 3187, type: u16, enum: remote_off}
+  - {key: x.grid_standard, label: Grid standard, table: input, address: 3193, type: u16, enum: grid_standard, writable: true, poll: slow}
+  - {key: x.arm_error, label: ARM error code, table: input, address: 3194, type: u16, flags: arm_error}
+  - {key: x.reactive_power_setting, label: Reactive power setting, table: input, address: 3195, type: s16, unit: '%', writable: true, min: -60, max: 60, poll: slow}
+  - {key: x.reactive_power_control, label: Reactive power control, table: input, address: 3197, type: u16, enum: reactive_control, writable: true, poll: slow}
+  - {key: x.power_factor_setting, label: Power factor setting, table: input, address: 3199, type: s16, scale: 0.01, writable: true, poll: slow, note: 80 … 100 = leading 0.80 … 1 (reactive power negative); −80 … −100 = lagging (reactive power positive).}
+  - {key: x.active_power_setting, label: Active power setting, table: input, address: 3200, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, note: Maximum power limit.}
+  - {key: x.dsp_version, label: DSP version, table: input, address: 3227, type: u16, bits: [8, 15], scale: 0.1, poll: slow, note: 10 = V1.0.}
+  - {key: x.arm_version, label: ARM version, table: input, address: 3227, type: u16, bits: [0, 7], scale: 0.1, poll: slow, note: 10 = V1.0.}
+  - {key: serial, label: Inverter SN, table: input, address: 3228, type: str, length: 11, poll: slow}
+  - {key: x.clock, label: Inverter clock, table: input, address: 3239, type: datetime, length: 6, poll: slow, datetime: {year: {register: 0, bcd: true, offset: 2000}, month: {register: 1, bcd: true}, day: {register: 2, bcd: true}, hour: {register: 3, bcd: true}, minute: {register: 4, bcd: true}, second: {register: 5, bcd: true}}, note: 'Read as BCD, one field per register (0x20 = 2020); 3245 is the weekday. Set with function 16 at 3239–3245 as ASCII digit pairs (see notes).'}
+  - {key: x.generator_mode, label: Generator mode enable, table: input, address: 3251, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.ct_direction, label: CT direction, table: input, address: 3255, type: u16, enum: ct_direction, writable: true, poll: slow}
+  - {key: x.ac_couple, label: AC couple, table: input, address: 3259, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.grid_charge_max_soc, label: Charge from grid max SOC, table: input, address: 3260, type: u16, unit: '%', writable: true, min: 20, max: 100, poll: slow, note: Default 100.}
+  - {key: x.ct_or_meter, label: CT or meter, table: input, address: 3264, type: u16, enum: ct_or_meter, writable: true, poll: slow}
+  - {key: x.meter_brand, label: Meter brand, table: input, address: 3265, type: u16, enum: meter_brand, writable: true, poll: slow}
+  - {key: x.realtime_power_setting, label: Real-time inverter power setting, table: input, address: 3267, type: s16, unit: W, writable: true, persistent: false, verified: false, note: 'Range 0 … ± rated power; listed as U16, read as signed here. Which sign means what is not stated.'}
+  - {key: x.rs485_power_control, label: RS485 power control enable, table: input, address: 3270, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.realtime_charge_percent, label: Real-time charge percent, table: input, address: 3272, type: u16, unit: '%', writable: true, min: 0, max: 100, persistent: false, note: Default 100.}
+  - {key: x.realtime_discharge_percent, label: Real-time discharge percent, table: input, address: 3273, type: u16, unit: '%', writable: true, min: 0, max: 100, persistent: false, note: Default 100.}
+  - {key: x.self_consumption_charge_enable, label: Self-consumption charge enable, table: input, address: 3314, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.self_consumption_charge_start, label: Self-consumption charge start time, table: input, address: 3317, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15], bcd: true}, minute: {register: 0, bits: [0, 7], bcd: true}}, writable: true, poll: slow, note: '0x0730 = 7:30.'}
+  - {key: x.self_consumption_charge_end, label: Self-consumption charge end time, table: input, address: 3318, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15], bcd: true}, minute: {register: 0, bits: [0, 7], bcd: true}}, writable: true, poll: slow, note: '0x0730 = 7:30.'}
+  # Battery pack 1 (packs 2–8 follow every 44 registers, see notes)
+  - {key: x.pack1_warning, label: Pack 1 warning flags, table: input, address: 3442, type: u16, flags: pack_warning}
+  - {key: x.pack1_protection, label: Pack 1 protection flags, table: input, address: 3443, type: u16, flags: pack_protection}
+  - {key: x.pack1_status, label: Pack 1 status / fault flags, table: input, address: 3444, type: u16, flags: pack_status}
+  - {key: x.pack1_voltage, label: Pack 1 voltage, table: input, address: 3445, type: u16, unit: V, scale: 0.01}
+  - {key: x.pack1_current, label: Pack 1 current, table: input, address: 3446, type: s16, unit: A, scale: 0.01, verified: false, note: Signed; direction not stated.}
+  - {key: x.pack1_cycles, label: Pack 1 cycle count, table: input, address: 3448, type: u16, poll: slow}
+  - {key: x.pack1_soh, label: Pack 1 SOH, table: input, address: 3449, type: u16, unit: '%'}
+  - {key: x.pack1_soc, label: Pack 1 SOC, table: input, address: 3450, type: u16, unit: '%'}
+  - {key: x.pack1_online, label: Pack 1 online, table: input, address: 3452, type: u16, enum: pack_online}
+  - {key: x.pack1_max_cell_temperature, label: Pack 1 max cell temperature, table: input, address: 3461, type: s16, unit: °C, scale: 0.1}
+  - {key: x.pack1_min_cell_temperature, label: Pack 1 min cell temperature, table: input, address: 3462, type: s16, unit: °C, scale: 0.1}
+  - {key: x.pack1_max_cell_voltage, label: Pack 1 max cell voltage, table: input, address: 3470, type: u16, unit: V, scale: 0.01}
+  - {key: x.pack1_min_cell_voltage, label: Pack 1 min cell voltage, table: input, address: 3471, type: u16, unit: V, scale: 0.01}
+  # System information (holding registers, function 03)
+  - {key: x.model_name, label: Inverter model (text), table: holding, address: 3200, type: str, length: 8, poll: slow}
+  - {key: x.battery_name, label: Battery name, table: holding, address: 3208, type: str, length: 8, poll: slow}
+  - {key: firmware, label: ARM version number, table: holding, address: 3216, type: u16, bits: [8, 15], scale: 0.1, poll: slow, note: 10 = V1.0; the test version is in the low byte (full version V1.0.<test>).}
+  - {key: x.arm_test_version, label: ARM testing version number, table: holding, address: 3216, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.dsp_version_number, label: DSP version number, table: holding, address: 3217, type: u16, bits: [8, 15], scale: 0.1, poll: slow}
+  - {key: x.dsp_test_version, label: DSP testing version number, table: holding, address: 3217, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.dsp2_version_number, label: DSP2 version number, table: holding, address: 3218, type: u16, bits: [8, 15], scale: 0.1, models: [three_phase], poll: slow}
+  - {key: x.dsp2_test_version, label: DSP2 testing version number, table: holding, address: 3218, type: u16, bits: [0, 7], models: [three_phase], poll: slow}
+  - {key: x.arm_version_number, label: ARM Version Number, table: holding, address: 3216, type: u16, verified: false, sources: [solarman]}
+  - {key: x.dsp_version_number_3217, label: DSP Version Number, table: holding, address: 3217, type: u16, verified: false, sources: [solarman]}
+  - {key: x.battery_2, label: Battery 2, table: input, address: 3494, type: u16, unit: '%', verified: false, sources: [solarman]}
+  - {key: x.battery_3, label: Battery 3, table: input, address: 3538, type: u16, unit: '%', verified: false, sources: [solarman]}
+
+derived:
+  - {key: load_power, label: Load power, unit: W, sum: [{key: x.load_l1_power}, {key: x.load_l2_power}, {key: x.load_l3_power}], note: S and T phase only on three-phase models; they count as 0 on single-phase models.}
+  - {key: pv_power, label: PV power, unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}]}
+  - {key: x.power, label: Power, unit: W, sum: [{key: x.inv_l1_power}, {key: x.inv_l2_power}, {key: x.inv_l3_power}], verified: false, sources: [solarman]}
+  - {key: x.load_ups_power, label: Load UPS Power, unit: W, sum: [{key: x.backup_l1_power}, {key: x.backup_l2_power}, {key: x.backup_l3_power}], verified: false, sources: [solarman]}
+
+enums:
+  off_on: {'0': Disabled, '1': Enabled}
+  working_mode: {'0': Self consumption, '1': Peak shift, '2': Battery priority}
+  inverter_model: {'0': KSE-2K-048S, '1': KSE-3K-048S, '2': KSE-3.6K-048S, '3': KSE-4.6K-048S, '4': KSE-5K-048S, '5': KSE-3.6K-048, '6': KSE-4.6K-048, '7': KSE-5K-048, '8': KSE-6K-048, '9': BluE-S 3680D, '11': BluE-S 5000D, '12': BluE-S 6000D, '14': KSE-3K-048S M1, '15': BluE-S 3680D M1, '17': BluE-S 5000D M1, '18': BluE-S 6000D M1, '32': E10KT, '33': E8KT, '34': E12KT}
+  sys_state: {'0': Initialising, '1': Standby, '2': Hybrid grid, '3': Off-grid, '4': Mains charging, '5': PV charging, '6': Mains bypass, '7': Fault, '8': Debug, '9': Forced charge, '10': Powered on separately, '11': DSP firmware update, '12': MCU firmware update, '13': Permanent error}
+  inv_state: {'0': Standby, '1': Off-grid, '2': On-grid, '3': Off-grid to on-grid, '4': On-grid to off-grid}
+  dcdc_state: {'0': Standby, '1': Soft start, '2': Charging, '3': Discharging}
+  battery_type: {'1': Lead-acid, '6': LFP}
+  force_mode: {'0': 'Off', '1': Charge, '2': Discharge}
+  timing_mode: {'0': Untimed charge / discharge, '1': Timed discharge, '2': Timed charge}
+  pv_input_mode: {'0': Independent inputs, '1': Parallel inputs, '2': Constant voltage}
+  remote_off: {'0': Normal, '1': Remote off}
+  reactive_control: {'0': Power factor, '1': Reactive power, '2': Q(U) curve, '3': Q(P) curve}
+  ct_direction: {'0': Positive, '1': Negative}
+  ct_or_meter: {'0': CT, '1': Meter}
+  meter_brand: {'0': Acrel, '1': Eastron 3-phase, '2': Rayleigh, '3': YaDa, '4': Eastron 1-phase}
+  pack_online: {'0': Offline, '1': Online}
+  grid_standard: {'0': China, '1': Germany, '2': Australia, '3': Italy, '4': Spain, '5': UK, '6': Hungary, '7': Belgium, '8': West Australia, '9': Greece, '10': France, '11': Bangkok, '12': Thailand, '13': South Africa, '14': EN50549, '15': Brazil, '16': VDE0126, '17': Ireland, '18': Israel, '19': Poland, '20': Chile, '21': Local, '22': 60 Hz, '23': Denmark, '24': Sweden, '25': Austria, '26': Czech}
+
+flags:
+  dsp_alarm: {'0': W00 Grid voltage low, '1': W01 Grid voltage high, '2': W02 Grid frequency low, '3': W03 Grid frequency high, '4': W04 PV not connected, '5': W05 Battery not connected, '6': W06 Battery undervoltage, '7': W07 Battery voltage low, '8': W08 Battery voltage high, '9': W09 Overload, '10': W10 Leakage current (GFCI) high, '11': W11 L / N reversed, '12': W12 Fan fault, '13': 'W13 Battery capacity low, shut down', '14': W14 BMS discharge overcurrent, '15': W15 BMS charge overcurrent, '16': W16 BMS total voltage high, '17': W17 BMS overtemperature, '18': W18 BMS discharge temperature low, '19': W19 BMS cell imbalance, '20': W20 BMS communication fault, '21': W21 BMS battery undervoltage, '22': W22 BMS charge low-temperature protection, '23': W23 BMS battery slightly overvoltage, '24': W24 BMS battery slightly overtemperature, '25': W25 BMS firmware updating, '26': W26 BMS firmware versions differ, '27': W27 BMS firmware update failed, '28': W28 CT reversed, '29': W29 Clock fault, '30': W30 PV off, '31': W31 System reset}
+  dsp_error: {'0': F00 Soft-start timeout, '1': F01 Inverter output short circuit, '2': F02 GFCI sensor fault, '4': F04 Bus voltage low, '5': F05 Bus voltage high, '6': F06 Bus short circuit, '7': F07 PV insulation resistance low, '8': F08 PV input short circuit, '9': F09 Bypass relay fault, '10': F10 Inverter overcurrent, '11': F11 DC component high, '12': F12 Enclosure overtemperature, '13': F13 Heat sink overtemperature, '14': F14 Grid relay fault, '15': F15 Battery discharge overcurrent, '16': F16 Battery charge overcurrent, '17': F17 Current sensor fault, '18': F18 Inverter output abnormal, '19': F19 Backup (EPS) relay fault, '20': F20 Persistent overload, '21': F21 SPI communication fault between DSPs, '22': F22 Parallel communication fault, '23': F23 Parallel mains abnormal, '24': F24 Backup breaker abnormal, '25': F25 Parallel power imbalance, '26': F26 Parallel grid phase sequence abnormal, '31': F31 Master / slave communication fault}
+  arm_error: {'0': F32 Communication with the DSP failed}
+  pack_warning: {'0': Cell overvoltage, '1': Cell undervoltage, '2': Pack overvoltage, '3': Pack undervoltage, '4': Charge overcurrent, '5': Discharge overcurrent, '8': Charge high temperature (cells), '9': Discharge high temperature (cells), '10': Charge low temperature (cells), '11': Discharge low temperature (cells), '12': Ambient temperature high, '13': Ambient temperature low, '14': MOSFET high temperature, '15': SOC low}
+  pack_protection: {'0': Cell overvoltage, '1': Cell undervoltage, '2': Pack overvoltage, '3': Pack undervoltage, '4': Charge overcurrent, '5': Discharge overcurrent, '6': Short circuit, '7': Charge overvoltage, '8': Charge high temperature (cells), '9': Discharge high temperature (cells), '10': Charge low temperature (cells), '11': Discharge low temperature (cells), '12': MOSFET high temperature, '13': Ambient temperature high, '14': Ambient temperature low}
+  pack_status: {'0': Charge MOSFET fault, '1': Discharge MOSFET fault, '2': Temperature sensor fault, '3': Cell sampling fault, '4': Cell fault, '5': Front-end sampling communication fault, '6': Heater MOSFET fault, '7': Pack shut down by the inverter, '8': Charging, '9': Discharging, '10': Charge MOSFET on, '11': Discharge MOSFET on, '12': Discharge limit on, '13': Circuit breaker closed, '14': Reverse charging, '15': Heater on}
+
+problems:
+  - {when: {key: state, equals: 7}, kind: fault, text: Inverter fault (system state 7)}
+  - {when: {key: state, equals: 13}, kind: fault, text: Inverter permanent error (system state 13)}
+  - {when: {key: x.inv_state, equals: 1}, kind: backup_mode, text: Inverter running off-grid}
+  - {when: {key: x.arm_error, bit: 0}, kind: fault, text: 'F32: communication with the DSP failed'}
+  - {when: {key: x.dsp_alarm, bit: 0}, kind: warning, text: W00 Grid voltage low}
+  - {when: {key: x.dsp_alarm, bit: 1}, kind: warning, text: W01 Grid voltage high}
+  - {when: {key: x.dsp_alarm, bit: 2}, kind: warning, text: W02 Grid frequency low}
+  - {when: {key: x.dsp_alarm, bit: 3}, kind: warning, text: W03 Grid frequency high}
+  - {when: {key: x.dsp_alarm, bit: 5}, kind: warning, text: W05 Battery not connected}
+  - {when: {key: x.dsp_alarm, bit: 6}, kind: warning, text: W06 Battery undervoltage}
+  - {when: {key: x.dsp_alarm, bit: 7}, kind: warning, text: W07 Battery voltage low}
+  - {when: {key: x.dsp_alarm, bit: 8}, kind: warning, text: W08 Battery voltage high}
+  - {when: {key: x.dsp_alarm, bit: 9}, kind: warning, text: W09 Overload}
+  - {when: {key: x.dsp_alarm, bit: 10}, kind: warning, text: W10 Leakage current (GFCI) high}
+  - {when: {key: x.dsp_alarm, bit: 11}, kind: warning, text: W11 L / N reversed}
+  - {when: {key: x.dsp_alarm, bit: 12}, kind: warning, text: W12 Fan fault}
+  - {when: {key: x.dsp_alarm, bit: 13}, kind: warning, text: 'W13 Battery capacity low, shut down'}
+  - {when: {key: x.dsp_alarm, bit: 14}, kind: warning, text: W14 BMS discharge overcurrent}
+  - {when: {key: x.dsp_alarm, bit: 15}, kind: warning, text: W15 BMS charge overcurrent}
+  - {when: {key: x.dsp_alarm, bit: 16}, kind: warning, text: W16 BMS total voltage high}
+  - {when: {key: x.dsp_alarm, bit: 17}, kind: warning, text: W17 BMS overtemperature}
+  - {when: {key: x.dsp_alarm, bit: 18}, kind: warning, text: W18 BMS discharge temperature low}
+  - {when: {key: x.dsp_alarm, bit: 19}, kind: warning, text: W19 BMS cell imbalance}
+  - {when: {key: x.dsp_alarm, bit: 20}, kind: warning, text: W20 BMS communication fault}
+  - {when: {key: x.dsp_alarm, bit: 21}, kind: warning, text: W21 BMS battery undervoltage}
+  - {when: {key: x.dsp_alarm, bit: 22}, kind: warning, text: W22 BMS charge low-temperature protection}
+  - {when: {key: x.dsp_alarm, bit: 23}, kind: warning, text: W23 BMS battery slightly overvoltage}
+  - {when: {key: x.dsp_alarm, bit: 24}, kind: warning, text: W24 BMS battery slightly overtemperature}
+  - {when: {key: x.dsp_alarm, bit: 25}, kind: warning, text: W25 BMS firmware updating}
+  - {when: {key: x.dsp_alarm, bit: 26}, kind: warning, text: W26 BMS firmware versions differ}
+  - {when: {key: x.dsp_alarm, bit: 27}, kind: warning, text: W27 BMS firmware update failed}
+  - {when: {key: x.dsp_alarm, bit: 28}, kind: warning, text: W28 CT reversed}
+  - {when: {key: x.dsp_alarm, bit: 29}, kind: warning, text: W29 Clock fault}
+  - {when: {key: x.dsp_alarm, bit: 31}, kind: warning, text: W31 System reset}
+  - {when: {key: x.dsp_error, bit: 0}, kind: fault, text: F00 Soft-start timeout}
+  - {when: {key: x.dsp_error, bit: 1}, kind: fault, text: F01 Inverter output short circuit}
+  - {when: {key: x.dsp_error, bit: 2}, kind: fault, text: F02 GFCI sensor fault}
+  - {when: {key: x.dsp_error, bit: 4}, kind: fault, text: F04 Bus voltage low}
+  - {when: {key: x.dsp_error, bit: 5}, kind: fault, text: F05 Bus voltage high}
+  - {when: {key: x.dsp_error, bit: 6}, kind: fault, text: F06 Bus short circuit}
+  - {when: {key: x.dsp_error, bit: 7}, kind: fault, text: F07 PV insulation resistance low}
+  - {when: {key: x.dsp_error, bit: 8}, kind: fault, text: F08 PV input short circuit}
+  - {when: {key: x.dsp_error, bit: 9}, kind: fault, text: F09 Bypass relay fault}
+  - {when: {key: x.dsp_error, bit: 10}, kind: fault, text: F10 Inverter overcurrent}
+  - {when: {key: x.dsp_error, bit: 11}, kind: fault, text: F11 DC component high}
+  - {when: {key: x.dsp_error, bit: 12}, kind: fault, text: F12 Enclosure overtemperature}
+  - {when: {key: x.dsp_error, bit: 13}, kind: fault, text: F13 Heat sink overtemperature}
+  - {when: {key: x.dsp_error, bit: 14}, kind: fault, text: F14 Grid relay fault}
+  - {when: {key: x.dsp_error, bit: 15}, kind: fault, text: F15 Battery discharge overcurrent}
+  - {when: {key: x.dsp_error, bit: 16}, kind: fault, text: F16 Battery charge overcurrent}
+  - {when: {key: x.dsp_error, bit: 17}, kind: fault, text: F17 Current sensor fault}
+  - {when: {key: x.dsp_error, bit: 18}, kind: fault, text: F18 Inverter output abnormal}
+  - {when: {key: x.dsp_error, bit: 19}, kind: fault, text: F19 Backup (EPS) relay fault}
+  - {when: {key: x.dsp_error, bit: 20}, kind: fault, text: F20 Persistent overload}
+  - {when: {key: x.dsp_error, bit: 21}, kind: fault, text: F21 SPI communication fault between DSPs}
+  - {when: {key: x.dsp_error, bit: 22}, kind: fault, text: F22 Parallel communication fault}
+  - {when: {key: x.dsp_error, bit: 23}, kind: fault, text: F23 Parallel mains abnormal}
+  - {when: {key: x.dsp_error, bit: 24}, kind: fault, text: F24 Backup breaker abnormal}
+  - {when: {key: x.dsp_error, bit: 25}, kind: fault, text: F25 Parallel power imbalance}
+  - {when: {key: x.dsp_error, bit: 26}, kind: fault, text: F26 Parallel grid phase sequence abnormal}
+  - {when: {key: x.dsp_error, bit: 31}, kind: fault, text: F31 Master / slave communication fault}
+  - {when: {key: x.pack1_protection, bit: 0}, kind: warning, text: 'Battery pack 1 protection: Cell overvoltage'}
+  - {when: {key: x.pack1_protection, bit: 1}, kind: warning, text: 'Battery pack 1 protection: Cell undervoltage'}
+  - {when: {key: x.pack1_protection, bit: 2}, kind: warning, text: 'Battery pack 1 protection: Pack overvoltage'}
+  - {when: {key: x.pack1_protection, bit: 3}, kind: warning, text: 'Battery pack 1 protection: Pack undervoltage'}
+  - {when: {key: x.pack1_protection, bit: 4}, kind: warning, text: 'Battery pack 1 protection: Charge overcurrent'}
+  - {when: {key: x.pack1_protection, bit: 5}, kind: warning, text: 'Battery pack 1 protection: Discharge overcurrent'}
+  - {when: {key: x.pack1_protection, bit: 6}, kind: warning, text: 'Battery pack 1 protection: Short circuit'}
+  - {when: {key: x.pack1_protection, bit: 7}, kind: warning, text: 'Battery pack 1 protection: Charge overvoltage'}
+  - {when: {key: x.pack1_protection, bit: 8}, kind: warning, text: 'Battery pack 1 protection: Charge high temperature (cells)'}
+  - {when: {key: x.pack1_protection, bit: 9}, kind: warning, text: 'Battery pack 1 protection: Discharge high temperature (cells)'}
+  - {when: {key: x.pack1_protection, bit: 10}, kind: warning, text: 'Battery pack 1 protection: Charge low temperature (cells)'}
+  - {when: {key: x.pack1_protection, bit: 11}, kind: warning, text: 'Battery pack 1 protection: Discharge low temperature (cells)'}
+  - {when: {key: x.pack1_protection, bit: 12}, kind: warning, text: 'Battery pack 1 protection: MOSFET high temperature'}
+  - {when: {key: x.pack1_protection, bit: 13}, kind: warning, text: 'Battery pack 1 protection: Ambient temperature high'}
+  - {when: {key: x.pack1_protection, bit: 14}, kind: warning, text: 'Battery pack 1 protection: Ambient temperature low'}
+  - {when: {key: x.pack1_status, bit: 0}, kind: fault, text: 'Battery pack 1: Charge MOSFET fault'}
+  - {when: {key: x.pack1_status, bit: 1}, kind: fault, text: 'Battery pack 1: Discharge MOSFET fault'}
+  - {when: {key: x.pack1_status, bit: 2}, kind: fault, text: 'Battery pack 1: Temperature sensor fault'}
+  - {when: {key: x.pack1_status, bit: 3}, kind: fault, text: 'Battery pack 1: Cell sampling fault'}
+  - {when: {key: x.pack1_status, bit: 4}, kind: fault, text: 'Battery pack 1: Cell fault'}
+  - {when: {key: x.pack1_status, bit: 5}, kind: fault, text: 'Battery pack 1: Front-end sampling communication fault'}
+  - {when: {key: x.pack1_status, bit: 6}, kind: fault, text: 'Battery pack 1: Heater MOSFET fault'}
+
+notes:
+- 'Modbus RTU on RS485: 9600 baud by default (2400 / 4800 optional), 8N1; slave addresses up to 32, 0 = broadcast. Function
+  codes 03, 04, 06 and 16. Values are big-endian; 32-bit values high word first.'
+- Register addresses are the protocol addresses as the document gives them (its examples send 3000 as 0x0BB8).
+- Most live values and settings are input registers (function 04). Registers the document marks 04H/06H are read with function
+  04 and written with function 06 at the same address; they are marked writable here. The model name, battery name and version
+  numbers (3200–3218) are holding registers (function 03).
+- Points marked for three-phase models (S / T phase, PV and LLC temperature, DSP2 version, PV start voltage) are only available
+  on E8KT / E10KT / E12KT (model codes 0x20 and up in 3045).
+- The document doesn't give the sign of the battery, meter, inverter and real-time power values or of the battery currents;
+  they are left as device-specific values. DCDC_STATE (3048) says whether the battery charges or discharges.
+- Time-of-use windows 1 and 2 (3160–3175, ASCII "HHMM" per window time) are written with function 16, each block in one request;
+  windows 3–5 are at 4050–4073 (same layout, left out). The clock is written with function 16 at 3239–3245 in one request,
+  as ASCII digit pairs (year, month, day, hour, minute, second, weekday).
+- 'Commands (function 06, any value, holding registers): 3240 clear statistics, 3241 remote shutdown, 3242 cancel remote shutdown,
+  3243 restart the inverter.'
+- 'Battery packs: pack n starts at 3441 + 44 × (n − 1) (pack 1 at 3441, pack 8 at 3749). Each block: address, warning / protection
+  / status flags, voltage (0.01 V), current (0.01 A, signed), balance status, cycle count, SOH, SOC, over-temperature time,
+  online, design / residual / full capacity (×100 mAh), discharged / charged energy (kWh), heating request, cell / MOSFET
+  / ambient temperatures (avg, max, min; 0.1 °C), cell voltages (avg, max, min; 0.01 V), BMS version (ASCII, 3 registers).
+  Only pack 1''s main values are listed here.'
+- 'Left out: calibration factors, grid-code trip and curve settings (3201–3216, 3326–3439, three-phase only), heat pump, demand
+  control and peak shaving settings (3900–3913), fan / ATE / aging test registers, CSA nameplate ratings (3950–3983), and
+  registers the document reserves or marks for KSTAR''s own use.'
+- 'PV not connected (W04) and PV off (W30) aren''t reported as problems: they are normal at night. During system initialisation
+  (state 0) the data is not valid.'
+- 'Left out: DSP Alarm Code (1) (input 3050, u16) from solarman overlaps x.dsp_alarm from the documents.'
+- 'Left out: DSP Error Code (1) (input 3052, u16) from solarman overlaps x.dsp_error from the documents.'
+- 'Left out: Timed Charge 1 Start (2) (input 3161, u16) from solarman overlaps x.charge_start_1 from the documents.'
+- 'Left out: Timed Charge 1 End (2) (input 3163, u16) from solarman overlaps x.charge_end_1 from the documents.'
+- 'Left out: Timed Discharge 1 Start (2) (input 3165, u16) from solarman overlaps x.discharge_start_1 from the documents.'
+- 'Left out: Timed Discharge 1 End (2) (input 3167, u16) from solarman overlaps x.discharge_end_1 from the documents.'
+- 'Left out: Timed Charge 2 Start (2) (input 3169, u16) from solarman overlaps x.charge_start_2 from the documents.'
+- 'Left out: Timed Charge 2 End (2) (input 3171, u16) from solarman overlaps x.charge_end_2 from the documents.'
+- 'Left out: Timed Discharge 2 Start (2) (input 3173, u16) from solarman overlaps x.discharge_start_2 from the documents.'
+- 'Left out: Timed Discharge 2 End (2) (input 3175, u16) from solarman overlaps x.discharge_end_2 from the documents.'
+- The project reaches the device through a Solarman Wi-Fi / LAN data logger (its own V5 protocol on TCP 8899) or over plain
+  Modbus TCP / RTU; the register map is the same.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,132 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: shelly-em
+manufacturer: Shelly
+name: Pro EM / EM Gen3 / EM Gen4 energy meters
+kind: meter
+
+sources:
+- id: shelly-modbus-home-assistant
+  title: shelly-modbus-home-assistant (Home Assistant integration)
+  url: https://github.com/sphings79/shelly-modbus-home-assistant
+  license: MIT
+  commit: 48005d1f19c8c56451ec258132c23002d85f5f73
+  path: custom_components/shelly_modbus/registers/components.yaml, custom_components/shelly_modbus/registers/models.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 0
+    type: str
+    length: 6
+    byte_order: little
+  any:
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: PSME0-20ECEB5U
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 4SME0-10XPEC1U
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 4SME0-10XCEC6U
+  - table: input
+    address: 6
+    type: str
+    length: 10
+    prefix: 3SME0-20XCEC
+
+defaults:
+  verified: false
+  sources:
+  - shelly-modbus-home-assistant
+
+models:
+  - {id: spem_002cebeu50, name: Shelly Pro EM 50 (SPEM-002CEBEU50), match: {table: input, address: 6, type: str, length: 10, prefix: PSME0-20ECEB5U}}
+  - {id: s4em_001pxceu16, name: Shelly EM Mini Gen4 (S4EM-001PXCEU16), match: {table: input, address: 6, type: str, length: 10, prefix: 4SME0-10XPEC1U}}
+  - {id: s4em_001cxceu63, name: Shelly EM 63 Gen4 (S4EM-001CXCEU63), match: {table: input, address: 6, type: str, length: 10, prefix: 4SME0-10XCEC6U}}
+  - {id: s3em_002cxceu, name: Shelly EM Gen3 (S3EM-002CXCEU), match: {table: input, address: 6, type: str, length: 10, prefix: 3SME0-20XCEC}}
+
+points:
+  - {key: x.switch_100_output_coil, label: Switch 101 Output control, table: coil, address: 1100, type: bool, models: [spem_002cebeu50], writable: true, note: 'Writing 1 switches the relay on, 0 off; the project reads the state from input register 5000.'}
+  - {key: x.mac, label: MAC Address, table: input, address: 0, type: str, length: 6, byte_order: little}
+  - {key: x.model, label: Model, table: input, address: 6, type: str, length: 10, byte_order: little}
+  - {key: x.device_name, label: Device Name, table: input, address: 16, type: str, length: 32, byte_order: little}
+  - {key: x.em1_0_timestamp, label: Channel 1 Last Update, table: input, address: 2000, type: u32}
+  - {key: x.em1_0_error, label: Channel 1 Meter Error, table: input, address: 2002, type: u16, enum: boolean}
+  - {key: x.em1_0_voltage, label: Channel 1 Voltage, table: input, address: 2003, type: f32, unit: V}
+  - {key: x.em1_0_current, label: Channel 1 Current, table: input, address: 2005, type: f32, unit: A}
+  - {key: x.em1_0_act_power, label: Channel 1 Active Power, table: input, address: 2007, type: f32, unit: W, note: Signed; the project treats positive as drawn from the grid when the channels meter the grid.}
+  - {key: x.em1_0_aprt_power, label: Channel 1 Apparent Power, table: input, address: 2009, type: f32, unit: VA}
+  - {key: x.em1_0_pf, label: Channel 1 Power Factor, table: input, address: 2011, type: f32}
+  - {key: x.em1_0_overpower_error, label: Channel 1 Overpower, table: input, address: 2013, type: u16, enum: boolean}
+  - {key: x.em1_0_overvoltage_error, label: Channel 1 Overvoltage, table: input, address: 2014, type: u16, enum: boolean}
+  - {key: x.em1_0_overcurrent_error, label: Channel 1 Overcurrent, table: input, address: 2015, type: u16, enum: boolean}
+  - {key: x.em1_0_freq, label: Channel 1 Frequency, table: input, address: 2016, type: f32, unit: Hz}
+  - {key: x.em1_1_timestamp, label: Channel 2 Last Update, table: input, address: 2020, type: u32, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1_1_error, label: Channel 2 Meter Error, table: input, address: 2022, type: u16, enum: boolean, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1_1_voltage, label: Channel 2 Voltage, table: input, address: 2023, type: f32, unit: V, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1_1_current, label: Channel 2 Current, table: input, address: 2025, type: f32, unit: A, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1_1_act_power, label: Channel 2 Active Power, table: input, address: 2027, type: f32, unit: W, models: [spem_002cebeu50, s3em_002cxceu], note: Signed; the project treats positive as drawn from the grid when the channels meter the grid.}
+  - {key: x.em1_1_aprt_power, label: Channel 2 Apparent Power, table: input, address: 2029, type: f32, unit: VA, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1_1_pf, label: Channel 2 Power Factor, table: input, address: 2031, type: f32, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1_1_overpower_error, label: Channel 2 Overpower, table: input, address: 2033, type: u16, enum: boolean, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1_1_overvoltage_error, label: Channel 2 Overvoltage, table: input, address: 2034, type: u16, enum: boolean, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1_1_overcurrent_error, label: Channel 2 Overcurrent, table: input, address: 2035, type: u16, enum: boolean, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1_1_freq, label: Channel 2 Frequency, table: input, address: 2036, type: f32, unit: Hz, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1data_0_timestamp, label: Channel 1 Energy Last Update, table: input, address: 2300, type: u32}
+  - {key: x.em1data_0_total_act_energy_period, label: Channel 1 Active Energy (Period), table: input, address: 2302, type: f32, unit: kWh, scale: 0.001}
+  - {key: x.em1data_0_total_act_ret_energy_period, label: Channel 1 Active Returned Energy (Period), table: input, address: 2304, type: f32, unit: kWh, scale: 0.001}
+  - {key: x.em1data_0_lagging_react_energy, label: Channel 1 Lagging Reactive Energy, table: input, address: 2306, type: f32, unit: varh}
+  - {key: x.em1data_0_leading_react_energy, label: Channel 1 Leading Reactive Energy, table: input, address: 2308, type: f32, unit: varh}
+  - {key: x.em1data_0_total_act_energy, label: Channel 1 Active Energy, table: input, address: 2310, type: f32, unit: kWh, scale: 0.001}
+  - {key: x.em1data_0_total_act_ret_energy, label: Channel 1 Active Returned Energy, table: input, address: 2312, type: f32, unit: kWh, scale: 0.001}
+  - {key: x.em1data_1_timestamp, label: Channel 2 Energy Last Update, table: input, address: 2320, type: u32, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1data_1_total_act_energy_period, label: Channel 2 Active Energy (Period), table: input, address: 2322, type: f32, unit: kWh, scale: 0.001, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1data_1_total_act_ret_energy_period, label: Channel 2 Active Returned Energy (Period), table: input, address: 2324, type: f32, unit: kWh, scale: 0.001, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1data_1_lagging_react_energy, label: Channel 2 Lagging Reactive Energy, table: input, address: 2326, type: f32, unit: varh, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1data_1_leading_react_energy, label: Channel 2 Leading Reactive Energy, table: input, address: 2328, type: f32, unit: varh, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1data_1_total_act_energy, label: Channel 2 Active Energy, table: input, address: 2330, type: f32, unit: kWh, scale: 0.001, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.em1data_1_total_act_ret_energy, label: Channel 2 Active Returned Energy, table: input, address: 2332, type: f32, unit: kWh, scale: 0.001, models: [spem_002cebeu50, s3em_002cxceu]}
+  - {key: x.switch_100_output, label: Switch 101 Output, table: input, address: 5000, type: u16, enum: boolean, models: [spem_002cebeu50], note: 'Relay state (0 = off, 1 = on); the relay is switched through coil 1100.'}
+  - {key: x.switch_100_voltage, label: Switch 101 Voltage, table: input, address: 5001, type: f32, unit: V, models: [spem_002cebeu50]}
+  - {key: x.switch_100_current, label: Switch 101 Current, table: input, address: 5003, type: f32, unit: A, models: [spem_002cebeu50]}
+  - {key: x.switch_100_act_power, label: Switch 101 Active Power, table: input, address: 5005, type: f32, unit: W, models: [spem_002cebeu50], note: Signed; the project treats positive as drawn from the grid when the channels meter the grid.}
+  - {key: x.switch_100_freq, label: Switch 101 Frequency, table: input, address: 5007, type: f32, unit: Hz, models: [spem_002cebeu50]}
+  - {key: x.switch_100_pf, label: Switch 101 Power Factor, table: input, address: 5009, type: f32, models: [spem_002cebeu50]}
+  - {key: x.switch_100_act_energy, label: Switch 101 Active Energy, table: input, address: 5011, type: f32, unit: kWh, scale: 0.001, models: [spem_002cebeu50]}
+  - {key: x.switch_100_act_ret_energy, label: Switch 101 Active Returned Energy, table: input, address: 5013, type: f32, unit: kWh, scale: 0.001, models: [spem_002cebeu50]}
+  - {key: x.switch_100_undervoltage_error, label: Switch 101 Undervoltage, table: input, address: 5015, type: u16, enum: boolean, models: [spem_002cebeu50]}
+  - {key: x.switch_100_overvoltage_error, label: Switch 101 Overvoltage, table: input, address: 5016, type: u16, enum: boolean, models: [spem_002cebeu50]}
+  - {key: x.switch_100_overcurrent_error, label: Switch 101 Overcurrent, table: input, address: 5017, type: u16, enum: boolean, models: [spem_002cebeu50]}
+  - {key: x.switch_100_overpower_error, label: Switch 101 Overpower, table: input, address: 5018, type: u16, enum: boolean, models: [spem_002cebeu50]}
+
+enums:
+  boolean: {'0': 'No', '1': 'Yes'}
+
+notes:
+- Values are input registers (function 04); holding registers aren't implemented. Relay outputs are switched through coils
+  (function 05), physical inputs are discrete inputs (function 02).
+- 32-bit values have the low word first. Strings (MAC, model, name) have the two bytes of each register swapped (byte order
+  little); the model match strings are written in that swapped form.
+- The unit id is ignored by the device.
+- Identification as shelly-modbus-home-assistant recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

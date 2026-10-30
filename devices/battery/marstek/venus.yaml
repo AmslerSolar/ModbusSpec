@@ -1,0 +1,487 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: marstek-venus
+manufacturer: Marstek
+name: Venus A
+kind: battery
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/marstek-venus-a.yaml, templates/definition/meter/marstek-venus-e.yaml
+- id: marstek-modbus-suite
+  title: marstek-modbus-suite (Home Assistant integration)
+  url: https://github.com/sphings79/marstek-modbus-suite
+  license: MIT
+  commit: 1bbd2182879b8835000732e04f5f0f53333aa31e
+  path: custom_components/marstek_modbus/registers/a.yaml, custom_components/marstek_modbus/registers/d.yaml, custom_components/marstek_modbus/registers/e_v3.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 115200
+    format: 8N1
+
+encoding:
+  word_order: big
+
+identify:
+  any:
+  - table: holding
+    address: 31000
+    type: str
+    length: 10
+    prefix: VNSA-
+  - table: holding
+    address: 31000
+    type: str
+    length: 10
+    prefix: VNSD-
+  - table: holding
+    address: 31000
+    type: str
+    length: 10
+    prefix: VNSE3-
+
+defaults:
+  verified: false
+  sources:
+  - marstek-modbus-suite
+
+models:
+  - {id: venus_a, name: Venus A, match: {table: holding, address: 31000, type: str, length: 10, prefix: VNSA-}}
+  - {id: venus_d, name: Venus D, match: {table: holding, address: 31000, type: str, length: 10, prefix: VNSD-}}
+  - {id: venus_e3, name: Venus E v3, match: {table: holding, address: 31000, type: str, length: 10, prefix: VNSE3-}}
+
+points:
+  - {key: x.inverter_dc_voltage, label: Inverter DC Voltage, table: holding, address: 30000, type: u16, unit: V, scale: 0.1, models: [venus_e3]}
+  - {key: x.dc_sample_power, label: DC Sample Power, table: holding, address: 30001, type: s16, unit: W, models: [venus_a, venus_d], note: 'One DC measuring point that carries the battery and the PV inputs together; power flowing towards the AC side is negative (battery power: see derived).'}
+  - {key: battery_power, label: Battery Power, table: holding, address: 30001, type: s16, unit: W, positive: charge, models: [venus_e3]}
+  - {key: x.battery_power_1, label: Battery power (part 1), table: holding, address: 30006, type: s16, unit: W, sources: [evcc, marstek-modbus-suite]}
+  - {key: x.work_mode, label: Work Mode, table: holding, address: 30010, type: u16, enum: work_mode, models: [venus_a, venus_d]}
+  - {key: x.mppt1_voltage, label: MPPT1 Voltage, table: holding, address: 30020, type: u16, unit: V, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.mppt2_voltage, label: MPPT2 Voltage, table: holding, address: 30021, type: u16, unit: V, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.mppt3_voltage, label: MPPT3 Voltage, table: holding, address: 30022, type: u16, unit: V, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.mppt4_voltage, label: MPPT4 Voltage, table: holding, address: 30023, type: u16, unit: V, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.mppt1_current, label: MPPT1 Current, table: holding, address: 30024, type: u16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.mppt2_current, label: MPPT2 Current, table: holding, address: 30025, type: u16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.mppt3_current, label: MPPT3 Current, table: holding, address: 30026, type: u16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.mppt4_current, label: MPPT4 Current, table: holding, address: 30027, type: u16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.pv_power_1, label: PV power (part 1), table: holding, address: 30037, type: u16, unit: W, scale: 0.1, note: 'evcc reads it for the usages pv, battery. evcc negates it for the battery power.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.pv_power_2, label: PV power (part 2), table: holding, address: 30038, type: u16, unit: W, scale: 0.1, note: 'evcc reads it for the usages pv, battery. evcc negates it for the battery power.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.pv_power_3, label: PV power (part 3), table: holding, address: 30039, type: u16, unit: W, scale: 0.1, note: 'evcc reads it for the usages pv, battery. evcc negates it for the battery power.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.pv_power_4, label: PV power (part 4), table: holding, address: 30040, type: u16, unit: W, scale: 0.1, note: 'evcc reads it for the usages pv, battery. evcc negates it for the battery power.', sources: [evcc, marstek-modbus-suite]}
+  - {key: battery_voltage, label: Battery Voltage, table: holding, address: 30100, type: u16, unit: V, scale: 0.01, models: [venus_e3]}
+  - {key: x.battery_current, label: Battery Current, table: holding, address: 30101, type: s16, unit: A, scale: 0.1, models: [venus_e3]}
+  - {key: x.ems_version, label: EMS Version, table: holding, address: 30200, type: u16}
+  - {key: x.ems_boot_version, label: EMS Bootloader Version, table: holding, address: 30201, type: u16}
+  - {key: x.vns_version, label: VNS Version, table: holding, address: 30202, type: u16}
+  - {key: x.vns_boot_version, label: VNS Bootloader Version, table: holding, address: 30203, type: u16}
+  - {key: x.bms_version, label: BMS Version, table: holding, address: 30204, type: u16, models: [venus_e3]}
+  - {key: x.mppt_version, label: MPPT Version, table: holding, address: 30205, type: u16, models: [venus_d]}
+  - {key: x.selftest_status, label: Self-Test Status, table: holding, address: 30212, type: u16, enum: selftest_status}
+  - {key: x.wifi_status, label: WiFi Status, table: holding, address: 30300, type: u16}
+  - {key: x.bluetooth_status, label: Bluetooth Status, table: holding, address: 30301, type: u16, enum: bluetooth_status}
+  - {key: x.cloud_status, label: Cloud Status, table: holding, address: 30302, type: u16}
+  - {key: x.wifi_signal_strength, label: WiFi Signal Strength, table: holding, address: 30303, type: u16, unit: dBm, scale: -1}
+  - {key: x.ble_mac_address, label: Bluetooth MAC, table: holding, address: 30304, type: str, length: 6, note: MAC address as ASCII text (12 hex digits).}
+  - {key: x.comm_module_firmware, label: Communication Module Firmware, table: holding, address: 30350, type: str, length: 6}
+  - {key: x.device_ip_address, label: IP Address, table: holding, address: 30400, type: u32, models: [venus_a, venus_d], note: 'IPv4 address, one octet per byte, first octet in the high byte of the first register.'}
+  - {key: x.device_ip, label: Device IP Address, table: holding, address: 30400, type: u32, models: [venus_e3], note: 'IPv4 address, one octet per byte, first octet in the high byte of the first register.'}
+  - {key: x.gateway_ip_address, label: Gateway IP, table: holding, address: 30402, type: u32, models: [venus_a, venus_d], note: 'IPv4 address, one octet per byte, first octet in the high byte of the first register.'}
+  - {key: x.gateway_ip, label: Gateway IP Address, table: holding, address: 30402, type: u32, models: [venus_e3], note: 'IPv4 address, one octet per byte, first octet in the high byte of the first register.'}
+  - {key: x.device_model, label: Model, table: holding, address: 31000, type: str, length: 10}
+  - {key: battery_voltage, label: BMS Battery Voltage, table: holding, address: 32100, type: u16, unit: V, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 32104, type: u16, unit: '%', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.battery_rated_capacity, label: Battery Rated Capacity, table: holding, address: 32105, type: u16, unit: kWh, scale: 0.001}
+  - {key: x.bms_charge_current_limit, label: BMS Charge Current Limit, table: holding, address: 32106, type: u16, unit: A, scale: 0.1}
+  - {key: x.bms_discharge_current_limit, label: BMS Discharge Current Limit, table: holding, address: 32107, type: u16, unit: A, scale: 0.1}
+  - {key: x.bms_pack_count, label: BMS Pack Count, table: holding, address: 32109, type: u16, models: [venus_a, venus_d]}
+  - {key: x.bms_online_mask, label: BMS Online Mask, table: holding, address: 32110, type: u16, models: [venus_a, venus_d]}
+  - {key: x.bms_active_pack_index, label: BMS Active Pack Index, table: holding, address: 32111, type: u16, models: [venus_a, venus_d]}
+  - {key: x.bms_lock_active, label: BMS Lock, table: holding, address: 32112, type: u16, models: [venus_a, venus_d]}
+  - {key: x.bms_factory_mode, label: BMS Factory Mode, table: holding, address: 32113, type: u16, models: [venus_a, venus_d]}
+  - {key: x.ac_voltage, label: AC Voltage, table: holding, address: 32200, type: u16, unit: V, scale: 0.1}
+  - {key: frequency, label: AC Frequency, table: holding, address: 32204, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.ac_offgrid_voltage, label: AC Offgrid Voltage, table: holding, address: 32300, type: u16, unit: V, scale: 0.1}
+  - {key: x.ac_offgrid_power, label: AC Offgrid Power, table: holding, address: 32302, type: s16, unit: W}
+  - {key: x.total_ac_input_energy, label: Total AC Input Energy, table: holding, address: 33000, type: u32, unit: kWh, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.total_charging_energy, label: Total Charging Energy, table: holding, address: 33000, type: u32, unit: kWh, scale: 0.01, models: [venus_e3]}
+  - {key: x.battery_energy, label: Battery energy, table: holding, address: 33002, type: u32, unit: kWh, scale: 0.01, sources: [evcc, marstek-modbus-suite]}
+  - {key: x.total_daily_ac_input_energy, label: Daily AC Input Energy, table: holding, address: 33004, type: u32, unit: kWh, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.total_daily_charging_energy, label: Daily Charging Energy, table: holding, address: 33004, type: u32, unit: kWh, scale: 0.01, models: [venus_e3]}
+  - {key: x.total_daily_ac_output_energy, label: Daily AC Output Energy, table: holding, address: 33006, type: u32, unit: kWh, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.total_daily_discharging_energy, label: Daily Discharging Energy, table: holding, address: 33006, type: u32, unit: kWh, scale: 0.01, models: [venus_e3]}
+  - {key: x.total_monthly_ac_input_energy, label: Monthly AC Input Energy, table: holding, address: 33008, type: u32, unit: kWh, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.total_monthly_charging_energy, label: Monthly Charging Energy, table: holding, address: 33008, type: u32, unit: kWh, scale: 0.01, models: [venus_e3]}
+  - {key: x.total_monthly_ac_output_energy, label: Monthly AC Output Energy, table: holding, address: 33010, type: u32, unit: kWh, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.total_monthly_discharging_energy, label: Monthly Discharging Energy, table: holding, address: 33010, type: u32, unit: kWh, scale: 0.01, models: [venus_e3]}
+  - {key: x.battery_1_voltage, label: Battery Pack 1 Voltage, table: holding, address: 34000, type: u16, unit: V, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.battery_1_current, label: Battery Pack 1 Current, table: holding, address: 34001, type: s16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_soc_34002, label: Battery state of charge, table: holding, address: 34002, type: u16, unit: '%', scale: 0.1, sources: [evcc, marstek-modbus-suite]}
+  - {key: x.battery_1_cycle_count, label: Battery Pack 1 Cycle Count, table: holding, address: 34003, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_cycle_count, label: Cycle Count, table: holding, address: 34003, type: u16, models: [venus_e3]}
+  - {key: x.battery_1_mos_status, label: Battery Pack 1 MOS Status, table: holding, address: 34004, type: u16}
+  - {key: x.battery_1_max_cell_voltage, label: Battery Pack 1 Max Cell Voltage, table: holding, address: 34005, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_1_min_cell_voltage, label: Battery Pack 1 Min Cell Voltage, table: holding, address: 34006, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_1_protection_1, label: Battery Pack 1 Protection 1, table: holding, address: 34007, type: u16, flags: battery_1_protection_1, models: [venus_a, venus_d, venus_e3]}
+  - {key: x.battery_1_protection_2, label: Battery Pack 1 Protection 2, table: holding, address: 34008, type: u16, models: [venus_a, venus_d, venus_e3]}
+  - {key: x.battery_1_bms_warnings, label: Battery Pack 1 BMS Warnings, table: holding, address: 34009, type: u16, flags: battery_1_bms_warnings, models: [venus_a, venus_d, venus_e3]}
+  - {key: x.battery_1_bms_version, label: Battery Pack 1 BMS Version, table: holding, address: 34010, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_1_env_temperature, label: Battery Pack 1 Ambient Temperature, table: holding, address: 34011, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery_1_mos_temperature, label: Battery Pack 1 MOSFET Temperature, table: holding, address: 34012, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery_1_cell_temperature_1, label: Battery Pack 1 Cell NTC 1, table: holding, address: 34013, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery_1_cell_temperature_2, label: Battery Pack 1 Cell NTC 2, table: holding, address: 34014, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery_1_cell_temperature_3, label: Battery Pack 1 Cell NTC 3, table: holding, address: 34015, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery_1_cell_temperature_4, label: Battery Pack 1 Cell NTC 4, table: holding, address: 34016, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery_1_profile, label: BMS Battery Profile, table: holding, address: 34017, type: u16, bits: [0, 7], models: [venus_e3]}
+  - {key: x.battery_1_cell_1_voltage, label: Battery Pack 1 Cell 1 Voltage, table: holding, address: 34018, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_2_voltage, label: Battery Pack 1 Cell 2 Voltage, table: holding, address: 34019, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_3_voltage, label: Battery Pack 1 Cell 3 Voltage, table: holding, address: 34020, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_4_voltage, label: Battery Pack 1 Cell 4 Voltage, table: holding, address: 34021, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_5_voltage, label: Battery Pack 1 Cell 5 Voltage, table: holding, address: 34022, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_6_voltage, label: Battery Pack 1 Cell 6 Voltage, table: holding, address: 34023, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_7_voltage, label: Battery Pack 1 Cell 7 Voltage, table: holding, address: 34024, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_8_voltage, label: Battery Pack 1 Cell 8 Voltage, table: holding, address: 34025, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_9_voltage, label: Battery Pack 1 Cell 9 Voltage, table: holding, address: 34026, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_10_voltage, label: Battery Pack 1 Cell 10 Voltage, table: holding, address: 34027, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_11_voltage, label: Battery Pack 1 Cell 11 Voltage, table: holding, address: 34028, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_12_voltage, label: Battery Pack 1 Cell 12 Voltage, table: holding, address: 34029, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_13_voltage, label: Battery Pack 1 Cell 13 Voltage, table: holding, address: 34030, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_1_cell_14_voltage, label: Battery Pack 1 Cell 14 Voltage, table: holding, address: 34031, type: u16, unit: V, scale: 0.001, models: [venus_d, venus_e3]}
+  - {key: x.battery_1_cell_15_voltage, label: Battery Pack 1 Cell 15 Voltage, table: holding, address: 34032, type: u16, unit: V, scale: 0.001, models: [venus_d, venus_e3]}
+  - {key: x.battery_1_cell_16_voltage, label: Battery Pack 1 Cell 16 Voltage, table: holding, address: 34033, type: u16, unit: V, scale: 0.001, models: [venus_d, venus_e3]}
+  - {key: x.battery_2_voltage, label: Battery Pack 2 Voltage, table: holding, address: 34100, type: u16, unit: V, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.battery_2_current, label: Battery Pack 2 Current, table: holding, address: 34101, type: s16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_soc_2, label: Battery Pack 2 SoC, table: holding, address: 34102, type: u16, unit: '%', scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cycle_count, label: Battery Pack 2 Cycle Count, table: holding, address: 34103, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_2_mos_status, label: Battery Pack 2 MOS Status, table: holding, address: 34104, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_2_max_cell_voltage, label: Battery Pack 2 Max Cell Voltage, table: holding, address: 34105, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_min_cell_voltage, label: Battery Pack 2 Min Cell Voltage, table: holding, address: 34106, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_protection_1, label: Battery Pack 2 Protection 1, table: holding, address: 34107, type: u16, flags: battery_2_protection_1, models: [venus_a, venus_d]}
+  - {key: x.battery_2_protection_2, label: Battery Pack 2 Protection 2, table: holding, address: 34108, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_2_bms_warnings, label: Battery Pack 2 BMS Warnings, table: holding, address: 34109, type: u16, flags: battery_2_bms_warnings, models: [venus_a, venus_d]}
+  - {key: x.battery_2_bms_version, label: Battery Pack 2 BMS Version, table: holding, address: 34110, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_2_env_temperature, label: Battery Pack 2 Ambient Temperature, table: holding, address: 34111, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_2_mos_temperature, label: Battery Pack 2 MOSFET Temperature, table: holding, address: 34112, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_temperature_1, label: Battery Pack 2 Cell NTC 1, table: holding, address: 34113, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_temperature_2, label: Battery Pack 2 Cell NTC 2, table: holding, address: 34114, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_temperature_3, label: Battery Pack 2 Cell NTC 3, table: holding, address: 34115, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_temperature_4, label: Battery Pack 2 Cell NTC 4, table: holding, address: 34116, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_1_voltage, label: Battery Pack 2 Cell 1 Voltage, table: holding, address: 34118, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_2_voltage, label: Battery Pack 2 Cell 2 Voltage, table: holding, address: 34119, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_3_voltage, label: Battery Pack 2 Cell 3 Voltage, table: holding, address: 34120, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_4_voltage, label: Battery Pack 2 Cell 4 Voltage, table: holding, address: 34121, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_5_voltage, label: Battery Pack 2 Cell 5 Voltage, table: holding, address: 34122, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_6_voltage, label: Battery Pack 2 Cell 6 Voltage, table: holding, address: 34123, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_7_voltage, label: Battery Pack 2 Cell 7 Voltage, table: holding, address: 34124, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_8_voltage, label: Battery Pack 2 Cell 8 Voltage, table: holding, address: 34125, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_9_voltage, label: Battery Pack 2 Cell 9 Voltage, table: holding, address: 34126, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_10_voltage, label: Battery Pack 2 Cell 10 Voltage, table: holding, address: 34127, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_11_voltage, label: Battery Pack 2 Cell 11 Voltage, table: holding, address: 34128, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_12_voltage, label: Battery Pack 2 Cell 12 Voltage, table: holding, address: 34129, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_13_voltage, label: Battery Pack 2 Cell 13 Voltage, table: holding, address: 34130, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_2_cell_14_voltage, label: Battery Pack 2 Cell 14 Voltage, table: holding, address: 34131, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_2_cell_15_voltage, label: Battery Pack 2 Cell 15 Voltage, table: holding, address: 34132, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_2_cell_16_voltage, label: Battery Pack 2 Cell 16 Voltage, table: holding, address: 34133, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_3_voltage, label: Battery Pack 3 Voltage, table: holding, address: 34200, type: u16, unit: V, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.battery_3_current, label: Battery Pack 3 Current, table: holding, address: 34201, type: s16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_soc_3, label: Battery Pack 3 SoC, table: holding, address: 34202, type: u16, unit: '%', scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cycle_count, label: Battery Pack 3 Cycle Count, table: holding, address: 34203, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_3_mos_status, label: Battery Pack 3 MOS Status, table: holding, address: 34204, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_3_max_cell_voltage, label: Battery Pack 3 Max Cell Voltage, table: holding, address: 34205, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_min_cell_voltage, label: Battery Pack 3 Min Cell Voltage, table: holding, address: 34206, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_protection_1, label: Battery Pack 3 Protection 1, table: holding, address: 34207, type: u16, flags: battery_3_protection_1, models: [venus_a, venus_d]}
+  - {key: x.battery_3_protection_2, label: Battery Pack 3 Protection 2, table: holding, address: 34208, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_3_bms_warnings, label: Battery Pack 3 BMS Warnings, table: holding, address: 34209, type: u16, flags: battery_3_bms_warnings, models: [venus_a, venus_d]}
+  - {key: x.battery_3_bms_version, label: Battery Pack 3 BMS Version, table: holding, address: 34210, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_3_env_temperature, label: Battery Pack 3 Ambient Temperature, table: holding, address: 34211, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_3_mos_temperature, label: Battery Pack 3 MOSFET Temperature, table: holding, address: 34212, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_temperature_1, label: Battery Pack 3 Cell NTC 1, table: holding, address: 34213, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_temperature_2, label: Battery Pack 3 Cell NTC 2, table: holding, address: 34214, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_temperature_3, label: Battery Pack 3 Cell NTC 3, table: holding, address: 34215, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_temperature_4, label: Battery Pack 3 Cell NTC 4, table: holding, address: 34216, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_1_voltage, label: Battery Pack 3 Cell 1 Voltage, table: holding, address: 34218, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_2_voltage, label: Battery Pack 3 Cell 2 Voltage, table: holding, address: 34219, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_3_voltage, label: Battery Pack 3 Cell 3 Voltage, table: holding, address: 34220, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_4_voltage, label: Battery Pack 3 Cell 4 Voltage, table: holding, address: 34221, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_5_voltage, label: Battery Pack 3 Cell 5 Voltage, table: holding, address: 34222, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_6_voltage, label: Battery Pack 3 Cell 6 Voltage, table: holding, address: 34223, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_7_voltage, label: Battery Pack 3 Cell 7 Voltage, table: holding, address: 34224, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_8_voltage, label: Battery Pack 3 Cell 8 Voltage, table: holding, address: 34225, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_9_voltage, label: Battery Pack 3 Cell 9 Voltage, table: holding, address: 34226, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_10_voltage, label: Battery Pack 3 Cell 10 Voltage, table: holding, address: 34227, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_11_voltage, label: Battery Pack 3 Cell 11 Voltage, table: holding, address: 34228, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_12_voltage, label: Battery Pack 3 Cell 12 Voltage, table: holding, address: 34229, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_13_voltage, label: Battery Pack 3 Cell 13 Voltage, table: holding, address: 34230, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_3_cell_14_voltage, label: Battery Pack 3 Cell 14 Voltage, table: holding, address: 34231, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_3_cell_15_voltage, label: Battery Pack 3 Cell 15 Voltage, table: holding, address: 34232, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_3_cell_16_voltage, label: Battery Pack 3 Cell 16 Voltage, table: holding, address: 34233, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_4_voltage, label: Battery Pack 4 Voltage, table: holding, address: 34300, type: u16, unit: V, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.battery_4_current, label: Battery Pack 4 Current, table: holding, address: 34301, type: s16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_soc_4, label: Battery Pack 4 SoC, table: holding, address: 34302, type: u16, unit: '%', scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cycle_count, label: Battery Pack 4 Cycle Count, table: holding, address: 34303, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_4_mos_status, label: Battery Pack 4 MOS Status, table: holding, address: 34304, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_4_max_cell_voltage, label: Battery Pack 4 Max Cell Voltage, table: holding, address: 34305, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_min_cell_voltage, label: Battery Pack 4 Min Cell Voltage, table: holding, address: 34306, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_protection_1, label: Battery Pack 4 Protection 1, table: holding, address: 34307, type: u16, flags: battery_4_protection_1, models: [venus_a, venus_d]}
+  - {key: x.battery_4_protection_2, label: Battery Pack 4 Protection 2, table: holding, address: 34308, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_4_bms_warnings, label: Battery Pack 4 BMS Warnings, table: holding, address: 34309, type: u16, flags: battery_4_bms_warnings, models: [venus_a, venus_d]}
+  - {key: x.battery_4_bms_version, label: Battery Pack 4 BMS Version, table: holding, address: 34310, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_4_env_temperature, label: Battery Pack 4 Ambient Temperature, table: holding, address: 34311, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_4_mos_temperature, label: Battery Pack 4 MOSFET Temperature, table: holding, address: 34312, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_temperature_1, label: Battery Pack 4 Cell NTC 1, table: holding, address: 34313, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_temperature_2, label: Battery Pack 4 Cell NTC 2, table: holding, address: 34314, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_temperature_3, label: Battery Pack 4 Cell NTC 3, table: holding, address: 34315, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_temperature_4, label: Battery Pack 4 Cell NTC 4, table: holding, address: 34316, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_1_voltage, label: Battery Pack 4 Cell 1 Voltage, table: holding, address: 34318, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_2_voltage, label: Battery Pack 4 Cell 2 Voltage, table: holding, address: 34319, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_3_voltage, label: Battery Pack 4 Cell 3 Voltage, table: holding, address: 34320, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_4_voltage, label: Battery Pack 4 Cell 4 Voltage, table: holding, address: 34321, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_5_voltage, label: Battery Pack 4 Cell 5 Voltage, table: holding, address: 34322, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_6_voltage, label: Battery Pack 4 Cell 6 Voltage, table: holding, address: 34323, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_7_voltage, label: Battery Pack 4 Cell 7 Voltage, table: holding, address: 34324, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_8_voltage, label: Battery Pack 4 Cell 8 Voltage, table: holding, address: 34325, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_9_voltage, label: Battery Pack 4 Cell 9 Voltage, table: holding, address: 34326, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_10_voltage, label: Battery Pack 4 Cell 10 Voltage, table: holding, address: 34327, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_11_voltage, label: Battery Pack 4 Cell 11 Voltage, table: holding, address: 34328, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_12_voltage, label: Battery Pack 4 Cell 12 Voltage, table: holding, address: 34329, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_13_voltage, label: Battery Pack 4 Cell 13 Voltage, table: holding, address: 34330, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_4_cell_14_voltage, label: Battery Pack 4 Cell 14 Voltage, table: holding, address: 34331, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_4_cell_15_voltage, label: Battery Pack 4 Cell 15 Voltage, table: holding, address: 34332, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_4_cell_16_voltage, label: Battery Pack 4 Cell 16 Voltage, table: holding, address: 34333, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_5_voltage, label: Battery Pack 5 Voltage, table: holding, address: 34400, type: u16, unit: V, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.battery_5_current, label: Battery Pack 5 Current, table: holding, address: 34401, type: s16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_soc_5, label: Battery Pack 5 SoC, table: holding, address: 34402, type: u16, unit: '%', scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cycle_count, label: Battery Pack 5 Cycle Count, table: holding, address: 34403, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_5_mos_status, label: Battery Pack 5 MOS Status, table: holding, address: 34404, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_5_max_cell_voltage, label: Battery Pack 5 Max Cell Voltage, table: holding, address: 34405, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_min_cell_voltage, label: Battery Pack 5 Min Cell Voltage, table: holding, address: 34406, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_protection_1, label: Battery Pack 5 Protection 1, table: holding, address: 34407, type: u16, flags: battery_5_protection_1, models: [venus_a, venus_d]}
+  - {key: x.battery_5_protection_2, label: Battery Pack 5 Protection 2, table: holding, address: 34408, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_5_bms_warnings, label: Battery Pack 5 BMS Warnings, table: holding, address: 34409, type: u16, flags: battery_5_bms_warnings, models: [venus_a, venus_d]}
+  - {key: x.battery_5_bms_version, label: Battery Pack 5 BMS Version, table: holding, address: 34410, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_5_env_temperature, label: Battery Pack 5 Ambient Temperature, table: holding, address: 34411, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_5_mos_temperature, label: Battery Pack 5 MOSFET Temperature, table: holding, address: 34412, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_temperature_1, label: Battery Pack 5 Cell NTC 1, table: holding, address: 34413, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_temperature_2, label: Battery Pack 5 Cell NTC 2, table: holding, address: 34414, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_temperature_3, label: Battery Pack 5 Cell NTC 3, table: holding, address: 34415, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_temperature_4, label: Battery Pack 5 Cell NTC 4, table: holding, address: 34416, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_1_voltage, label: Battery Pack 5 Cell 1 Voltage, table: holding, address: 34418, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_2_voltage, label: Battery Pack 5 Cell 2 Voltage, table: holding, address: 34419, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_3_voltage, label: Battery Pack 5 Cell 3 Voltage, table: holding, address: 34420, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_4_voltage, label: Battery Pack 5 Cell 4 Voltage, table: holding, address: 34421, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_5_voltage, label: Battery Pack 5 Cell 5 Voltage, table: holding, address: 34422, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_6_voltage, label: Battery Pack 5 Cell 6 Voltage, table: holding, address: 34423, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_7_voltage, label: Battery Pack 5 Cell 7 Voltage, table: holding, address: 34424, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_8_voltage, label: Battery Pack 5 Cell 8 Voltage, table: holding, address: 34425, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_9_voltage, label: Battery Pack 5 Cell 9 Voltage, table: holding, address: 34426, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_10_voltage, label: Battery Pack 5 Cell 10 Voltage, table: holding, address: 34427, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_11_voltage, label: Battery Pack 5 Cell 11 Voltage, table: holding, address: 34428, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_12_voltage, label: Battery Pack 5 Cell 12 Voltage, table: holding, address: 34429, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_13_voltage, label: Battery Pack 5 Cell 13 Voltage, table: holding, address: 34430, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_5_cell_14_voltage, label: Battery Pack 5 Cell 14 Voltage, table: holding, address: 34431, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_5_cell_15_voltage, label: Battery Pack 5 Cell 15 Voltage, table: holding, address: 34432, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_5_cell_16_voltage, label: Battery Pack 5 Cell 16 Voltage, table: holding, address: 34433, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_6_voltage, label: Battery Pack 6 Voltage, table: holding, address: 34500, type: u16, unit: V, scale: 0.01, models: [venus_a, venus_d]}
+  - {key: x.battery_6_current, label: Battery Pack 6 Current, table: holding, address: 34501, type: s16, unit: A, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_soc_6, label: Battery Pack 6 SoC, table: holding, address: 34502, type: u16, unit: '%', scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cycle_count, label: Battery Pack 6 Cycle Count, table: holding, address: 34503, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_6_mos_status, label: Battery Pack 6 MOS Status, table: holding, address: 34504, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_6_max_cell_voltage, label: Battery Pack 6 Max Cell Voltage, table: holding, address: 34505, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_min_cell_voltage, label: Battery Pack 6 Min Cell Voltage, table: holding, address: 34506, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_protection_1, label: Battery Pack 6 Protection 1, table: holding, address: 34507, type: u16, flags: battery_6_protection_1, models: [venus_a, venus_d]}
+  - {key: x.battery_6_protection_2, label: Battery Pack 6 Protection 2, table: holding, address: 34508, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_6_bms_warnings, label: Battery Pack 6 BMS Warnings, table: holding, address: 34509, type: u16, flags: battery_6_bms_warnings, models: [venus_a, venus_d]}
+  - {key: x.battery_6_bms_version, label: Battery Pack 6 BMS Version, table: holding, address: 34510, type: u16, models: [venus_a, venus_d]}
+  - {key: x.battery_6_env_temperature, label: Battery Pack 6 Ambient Temperature, table: holding, address: 34511, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_6_mos_temperature, label: Battery Pack 6 MOSFET Temperature, table: holding, address: 34512, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_temperature_1, label: Battery Pack 6 Cell NTC 1, table: holding, address: 34513, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_temperature_2, label: Battery Pack 6 Cell NTC 2, table: holding, address: 34514, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_temperature_3, label: Battery Pack 6 Cell NTC 3, table: holding, address: 34515, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_temperature_4, label: Battery Pack 6 Cell NTC 4, table: holding, address: 34516, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_1_voltage, label: Battery Pack 6 Cell 1 Voltage, table: holding, address: 34518, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_2_voltage, label: Battery Pack 6 Cell 2 Voltage, table: holding, address: 34519, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_3_voltage, label: Battery Pack 6 Cell 3 Voltage, table: holding, address: 34520, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_4_voltage, label: Battery Pack 6 Cell 4 Voltage, table: holding, address: 34521, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_5_voltage, label: Battery Pack 6 Cell 5 Voltage, table: holding, address: 34522, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_6_voltage, label: Battery Pack 6 Cell 6 Voltage, table: holding, address: 34523, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_7_voltage, label: Battery Pack 6 Cell 7 Voltage, table: holding, address: 34524, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_8_voltage, label: Battery Pack 6 Cell 8 Voltage, table: holding, address: 34525, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_9_voltage, label: Battery Pack 6 Cell 9 Voltage, table: holding, address: 34526, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_10_voltage, label: Battery Pack 6 Cell 10 Voltage, table: holding, address: 34527, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_11_voltage, label: Battery Pack 6 Cell 11 Voltage, table: holding, address: 34528, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_12_voltage, label: Battery Pack 6 Cell 12 Voltage, table: holding, address: 34529, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_13_voltage, label: Battery Pack 6 Cell 13 Voltage, table: holding, address: 34530, type: u16, unit: V, scale: 0.001, models: [venus_a, venus_d]}
+  - {key: x.battery_6_cell_14_voltage, label: Battery Pack 6 Cell 14 Voltage, table: holding, address: 34531, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_6_cell_15_voltage, label: Battery Pack 6 Cell 15 Voltage, table: holding, address: 34532, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_6_cell_16_voltage, label: Battery Pack 6 Cell 16 Voltage, table: holding, address: 34533, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_voltage, label: Battery Pack 7 Voltage, table: holding, address: 34600, type: u16, unit: V, scale: 0.01, models: [venus_d]}
+  - {key: x.battery_7_current, label: Battery Pack 7 Current, table: holding, address: 34601, type: s16, unit: A, scale: 0.1, models: [venus_d]}
+  - {key: x.battery_soc_7, label: Battery Pack 7 SoC, table: holding, address: 34602, type: u16, unit: '%', scale: 0.1, models: [venus_d]}
+  - {key: x.battery_7_cycle_count, label: Battery Pack 7 Cycle Count, table: holding, address: 34603, type: u16, models: [venus_d]}
+  - {key: x.battery_7_mos_status, label: Battery Pack 7 MOS Status, table: holding, address: 34604, type: u16, models: [venus_d]}
+  - {key: x.battery_7_max_cell_voltage, label: Battery Pack 7 Max Cell Voltage, table: holding, address: 34605, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_min_cell_voltage, label: Battery Pack 7 Min Cell Voltage, table: holding, address: 34606, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_protection_1, label: Battery Pack 7 Protection 1, table: holding, address: 34607, type: u16, flags: battery_7_protection_1, models: [venus_d]}
+  - {key: x.battery_7_protection_2, label: Battery Pack 7 Protection 2, table: holding, address: 34608, type: u16, models: [venus_d]}
+  - {key: x.battery_7_bms_warnings, label: Battery Pack 7 BMS Warnings, table: holding, address: 34609, type: u16, flags: battery_7_bms_warnings, models: [venus_d]}
+  - {key: x.battery_7_bms_version, label: Battery Pack 7 BMS Version, table: holding, address: 34610, type: u16, models: [venus_d]}
+  - {key: x.battery_7_env_temperature, label: Battery Pack 7 Ambient Temperature, table: holding, address: 34611, type: s16, unit: °C, scale: 0.1, models: [venus_d]}
+  - {key: x.battery_7_mos_temperature, label: Battery Pack 7 MOSFET Temperature, table: holding, address: 34612, type: s16, unit: °C, scale: 0.1, models: [venus_d]}
+  - {key: x.battery_7_cell_temperature_1, label: Battery Pack 7 Cell NTC 1, table: holding, address: 34613, type: s16, unit: °C, scale: 0.1, models: [venus_d]}
+  - {key: x.battery_7_cell_temperature_2, label: Battery Pack 7 Cell NTC 2, table: holding, address: 34614, type: s16, unit: °C, scale: 0.1, models: [venus_d]}
+  - {key: x.battery_7_cell_temperature_3, label: Battery Pack 7 Cell NTC 3, table: holding, address: 34615, type: s16, unit: °C, scale: 0.1, models: [venus_d]}
+  - {key: x.battery_7_cell_temperature_4, label: Battery Pack 7 Cell NTC 4, table: holding, address: 34616, type: s16, unit: °C, scale: 0.1, models: [venus_d]}
+  - {key: x.battery_7_cell_1_voltage, label: Battery Pack 7 Cell 1 Voltage, table: holding, address: 34618, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_2_voltage, label: Battery Pack 7 Cell 2 Voltage, table: holding, address: 34619, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_3_voltage, label: Battery Pack 7 Cell 3 Voltage, table: holding, address: 34620, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_4_voltage, label: Battery Pack 7 Cell 4 Voltage, table: holding, address: 34621, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_5_voltage, label: Battery Pack 7 Cell 5 Voltage, table: holding, address: 34622, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_6_voltage, label: Battery Pack 7 Cell 6 Voltage, table: holding, address: 34623, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_7_voltage, label: Battery Pack 7 Cell 7 Voltage, table: holding, address: 34624, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_8_voltage, label: Battery Pack 7 Cell 8 Voltage, table: holding, address: 34625, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_9_voltage, label: Battery Pack 7 Cell 9 Voltage, table: holding, address: 34626, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_10_voltage, label: Battery Pack 7 Cell 10 Voltage, table: holding, address: 34627, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_11_voltage, label: Battery Pack 7 Cell 11 Voltage, table: holding, address: 34628, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_12_voltage, label: Battery Pack 7 Cell 12 Voltage, table: holding, address: 34629, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_13_voltage, label: Battery Pack 7 Cell 13 Voltage, table: holding, address: 34630, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_14_voltage, label: Battery Pack 7 Cell 14 Voltage, table: holding, address: 34631, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_15_voltage, label: Battery Pack 7 Cell 15 Voltage, table: holding, address: 34632, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: x.battery_7_cell_16_voltage, label: Battery Pack 7 Cell 16 Voltage, table: holding, address: 34633, type: u16, unit: V, scale: 0.001, models: [venus_d]}
+  - {key: temperature, label: Inverter Radiator 1 Temperature, table: holding, address: 35000, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d, venus_e3]}
+  - {key: x.internal_mos1_temperature, label: Inverter Radiator 2 Temperature, table: holding, address: 35001, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d, venus_e3]}
+  - {key: x.max_cell_temperature, label: Max Cell Temperature, table: holding, address: 35010, type: s16, unit: °C, scale: 0.1}
+  - {key: x.battery_1_min_cell_temperature, label: Battery Pack 1 Min Cell Temperature, table: holding, address: 35011, type: s16, unit: °C, scale: 0.1, models: [venus_a, venus_d]}
+  - {key: x.min_cell_temperature, label: Min Cell Temperature, table: holding, address: 35011, type: s16, unit: °C, scale: 0.1, models: [venus_e3]}
+  - {key: state, label: Inverter State, table: holding, address: 35100, type: u16, enum: inverter_state, models: [venus_a, venus_d, venus_e3]}
+  - {key: x.bms_charge_voltage_limit, label: BMS Charge Voltage Limit, table: holding, address: 35110, type: u16, unit: V, scale: 0.1}
+  - {key: x.alarm_status, label: Alarm Status, table: holding, address: 36000, type: u32, flags: alarm_status, models: [venus_e3]}
+  - {key: x.fault_status, label: Fault Status, table: holding, address: 36100, type: u16, flags: fault_status, models: [venus_a, venus_d, venus_e3]}
+  - {key: x.fault_status_low, label: Fault Status Low Word, table: holding, address: 36101, type: u16, flags: fault_status_low, models: [venus_a, venus_d, venus_e3]}
+  - {key: x.fault_status_2_low, label: Fault Status 2 Low Word, table: holding, address: 36103, type: u16, flags: fault_status_2_low, models: [venus_a, venus_d, venus_e3]}
+  - {key: x.max_cell_voltage, label: Max Cell Voltage, table: holding, address: 37007, type: u16, unit: V, scale: 0.001, models: [venus_e3]}
+  - {key: x.min_cell_voltage, label: Min Cell Voltage, table: holding, address: 37008, type: u16, unit: V, scale: 0.001, models: [venus_e3]}
+  - {key: pv_energy, label: PV Lifetime Energy, table: holding, address: 37021, type: u32, unit: kWh, scale: 0.01, models: [venus_a]}
+  - {key: x.mppt_error, label: MPPT Error, table: holding, address: 37023, type: u16, enum: mppt_error, models: [venus_a, venus_d]}
+  - {key: x.mppt_warning, label: MPPT Warning, table: holding, address: 37024, type: u16, enum: mppt_warning, models: [venus_a, venus_d]}
+  - {key: x.modbus_address, label: Modbus Address, table: holding, address: 41100, type: u16}
+  - {key: x.backup_function, label: Backup Function, table: holding, address: 41200, type: u16, enum: backup_function, writable: true}
+  - {key: x.wifi_ssid, label: WiFi SSID, table: holding, address: 41500, type: str, length: 16, models: [venus_d]}
+  - {key: x.batterymode_42000, label: Battery mode control (write), table: holding, address: 42000, type: u16, writable: true, note: 'evcc writes battery mode normal: 21930, then 21947; battery mode hold: 21930, then 21947; battery mode charge: 21930; battery mode holdcharge: 21930, then 21947; battery mode discharge: 21930.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.batterymode_42010, label: Battery mode control (write), table: holding, address: 42010, type: u16, writable: true, note: 'evcc writes battery mode charge: 1; battery mode discharge: 2.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.charge_to_soc, label: Charge to SoC, table: holding, address: 42011, type: u16, unit: '%', writable: true, note: The project offers 13 to 100 in steps of 1 %.}
+  - {key: x.batterymode_42020, label: Battery mode control (write), table: holding, address: 42020, type: u16, unit: W, writable: true, note: 'evcc writes battery mode charge: a value from the user''s settings.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.batterymode_42021, label: Battery mode control (write), table: holding, address: 42021, type: u16, unit: W, writable: true, note: 'evcc writes battery mode discharge: a value from the user''s settings.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.batterymode_43000, label: Battery mode control (write), table: holding, address: 43000, type: u16, writable: true, note: 'evcc writes battery mode normal: 1; battery mode hold: 1; battery mode holdcharge: 1.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.schedule_1_days, label: Schedule 1 Days, table: holding, address: 43100, type: u16, flags: schedule_1_days, writable: true}
+  - {key: x.schedule_1_start, label: Schedule 1 Start, table: holding, address: 43101, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1.}
+  - {key: x.schedule_1_end, label: Schedule 1 End, table: holding, address: 43102, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1.}
+  - {key: x.schedule_1_power, label: Schedule 1 Power, table: holding, address: 43103, type: s16, unit: W, models: [venus_a, venus_d, venus_e3], writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -1450 to 1450 in steps of 1 W.'}
+  - {key: x.schedule_1_enabled, label: Schedule 1 Enabled, table: holding, address: 43104, type: u16, enum: schedule_1_enabled, writable: true}
+  - {key: x.schedule_2_days, label: Schedule 2 Days, table: holding, address: 43105, type: u16, flags: schedule_2_days, writable: true}
+  - {key: x.schedule_2_start, label: Schedule 2 Start, table: holding, address: 43106, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1.}
+  - {key: x.schedule_2_end, label: Schedule 2 End, table: holding, address: 43107, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1.}
+  - {key: x.schedule_2_power, label: Schedule 2 Power, table: holding, address: 43108, type: s16, unit: W, models: [venus_a, venus_d, venus_e3], writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -1450 to 1450 in steps of 1 W.'}
+  - {key: x.schedule_2_enabled, label: Schedule 2 Enabled, table: holding, address: 43109, type: u16, enum: schedule_2_enabled, writable: true}
+  - {key: x.schedule_3_days, label: Schedule 3 Days, table: holding, address: 43110, type: u16, flags: schedule_3_days, writable: true}
+  - {key: x.schedule_3_start, label: Schedule 3 Start, table: holding, address: 43111, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1.}
+  - {key: x.schedule_3_end, label: Schedule 3 End, table: holding, address: 43112, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1.}
+  - {key: x.schedule_3_power, label: Schedule 3 Power, table: holding, address: 43113, type: s16, unit: W, models: [venus_a, venus_d, venus_e3], writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -1450 to 1450 in steps of 1 W.'}
+  - {key: x.schedule_3_enabled, label: Schedule 3 Enabled, table: holding, address: 43114, type: u16, enum: schedule_3_enabled, writable: true}
+  - {key: x.schedule_4_days, label: Schedule 4 Days, table: holding, address: 43115, type: u16, flags: schedule_4_days, writable: true}
+  - {key: x.schedule_4_start, label: Schedule 4 Start, table: holding, address: 43116, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1.}
+  - {key: x.schedule_4_end, label: Schedule 4 End, table: holding, address: 43117, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1.}
+  - {key: x.schedule_4_power, label: Schedule 4 Power, table: holding, address: 43118, type: s16, unit: W, models: [venus_a, venus_d, venus_e3], writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -1450 to 1450 in steps of 1 W.'}
+  - {key: x.schedule_4_enabled, label: Schedule 4 Enabled, table: holding, address: 43119, type: u16, enum: schedule_4_enabled, writable: true}
+  - {key: x.schedule_5_days, label: Schedule 5 Days, table: holding, address: 43120, type: u16, flags: schedule_5_days, writable: true}
+  - {key: x.schedule_5_start, label: Schedule 5 Start, table: holding, address: 43121, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1.}
+  - {key: x.schedule_5_end, label: Schedule 5 End, table: holding, address: 43122, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1.}
+  - {key: x.schedule_5_power, label: Schedule 5 Power, table: holding, address: 43123, type: s16, unit: W, models: [venus_a, venus_d, venus_e3], writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -1450 to 1450 in steps of 1 W.'}
+  - {key: x.schedule_5_enabled, label: Schedule 5 Enabled, table: holding, address: 43124, type: u16, enum: schedule_5_enabled, writable: true}
+  - {key: x.schedule_6_days, label: Schedule 6 Days, table: holding, address: 43125, type: u16, flags: schedule_6_days, writable: true}
+  - {key: x.schedule_6_start, label: Schedule 6 Start, table: holding, address: 43126, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 0 to 2358 in steps of 1.}
+  - {key: x.schedule_6_end, label: Schedule 6 End, table: holding, address: 43127, type: datetime, length: 1, datetime: {hour: {register: 0, div: 100}, minute: {register: 0, mod: 100}}, writable: true, note: The end is exclusive and a slot does not cross midnight. The project offers 1 to 2359 in steps of 1.}
+  - {key: x.schedule_6_power, label: Schedule 6 Power, table: holding, address: 43128, type: s16, unit: W, models: [venus_a, venus_d, venus_e3], writable: true, note: 'Slot power: positive discharges, negative charges, -1 follows the CT meter (self-consumption). The project offers -1450 to 1450 in steps of 1 W.'}
+  - {key: x.schedule_6_enabled, label: Schedule 6 Enabled, table: holding, address: 43129, type: u16, enum: schedule_6_enabled, writable: true}
+  - {key: x.batterymode_44002, label: Battery mode control (write), table: holding, address: 44002, type: u16, unit: W, writable: true, note: 'evcc writes battery mode normal: a value from the user''s settings; battery mode hold: a value from the user''s settings; battery mode charge: a value from the user''s settings; battery mode holdcharge: 0.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.batterymode_44003, label: Battery mode control (write), table: holding, address: 44003, type: u16, unit: W, writable: true, note: 'evcc writes battery mode normal: a value from the user''s settings; battery mode hold: 0; battery mode holdcharge: a value from the user''s settings; battery mode discharge: a value from the user''s settings.', sources: [evcc, marstek-modbus-suite]}
+  - {key: x.ethernet_chip_version, label: Ethernet Chip Version, table: holding, address: 45605, type: u16, note: 'The project reads this register in a request of its own, never in a block.'}
+
+derived:
+  - {key: pv_power, label: PV power, unit: W, sum: [{key: x.pv_power_1}, {key: x.pv_power_2}, {key: x.pv_power_3}, {key: x.pv_power_4}], sources: [evcc]}
+  - {key: x.battery_power, label: Battery power, unit: W, sum: [{key: x.battery_power_1}, {key: x.pv_power_1, factor: -1}, {key: x.pv_power_2, factor: -1}, {key: x.pv_power_3, factor: -1}, {key: x.pv_power_4, factor: -1}], sources: [evcc]}
+  - {key: x.battery_power_sum, label: Battery power, unit: W, models: [venus_a, venus_d], sum: [{key: x.dc_sample_power}, {key: x.pv_power_1}, {key: x.pv_power_2}, {key: x.pv_power_3}, {key: x.pv_power_4}]}
+  - {key: x.solar_power_total, label: Solar power, unit: W, models: [venus_a, venus_d], sum: [{key: x.pv_power_1}, {key: x.pv_power_2}, {key: x.pv_power_3}, {key: x.pv_power_4}]}
+
+enums:
+  inverter_state: {'0': Disabled / no data, '1': Standby, '2': Charge, '3': Discharge, '4': Backup Mode, '6': Backup Passthrough}
+  bluetooth_status: {'0': Off / not initialised, '1': Advertising, '2': Connected, '3': Disconnected, '4': Not advertising}
+  work_mode: {'0': Normal, '1': Manual, '2': Debug, '3': Aging, '4': ATE aging, '12': CAN test mode, '13': Voltage source}
+  mppt_error: {'0': No error, '1088': Battery over-voltage, '1089': Battery over-current, '1093': MPPT chip over-temperature, '1094': PV4 over-current, '1095': PV3 over-current, '1096': PV2 over-current, '1097': PV1 over-current, '1098': PV4 reverse current, '1099': PV3 reverse current, '1100': PV2 reverse current, '1101': PV1 reverse current, '1105': PE (earth) voltage warning, '1106': PE (earth) over-voltage, '1107': Battery over-voltage (hardware trip), '1109': PV4 over-voltage, '1110': PV3 over-voltage, '1111': PV2 over-voltage, '1112': PV1 over-voltage, '1123': PV4 over-current (hardware trip), '1124': PV3 over-current (hardware trip), '1125': PV2 over-current (hardware trip), '1126': PV1 over-current (hardware trip), '1127': Radiator 1 above 90 °C, '1128': Radiator 2 above 90 °C, '1129': Ambient above 90 °C, '1130': Battery over-current (hardware trip)}
+  mppt_warning: {'0': No warning, '1345': MPPT power or voltage reference out of range, '1363': 'Power derating, radiator or ambient above 73 °C', '1364': Radiator 1 sensor open or shorted, '1365': Radiator 2 sensor open or shorted, '1366': Ambient sensor open or shorted, '1367': MPPT chip above 85 °C, '1368': Radiator 1 above 73 °C, '1369': Radiator 2 above 73 °C, '1370': Ambient above 73 °C}
+  selftest_status: {'0': Not run yet, '1': OK, '2': EEPROM fault, '3': Flash fault, '5': Ethernet chip reports another version than expected (harmless)}
+  backup_function: {'0': 'On', '1': 'Off'}
+  schedule_1_enabled: {'0': 'Off', '1': 'On'}
+  schedule_2_enabled: {'0': 'Off', '1': 'On'}
+  schedule_3_enabled: {'0': 'Off', '1': 'On'}
+  schedule_4_enabled: {'0': 'Off', '1': 'On'}
+  schedule_5_enabled: {'0': 'Off', '1': 'On'}
+  schedule_6_enabled: {'0': 'Off', '1': 'On'}
+
+flags:
+  fault_status: {'4': Battery communication failure, '5': BMS protection active}
+  fault_status_low: {'0': Grid overvoltage (above limit for too long), '1': Grid undervoltage (below limit for too long), '2': Grid overfrequency (above limit for too long), '3': Grid underfrequency (below limit for too long), '4': Grid peak voltage (above 430 V), '7': Grid protection tripped (low confidence)}
+  fault_status_2_low: {'5': Inverter over-current (above 15 A peak), '6': 'DC bus over-voltage (above 530 V, 570 V in LLC mode 0x0E)', '7': State-machine shutdown (reason 5), '8': Off-grid overload or off-grid voltage below 207 V, '9': Invalid state-machine state, '11': 'State transition timeout (pre-charge, LLC or relay)', '13': Relay check failed (grid relay welded)}
+  battery_1_protection_1: {'0': Cell under-voltage (level 2), '1': Cell over-voltage (level 2), '2': Charge over-current (level 2), '3': Discharge over-current (level 2), '4': Charge under-temperature (level 2), '5': Charge over-temperature (level 2), '6': Discharge under-temperature (level 2), '7': Discharge over-temperature (level 2), '8': MOSFET over-temperature (level 2), '9': 'Relay, MOSFET driver or pre-charge fault'}
+  battery_1_bms_warnings: {'1': Cell under-voltage warning, '2': Cell over-voltage warning, '3': Charge over-current (level 1), '4': Discharge over-current (level 1), '5': Charge under-temperature (level 1), '6': Charge over-temperature (level 1), '7': Discharge under-temperature (level 1), '8': Discharge over-temperature (level 1), '9': MOSFET temperature A high (level 1), '11': Cell voltage spread above 1000 mV, '12': MOSFET temperature B low}
+  battery_2_protection_1: {'0': Cell under-voltage (level 2), '1': Cell over-voltage (level 2), '2': Charge over-current (level 2), '3': Discharge over-current (level 2), '4': Charge under-temperature (level 2), '5': Charge over-temperature (level 2), '6': Discharge under-temperature (level 2), '7': Discharge over-temperature (level 2), '8': MOSFET over-temperature (level 2), '9': 'Relay, MOSFET driver or pre-charge fault'}
+  battery_2_bms_warnings: {'1': Cell under-voltage warning, '2': Cell over-voltage warning, '3': Charge over-current (level 1), '4': Discharge over-current (level 1), '5': Charge under-temperature (level 1), '6': Charge over-temperature (level 1), '7': Discharge under-temperature (level 1), '8': Discharge over-temperature (level 1), '9': MOSFET temperature A high (level 1), '11': Cell voltage spread above 1000 mV, '12': MOSFET temperature B low}
+  battery_3_protection_1: {'0': Cell under-voltage (level 2), '1': Cell over-voltage (level 2), '2': Charge over-current (level 2), '3': Discharge over-current (level 2), '4': Charge under-temperature (level 2), '5': Charge over-temperature (level 2), '6': Discharge under-temperature (level 2), '7': Discharge over-temperature (level 2), '8': MOSFET over-temperature (level 2), '9': 'Relay, MOSFET driver or pre-charge fault'}
+  battery_3_bms_warnings: {'1': Cell under-voltage warning, '2': Cell over-voltage warning, '3': Charge over-current (level 1), '4': Discharge over-current (level 1), '5': Charge under-temperature (level 1), '6': Charge over-temperature (level 1), '7': Discharge under-temperature (level 1), '8': Discharge over-temperature (level 1), '9': MOSFET temperature A high (level 1), '11': Cell voltage spread above 1000 mV, '12': MOSFET temperature B low}
+  battery_4_protection_1: {'0': Cell under-voltage (level 2), '1': Cell over-voltage (level 2), '2': Charge over-current (level 2), '3': Discharge over-current (level 2), '4': Charge under-temperature (level 2), '5': Charge over-temperature (level 2), '6': Discharge under-temperature (level 2), '7': Discharge over-temperature (level 2), '8': MOSFET over-temperature (level 2), '9': 'Relay, MOSFET driver or pre-charge fault'}
+  battery_4_bms_warnings: {'1': Cell under-voltage warning, '2': Cell over-voltage warning, '3': Charge over-current (level 1), '4': Discharge over-current (level 1), '5': Charge under-temperature (level 1), '6': Charge over-temperature (level 1), '7': Discharge under-temperature (level 1), '8': Discharge over-temperature (level 1), '9': MOSFET temperature A high (level 1), '11': Cell voltage spread above 1000 mV, '12': MOSFET temperature B low}
+  battery_5_protection_1: {'0': Cell under-voltage (level 2), '1': Cell over-voltage (level 2), '2': Charge over-current (level 2), '3': Discharge over-current (level 2), '4': Charge under-temperature (level 2), '5': Charge over-temperature (level 2), '6': Discharge under-temperature (level 2), '7': Discharge over-temperature (level 2), '8': MOSFET over-temperature (level 2), '9': 'Relay, MOSFET driver or pre-charge fault'}
+  battery_5_bms_warnings: {'1': Cell under-voltage warning, '2': Cell over-voltage warning, '3': Charge over-current (level 1), '4': Discharge over-current (level 1), '5': Charge under-temperature (level 1), '6': Charge over-temperature (level 1), '7': Discharge under-temperature (level 1), '8': Discharge over-temperature (level 1), '9': MOSFET temperature A high (level 1), '11': Cell voltage spread above 1000 mV, '12': MOSFET temperature B low}
+  battery_6_protection_1: {'0': Cell under-voltage (level 2), '1': Cell over-voltage (level 2), '2': Charge over-current (level 2), '3': Discharge over-current (level 2), '4': Charge under-temperature (level 2), '5': Charge over-temperature (level 2), '6': Discharge under-temperature (level 2), '7': Discharge over-temperature (level 2), '8': MOSFET over-temperature (level 2), '9': 'Relay, MOSFET driver or pre-charge fault'}
+  battery_6_bms_warnings: {'1': Cell under-voltage warning, '2': Cell over-voltage warning, '3': Charge over-current (level 1), '4': Discharge over-current (level 1), '5': Charge under-temperature (level 1), '6': Charge over-temperature (level 1), '7': Discharge under-temperature (level 1), '8': Discharge over-temperature (level 1), '9': MOSFET temperature A high (level 1), '11': Cell voltage spread above 1000 mV, '12': MOSFET temperature B low}
+  schedule_1_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_2_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_3_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_4_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_5_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  schedule_6_days: {'0': Monday, '1': Tuesday, '2': Wednesday, '3': Thursday, '4': Friday, '5': Saturday, '6': Sunday}
+  battery_7_protection_1: {'0': Cell under-voltage (level 2), '1': Cell over-voltage (level 2), '2': Charge over-current (level 2), '3': Discharge over-current (level 2), '4': Charge under-temperature (level 2), '5': Charge over-temperature (level 2), '6': Discharge under-temperature (level 2), '7': Discharge over-temperature (level 2), '8': MOSFET over-temperature (level 2), '9': 'Relay, MOSFET driver or pre-charge fault'}
+  battery_7_bms_warnings: {'1': Cell under-voltage warning, '2': Cell over-voltage warning, '3': Charge over-current (level 1), '4': Discharge over-current (level 1), '5': Charge under-temperature (level 1), '6': Charge over-temperature (level 1), '7': Discharge under-temperature (level 1), '8': Discharge over-temperature (level 1), '9': MOSFET temperature A high (level 1), '11': Cell voltage spread above 1000 mV, '12': MOSFET temperature B low}
+  alarm_status: {'0': Grid release missing / waiting for the grid}
+
+notes:
+- 'evcc template `marstek-venus-a` (pv, battery) lists: Marstek Venus A; Marstek Venus D.'
+- 'evcc template `marstek-venus-e` (battery) lists: Marstek Venus E; Marstek Venus E Gen 2.0; Marstek Venus E Gen 3.0; Marstek
+  Venus C.'
+- Registers evcc uses with the template option `generation` = 3.
+- The project says Venus A, D and E v3 share one firmware base; Venus E v1 / v2 is a different device file.
+- 'Model string at 31000 (10 registers): VNSA-0, VNSD-0 or VNSE3-0.'
+- 'Battery packs: Venus D up to 7, Venus A up to 6, each pack''s block at 34000 + 100 × (pack − 1); the Venus E v3 has one
+  built-in pack.'
+- 'Some 32-bit values are served as register pairs that must be read together: read 36000/36001 and 36100/36101 as pairs and
+  36103 only in a block with them; a single read of 36001, 36101 or 36103 returns a different value (project''s finding on
+  the Venus E v3; the A and D maps also say to read 36100/36101 together).'
+- 'Venus A: Registers the project never reads as part of a larger block (some act when read or are refused): 30030-30035,
+  38000-39014, 41500-41631, 45000-45031, 45603-45605, 46000.'
+- 'Venus D: Registers the project never reads as part of a larger block (some act when read or are refused): 30030-30035,
+  30214, 37021-37022, 38000-39014, 41500-41631, 45000-45031, 45603-45605, 46000.'
+- 'Venus E v3: Registers the project never reads as part of a larger block (some act when read or are refused): 38000-39014,
+  41500-41631, 45000-45031, 45603-45605, 46000.'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.
+- 'Identification: one of the model matches must hold.'

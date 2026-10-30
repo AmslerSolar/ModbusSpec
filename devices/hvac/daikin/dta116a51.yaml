@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From Daikin's engineering manual EDMT721419 (part 3: functional specification CB13A033 of the adaptor).
+
+modbusspec: 0
+id: daikin-dta116a51
+manufacturer: Daikin
+name: DTA116A51 DIII-NET / Modbus communication adaptor (VRV, Sky Air)
+kind: hvac
+
+sources:
+- title: 'HA Interface Adaptor DTA116A51 DIII-NET/Modbus Communication Adaptor (engineering manual EDMT721419, part 3: functional
+    specification CB13A033)'
+  version: EDMT721419 (08/2014)
+  url: https://daikincomfort.com/docs/default-source/general/vrv/em-edmt721419.pdf
+  sha256: bcef452141a2a02822d9868be33c2267dab75ff6108b5925ac7b40f1b06882c8
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  limits:
+    max_registers: 32
+    min_interval_ms: 25
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Adaptor (30001–30006)
+  - {key: x.adaptor_status, label: Adaptor status, table: input, address: 0, type: u16, enum: adaptor_status, note: Read until 1 (ready) after power-on before reading the units.}
+  - {key: x.connected_units, label: Indoor unit connection status, table: input, address: 1, type: u16, flags: unit_connected, poll: slow, note: Bit n = indoor unit 1-0n (n = 0…15) is connected.}
+  - {key: x.communication_errors, label: Indoor unit communication status, table: input, address: 5, type: u16, flags: unit_comm_error, note: Bit n = communication error with indoor unit 1-0n.}
+
+  # Indoor unit 1-00: capabilities (31001–31003)
+  - {key: x.capabilities, label: Indoor unit capability information, table: input, address: 1000, type: u16, flags: capability_bits, poll: slow}
+  - {key: x.fan_direction_steps, label: Fan direction level capability, table: input, address: 1000, type: u16, bits: [8, 10], enum: fan_direction_steps, poll: slow, note: Only meaningful when the fan direction capability bit (11) is set.}
+  - {key: x.fan_volume_steps, label: Fan volume level capability, table: input, address: 1000, type: u16, bits: [12, 14], enum: fan_volume_steps, poll: slow, note: Only meaningful when the fan volume capability bit (15) is set.}
+  - {key: x.cool_setpoint_max, label: Cooling setpoint upper limit, table: input, address: 1001, type: u16, bits: [0, 7], signed: true, unit: °C, poll: slow}
+  - {key: x.cool_setpoint_min, label: Cooling setpoint lower limit, table: input, address: 1001, type: u16, bits: [8, 15], signed: true, unit: °C, poll: slow}
+  - {key: x.heat_setpoint_max, label: Heating setpoint upper limit, table: input, address: 1002, type: u16, bits: [0, 7], signed: true, unit: °C, poll: slow}
+  - {key: x.heat_setpoint_min, label: Heating setpoint lower limit, table: input, address: 1002, type: u16, bits: [8, 15], signed: true, unit: °C, poll: slow}
+
+  # Indoor unit 1-00: status (32001–32006)
+  - {key: x.on_off, label: On/Off status, table: input, address: 2000, type: u16, bits: [0, 0], enum: on_off}
+  - {key: x.forced_off, label: Forced off status, table: input, address: 2000, type: u16, bits: [2, 2], enum: forced_off}
+  - {key: x.fan_direction, label: Fan direction, table: input, address: 2000, type: u16, bits: [8, 10], enum: fan_direction}
+  - {key: x.fan_volume, label: Fan volume, table: input, address: 2000, type: u16, bits: [12, 14], enum: fan_volume}
+  - {key: x.operation_mode, label: Operation mode, table: input, address: 2001, type: u16, bits: [0, 3], enum: operation_mode}
+  - {key: x.filter_sign, label: Filter sign status, table: input, address: 2001, type: u16, bits: [4, 7], note: '0 = off, 1–15 = filter sign on.'}
+  - {key: state, label: Operation status, table: input, address: 2001, type: u16, bits: [8, 11], enum: operation_status}
+  - {key: x.cool_heat_master, label: Cool/Heat master, table: input, address: 2001, type: u16, bits: [14, 15], enum: cool_heat_master}
+  - {key: x.setpoint, label: Setpoint, table: input, address: 2002, type: s16, unit: °C, scale: 0.1}
+  - {key: x.error_code_digit, label: Error code mapping value 1, table: input, address: 2003, type: u16, bits: [0, 3], enum: error_code_digit, note: Second character of the Daikin error code (see error_code_letter).}
+  - {key: x.error_code_letter, label: Error code mapping value 2, table: input, address: 2003, type: u16, bits: [4, 8], enum: error_code_letter, note: First character of the Daikin error code; e.g. letter 9 (U) and digit 4 give U4.}
+  - {key: x.malfunction, label: Malfunction, table: input, address: 2003, type: u16, bits: [9, 9]}
+  - {key: x.warning, label: Warning, table: input, address: 2003, type: u16, bits: [10, 10]}
+  - {key: x.room_temperature, label: Room temperature, table: input, address: 2004, type: s16, unit: °C, scale: 0.1, note: Indoor unit sensor; valid once bit 15 of 32006 is set.}
+  - {key: x.temperature_sensor_error, label: Indoor unit temperature sensor error, table: input, address: 2005, type: u16, bits: [8, 8]}
+  - {key: x.temperature_received, label: Indoor unit temperature sensor data received, table: input, address: 2005, type: u16, bits: [15, 15]}
+
+  # Adaptor setting (40001) and indoor unit 1-00 control (42001–42003); write only
+  - {key: x.diii_net_setting, label: DIII-NET setting, table: holding, address: 0, type: u16, flags: diii_net_setting, writable: true, write_only: true, persistent: true, poll: slow, note: 'Takes effect after the adaptor is power-cycled. Defaults: managed 1, master 0, communication start 1.'}
+  - {key: x.control_on_off_fan, label: 'Indoor unit control (on/off, fan)', table: holding, address: 2000, type: u16, writable: true, write_only: true, note: 'Bit 0 on/off; bits 4–7 must be 6 (fan control flag); bits 8–10 fan direction (0–4 P0–P4, 6 stop, 7 swing); bits 12–14 fan volume (1 L, 3 M, 5 H; 0 without fan volume capability).'}
+  - {key: x.control_mode, label: 'Indoor unit control (mode, filter reset)', table: holding, address: 2001, type: u16, writable: true, write_only: true, note: 'Bits 0–3 operation mode (enum control_mode); bits 4–7 filter sign reset (15 = reset, then write 0 again); bits 8–11 setpoint target in auto mode (0 don''t care, 1 heating, 2 cooling). Modes the unit can''t do are refused with an exception.'}
+  - {key: x.control_setpoint, label: Indoor unit control (setpoint), table: holding, address: 2002, type: s16, unit: °C, scale: 0.1, writable: true, write_only: true}
+
+enums:
+  adaptor_status: {'0': Not ready, '1': Ready}
+  on_off: {'0': 'Off', '1': 'On'}
+  forced_off: {'0': None, '1': Forced off}
+  fan_direction: {'0': P0 (horizontal), '1': P1, '2': P2, '3': P3, '4': P4 (vertical), '7': Swing}
+  fan_volume: {'1': Low, '3': Medium, '5': High}
+  fan_direction_steps: {'1': Fixed, '2': 2 steps, '3': 3 steps, '4': 4 steps, '5': 5 steps}
+  fan_volume_steps: {'1': Fixed, '2': 2 steps, '3': 3 steps}
+  operation_mode: {'0': Fan, '1': Heating, '2': Cooling, '3': Auto, '7': Dry}
+  control_mode: {'0': Fan, '1': Heating, '2': Cooling, '3': Auto, '6': Setpoint only (unit is not cool/heat master), '7': Dry}
+  operation_status: {'0': Fan, '1': Heating, '2': Cooling}
+  cool_heat_master: {'0': Not decided, '1': Slave, '2': Master}
+  error_code_letter: {'0': '0', '1': A, '2': C, '3': E, '4': H, '5': F, '6': J, '7': L, '8': P, '9': U, '10': '9', '11': '8', '12': '7', '13': '6', '14': '5', '15': '4', '16': '3', '17': '2', '18': '1', '19': G, '20': K, '21': M, '22': N, '23': R, '24': T, '25': V, '26': W, '27': X, '28': Y, '29': Z, '30': '*'}
+  error_code_digit: {'0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '10': A, '11': B, '12': C, '13': D, '14': E, '15': F}
+
+flags:
+  unit_connected: {'0': Unit 1-00 connected, '1': Unit 1-01 connected, '2': Unit 1-02 connected, '3': Unit 1-03 connected, '4': Unit 1-04 connected, '5': Unit 1-05 connected, '6': Unit 1-06 connected, '7': Unit 1-07 connected, '8': Unit 1-08 connected, '9': Unit 1-09 connected, '10': Unit 1-10 connected, '11': Unit 1-11 connected, '12': Unit 1-12 connected, '13': Unit 1-13 connected, '14': Unit 1-14 connected, '15': Unit 1-15 connected}
+  unit_comm_error: {'0': Unit 1-00 communication error, '1': Unit 1-01 communication error, '2': Unit 1-02 communication error, '3': Unit 1-03 communication error, '4': Unit 1-04 communication error, '5': Unit 1-05 communication error, '6': Unit 1-06 communication error, '7': Unit 1-07 communication error, '8': Unit 1-08 communication error, '9': Unit 1-09 communication error, '10': Unit 1-10 communication error, '11': Unit 1-11 communication error, '12': Unit 1-12 communication error, '13': Unit 1-13 communication error, '14': Unit 1-14 communication error, '15': Unit 1-15 communication error}
+  capability_bits: {'0': Fan mode, '1': Cooling mode, '2': Heating mode, '3': Auto mode, '4': Dry mode, '11': Fan direction, '15': Fan volume}
+  diii_net_setting: {'0': Addresses 1-00…1-15 managed, '8': Adaptor is DIII-NET master, '15': DIII-NET communication started}
+
+problems:
+  - {when: {key: x.communication_errors, bit: 0}, kind: fault, text: No communication with indoor unit 1-00}
+  - {when: {key: x.malfunction, equals: 1}, kind: fault, text: Indoor unit malfunction}
+  - {when: {key: x.warning, equals: 1}, kind: warning, text: Indoor unit warning}
+  - {when: {key: x.temperature_sensor_error, equals: 1}, kind: warning, text: Indoor unit temperature sensor error}
+
+notes:
+- 'Addresses: the manual numbers input registers 30001… and holding registers 40001… and says 30001 / 40001 are sent as 0;
+  so 3xxxx → input xxxx−1 and 4xxxx → holding xxxx−1.'
+- Only functions 04 (read input registers), 06 and 16 (write) are supported; holding registers can't be read back. Up to 32
+  registers per read, 30 per write; no broadcast.
+- 'RS485 Modbus RTU only. DIP switch DS1: pin 2 baud (off 9600, on 19200); pin 3 off = 1 stop bit with parity, on = 2 stop
+  bits without parity; pin 4 parity (off even, on odd). DS2 sets the unit id 1–15; 0 disables Modbus. Defaults here assume
+  all DS1 pins off.'
+- The adaptor answers after the silent interval + 20 ms (25 ms at 9600 baud); the master must wait as long before the next
+  request. Writes to the same register should be more than 0.5 s apart.
+- The points are indoor unit 1-00. Unit 1-0n (n = 0…15) is 3 × n higher for capabilities (input 1000…) and control (holding
+  2000…), 6 × n higher for status (input 2000…).
+- The adaptor sends a command to the unit only when a holding register value changes. Before each write, copy the current
+  status (input registers) into the holding registers, or an operation from the HA system may be ignored after the unit was
+  changed on its remote controller.
+- Up to 16 indoor units per adaptor (DIII-NET addresses 1-00…1-15).

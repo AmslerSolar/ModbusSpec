@@ -1,0 +1,261 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: remeha-gtw26
+manufacturer: Remeha
+name: GTW-26 Modbus gateway (Diematic controllers)
+kind: boiler
+
+sources:
+- id: aio-remeha-modbus
+  title: aio-remeha-modbus (Python library behind remeha-modbus)
+  url: https://github.com/houthacker/aio-remeha-modbus
+  license: LGPL-3.0-or-later
+  commit: 686fedfc7a296e7931e9916e401891b90151aabd
+  path: src/aio_remeha_modbus/gtw26/climate_zone.py, src/aio_remeha_modbus/gtw26/config.py, src/aio_remeha_modbus/gtw26/hot_water.py,
+    src/aio_remeha_modbus/gtw26/sensors.py, src/aio_remeha_modbus/gtw26/system_discovery_table.py
+
+connection:
+  default_port: 502
+  default_unit: 100
+  limits:
+    max_registers: 40
+    min_interval_ms: 50
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - aio-remeha-modbus
+
+models:
+  - {id: base, name: Base register layout}
+  - {id: isystem, name: iSystem register layout}
+
+points:
+  - {key: x.controller, label: Controller, table: holding, address: 3, type: u16, models: [base]}
+  - {key: x.clock_time, label: Clock time, table: holding, address: 4, type: datetime, length: 3, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 1, bits: [0, 7]}}, models: [base], writable: true, note: 'Register 6: weekday, 1 = Monday … 7 = Sunday.'}
+  - {key: x.outdoor_temperature, label: Outdoor temperature, table: holding, address: 7, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.summer_winter_temperature, label: Summer winter temperature, table: holding, address: 8, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], writable: true}
+  - {key: x.frost_threshold, label: Frost threshold, table: holding, address: 9, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.outdoor_antifreeze, label: Outdoor antifreeze, table: holding, address: 9, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.night_mode, label: Night mode, table: holding, address: 10, type: u16, enum: night_mode, models: [isystem], writable: true}
+  - {key: x.heating_pump_delay, label: Heating pump delay, table: holding, address: 11, type: u16, unit: min, models: [isystem], writable: true}
+  - {key: x.zone_a_comfort_target, label: Zone A comfort target, table: holding, address: 14, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.zone_a_reduced_target, label: Zone A reduced target, table: holding, address: 15, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.zone_a_frost_protection_target, label: Zone A frost protection target, table: holding, address: 16, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.hot_water_mode, label: Hot water mode / zone A mode, table: holding, address: 17, type: u16, models: [base], note: 'Mask 0x50: 0 = Auto, 80 = Temp, 16 = Perm. Mask 0x2F: 8 = Auto, 36 = Temp day, 34 = Temp night, 4 = Perm day, 2 = Perm night, 1 = Antifreeze, 33 = Holiday.'}
+  - {key: x.zone_a_room_temperature, label: Zone A room temperature, table: holding, address: 18, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.zone_a_ambient_influence, label: Zone A ambient influence, table: holding, address: 19, type: u16, models: [base]}
+  - {key: x.zone_a_heating_curve_slope, label: Zone A heating curve slope, table: holding, address: 20, type: sm16, unit: K/K, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.zone_a_calculated_temperature, label: Zone A calculated temperature, table: holding, address: 21, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.zone_b_comfort_target, label: Zone B comfort target, table: holding, address: 23, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.zone_b_reduced_target, label: Zone B reduced target, table: holding, address: 24, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.zone_b_frost_protection_target, label: Zone B frost protection target, table: holding, address: 25, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.zone_b_mode, label: Zone B mode, table: holding, address: 26, type: u16, models: [base], note: 'Mask 0x2F: 8 = Auto, 36 = Temp day, 34 = Temp night, 4 = Perm day, 2 = Perm night, 1 = Antifreeze, 33 = Holiday.'}
+  - {key: x.zone_b_room_temperature, label: Zone B room temperature, table: holding, address: 27, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.zone_b_ambient_influence, label: Zone B ambient influence, table: holding, address: 28, type: u16, models: [base]}
+  - {key: x.zone_b_heating_curve_slope, label: Zone B heating curve slope, table: holding, address: 29, type: sm16, unit: K/K, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.zone_b_min_temperature, label: Zone B min temperature, table: holding, address: 30, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.zone_b_max_temperature, label: Zone B max temperature, table: holding, address: 31, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.zone_b_calculated_temperature, label: Zone B calculated temperature, table: holding, address: 32, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.zone_b_supply_temperature, label: Zone B supply temperature, table: holding, address: 33, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.hot_water_comfort_target, label: Hot water comfort target, table: holding, address: 59, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.hot_water_priority, label: Hot water priority, table: holding, address: 60, type: u16, bits: [0, 7], enum: hot_water_priority, models: [base]}
+  - {key: x.hot_water_pump_delay, label: Hot water pump delay, table: holding, address: 61, type: u16, unit: min, writable: true}
+  - {key: x.hot_water_temperature, label: Hot water temperature, table: holding, address: 62, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.boiler_minimum_temperature, label: Boiler minimum temperature, table: holding, address: 70, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.boiler_maximum_temperature, label: Boiler maximum temperature, table: holding, address: 71, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.boiler_temperature, label: Boiler temperature, table: holding, address: 75, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.burner_start_count, label: Burner start count, table: holding, address: 77, type: u16, unit: starts, scale: 0.1, models: [base]}
+  - {key: x.burner_runtime_hours, label: Burner runtime hours, table: holding, address: 78, type: u16, unit: h, scale: 0.1, models: [base]}
+  - {key: x.second_stage_start_count, label: Second stage start count, table: holding, address: 79, type: u16, unit: starts, scale: 0.1, models: [base]}
+  - {key: x.second_stage_runtime_hours, label: Second stage runtime hours, table: holding, address: 80, type: u16, unit: h, scale: 0.1, models: [base]}
+  - {key: x.hot_water_reduced_target, label: Hot water reduced target, table: holding, address: 96, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base], writable: true}
+  - {key: x.mean_outside_temperature, label: Mean outside temperature, table: holding, address: 102, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276]}
+  - {key: x.clock_date, label: Clock date, table: holding, address: 108, type: datetime, length: 3, datetime: {day: {register: 0, bits: [0, 7]}, month: {register: 1, bits: [0, 7]}, year: {register: 2, bits: [0, 7], offset: 2000}}, models: [base], writable: true}
+  - {key: x.sensor_faults, label: Sensor faults, table: holding, address: 116, type: u16, invalid: [65535], models: [base]}
+  - {key: x.primary_boiler_temperature, label: Primary boiler temperature, table: holding, address: 121, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.zone_a_program, label: Zone A program, table: holding, address: 231, type: u16, note: 'Selected heating program P1…P4: (low byte ÷ 7, rounded down) mod 4 + 1; 0xFFFF and 0x8CCC = none.'}
+  - {key: x.zone_b_program, label: Zone B program, table: holding, address: 232, type: u16, note: 'Selected heating program P1…P4: (low byte ÷ 7, rounded down) mod 4 + 1; 0xFFFF and 0x8CCC = none.'}
+  - {key: x.zone_c_program, label: Zone C program, table: holding, address: 233, type: u16, models: [isystem], note: 'Selected heating program P1…P4: (low byte ÷ 7, rounded down) mod 4 + 1; 0xFFFF and 0x8CCC = none.'}
+  - {key: x.autoadapt_a, label: Autoadapt a, table: holding, address: 247, type: sm16, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.autoadapt_b, label: Autoadapt b, table: holding, address: 248, type: sm16, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.autoadapt_c, label: Autoadapt c, table: holding, address: 249, type: sm16, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.burner_start_count_raw, label: Burner start count raw, table: holding, address: 251, type: u16, unit: starts, models: [base]}
+  - {key: x.burner_start_count_isystem, label: Burner start count, table: holding, address: 251, type: u16, unit: starts, scale: 4, invalid: [65535], models: [isystem]}
+  - {key: x.burner_runtime_hours_raw, label: Burner runtime hours raw, table: holding, address: 252, type: u16, unit: h, models: [base]}
+  - {key: x.burner_runtime_hours_isystem, label: Burner runtime hours, table: holding, address: 252, type: u16, unit: h, invalid: [65535], models: [isystem]}
+  - {key: x.second_stage_start_count_raw, label: Second stage start count raw, table: holding, address: 253, type: u16, unit: starts, models: [base]}
+  - {key: x.second_stage_runtime_hours_raw, label: Second stage runtime hours raw, table: holding, address: 254, type: u16, unit: h, models: [base]}
+  - {key: x.language, label: Language, table: holding, address: 263, type: u16, enum: language, models: [isystem]}
+  - {key: x.building_inertia, label: Building inertia, table: holding, address: 264, type: u16, models: [isystem], writable: true}
+  - {key: x.bandwidth, label: Bandwidth, table: holding, address: 266, type: sm16, unit: K, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.three_way_valve_shift, label: Three way valve shift, table: holding, address: 267, type: sm16, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.hot_water_legionella_protection, label: Hot water legionella protection, table: holding, address: 268, type: u16, enum: legionella_protection, models: [isystem], writable: true}
+  - {key: x.min_running_time, label: Min running time, table: holding, address: 269, type: u16, unit: s, models: [isystem]}
+  - {key: x.burner_temporisation, label: Burner temporisation, table: holding, address: 271, type: u16, models: [isystem]}
+  - {key: x.pump_postrun, label: Pump postrun, table: holding, address: 272, type: u16, unit: min, scale: 2, models: [isystem]}
+  - {key: x.outside_calibration, label: Outside calibration, table: holding, address: 274, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_a_calibration, label: Zone A calibration, table: holding, address: 275, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_b_calibration, label: Zone B calibration, table: holding, address: 276, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_c_calibration, label: Zone C calibration, table: holding, address: 277, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.anticipation_a, label: Anticipation a, table: holding, address: 282, type: sm16, scale: 0.1, invalid: [-32767, -3276, 101], models: [isystem], writable: true}
+  - {key: x.anticipation_b, label: Anticipation b, table: holding, address: 283, type: sm16, scale: 0.1, invalid: [-32767, -3276, 101], models: [isystem], writable: true}
+  - {key: x.anticipation_c, label: Anticipation c, table: holding, address: 284, type: sm16, scale: 0.1, invalid: [-32767, -3276, 101], models: [isystem], writable: true}
+  - {key: x.footprint_a_day, label: Footprint a day, table: holding, address: 289, type: sm16, scale: 0.1, invalid: [-32767, -3276, 150], models: [isystem]}
+  - {key: x.footprint_a_night, label: Footprint a night, table: holding, address: 290, type: sm16, scale: 0.1, invalid: [-32767, -3276, 150], models: [isystem]}
+  - {key: x.footprint_b_day, label: Footprint b day, table: holding, address: 291, type: sm16, scale: 0.1, invalid: [-32767, -3276, 150], models: [isystem]}
+  - {key: x.footprint_b_night, label: Footprint b night, table: holding, address: 292, type: sm16, scale: 0.1, invalid: [-32767, -3276, 150], models: [isystem]}
+  - {key: x.zone_a_circuit_type, label: Zone A circuit type, table: holding, address: 296, type: u16, enum: circuit_type, models: [isystem]}
+  - {key: x.zone_b_circuit_type, label: Zone B circuit type, table: holding, address: 297, type: u16, enum: circuit_type, models: [isystem]}
+  - {key: x.zone_a_min, label: Zone A min, table: holding, address: 298, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_a_max, label: Zone A max, table: holding, address: 299, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.max_fan_speed, label: Max fan speed, table: holding, address: 305, type: u16, unit: rpm, invalid: [65535], models: [isystem]}
+  - {key: x.footprint_c_day, label: Footprint c day, table: holding, address: 358, type: sm16, scale: 0.1, invalid: [-32767, -3276, 150], models: [isystem]}
+  - {key: x.footprint_c_night, label: Footprint c night, table: holding, address: 359, type: sm16, scale: 0.1, invalid: [-32767, -3276, 150], models: [isystem]}
+  - {key: x.zone_c_circuit_type, label: Zone C circuit type, table: holding, address: 360, type: u16, enum: circuit_type, models: [isystem]}
+  - {key: x.three_way_valve_temperature_shift, label: Three way valve temperature shift, table: holding, address: 426, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.burner_active, label: Burner active, table: holding, address: 427, type: u16, bits: [3, 3]}
+  - {key: x.zone_a_pump_active, label: Zone A pump active, table: holding, address: 427, type: u16, bits: [4, 4]}
+  - {key: x.hot_water_pump_active, label: Hot water pump active, table: holding, address: 427, type: u16, bits: [5, 5]}
+  - {key: x.zone_b_valve_closing, label: Zone B valve closing, table: holding, address: 428, type: u16, bits: [0, 0], models: [isystem]}
+  - {key: x.zone_b_valve_opening, label: Zone B valve opening, table: holding, address: 428, type: u16, bits: [1, 1], models: [isystem]}
+  - {key: x.zone_b_pump_active, label: Zone B pump active, table: holding, address: 428, type: u16, bits: [4, 4]}
+  - {key: x.calculated_setpoint, label: Calculated setpoint, table: holding, address: 436, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.three_way_valve_bandwidth, label: Three way valve bandwidth, table: holding, address: 438, type: sm16, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.ionization_current, label: Ionization current, table: holding, address: 451, type: sm16, unit: µA, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.boiler_temperature_dpsm, label: Boiler temperature dpsm, table: holding, address: 452, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.return_temperature, label: Return temperature, table: holding, address: 453, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.flue_gas_temperature, label: Flue gas temperature, table: holding, address: 454, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.fan_speed, label: Fan speed, table: holding, address: 455, type: u16, unit: rpm, invalid: [65535], models: [base]}
+  - {key: x.water_pressure, label: Water pressure, table: holding, address: 456, type: sm16, unit: bar, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.controller_type, label: Controller type, table: holding, address: 457, type: u16, enum: controller_type}
+  - {key: x.hot_water_temperature_dpsm, label: Hot water temperature dpsm, table: holding, address: 459, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.calculated_boiler_temperature, label: Calculated boiler temperature, table: holding, address: 462, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.pump_power, label: Pump power, table: holding, address: 463, type: u16, unit: '%', invalid: [65535], models: [base]}
+  - {key: x.fault, label: Fault, table: holding, address: 465, type: u16, enum: fault}
+  - {key: x.solar_temperature, label: Solar temperature, table: holding, address: 467, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.solar_tank_temperature, label: Solar tank temperature, table: holding, address: 468, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.outdoor_temperature_bus, label: Outdoor temperature bus, table: holding, address: 470, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [base]}
+  - {key: x.instantaneous_power, label: Instantaneous power, table: holding, address: 471, type: sm16, unit: W, scale: 100, invalid: [-32767, -3276], models: [base]}
+  - {key: x.average_power, label: Average power, table: holding, address: 472, type: sm16, unit: W, scale: 100, invalid: [-32767, -3276], models: [base]}
+  - {key: x.modulated_power, label: Modulated power, table: holding, address: 473, type: u16, unit: '%', models: [isystem]}
+  - {key: x.outputs_primary, label: Outputs primary, table: holding, address: 474, type: u16}
+  - {key: x.outputs_burner_stage_1_active, label: Outputs burner stage 1 active, table: holding, address: 474, type: u16, bits: [0, 0], models: [isystem]}
+  - {key: x.outputs_hydraulic_valve_closing, label: Outputs hydraulic valve closing, table: holding, address: 474, type: u16, bits: [3, 3], models: [isystem]}
+  - {key: x.outputs_boiler_pump_active, label: Outputs boiler pump active, table: holding, address: 474, type: u16, bits: [4, 4], models: [isystem]}
+  - {key: x.outputs_secondary, label: Outputs secondary, table: holding, address: 475, type: u16}
+  - {key: x.outputs_dhw_pump_active, label: Outputs DHW pump active, table: holding, address: 475, type: u16, bits: [0, 0]}
+  - {key: x.outputs_circuit_a_pump_active, label: Outputs circuit a pump active, table: holding, address: 475, type: u16, bits: [1, 1]}
+  - {key: x.outputs_circuit_a_valve_opening, label: Outputs circuit a valve opening, table: holding, address: 475, type: u16, bits: [2, 2]}
+  - {key: x.outputs_circuit_a_valve_closing, label: Outputs circuit a valve closing, table: holding, address: 475, type: u16, bits: [3, 3]}
+  - {key: x.outputs_circuit_b_pump_active, label: Outputs circuit b pump active, table: holding, address: 475, type: u16, bits: [4, 4]}
+  - {key: x.outputs_circuit_b_valve_opening, label: Outputs circuit b valve opening, table: holding, address: 475, type: u16, bits: [5, 5]}
+  - {key: x.outputs_circuit_b_valve_closing, label: Outputs circuit b valve closing, table: holding, address: 475, type: u16, bits: [6, 6]}
+  - {key: x.outputs_circuit_c_pump_active, label: Outputs circuit c pump active, table: holding, address: 475, type: u16, bits: [7, 7]}
+  - {key: x.outputs_circuit_c_valve_opening, label: Outputs circuit c valve opening, table: holding, address: 475, type: u16, bits: [8, 8]}
+  - {key: x.outputs_circuit_c_valve_closing, label: Outputs circuit c valve closing, table: holding, address: 475, type: u16, bits: [9, 9]}
+  - {key: x.outputs_auxiliary_1_pump_active, label: Outputs auxiliary 1 pump active, table: holding, address: 475, type: u16, bits: [10, 10]}
+  - {key: x.outputs_auxiliary_2_pump_active, label: Outputs auxiliary 2 pump active, table: holding, address: 475, type: u16, bits: [11, 11]}
+  - {key: x.outputs_auxiliary_3_pump_active, label: Outputs auxiliary 3 pump active, table: holding, address: 475, type: u16, bits: [12, 12]}
+  - {key: x.outputs_phone_output_active, label: Outputs phone output active, table: holding, address: 475, type: u16, bits: [13, 13]}
+  - {key: x.software_version, label: Software version, table: holding, address: 600, type: u16, models: [isystem]}
+  - {key: x.outdoor_temperature_isystem, label: Outdoor temperature, table: holding, address: 601, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.boiler_temperature_isystem, label: Boiler temperature, table: holding, address: 602, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.hot_water_temperature_isystem, label: Hot water temperature, table: holding, address: 603, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.flue_gas_temperature_isystem, label: Flue gas temperature, table: holding, address: 604, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_b_supply_temperature_isystem, label: Zone B supply temperature, table: holding, address: 605, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.return_temperature_isystem, label: Return temperature, table: holding, address: 607, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.ionization_current_isystem, label: Ionization current, table: holding, address: 608, type: sm16, unit: µA, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.fan_speed_isystem, label: Fan speed, table: holding, address: 609, type: u16, unit: rpm, invalid: [65535], models: [isystem]}
+  - {key: x.water_pressure_isystem, label: Water pressure, table: holding, address: 610, type: sm16, unit: bar, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.instantaneous_power_isystem, label: Instantaneous power, table: holding, address: 613, type: u16, unit: '%', models: [isystem]}
+  - {key: x.zone_a_room_temperature_isystem, label: Zone A room temperature, table: holding, address: 614, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_a_calculated_temperature_isystem, label: Zone A calculated temperature, table: holding, address: 615, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_b_room_temperature_isystem, label: Zone B room temperature, table: holding, address: 616, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_b_calculated_temperature_isystem, label: Zone B calculated temperature, table: holding, address: 617, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_c_room_temperature, label: Zone C room temperature, table: holding, address: 618, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_c_calculated_temperature, label: Zone C calculated temperature, table: holding, address: 619, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.calculated_boiler_temperature_isystem, label: Calculated boiler temperature, table: holding, address: 620, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_a_supply_temperature, label: Zone A supply temperature, table: holding, address: 621, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.auxiliary_1_temperature, label: Auxiliary 1 temperature, table: holding, address: 622, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.auxiliary_2_temperature, label: Auxiliary 2 temperature, table: holding, address: 623, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.universal_temperature, label: Universal temperature, table: holding, address: 624, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.zone_a_active_mode, label: Zone A active mode, table: holding, address: 637, type: u16, bits: [1, 2], enum: active_mode_bits_1, models: [isystem]}
+  - {key: x.zone_b_active_mode, label: Zone B active mode, table: holding, address: 638, type: u16, bits: [1, 2], enum: active_mode_bits_1, models: [isystem]}
+  - {key: x.zone_c_active_mode, label: Zone C active mode, table: holding, address: 639, type: u16, bits: [1, 2], enum: active_mode_bits_1, models: [isystem]}
+  - {key: x.hot_water_active_mode, label: Hot water active mode, table: holding, address: 640, type: u16, bits: [1, 2], enum: active_mode_bits_1, models: [isystem]}
+  - {key: x.aux_active_mode, label: Aux active mode, table: holding, address: 641, type: u16, bits: [1, 2], enum: active_mode_bits_1, models: [isystem]}
+  - {key: x.boiler_active_mode, label: Boiler active mode, table: holding, address: 644, type: u16, models: [isystem]}
+  - {key: x.zone_a_comfort_target_isystem, label: Zone A comfort target, table: holding, address: 650, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_a_reduced_target_isystem, label: Zone A reduced target, table: holding, address: 651, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_a_frost_protection_target_isystem, label: Zone A frost protection target, table: holding, address: 652, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_a_mode, label: Zone A mode, table: holding, address: 653, type: u16, models: [isystem], note: 'Mask 0x2F: 8 = Auto, 36 = Temp day, 34 = Temp night, 4 = Perm day, 2 = Perm night, 1 = Antifreeze, 33 = Holiday.'}
+  - {key: x.zone_a_ambient_influence_isystem, label: Zone A ambient influence, table: holding, address: 654, type: u16, models: [isystem]}
+  - {key: x.zone_a_heating_curve_slope_isystem, label: Zone A heating curve slope, table: holding, address: 655, type: sm16, unit: K/K, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_b_comfort_target_isystem, label: Zone B comfort target, table: holding, address: 656, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_b_reduced_target_isystem, label: Zone B reduced target, table: holding, address: 657, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_b_frost_protection_target_isystem, label: Zone B frost protection target, table: holding, address: 658, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.hot_water_mode_isystem, label: Hot water mode / zone B mode, table: holding, address: 659, type: u16, models: [isystem], note: 'Mask 0x50: 0 = Auto, 80 = Temp, 16 = Perm. Mask 0x2F: 8 = Auto, 36 = Temp day, 34 = Temp night, 4 = Perm day, 2 = Perm night, 1 = Antifreeze, 33 = Holiday.'}
+  - {key: x.zone_b_all_circuits_derogation, label: Zone B all circuits derogation, table: holding, address: 659, type: u16, bits: [7, 7], models: [isystem]}
+  - {key: x.zone_b_ambient_influence_isystem, label: Zone B ambient influence, table: holding, address: 660, type: u16, models: [isystem]}
+  - {key: x.zone_b_heating_curve_slope_isystem, label: Zone B heating curve slope, table: holding, address: 661, type: sm16, unit: K/K, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_b_min_temperature_isystem, label: Zone B min temperature, table: holding, address: 662, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_b_max_temperature_isystem, label: Zone B max temperature, table: holding, address: 663, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_c_comfort_target, label: Zone C comfort target, table: holding, address: 664, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_c_reduced_target, label: Zone C reduced target, table: holding, address: 665, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_c_frost_protection_target, label: Zone C frost protection target, table: holding, address: 666, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_c_mode, label: Zone C mode, table: holding, address: 667, type: u16, models: [isystem], note: 'Mask 0x2F: 8 = Auto, 36 = Temp day, 34 = Temp night, 4 = Perm day, 2 = Perm night, 1 = Antifreeze, 33 = Holiday.'}
+  - {key: x.zone_c_all_circuits_derogation, label: Zone C all circuits derogation, table: holding, address: 667, type: u16, bits: [7, 7], models: [isystem]}
+  - {key: x.zone_c_ambient_influence, label: Zone C ambient influence, table: holding, address: 668, type: u16, models: [isystem]}
+  - {key: x.zone_c_heating_curve_slope, label: Zone C heating curve slope, table: holding, address: 669, type: sm16, unit: K/K, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_c_min_temperature, label: Zone C min temperature, table: holding, address: 670, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.zone_c_max_temperature, label: Zone C max temperature, table: holding, address: 671, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.hot_water_comfort_target_isystem, label: Hot water comfort target, table: holding, address: 672, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.hot_water_reduced_target_isystem, label: Hot water reduced target, table: holding, address: 673, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem], writable: true}
+  - {key: x.hot_water_priority_isystem, label: Hot water priority, table: holding, address: 674, type: u16, enum: hot_water_priority, models: [isystem], writable: true}
+  - {key: x.dhw_priority, label: DHW priority, table: holding, address: 674, type: u16, bits: [0, 7], enum: hot_water_priority, models: [isystem]}
+  - {key: x.boiler_minimum_temperature_isystem, label: Boiler minimum temperature, table: holding, address: 677, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.boiler_maximum_temperature_isystem, label: Boiler maximum temperature, table: holding, address: 678, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.clock, label: Clock, table: holding, address: 679, type: datetime, length: 6, datetime: {hour: {register: 0}, minute: {register: 1}, day: {register: 3}, month: {register: 4}, year: {register: 5, offset: 2000}}, models: [isystem], writable: true, note: 'Register 681: weekday, 1 = Monday … 7 = Sunday.'}
+  - {key: x.pcu_state, label: PCU state, table: holding, address: 710, type: u16, models: [isystem]}
+  - {key: x.pcu_substate, label: PCU substate, table: holding, address: 711, type: u16, models: [isystem]}
+  - {key: x.pcu_block, label: PCU block, table: holding, address: 712, type: u16, models: [isystem]}
+  - {key: x.pcu_lock, label: PCU lock, table: holding, address: 713, type: u16, models: [isystem]}
+  - {key: x.secondary_calculated_temperature, label: Secondary calculated temperature, table: holding, address: 734, type: sm16, unit: °C, scale: 0.1, invalid: [-32767, -3276], models: [isystem]}
+  - {key: x.outputs_boiler_state, label: Outputs boiler state, table: holding, address: 735, type: u16, models: [isystem]}
+  - {key: x.outputs_secondary_pump_active, label: Outputs secondary pump active, table: holding, address: 735, type: u16, bits: [3, 3], models: [isystem]}
+  - {key: x.auxiliary_1_input, label: Auxiliary 1 input, table: holding, address: 741, type: u16, enum: auxiliary_input, models: [isystem]}
+  - {key: x.auxiliary_1_type, label: Auxiliary 1 type, table: holding, address: 744, type: u16, enum: auxiliary_type, models: [isystem]}
+  - {key: x.auxiliary_2_type, label: Auxiliary 2 type, table: holding, address: 745, type: u16, enum: auxiliary_output_type, models: [isystem]}
+  - {key: x.auxiliary_3_type, label: Auxiliary 3 type, table: holding, address: 746, type: u16, enum: auxiliary_output_type, models: [isystem]}
+
+enums:
+  fault: {'0': 'D3:OUTL S.B FAIL.', '1': 'D4:OUTL S.C FAIL.', '2': 'D5:OUTSI.S.FAIL.', '3': 'D7:SYST.SENS.FAIL.', '4': 'D9:DHW S.FAILURE', '5': 'D11:ROOM S.A FAIL.', '6': 'D12:ROOM S.B FAIL.', '7': 'D13:ROOM S.C FAIL.', '8': 'D14:MC COM.FAIL', '9': 'D15:ST.TANK S.FAIL', '10': 'D16:SWIM.P.B.S.FA', '11': 'D16:SWIM.P.C.S.FA', '12': 'D17:DHW 2 S.FAIL', '13': 'D27:PCU COM.FAIL', '14': Not Available, '15': Not Available, '16': Not Available, '17': Not Available, '18': 'D32:5 RESET:ON/OFF', '19': 'D37:TA-S SHORT-CIR', '20': 'D38:TA-S DISCONNEC', '21': 'D39:TA-S FAILURE', '22': 'D50:OTH COM.FAIL', '23': 'D51:DEF :SEE BOILER', '24': 'D18:SOL.HW S.FAIL', '25': 'D19:SOL.COL.S.FAIL', '26': 'D20:SOL COM.FAIL', '27': 'D99:DEF.BAD PCU', '28': 'D40:FAIL UNKNOWN', '29': 'D254:FAIL UNKNOWN', '2048': 'B0:PSU FAIL', '2049': 'B1:PSU PARAM FAIL', '2050': 'B2:EXCHAN.S.FAIL', '2051': 'B3:EXCHAN.S.FAIL', '2052': 'B4:EXCHAN.S.FAIL', '2053': 'B5:STB EXCHANGE', '2054': 'B6:BACK S.FAILURE', '2055': 'B7:BACK S.FAILURE', '2056': 'B8:BACK S.FAILURE', '2057': 'B9:STB BACK', '2058': 'B10:DT.EXCH.BAC.FAIL', '2059': 'B11:DT.BAC.EXCH.FAIL', '2060': 'B12:STB OPEN', '2061': 'B14:BURNER FAILURE', '2062': 'B15:CCE.TST.FAIL', '2063': 'B16:PARASIT FLAME', '2064': 'B17:VALVE FAIL', '2065': 'B32:DEF.OUTLET S.', '2066': 'B33:DEF.OUTLET S.', '2067': 'B34:FAN FAILURE', '2068': 'B35:BACK>BOIL FAIL', '2069': 'B36:I-CURRENT FAIL', '2070': 'B37:SU COM.FAIL', '2071': 'B38:PCU COM.FAIL', '2072': 'B39:BL OPEN FAIL', '2073': 'B255:FAIL UNKNOWN', '2074': 'B254:FAIL UNKNOWN', '4096': DEF.PSU 00, '4097': DEF.PSU PARAM 01, '4098': DEF.S.DEPART 02, '4099': DEF.S.DEPART 03, '4100': DEF.S.DEPART 04, '4101': STB DEPART 05, '4102': DEF.S.RETOUR 06, '4103': DEF.S.RETOUR 07, '4104': DEF.S.RETOUR 08, '4105': STB RETOUR 09, '4106': DT.DEP-RET<MIN 10, '4107': DT.DEP-RET>MAX 11, '4108': STB OUVERT 12, '4109': DEF.ALLUMAGE 14, '4110': FLAM.PARASI. 16, '4111': DEF.VANNE GAZ 17, '4112': DEF.VENTILO 34, '4113': DEF.RET>CHAUD 35, '4114': DEF.IONISATION 36, '4115': DEF.COM.SU 37, '4116': DEF.COM PCU 38, '4117': DEF BL OUVERT 39, '4118': DEF.TEST.HRU 40, '4119': DEF.MANQUE EAU 250, '4120': DEF.MANOMETRE 251, '4121': DEF.INCONNU 255, '4122': DEF.INCONNU 254, '6144': 'L0:PSU FAIL', '6145': 'L1:PSU PARAM FAIL', '6146': 'L2:STB OUTLET', '6147': 'L3:DEF.OIL.SENSOR', '6148': 'L4:BURNER FAILURE', '6149': 'L5:DEF.INTERNAL', '6150': 'L6:DEF.SPEED.MOT', '6151': 'L7:DEF.T.WARM UP', '6152': 'L8:DEF.PAR.FLAME', '6153': 'L9:OIL.PRES FAIL.', '6154': 'L30:SMOKE PRE.FAIL', '6155': 'L31:DEF.SMOKE.TEMP', '6156': 'L32:DEF.OUTLET S.', '6157': 'L33:DEF.OUTLET S.', '6158': 'L34:BACK S.FAILURE', '6159': 'L35:BACK S.FAILURE', '6160': 'L36:DEF.FLAME LOS', '6161': 'L37:SU COM.FAIL', '6162': 'L38:PCU COM.FAIL', '6163': 'L39:BL OPEN FAIL', '6164': 'L250:DEF.WATER MIS.', '6165': 'L251:MANOMETRE FAIL', '6166': 'L255:FAIL UNKNOWN', '6167': 'L254:FAIL UNKNOWN', '8192': 'L1:DEF.COMP.PAC', '8193': 'L2:DEF.V4V PAC', '8194': 'L3:DEF.POMPE PAC', '8195': 'L4:PAC HORS LIMIT', '8196': 'L5:DEF.DEB.PAC 6', '8197': 'L6:DEF.DEB.PAC 8', '8198': 'L7:DEF.COM.PAC', '8199': 'L8:DEF.S.SOR.COMP', '8200': 'L9:DEF.H.P PAC', '8201': 'L10:DEF.B.P PAC', '8202': 'L11:DEF.PRES.SOURC', '8203': 'L12:DEF.ANTI.SOUR.', '8204': 'L13:DEF.P.SOURCE', '8205': 'L14:DEF.ANTI.COND.', '8206': 'L15:DEF.DEGIVRAGE', '8207': 'L16:DEF.PROT.MOT.', '8208': 'L17:DEF.S.GAZ.CH.', '8209': 'L18:DEF.COM.PAC', '8210': 'L19:DEF.S.DEP.PAC', '8211': 'L20:DEF.S.RET.PAC', '8212': 'L21:DEF.S.EXT.ENT.', '8213': 'L22:DEF.S.EXT.SOR.', '8214': 'L23:DEF.S.GAZ EXP.', '8215': 'L24:DEF.S.EVAPO.', '8216': 'L25:DEF.S.CONDENS.', '8217': 'L32:BL.USER.RESET', '8218': 'L33:DEF.DEBIT', '8219': 'L255:DEF.INCONNU', '8220': 'L254:DEF.INCONNU', '65535': No fault}
+  hot_water_priority: {'0': Total, '1': Sliding, '2': None}
+  controller_type: {'0': 3-25LP, '1': 3-15LP, '2': 3-25SOLO, '3': 3-25K, '4': 3-15SOLO, '5': 3-E25LP, '6': DOMOLIGHT, '7': 3-35, '8': 3-50, '9': 3-25 BIC, '10': 3-15ECO, '11': 3-25ECO, '12': 3-35ECO, '13': 3-50ECO, '14': 3-65ECO, '20': Diematic 3, '21': Diematic m2, '22': Diematic m3, '23': MIT, '24': D4, '25': MB/OT interface, '30': MC 35 E, '31': MC 45, '32': MC 65, '33': MC 90, '34': C210, '35': C310, '36': C610, '37': C230, '40': Robur HP}
+  active_mode_bits_1: {'0': Antifreeze, '1': Night, '2': Day}
+  legionella_protection: {'0': None, '1': Daily, '2': Weekly}
+  circuit_type: {'0': Disabled, '1': Direct, '2': Three way valve, '3': Direct plus, '4': Three way valve plus, '5': Swimming pool}
+  language: {'0': French, '1': German, '2': English, '3': Polish, '4': Italian, '5': Spanish, '6': Dutch, '7': Russian, '8': Turkish, '9': Czech}
+  night_mode: {'0': Stop, '1': Decrease}
+  auxiliary_input: {'0': Disabled, '1': Room sensor a, '2': Room sensor b, '3': Room sensor c, '4': Room sensor aux}
+  auxiliary_type: {'0': Program, '1': Primary pump, '2': Vm pump, '3': Dhw load, '4': Failure}
+  auxiliary_output_type: {'0': Primary pump, '1': Vm pump, '2': Dhw load, '3': Dhw load 2, '4': Failure}
+
+notes:
+- aio-remeha-modbus reads the GTW-26 with function 03 (holding registers), at most 40 registers per request and at least 50
+  ms between requests, on unit id 100 by default (its query tool's default).
+- 'The controller answers one of two register layouts, which the library detects by reading identity blocks: the base layout
+  (registers 1…472) or the iSystem layout (600…746, with installer settings and schedules). The models here are the layouts;
+  the type code (457) names the controller.'
+- Temperatures and other tenths are sign and magnitude (bit 15 = minus); 0xFFFF and 0x8CCC mean no sensor.
+- The library writes settings with function 16, also single registers.
+- 'Weekly comfort schedules (iSystem: hot water from 189, circuits A/B/C program 4 from 126 / 147 / 168, auxiliary from 210)
+  are 48 half-hour bits per day in three registers, most significant bit first; they are not listed here.'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

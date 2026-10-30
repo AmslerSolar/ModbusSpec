@@ -1,0 +1,159 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From the MENNEKES Modbus RTU specification for the AMTRON 4You 300, Compact 2.0s and Start 2.0s (below).
+
+modbusspec: 0
+id: mennekes-amtron-compact
+manufacturer: Mennekes
+name: AMTRON Compact 2.0s, 4You 300, Start 2.0s (Modbus RTU)
+kind: charger
+
+sources:
+- title: AMTRON 4You 300 / AMTRON Compact 2.0s / AMTRON Start 2.0s – Modbus RTU Specification
+  version: 2.5 (2025-07-11), Modbus register layout v 01.03
+  url: https://www.mennekes.de/fileadmin/MEN-Deutschland/emobility/01_documents/04_installer/Modbus_RTU_Specification_AMTRON_4You300_Compact_2.0s_Start_2.0s-v2.5.pdf
+  sha256: edb56ac46f6a6dbe57b327d3e7f6ad7420c171481131df55d003db49286bbf81
+  archive_url: https://web.archive.org/web/20260417083103/https://www.mennekes.de/fileadmin/MEN-Deutschland/emobility/01_documents/04_installer/Modbus_RTU_Specification_AMTRON_4You300_Compact_2.0s_Start_2.0s-v2.5.pdf
+
+connection:
+  default_port: 502
+  default_unit: 50
+  transports:
+  - rtu
+  serial:
+    baud: 57600
+    format: 8N2
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 19
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    range:
+    - 256
+    - 511
+  - table: holding
+    address: 256
+    type: u16
+    range:
+    - 0
+    - 7
+
+points:
+  # General information
+  - {key: x.modbus_version, label: Modbus Version, table: holding, address: 0, type: u16, poll: slow, note: 'Register layout version as hex, e.g. 0x0103 = v 01.03.'}
+  - {key: firmware, label: Firmware Version, table: holding, address: 1, type: str, length: 8, poll: slow, note: 'ASCII; the document gives 16 bytes, although the next register (Serial Number) starts 18 registers later.'}
+  - {key: serial, label: Serial Number, table: holding, address: 19, type: str, length: 8, poll: slow, note: 'ASCII, 16 bytes; layout v 01.02 or later.'}
+  - {key: x.article_number, label: MENNEKES Article Number, table: holding, address: 27, type: str, length: 8, poll: slow, note: 'ASCII as on the type plate, e.g. 1313201205; layout v 01.03 or later.'}
+
+  # Status
+  - {key: state, label: EVSE State, table: holding, address: 256, type: u16, enum: evse_state}
+  - {key: x.authorization, label: Authorization Status (RFID & Energy Manager), table: holding, address: 257, type: u16, enum: authorization}
+  - {key: x.downgrade, label: Downgrade, table: holding, address: 258, type: u16, enum: downgrade}
+  - {key: x.phase_rotation, label: Phase Rotation, table: holding, address: 259, type: u16, enum: phase_rotation, poll: slow}
+  - {key: x.cp_state, label: CP State, table: holding, address: 264, type: u16, enum: cp_state, note: Layout v 01.02 or later.}
+  - {key: x.signaled_current, label: Signaled Current, table: holding, address: 276, type: f32, unit: A, note: Current offered to the car on the CP line; layout v 01.03 or later.}
+
+  # Configuration
+  - {key: x.downgrade_current, label: Downgrade Current, table: holding, address: 768, type: f32, unit: A, poll: slow}
+  - {key: x.em_current_limit, label: Charging Current Energy Manager, table: holding, address: 770, type: f32, unit: A, writable: true, note: '0 = no limit (the box signals its maximum, 16/32 A); 0.01–5.99 = pause (0 A signalled); 6 A up = limit. Write no faster than every 5 s.'}
+  - {key: x.max_current_house, label: Maximal Current House (DIP), table: holding, address: 772, type: f32, poll: slow, note: 'The document lists DIP codes here (0 = 63 A, 1 = 50 A, 2 = 40 A, 3 = 35 A, 4 = 32 A, 5 = 25 A, 6 = 20 A, 7 = 16 A) but types the register as a float in A; which one it returns is unverified.'}
+  - {key: x.max_current_evse, label: Maximal EVSE Current, table: holding, address: 774, type: f32, poll: slow, note: 'The document lists installation codes here (0 = 32 A on 22 kW / 16 A on 11 kW, 1 = 25/16 A, 2 = 20/16 A, 3 = 16 A, 4 = 13 A, 5 = 10 A, 6 = 6 A) but types the register as a float in A; which one it returns is unverified.'}
+  - {key: x.phase_switching_mode, label: Phase Switching Mode, table: holding, address: 778, type: u16, enum: phase_switching_mode, poll: slow}
+  - {key: x.phase_options_hw, label: Phase Options HW, table: holding, address: 780, type: u16, enum: phase_options_hw, poll: slow, note: Layout v 01.01 or later.}
+  - {key: x.cable_lock_setting, label: Cable Lock Setting, table: holding, address: 781, type: u16, enum: disabled_enabled, poll: slow, note: Layout v 01.02 or later.}
+  - {key: x.fallback_current, label: Energy Manager Fallback Current, table: holding, address: 782, type: u16, poll: slow, note: 0 = keep charging with the last values when the energy manager's heartbeat stops; 1 = pause; 6–32 = fall back to that many A. Layout v 01.02 or later.}
+  - {key: x.grid_imbalance, label: Grid Imbalance, table: holding, address: 783, type: u16, enum: disabled_enabled, poll: slow, note: Layout v 01.02 or later.}
+  - {key: x.grid_imbalance_threshold, label: Grid Imbalance Threshold, table: holding, address: 784, type: u16, unit: A, poll: slow, note: 10–30 A; layout v 01.02 or later.}
+  - {key: x.grid_phases, label: Grid Phases Connected, table: holding, address: 785, type: u16, enum: grid_phases, poll: slow, note: Layout v 01.02 or later.}
+  - {key: x.authorization_enabled, label: Authorization, table: holding, address: 786, type: u16, enum: disabled_enabled, poll: slow, note: Layout v 01.02 or later.}
+  - {key: x.sunshine_plus_current, label: Solar Supported Charging (Sunshine+) Current, table: holding, address: 787, type: u16, unit: A, poll: slow, note: 'Minimum current in Sunshine+ mode, 6–32 A; layout v 01.02 or later.'}
+  - {key: x.phase_switch_pause, label: Phase Switching Pause, table: holding, address: 788, type: u16, unit: s, poll: slow, note: 0–1200 s; layout v 01.02 or later.}
+
+  # Output measurements (AC)
+  - {key: l1_current, label: Current L1, table: holding, address: 1280, type: f32, unit: A}
+  - {key: l2_current, label: Current L2, table: holding, address: 1282, type: f32, unit: A}
+  - {key: l3_current, label: Current L3, table: holding, address: 1284, type: f32, unit: A}
+  - {key: l1_voltage, label: Voltage L1, table: holding, address: 1286, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage L2, table: holding, address: 1288, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage L3, table: holding, address: 1290, type: f32, unit: V}
+  - {key: l1_power, label: Power L1, table: holding, address: 1292, type: f32, unit: W, positive: consumption, verified: false, note: Signed; the document doesn't say which way is positive (consumption assumed).}
+  - {key: l2_power, label: Power L2, table: holding, address: 1294, type: f32, unit: W, positive: consumption, verified: false, note: Signed; the document doesn't say which way is positive (consumption assumed).}
+  - {key: l3_power, label: Power L3, table: holding, address: 1296, type: f32, unit: W, positive: consumption, verified: false, note: Signed; the document doesn't say which way is positive (consumption assumed).}
+  - {key: consumer_power, label: Power Overall, table: holding, address: 1298, type: f32, unit: W, positive: consumption, verified: false, note: Signed; the document doesn't say which way is positive (consumption assumed).}
+
+  # Input measurements
+  - {key: temperature, label: Temperature, table: holding, address: 2304, type: f32, unit: °C, poll: slow, note: Inside the wallbox; layout v 01.02 or later.}
+
+  # Charging session
+  - {key: x.max_current_session, label: Max Current Session, table: holding, address: 2816, type: f32, unit: A, note: 'Lowest static limit for the session (installation, cable, …).'}
+  - {key: session_energy, label: Charged Energy Session, table: holding, address: 2818, type: f32, unit: kWh}
+  - {key: x.session_duration, label: Duration Session, table: holding, address: 2820, type: u32, unit: s}
+  - {key: x.ev_phases, label: Detected EV Phases, table: holding, address: 2822, type: u16, note: '0 = not yet known, else 1–3 phases; layout v 01.02 or later.'}
+
+  # Functions (control)
+  - {key: x.heartbeat, label: Heartbeat Energy Manager, table: holding, address: 3328, type: u16, writable: true, write_only: true, note: 0x55AA at least every 10 s to keep charging released.}
+  - {key: x.cable_lock, label: Cable Lock Status, table: holding, address: 3330, type: u16, enum: cable_lock}
+  - {key: x.solar_mode, label: Solar Charging Mode, table: holding, address: 3331, type: u16, enum: solar_mode, writable: true, note: Only switches the display / LEDs; the energy manager runs the solar logic.}
+  - {key: x.requested_phases, label: Requested Phases, table: holding, address: 3332, type: u16, enum: requested_phases, writable: true, note: Ignored unless Phase Options HW = 2.}
+  - {key: x.charging_release, label: Charging Release Energy Manager, table: holding, address: 3333, type: u16, enum: charging_release, writable: true}
+  - {key: x.lock_evse, label: Lock EVSE, table: holding, address: 3334, type: u16, enum: lock_evse, writable: true}
+  - {key: x.system_restart, label: System Restart, table: holding, address: 3353, type: u16, writable: true, write_only: true, note: 0xBB once restarts the box; only when idle. Layout v 01.03 or later.}
+
+  # Diagnostic
+  - {key: error_code, label: Active Error Code, table: holding, address: 3584, type: u16, enum: error_code}
+  - {key: x.master_lost, label: Master Lost Fallback State, table: holding, address: 3585, type: u16, enum: master_lost, note: Layout v 01.02 or later.}
+  - {key: x.switched_phases, label: Switched Phases, table: holding, address: 3586, type: u16, enum: requested_phases, note: Layout v 01.02 or later.}
+
+  # Statistic
+  - {key: consumer_energy, label: Charged Energy Total, table: holding, address: 4096, type: f32, unit: kWh, poll: slow, note: Lifetime energy at the AC output; not for billing. Layout v 01.02 or later.}
+  - {key: x.sessions_total, label: Charging Sessions Total, table: holding, address: 4098, type: u32, poll: slow, note: Layout v 01.02 or later.}
+
+enums:
+  evse_state: {'0': Not initialized, '1': Idle (no car), '2': Car connected (no current signalled), '3': 'Preconditions met, not charging yet', '4': Ready to charge (current signalled), '5': Charging, '6': Error, '7': Service mode}
+  authorization: {'0': Not used (idle), '1': Authorized (charging released), '2': Not authorized}
+  downgrade: {'0': Not relevant (no car), '1': Not downgraded, '2': Downgraded}
+  phase_rotation: {'0': L1-L2-L3, '1': L2-L3-L1, '2': L3-L1-L2}
+  cp_state: {'0': Init, '10': A1 (no car), '11': 'B1 (car connected, not released)', '12': 'C1 (car ready, not released)', '13': D1, '14': E (error), '15': F (error), '26': 'A2 (no car, current offered)', '27': 'B2 (ready, current offered)', '28': C2 (charging), '29': D2}
+  phase_switching_mode: {'0': Solar 1 phase only, '1': Solar 3 phases only, '2': Solar 1 or 3 phases}
+  phase_options_hw: {'0': 1 phase only, '1': 3 phases only, '2': 1 or 3 phases (switchable)}
+  grid_phases: {'0': L1 only, '2': 'L1, L2, L3'}
+  cable_lock: {'0': Unknown, '1': Unlocked, '2': Locked, '3': Fixed cable}
+  solar_mode: {'0': Solar mode off, '1': Fast charging (standard), '2': Solar charging (Sunshine), '3': Solar supported charging (Sunshine+)}
+  requested_phases: {'0': All available phases, '1': 1 phase only}
+  charging_release: {'0': Not allowed (relays open), '1': Allowed}
+  lock_evse: {'0': Not locked, '1': Locked}
+  master_lost: {'0': Not active, '1': Active (energy manager unavailable)}
+  disabled_enabled: {'0': Disabled, '1': Enabled}
+  error_code: {'0': No error, '200': Energy manager not available (no heartbeat), '2011': Car draws more current than signalled, '2300': 'Over- / undervoltage on L1, L2 or L3', '2301': 'Over- / undervoltage on L1, L2 or L3', '2302': 'Over- / undervoltage on L1, L2 or L3', '2303': 'Over- / undervoltage on L1, L2 or L3', '2304': 'Over- / undervoltage on L1, L2 or L3', '2305': 'Over- / undervoltage on L1, L2 or L3', '2323': Connected phases mismatch}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charging station error (code {value})'}
+  - {when: {key: state, equals: 6}, kind: fault, text: Charging station error (state 6)}
+
+notes:
+- Modbus RTU only (RS485, A = +, B = −). The box answers only as a "satellite" (DIP bank S1, switches 4 and 5 on, then restart);
+  default address 50 (10–50 settable), 57600 baud 8N2 (9600–57600, 8E1 and 8O1 selectable in the MENNEKES configuration tool).
+- Writes use FC 06 (one register) or FC 16. Addresses are the document's hex register numbers, used as 0-based protocol addresses.
+- Charging needs the energy manager to write the heartbeat (0x0D00) at least every 10 s, the charging release (0x0D05 = 1)
+  and a current limit ≥ 6 A (0x0302); without the heartbeat the box goes to error state (code 200) unless a fallback current
+  is set. A read-only monitor therefore sees error 200 on a box in satellite mode that has no energy manager.
+- Registers marked with a later layout version (v 01.01–01.03) are missing on older firmware; v 01.03 starts with software
+  2023.21.11024.
+- Byte and word order big endian as revision 2.5 states; older revisions of the document were not compared, and the order
+  is not checked on a device.
+- The error code table lists only the codes above; 2300–2305 are documented together as over-/undervoltage on one of the phases,
+  without saying which code is which.
+- The AMTRON 4You 500/700 and 4Business (mennekes-amtron) and the Bender-ECU based AMTRON Professional / Charge Control (bender-ecu)
+  use a different register map.

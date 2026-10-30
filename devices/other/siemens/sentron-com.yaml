@@ -1,0 +1,129 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: siemens-sentron-com
+manufacturer: Siemens
+name: SENTRON COM circuit-protection devices behind a Powercenter (MCB, AFDD, RCM, ECPD, RCA, …)
+kind: other
+
+sources:
+- id: siemens-sentron
+  title: ha-siemens-sentron (Home Assistant integration)
+  url: https://github.com/powerassistant/ha-siemens-sentron
+  license: MIT
+  commit: dfb1773af007be60193f1a4ad83770d3400c057f
+  path: custom_components/siemens_sentron/const.py, custom_components/siemens_sentron/profiles.py, custom_components/siemens_sentron/coordinator.py,
+    custom_components/siemens_sentron/discovery.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - siemens-sentron
+
+models:
+  - {id: 5st3_com_as_fc, name: 5ST3 COM AS+FC, match: {table: holding, address: 111, type: u16, equals: 1}}
+  - {id: 3na3_com_fuse, name: 3NA3 COM Fuse, match: {table: holding, address: 111, type: u16, equals: 2}}
+  - {id: 5sl6_com_mcb, name: 5SL6 COM MCB, match: {table: holding, address: 111, type: u16, equals: 3}}
+  - {id: 5sv6_com_afdd, name: 5SV6 COM AFDD, match: {table: holding, address: 111, type: u16, equals: 4}}
+  - {id: 5st3_com_rca_standard, name: 5ST3 COM RCA Standard, match: {table: holding, address: 111, type: u16, equals: 5}}
+  - {id: 5st3_com_rca_mit_rcd_ir_test, name: 5ST3 COM RCA mit RCD/IR Test, match: {table: holding, address: 111, type: u16, equals: 6}}
+  - {id: 5sl6_com_mcb_rcm, name: 5SL6 COM MCB RCM, match: {table: holding, address: 111, type: u16, equals: 7}}
+  - {id: 5sv8_com_rcm, name: 5SV8 COM RCM, match: {table: holding, address: 111, type: u16, in: [8, 10]}}
+  - {id: 3rv2_com_msp, name: 3RV2 COM MSP, match: {table: holding, address: 111, type: u16, equals: 9}}
+  - {id: 5ty1_com_ecpd, name: 5TY1 COM ECPD, match: {table: holding, address: 111, type: u16, equals: 11}}
+  - {id: 5tt4_com_dido, name: 5TT4 COM DIDO, match: {table: holding, address: 111, type: u16, equals: 18}}
+  - {id: 3na6_com_fuse, name: 3NA6 COM Fuse, match: {table: holding, address: 111, type: u16, equals: 19}}
+
+points:
+  - {key: x.article_number, label: Article number, table: holding, address: 2, type: str, length: 16}
+  - {key: x.firmware, label: Firmware, table: holding, address: 21, type: u32, note: 'Four bytes: a prefix character, then major, minor and patch version.'}
+  - {key: x.attached_device_type, label: Attached device type, table: holding, address: 110, type: u16, enum: attached_device_type, writable: true}
+  - {key: x.device_variant, label: Device variant, table: holding, address: 111, type: u16, enum: variant, note: 0 on some devices; the project then falls back to the article number.}
+  - {key: x.ard_enabled, label: Ard enabled, table: holding, address: 3680, type: u16, enum: ard_enabled, models: [5st3_com_rca_mit_rcd_ir_test, 5st3_com_rca_standard], writable: true}
+  - {key: x.remote_control_selector, label: Remote control selector, table: holding, address: 3690, type: u16, enum: remote_control_selector, models: [5st3_com_rca_mit_rcd_ir_test, 5st3_com_rca_standard], writable: true}
+  - {key: x.rcm_ac_pre_alarm_enabled, label: Rcm ac pre alarm enabled, table: holding, address: 5134, type: u16, models: [5ty1_com_ecpd], writable: true}
+  - {key: x.rcm_ac_alarm_enabled, label: Rcm ac alarm enabled, table: holding, address: 5135, type: u16, models: [5ty1_com_ecpd], writable: true}
+  - {key: x.rcm_ac_pre_alarm_threshold_percent, label: Rcm ac pre alarm threshold percent, table: holding, address: 5136, type: f32, unit: '%', models: [5ty1_com_ecpd], writable: true}
+  - {key: x.rcm_ac_alarm_threshold, label: Rcm ac alarm threshold, table: holding, address: 5138, type: f32, unit: A, models: [5ty1_com_ecpd], writable: true}
+  - {key: x.rcm_rms_pre_alarm_enabled, label: Rcm rms pre alarm enabled, table: holding, address: 5140, type: u16, models: [5sl6_com_mcb_rcm], writable: true}
+  - {key: x.rcm_rms_alarm_enabled, label: Rcm rms alarm enabled, table: holding, address: 5141, type: u16, models: [5sl6_com_mcb_rcm], writable: true}
+  - {key: x.rcm_rms_pre_alarm_threshold_percent, label: Rcm rms pre alarm threshold percent, table: holding, address: 5142, type: f32, unit: '%', models: [5sl6_com_mcb_rcm], writable: true}
+  - {key: x.rcm_rms_alarm_threshold_a, label: Rcm rms alarm threshold a, table: holding, address: 5144, type: f32, unit: A, models: [5sl6_com_mcb_rcm], writable: true}
+  - {key: x.ecpd_nominal_current, label: Ecpd nominal current, table: holding, address: 5375, type: u16, enum: ecpd_nominal_current, models: [5ty1_com_ecpd], writable: true, note: 'Protected: writable only after the unlock command.'}
+  - {key: x.ecpd_instantaneous_trip_behaviour, label: Ecpd instantaneous trip behaviour, table: holding, address: 5379, type: u16, enum: ecpd_instantaneous_trip_behaviour, models: [5ty1_com_ecpd], writable: true, note: 'Protected: writable only after the unlock command.'}
+  - {key: x.ecpd_time_delay_release_behaviour, label: Ecpd time delay release behaviour, table: holding, address: 5380, type: u16, enum: ecpd_time_delay_release_behaviour, models: [5ty1_com_ecpd], writable: true, note: 'Protected: writable only after the unlock command.'}
+  - {key: x.ecpd_rcd_sensitivity, label: Ecpd rcd sensitivity, table: holding, address: 5382, type: u16, enum: ecpd_rcd_sensitivity, models: [5ty1_com_ecpd], writable: true, note: 'Protected: writable only after the unlock command.'}
+  - {key: x.ecpd_rcd_tripping_time, label: Ecpd rcd tripping time, table: holding, address: 5383, type: u16, enum: ecpd_rcd_tripping_time, models: [5ty1_com_ecpd], writable: true, note: 'Protected: writable only after the unlock command.'}
+  - {key: x.ecpd_residual_current_trip_behaviour, label: Ecpd residual current trip behaviour, table: holding, address: 5384, type: u16, enum: ecpd_residual_current_trip_behaviour, models: [5ty1_com_ecpd], writable: true, note: 'Protected: writable only after the unlock command.'}
+  - {key: x.alarm_state, label: Alarm state, table: input, address: 2559, type: u32}
+  - {key: x.alarm_rcm_active, label: RCM alarm active, table: input, address: 2559, type: u32, bits: [25, 25], models: [5ty1_com_ecpd]}
+  - {key: x.operating_hours_overall, label: Operating hours, table: input, address: 2577, type: f64, unit: h, scale: 0.0002777777778}
+  - {key: x.radio_signal_strength_rssi, label: Radio signal strength (RSSI), table: input, address: 2621, type: s16, unit: dBm}
+  - {key: x.last_state_rcd_test, label: Last RCD test, table: input, address: 2634, type: u16, enum: test_status, models: [5ty1_com_ecpd]}
+  - {key: x.rcm_test_status, label: RCM test last result, table: input, address: 2651, type: u16, enum: test_status, models: [5sl6_com_mcb_rcm]}
+  - {key: x.device_test_status, label: Device test status, table: input, address: 2678, type: u16, enum: test_status, models: [5ty1_com_ecpd]}
+  - {key: x.temperature, label: Temperature, table: input, address: 3071, type: f32, unit: °C}
+  - {key: x.average_temperature, label: Average temperature, table: input, address: 3073, type: f32, unit: °C}
+  - {key: x.current, label: Current, table: input, address: 3075, type: f32, unit: A, models: [3na3_com_fuse, 3na6_com_fuse, 5sl6_com_mcb, 5sl6_com_mcb_rcm, 5sv6_com_afdd, 5ty1_com_ecpd]}
+  - {key: x.voltage, label: Voltage, table: input, address: 3081, type: f32, unit: V, models: [5sl6_com_mcb, 5sl6_com_mcb_rcm, 5sv6_com_afdd, 5ty1_com_ecpd]}
+  - {key: x.frequency, label: Frequency, table: input, address: 3083, type: f32, unit: Hz, models: [5sl6_com_mcb, 5sl6_com_mcb_rcm, 5sv6_com_afdd, 5ty1_com_ecpd]}
+  - {key: x.active_power, label: Active power, table: input, address: 3085, type: f32, unit: W, models: [5sl6_com_mcb, 5sl6_com_mcb_rcm, 5sv6_com_afdd, 5ty1_com_ecpd]}
+  - {key: x.apparent_power, label: Apparent power, table: input, address: 3087, type: f32, unit: VA, models: [5sl6_com_mcb, 5sl6_com_mcb_rcm, 5sv6_com_afdd, 5ty1_com_ecpd]}
+  - {key: x.reactive_power, label: Reactive power, table: input, address: 3089, type: f32, unit: var, models: [5sl6_com_mcb, 5sl6_com_mcb_rcm, 5sv6_com_afdd, 5ty1_com_ecpd]}
+  - {key: x.power_factor, label: Power factor, table: input, address: 3091, type: f32, models: [5sl6_com_mcb, 5sl6_com_mcb_rcm, 5sv6_com_afdd, 5ty1_com_ecpd]}
+  - {key: x.energy_import, label: Energy import, table: input, address: 3093, type: f64, unit: kWh, scale: 0.001, models: [5sl6_com_mcb, 5sl6_com_mcb_rcm, 5sv6_com_afdd]}
+  - {key: x.energy_export, label: Energy export, table: input, address: 3097, type: f64, unit: kWh, scale: 0.001, models: [5sl6_com_mcb, 5sl6_com_mcb_rcm, 5sv6_com_afdd]}
+  - {key: x.breaker_state, label: Breaker state, table: input, address: 3109, type: u16, enum: breaker_state, models: [5sl6_com_mcb, 5sl6_com_mcb_rcm, 5st3_com_as_fc, 5sv6_com_afdd, 5ty1_com_ecpd], note: Behind a Powercenter 1000; behind a 1100 / 2000 the gateway reports it.}
+  - {key: x.rca_handle_state, label: Handle State, table: input, address: 3111, type: u16, enum: rca_handle_state, models: [5st3_com_rca_mit_rcd_ir_test, 5st3_com_rca_standard]}
+  - {key: x.unlock_status, label: Unlock Status, table: input, address: 3113, type: u16, models: [5ty1_com_ecpd]}
+  - {key: x.dido_input_1, label: Input 1, table: input, address: 3114, type: u16, bits: [0, 0], models: [5tt4_com_dido]}
+  - {key: x.dido_input_2, label: Input 2, table: input, address: 3114, type: u16, bits: [1, 1], models: [5tt4_com_dido]}
+  - {key: x.rcm_test_timestamp, label: RCM test last timestamp, table: input, address: 3137, type: u32, epoch: {start: '1970-01-01', unit: s}, models: [5sl6_com_mcb_rcm]}
+  - {key: x.device_test_timestamp, label: Self RCD test timestamp, table: input, address: 3137, type: u32, epoch: {start: '1970-01-01', unit: s}, models: [5ty1_com_ecpd]}
+  - {key: x.output_1_forcing_source, label: Output 1 forcing source, table: input, address: 3139, type: u16, bits: [0, 7], models: [5tt4_com_dido]}
+  - {key: x.output_1_forcing_state, label: Output 1 forcing state, table: input, address: 3139, type: u16, bits: [8, 15], models: [5tt4_com_dido]}
+  - {key: x.output_1_forcing_remaining, label: Output 1 forcing remaining time, table: input, address: 3140, type: u16, unit: s, models: [5tt4_com_dido]}
+  - {key: x.output_2_forcing_source, label: Output 2 forcing source, table: input, address: 3141, type: u16, bits: [0, 7], models: [5tt4_com_dido]}
+  - {key: x.output_2_forcing_state, label: Output 2 forcing state, table: input, address: 3141, type: u16, bits: [8, 15], models: [5tt4_com_dido]}
+  - {key: x.output_2_forcing_remaining, label: Output 2 forcing remaining time, table: input, address: 3142, type: u16, unit: s, models: [5tt4_com_dido]}
+  - {key: x.rcm_ac_low_pass, label: RCM AC Low Pass, table: input, address: 3329, type: f32, unit: A, models: [5ty1_com_ecpd]}
+  - {key: x.rcm_rms_low_pass, label: RCM RMS value, table: input, address: 3335, type: f32, unit: A, models: [5sl6_com_mcb_rcm]}
+  - {key: x.rcm_ac_basic_frequency, label: RCM AC fundamental frequency, table: input, address: 3337, type: f32, unit: A, models: [5ty1_com_ecpd]}
+  - {key: x.leakage, label: Residual current, table: input, address: 3341, type: f32, unit: A, models: [5sv8_com_rcm]}
+
+enums:
+  breaker_state: {'0': Unknown, '1': 'Off', '2': 'On', '3': Tripped, '4': 'Tripped, but handle blocked', '5': Standby (ECPD), '6': Standby tripped (ECPD)}
+  rca_handle_state: {'0': Unknown, '1': 'Off: manual', '2': 'On: manual', '3': 'Off: manual off reset failed', '4': 'On: remote', '5': 'Off: remote', '6': 'On: ARD', '7': 'Off: Trip'}
+  attached_device_type: {'0': Unknown, '1': RCD, '2': MCB, '3': SCD, '4': AFDD, '5': RCBO}
+  ard_enabled: {'0': Disabled, '1': Enabled}
+  remote_control_selector: {'0': Wired signal, '1': Communication commands}
+  ecpd_nominal_current: {'300': 0.3 A, '500': 0.5 A, '1000': 1 A, '1600': 1.6 A, '2000': 2 A, '3000': 3 A, '4000': 4 A, '5000': 5 A, '6000': 6 A, '8000': 8 A, '10000': 10 A, '13000': 13 A, '15000': 15 A, '16000': 16 A}
+  ecpd_instantaneous_trip_behaviour: {'1': STANDBY, '2': STANDBY and reclose, '3': 'OFF'}
+  ecpd_time_delay_release_behaviour: {'1': STANDBY, '2': STANDBY and reclose, '3': 'OFF'}
+  ecpd_residual_current_trip_behaviour: {'1': STANDBY, '2': STANDBY and reclose, '3': 'OFF'}
+  ecpd_rcd_sensitivity: {'1': NORMAL, '2': SENSITIVE, '3': ROBUST}
+  ecpd_rcd_tripping_time: {'1': NORMAL, '2': FAST}
+  test_status: {'0': Unknown, '1': Test passed, '2': Test failed, '3': Test not run, '4': Test aborted}
+  variant: {'1': 5ST3 COM AS+FC, '2': 3NA3 COM Fuse, '3': 5SL6 COM MCB, '4': 5SV6 COM AFDD, '5': 5ST3 COM RCA Standard, '6': 5ST3 COM RCA mit RCD/IR Test, '7': 5SL6 COM MCB RCM, '8': 5SV8 COM RCM, '9': 3RV2 COM MSP, '10': 5SV8 COM RCM, '11': 5TY1 COM ECPD, '14': SENTRON Powercenter 1100, '16': SENTRON Powercenter 2000, '18': 5TT4 COM DIDO, '19': 3NA6 COM Fuse}
+
+notes:
+- Each end device answers on its own unit id (its Powercenter slot, 1–24) through the gateway.
+- The project doesn't say which way active power is positive.
+- Alarm state bit 25 is the RCM alarm on the ECPD.
+- 'Write-only command registers (not listed as points; register numbers here are protocol addresses): 96 on the gateway (unit
+  255) = localize on/off; on end devices 2677 = start RCD self test (ECPD, write 0x0815), 5225 = start RCM test (MCB RCM,
+  0x0815), 3693 = test (0x0815), 3689 = reset manual off (0x0815), 3692 = ECPD electronic switching (0 standby, 1 on), 3694
+  = ECPD unlock protected settings, 3688 = RCA handle (0 off, 1 on; needs remote control selector = communication), 3697 =
+  DIDO output forcing (two registers: output number byte, state byte, then seconds).'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

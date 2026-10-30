@@ -1,0 +1,65 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Pro-Service EXpert G RS485 (12-24 V) operating manual (4.2B), together with the uniTOX G, uniTOX.CO L
+# and EurOx.O2 M RS485 manuals, which give the same two registers.
+
+modbusspec: 0
+id: proservice-detector
+manufacturer: Pro-Service
+name: Gas detectors with RS485 (EXpert G, uniTOX G, uniTOX.CO L, EurOx.O2 M)
+kind: other
+
+sources:
+- title: Detektor EXpert G RS485 (12-24 V) - instrukcja obsługi
+  version: 4.2B, 2020-11-09
+  url: https://www.pro-service.com.pl/fileadmin/Product/EXpert_G/Detektor_EXpert_G_RS485__12-24_V__-_instrukcja_obslugi__4_2B_.pdf
+  sha256: 542e25b620987198033a2198663a6d577d9893edca3dda986a68bbd686eec72b
+- title: Detektor uniTOX G RS485 (12-24V) - instrukcja obsługi
+  version: 4.2B, 2020-11-05
+  url: https://www.pro-service.com.pl/fileadmin/Product/uniTOX_G/Detektor_uniTOX_G_RS485__12-24V__-_instrukcja_obslugi__4_2B_.pdf
+  sha256: 43e4a81182396ffcb539bec389cde4d1582ace249a01538741bd007d485121c2
+- title: Detektor EurOx.O2 M RS485 - instrukcja obsługi
+  version: 2.1A, 2020-01-20
+  url: https://www.pro-service.com.pl/fileadmin/Product/EurOx.O2_M/Detektor_EurOx.O2_M_RS485_-_instrukcja_obslugi__2_1A_.pdf
+  sha256: 4c86b8ff98b1c21f62d6d6f7f9af0f6984f874bfcd5fa1d8e7b94a4f217984c3
+- title: Detektor uniTOX.CO L RS485 - instrukcja obsługi
+  version: 1A, 2016-12-29
+  url: https://www.pro-service.com.pl/fileadmin/Product/uniTOX.CO_L/Detektor_uniTOX.CO_L_RS485_-_instrukcja_obslugi___1A_.pdf
+  sha256: bcb1ef6589d6776fb229c841193196d827bb07c9b051f6adde6a7480220f2e05
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.status, label: Status register, table: holding, address: 0, type: u16, flags: status, poll: fast, note: R40001 (address 0x0000).}
+  - {key: x.measured_value, label: Measured value, table: holding, address: 1, type: u16, unit: '%', scale: 0.1, poll: fast, note: 'R40002 (address 0x0001): 0…1000 = 0…100 % of the detector''s measuring range. The range and its unit (ppm, % LEL, % vol) depend on the sensor and are given on the detector''s calibration certificate; the uniTOX.CO L''s standard range is 500 ppm CO.'}
+
+flags:
+  status: {'0': Alarm threshold 1 exceeded (Al1), '1': Alarm threshold 2 exceeded (Al2), '2': Sensor fault, '3': Other fault (e.g. supply voltage too low)}
+
+problems:
+  - {when: {key: x.status, bit: 0}, kind: warning, text: Gas alarm threshold 1 exceeded (bit 0)}
+  - {when: {key: x.status, bit: 1}, kind: warning, text: Gas alarm threshold 2 exceeded (bit 1)}
+  - {when: {key: x.status, bit: 2}, kind: fault, text: Sensor fault (bit 2)}
+  - {when: {key: x.status, bit: 3}, kind: fault, text: 'Detector fault, e.g. supply voltage below 8 V (bit 3)'}
+
+notes:
+- 'Addresses: the documents number registers R40001, R40002 and also give the protocol address (0x0000, 0x0001); R4000n is
+  holding register n − 1, read with function 03. Function 03 is the only one supported.'
+- The unit address (1…63 for EXpert G and uniTOX G, 1…31 for EurOx.O2 M and uniTOX.CO L) is set in binary on a DIP switch.
+  No factory address is stated; default_unit 1 is assumed.
+- 'The EurOx.O2 M is an oxygen detector: its alarm thresholds trip when the O2 concentration falls below them (standard 19
+  % and 18 % vol).'
+- The detectors give no identification registers, so they can't be recognised in a network search.
+- All detectors are RS485 only; the Modbus TCP port is the usual default for a gateway.

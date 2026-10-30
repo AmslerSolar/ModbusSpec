@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Datexel DAT 3188 User Guide – MODBUS protocol (firmware 4001, ED.11.06 REV.02).
+
+modbusspec: 0
+id: datexel-dat3188
+manufacturer: Datexel
+name: DAT 3188/4, DAT 3188/8 (8 PNP outputs, 4/8 digital inputs)
+kind: io
+
+sources:
+- title: Datexel DAT 3188 8 PNP Output & 8 Digital Input to RS485 MODBUS, User Guide – MODBUS protocol
+  version: ED.11.06 REV.02 (firmware 4001)
+  url: https://datexel.com/datexel-user-guides/dat3188-8-pnp-output-8-digital-input-rs485-modbus.pdf
+  sha256: 56fee2ce60463592a75d708e451eeb81d43bfea16791fc511117d6b3bf35d066
+  archive_url: https://web.archive.org/web/20240618215243/https://www.datexel.com/datexel-user-guides/dat3188-8-pnp-output-8-digital-input-rs485-modbus.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+  serial:
+    baud: 38400
+    format: 8N1
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 3
+    type: str
+    length: 2
+    equals: '3188'
+
+points:
+  # Coils (coil 00001 = address 0)
+  - {key: x.input_0, label: 'Input #0', table: coil, address: 0, type: bool, poll: fast}
+  - {key: x.input_1, label: 'Input #1', table: coil, address: 1, type: bool, poll: fast}
+  - {key: x.input_2, label: 'Input #2', table: coil, address: 2, type: bool, poll: fast}
+  - {key: x.input_3, label: 'Input #3', table: coil, address: 3, type: bool, poll: fast}
+  - {key: x.input_4, label: 'Input #4', table: coil, address: 4, type: bool, poll: fast, optional: true, note: DAT 3188/8 only.}
+  - {key: x.input_5, label: 'Input #5', table: coil, address: 5, type: bool, poll: fast, optional: true, note: DAT 3188/8 only.}
+  - {key: x.input_6, label: 'Input #6', table: coil, address: 6, type: bool, poll: fast, optional: true, note: DAT 3188/8 only.}
+  - {key: x.input_7, label: 'Input #7', table: coil, address: 7, type: bool, poll: fast, optional: true, note: DAT 3188/8 only.}
+  - {key: x.output_0, label: 'Output #0', table: coil, address: 16, type: bool, writable: true, poll: fast}
+  - {key: x.output_1, label: 'Output #1', table: coil, address: 17, type: bool, writable: true, poll: fast}
+  - {key: x.output_2, label: 'Output #2', table: coil, address: 18, type: bool, writable: true, poll: fast}
+  - {key: x.output_3, label: 'Output #3', table: coil, address: 19, type: bool, writable: true, poll: fast}
+  - {key: x.output_4, label: 'Output #4', table: coil, address: 20, type: bool, writable: true, poll: fast}
+  - {key: x.output_5, label: 'Output #5', table: coil, address: 21, type: bool, writable: true, poll: fast}
+  - {key: x.output_6, label: 'Output #6', table: coil, address: 22, type: bool, writable: true, poll: fast}
+  - {key: x.output_7, label: 'Output #7', table: coil, address: 23, type: bool, writable: true, poll: fast}
+  - {key: x.watchdog_enable, label: Watchdog Enable, table: coil, address: 32, type: bool, writable: true, poll: slow}
+  - {key: x.watchdog_event, label: Watchdog Event, table: coil, address: 33, type: bool, writable: true, poll: fast, note: 1 = host watchdog alarm (outputs forced to the safe value); write 0 to clear.}
+  - {key: x.powerup_event, label: PowerUp Event, table: coil, address: 34, type: bool, writable: true, poll: slow, note: Set to 1 at every power-on; clear it to detect a later reset.}
+  - {key: x.short_circuit_alarm, label: Short-circuit Alarm, table: coil, address: 35, type: bool, poll: fast, note: 1 = over-current on the outputs; outputs can't be driven while in alarm.}
+  # Holding registers (40001 = address 0)
+  - {key: x.firmware_id, label: Firmware Version, table: holding, address: 1, type: u32, poll: slow, verified: false, note: 'Manufacturer firmware identifier over two registers; the document gives 4001 (hex) without the layout, a 32-bit value is assumed.'}
+  - {key: x.device_name, label: Device Name, table: holding, address: 3, type: str, length: 2, writable: true, poll: slow, note: 4 user-writable bytes; factory value "3188".}
+  - {key: x.communication, label: Communication, table: holding, address: 5, type: u16, writable: true, poll: slow, note: 'Bits 0–2 baud rate (0 = 1200 … 7 = 115200), bit 3 data bits, bits 4–5 parity, bit 6 mode (1 = RTU, 0 = ASCII).'}
+  - {key: x.baud_rate, label: Communication (baud rate), table: holding, address: 5, type: u16, bits: [0, 2], enum: baud_rate, poll: slow}
+  - {key: x.protocol, label: Communication (mode), table: holding, address: 5, type: u16, bits: [6, 6], enum: protocol, poll: slow}
+  - {key: x.address, label: Address, table: holding, address: 6, type: u16, writable: true, min: 1, max: 255, poll: slow, note: 255 is broadcast.}
+  - {key: x.rx_tx_delay, label: RX/TX Delay, table: holding, address: 7, type: u16, unit: ms, writable: true, poll: slow}
+  - {key: x.digital_inputs, label: Digital Inputs (Coils), table: holding, address: 8, type: u16, flags: input_bits, poll: fast}
+  - {key: x.digital_outputs, label: Digital Outputs (Coils), table: holding, address: 9, type: u16, flags: output_bits, writable: true, poll: fast}
+  - {key: x.coils, label: Coils, table: holding, address: 10, type: u16, flags: coil_bits, writable: true, poll: fast}
+  - {key: x.powerup_safe_value, label: PowerUp/Safe Value, table: holding, address: 11, type: u16, writable: true, poll: slow, note: 'High byte: output state at power-up (bit 8 = output #0); low byte: output state on watchdog alarm (bit 0 = output #0).'}
+  - {key: x.watchdog_timer, label: Watchdog Timer, table: holding, address: 12, type: u16, unit: s, scale: 0.5, writable: true, poll: slow}
+
+enums:
+  baud_rate: {'0': 1200 bps, '1': 2400 bps, '2': 4800 bps, '3': 9600 bps, '4': 19200 bps, '5': 38400 bps, '6': 57600 bps, '7': 115200 bps}
+  protocol: {'0': ASCII, '1': RTU}
+
+flags:
+  input_bits: {'8': 'Input #0', '9': 'Input #1', '10': 'Input #2', '11': 'Input #3', '12': 'Input #4', '13': 'Input #5', '14': 'Input #6', '15': 'Input #7'}
+  output_bits: {'8': 'Output #0', '9': 'Output #1', '10': 'Output #2', '11': 'Output #3', '12': 'Output #4', '13': 'Output #5', '14': 'Output #6', '15': 'Output #7'}
+  coil_bits: {'8': Watchdog Enable, '9': Watchdog Event, '10': PowerUp Event, '11': Short-circuit Alarm}
+
+problems:
+  - {when: {key: x.short_circuit_alarm, equals: 1}, kind: fault, text: Output short-circuit alarm}
+  - {when: {key: x.watchdog_event, equals: 1}, kind: warning, text: 'Host watchdog alarm: outputs forced to the safe value'}
+
+notes:
+- 'Addresses: register 4xxxx → holding address xxxx − 1; coil 0xxxx → coil address xxxx − 1. The device mirrors 0xxxx in 1xxxx
+  (discrete inputs) and 4xxxx in 3xxxx (input registers).'
+- 'Factory settings: address 1, 38400 bps, RTU (parity is ignored in RTU mode, so none). With the INIT pin tied to GND at
+  power-on the module answers at address 1, 9600 8N1 RTU.'
+- Identification uses the factory device name "3188", which the user can overwrite.
+- 'The DAT 3188/4 has inputs #0–#3 only; inputs #4–#7 are marked optional.'

@@ -1,0 +1,122 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From Enovates' own Modbus TCP library (enovates/enovates-modbus on GitHub): its README and register maps.
+
+modbusspec: 0
+id: enovates-eno-one
+manufacturer: Enovates
+name: ENO one / Single Wallbox (Modbus API 1.2, firmware ≥ 2.13)
+kind: charger
+
+sources:
+- title: enovates-modbus – library for Modbus TCP communication with Enovates EVSE (README and src/enovates_modbus/eno_one.py,
+    base.py)
+  version: commit cf516a23f5cb882a8957f0edb3ef33a16dc40007 (2026-04)
+  url: https://github.com/enovates/enovates-modbus
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 80
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 5032
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    range:
+    - 1
+    - 1
+  # serial number
+  - table: holding
+    address: 5032
+    type: str
+    length: 16
+    printable: true
+
+points:
+  # API version
+  - {key: x.api_version_major, label: Modbus API version major, table: holding, address: 0, type: u16, poll: slow}
+  - {key: x.api_version_minor, label: Modbus API version minor, table: holding, address: 1, type: u16, poll: slow}
+
+  # State
+  - {key: x.phases, label: Number of phases, table: holding, address: 50, type: u16, poll: slow}
+  - {key: x.max_current_per_phase, label: Max current per phase, table: holding, address: 51, type: u16, unit: A, poll: slow}
+  - {key: x.ocpp_state, label: OCPP state, table: holding, address: 52, type: u16, enum: off_on, note: '0 = false, anything else = true.'}
+  - {key: x.load_shedding, label: Load shedding state, table: holding, address: 53, type: u16, enum: off_on, note: '0 = false, anything else = true.'}
+  - {key: x.lock_state, label: Lock state, table: holding, address: 54, type: u16, enum: lock_state}
+  - {key: x.contactor, label: Contactor state, table: holding, address: 55, type: u16, enum: off_on, note: '0 = open, anything else = closed.'}
+  - {key: x.led_color, label: LED colour, table: holding, address: 56, type: u16, enum: led_color}
+
+  # Measurements
+  - {key: l1_current, label: Current L1, table: holding, address: 200, type: u16, unit: A, scale: 0.001}
+  - {key: l2_current, label: Current L2, table: holding, address: 201, type: u16, unit: A, scale: 0.001}
+  - {key: l3_current, label: Current L3, table: holding, address: 202, type: u16, unit: A, scale: 0.001}
+  - {key: l1_voltage, label: Voltage L1, table: holding, address: 203, type: s16, unit: V}
+  - {key: l2_voltage, label: Voltage L2, table: holding, address: 204, type: s16, unit: V}
+  - {key: l3_voltage, label: Voltage L3, table: holding, address: 205, type: s16, unit: V}
+  - {key: consumer_power, label: Charger active power total, table: holding, address: 206, type: s16, unit: W, positive: consumption, verified: false, note: 'Signed, but the source gives no sign convention; positive = consumption assumed.'}
+  - {key: l1_power, label: Charger active power L1, table: holding, address: 207, type: s16, unit: W, positive: consumption, verified: false, note: No sign convention given; positive = consumption assumed.}
+  - {key: l2_power, label: Charger active power L2, table: holding, address: 208, type: s16, unit: W, positive: consumption, verified: false, note: No sign convention given; positive = consumption assumed.}
+  - {key: l3_power, label: Charger active power L3, table: holding, address: 209, type: s16, unit: W, positive: consumption, verified: false, note: No sign convention given; positive = consumption assumed.}
+  - {key: x.installation_current_l1, label: Installation current L1, table: holding, address: 210, type: s32, unit: A, scale: 0.001, note: Current at the installation (load-management meter); sign convention not given.}
+  - {key: x.installation_current_l2, label: Installation current L2, table: holding, address: 212, type: s32, unit: A, scale: 0.001, note: Sign convention not given.}
+  - {key: x.installation_current_l3, label: Installation current L3, table: holding, address: 214, type: s32, unit: A, scale: 0.001, note: Sign convention not given.}
+  - {key: consumer_energy, label: Active energy import total, table: holding, address: 216, type: s32, unit: kWh, scale: 0.001, poll: slow, note: Wh in the register.}
+
+  # Mode 3 details (may mislead with ISO 15118 cars, per the source)
+  - {key: state, label: Mode 3 state, table: holding, address: 300, type: u16, enum: mode3_state}
+  - {key: x.mode3_state_text, label: Mode 3 state (text), table: holding, address: 301, type: str, length: 2}
+  - {key: x.pwm_current, label: PWM current, table: holding, address: 303, type: s16, unit: A, scale: 0.001}
+  - {key: x.pwm_duty, label: PWM duty cycle, table: holding, address: 304, type: s16, unit: '%', scale: 0.1, note: Per mille in the register.}
+  - {key: x.pp_current, label: PP (cable max current), table: holding, address: 305, type: s16, unit: A, note: Socketed models only.}
+  - {key: x.cp_positive, label: CP + voltage, table: holding, address: 306, type: s16, unit: V}
+  - {key: x.cp_negative, label: CP − voltage, table: holding, address: 307, type: s16, unit: V}
+
+  # EMS
+  - {key: x.ems_current_limit, label: EMS current limit, table: holding, address: 400, type: s16, unit: A, scale: 0.001, writable: true, note: −1 = no limit. Writable only in EMS mode "Full control"; in "Monitoring only" writes are accepted but ignored.}
+  - {key: x.transaction_token, label: Transaction token, table: holding, address: 401, type: str, length: 16, poll: slow, note: Only in EMS mode "Full control"; reading it otherwise gives an error.}
+  - {key: x.current_offered, label: Active current offered, table: holding, address: 417, type: u16, unit: A, scale: 0.001}
+
+  # Diagnostics
+  - {key: x.manufacturer, label: Manufacturer, table: holding, address: 5000, type: str, length: 16, poll: slow, note: '"Enovates NV".'}
+  - {key: x.vendor_id, label: Vendor id, table: holding, address: 5016, type: str, length: 16, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 5032, type: str, length: 16, poll: slow}
+  - {key: x.model, label: Model id, table: holding, address: 5048, type: str, length: 16, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 5064, type: str, length: 16, poll: slow}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  lock_state: {'0': Unlocked, '1': Locked, '2': No lock present}
+  led_color: {'0': 'Off', '1': Red, '2': Green, '3': Blue, '4': Cyan, '5': Yellow, '6': Pink, '7': White, '8': Orange, '9': Purple}
+  mode3_state: {'0': A1 (no car), '1': 'A2 (no car, PWM)', '2': B1 (car connected), '3': 'B2 (car connected, PWM)', '4': C1 (charging requested), '5': C2 (charging), '6': D1 (ventilation requested), '7': D2 (charging with ventilation), '8': E (error), '9': F (EVSE not available)}
+
+problems:
+  - {when: {key: state, equals: 8}, kind: fault, text: Charging error (Mode 3 state E)}
+  - {when: {key: state, equals: 9}, kind: fault, text: Charging station not available (Mode 3 state F)}
+
+notes:
+- The source is Enovates' official Python library, not a register document; addresses, types and units are taken from its
+  register maps. Everything is read with function 03 (holding registers) at the 0-based addresses used by the library; writes
+  use 06.
+- 'Modbus must first be enabled on the charger ("EMS mode": Off / Monitoring only / Full control) by the installer or via
+  OCPP; the end-user app has no switch. Needs Modbus API 1.2 or later (firmware 2.13 or later).'
+- Port 502 and unit id 1 are the library's defaults. The library reads each block in one request (up to 80 registers for the
+  diagnostics block).
+- Values are big-endian, most significant word first (the library only supports that). Text is ASCII, two characters per register,
+  padded with NUL.
+- The Mode 3 state texts in brackets are the IEC 61851 meanings, not from the source. For active power management the source
+  recommends current offered, the EMS current limit and the measurements.

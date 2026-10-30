@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the LAMBRECHT meteo PRO-Modbus Manual 2 (no version, 2024).
+
+modbusspec: 0
+id: lambrecht-pro
+manufacturer: LAMBRECHT meteo
+name: PRO-Modbus wind speed / wind direction sensors
+kind: io
+
+sources:
+- title: LAMBRECHT meteo PRO-Modbus wind sensors user manual (PRO-Modbus_Manual_2)
+  version: no version (20.24)
+  url: https://api.lambrecht.net/upload/manuals/PRO-Modbus_Manual_2.pdf
+  sha256: 2cc1ac634c808e06585f474c59c8b1b18556022c1d42b1b0b7e6f8b49ce4ba4e
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+model_choice: user
+
+models:
+  - {id: speed, name: 'PRO-Modbus wind speed sensor (cup anemometer, 00.14524.101030)'}
+  - {id: direction, name: 'PRO-Modbus wind direction sensor (wind vane, 00.14523.131030)'}
+
+points:
+  - {key: x.wind_speed, label: Wind speed instantaneous value, table: input, address: 30001, type: s16, unit: m/s, scale: 0.1, invalid: [-9999], models: [speed]}
+  - {key: x.wind_direction, label: Wind direction instantaneous value, table: input, address: 30201, type: s16, unit: °, scale: 0.1, invalid: [-9999], models: [direction]}
+
+  # Configuration (holding registers, write with function 16)
+  - {key: x.modbus_address, label: Modbus device address, table: holding, address: 40001, type: u16, writable: true, min: 1, max: 247, poll: slow, note: The document lists no read command for holding registers.}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 40200, type: u16, enum: baud_rate, writable: true, poll: slow, note: The document lists no read command for holding registers.}
+
+enums:
+  baud_rate: {'96': '9600', '192': '19200', '384': '38400'}
+
+notes:
+- 'Two separate sensors with one register scheme: the wind speed sensor (default unit id 1) and the wind direction sensor
+  (default unit id 2). Pick the model; it can''t be told from the device by the registers documented.'
+- 'Addresses: the document''s register numbers (30001 …, 40001 …) are used as the protocol addresses, no offset subtracted,
+  as LAMBRECHT''s other Modbus manuals show in their example frames (30001 = 0x7531). This document has no frame for it (unverified).'
+- 0xD8F1 (−9999 as a signed 16-bit value) is the error / invalid value. Values are signed 16-bit integers divided by 10.
+- 'Defaults: 19200 baud, 8E1.'
+- 'Left out: the average since the last read and the maximum / minimum (30002 … 30004, 30202 … 30204); reading the average
+  resets the maximum and minimum, so they suit only a single reader. Also left out: the autoconfiguration mapping registers
+  (count at holding 46000, list from 46001, readable only as one block of exactly that length).'
+- The document's general register table (the same numbers for all LAMBRECHT Modbus sensors) also lists air temperature 30401,
+  humidity 30601, dew point 30701, air pressure 30801, precipitation 31001 / 31101-31102 / 31201 and global radiation 31401
+  / 31501 / 31591; the PRO-Modbus sensors provide only the wind values.

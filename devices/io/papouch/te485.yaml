@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Papouch TE485 communication protocols document (11.11.2024).
+
+modbusspec: 0
+id: papouch-te485
+manufacturer: Papouch
+name: TE485 strain gauge transmitter
+kind: io
+
+sources:
+- title: Communication protocols in the TE485 transmitter (Spinel and Modbus RTU)
+  version: '2024-11-11'
+  url: https://cdn.en.papouch.com/data/user-content/products/TE485/te485-spinel-modbus_en.pdf
+  sha256: 1f9e70451e5d88b979168f8264fc0064c73f4442deccc89e300bea94f54b2403
+
+connection:
+  default_port: 502
+  default_unit: 49
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+points:
+  - {key: x.measurement_status, label: Measurement status, table: input, address: 0, type: u16, bits: [0, 7], flags: measurement_status}
+  - {key: x.value, label: Converted value, table: input, address: 1, type: s16, note: Scaled by the zero / upper-limit calibration in holding 18–20; without a calibration it equals the RAW value. Signed 16-bit as the Spinel description states; the Modbus table doesn't give the type.}
+  - {key: x.raw_value, label: RAW value, table: input, address: 2, type: s16, note: Upper 16 bits of the A/D converter with only the sensitivity applied.}
+  - {key: x.config_enable, label: Enabling configuration, table: holding, address: 0, type: u16, writable: true, note: 'Write 0x00FF (with function 06, on its own) before any write to holding 0–15.'}
+  - {key: x.modbus_address, label: Address (ID), table: holding, address: 1, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Default 0x31 (49).}
+  - {key: x.baud_rate, label: Communication speed, table: holding, address: 2, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.data_word, label: Data word, table: holding, address: 3, type: u16, enum: data_word, writable: true, poll: slow}
+  - {key: x.end_of_packet, label: End of packet resolution, table: holding, address: 4, type: u16, writable: true, min: 4, max: 100, poll: slow, note: Gap between bytes (in bytes) that ends a packet; default 10.}
+  - {key: x.protocol, label: Communication protocol, table: holding, address: 5, type: u16, enum: protocol, writable: true, poll: slow, note: Writing 1 switches the device to Spinel after the reply.}
+  - {key: x.sensitivity, label: Tensiometer sensitivity, table: holding, address: 16, type: u16, enum: sensitivity, writable: true, poll: slow}
+  - {key: x.calibrated_sensitivity, label: Calibrated sensitivity, table: holding, address: 17, type: u16, enum: sensitivity, poll: slow}
+  - {key: x.zero_raw, label: Zero calibration - RAW, table: holding, address: 18, type: u16, writable: true, poll: slow, note: Default 0x8000.}
+  - {key: x.upper_raw, label: Calibration of the upper measurement limit - RAW, table: holding, address: 19, type: u16, writable: true, poll: slow, note: Default 0xFFFF.}
+  - {key: x.upper_load, label: Calibration of the upper measurement limit - load, table: holding, address: 20, type: u16, writable: true, poll: slow, verified: false, note: Type not stated in the document; assumed unsigned.}
+  - {key: x.semi_auto_calibration, label: Semi-automatic calibration, table: holding, address: 21, type: u16, writable: true, write_only: true, note: '0x0000 takes the current RAW as zero, 0x0100 takes it as the upper limit with the load in holding 20.'}
+  - {key: x.measurement_speed, label: Measurement speed, table: holding, address: 22, type: u16, enum: measurement_speed, writable: true, write_only: true, poll: slow, note: Firmware 11 and later.}
+
+enums:
+  baud_rate: {'3': '1200', '4': '2400', '5': '4800', '6': '9600', '7': '19200', '8': '38400', '9': '57600', '10': '115200'}
+  data_word: {'0': 8N1, '1': 8E1, '2': 8O1, '3': 8N2, '4': 8E2, '5': 8O2}
+  protocol: {'1': Spinel, '2': Modbus RTU}
+  sensitivity: {'0': 2 mV/V, '1': 5 mV/V, '2': 10 mV/V, '3': 3 mV/V}
+  measurement_speed: {'0': 6.25 SPS, '1': 50 SPS}
+
+flags:
+  measurement_status: {'2': Underflow (below the measuring range), '3': Overflow (above the measuring range), '7': Value valid}
+
+problems:
+  - {when: {key: x.measurement_status, bit: 2}, kind: warning, text: Measured value below the measuring range}
+  - {when: {key: x.measurement_status, bit: 3}, kind: warning, text: Measured value above the measuring range}
+
+notes:
+- The device ships speaking Papouch's Spinel protocol; it must be switched to Modbus RTU first (Spinel instruction, or the
+  maker's configurator). Holding 5 switches back.
+- Register numbers in the document are 0-based protocol addresses; taken as they are.
+- 'Input 0: only the low byte carries status; bits 3..2 = 00 in range, 01 underflow, 10 overflow; bit 7 = value valid.'
+- Holding 7–9 (write-only) set the Modbus address by product and serial number from the label; there is no readable serial
+  number register, so no identify. The identification string (e.g. "TE485; v0672.01.11; …") is only available via function
+  0x11 (Report slave ID).
+- Data word values 6 … 255 also mean 8N1.

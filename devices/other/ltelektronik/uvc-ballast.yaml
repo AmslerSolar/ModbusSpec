@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the LT-Elektronik Gera MODBUS RTU transmission protocol for digital electronic ballasts with
+# RS-485 interface (revision 05.09.2016).
+
+modbusspec: 0
+id: ltelektronik-uvc-ballast
+manufacturer: LT-Elektronik Gera
+name: LT-UVC digital electronic ballasts with RS-485 (UV lamps)
+kind: other
+
+sources:
+- title: MODBUS RTU transmission protocol for digital electronic ballasts with RS-485 interface
+  version: '2016-09-05'
+  url: https://lt-elektronik.de/export/sites/lt-elektronik/.content/PDF-Dateien/EVG-fuer-Niederdrucklampen/EVG-mit-RS-485-Schnittstelle/Uebertragungsprotokoll_engl.pdf
+  sha256: ef5577254a703b13cc634824c3d9f091702f869f51c9fcc4fb60cfa2c25f3a53
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 14
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Coils (function 01 read, 05 write)
+  - {key: x.standby, label: Power, table: coil, address: 0, type: bool, enum: standby, writable: true, note: '0 = lamp on, 1 = ballast in standby.'}
+  - {key: x.dimming_source, label: Dimm analog/digital, table: coil, address: 1, type: bool, enum: dimming_source, writable: true, poll: slow}
+  - {key: x.counter_reset, label: RESET operating time counter / start counter, table: coil, address: 2, type: bool, writable: true, poll: slow, note: Writing 1 sets the operating time and start counters to 0.}
+
+  # Holding registers (function 03; only 0x08 can be written, with function 06)
+  - {key: x.ballast_address, label: Ballast address, table: holding, address: 0, type: u16, poll: slow, note: 'Set by DIP switch, 1 … 32.'}
+  - {key: x.ballast_type, label: Ballast type, table: holding, address: 1, type: u16, enum: ballast_type, poll: slow}
+  - {key: x.switch_position, label: Switch position, table: holding, address: 2, type: u16, poll: slow, note: 'Lamp current setting switch, 0 … 9.'}
+  - {key: state, label: State, table: holding, address: 3, type: u16, enum: state}
+  - {key: x.operating_minutes, label: Operating time counter - minute, table: holding, address: 4, type: u16, unit: min, poll: slow, note: Minutes part (0 … 60) of the lamp operating time; counts only in state 3.}
+  - {key: x.operating_hours, label: Operating time counter - hour, table: holding, address: 5, type: u16, unit: h, poll: slow, note: Hours part of the lamp operating time; counts only in state 3.}
+  - {key: x.start_count, label: Start counter, table: holding, address: 6, type: u16, poll: slow, note: Number of lamp starts.}
+  - {key: x.dimming_level, label: Dimm actual value, table: holding, address: 7, type: u16, unit: '%'}
+  - {key: x.dimming_setpoint, label: Dimm point value (digital), table: holding, address: 8, type: u16, unit: '%', writable: true, min: 0, max: 100, note: 'Only the value set over RS-485, not the 1–10 V analog input.'}
+  - {key: x.dimming_delay, label: Dimm timer (delay), table: holding, address: 9, type: u16, unit: s, note: Time until dimming is possible; dimming is blocked for 5 minutes after ignition.}
+  - {key: temperature, label: Ballast temperature, table: holding, address: 10, type: u16, unit: °C, note: 'Internal temperature, not the case (tc point); the ballast switches off at about 80 °C.'}
+  - {key: x.mains_voltage_state, label: Main voltage, table: holding, address: 11, type: u16, enum: mains_voltage}
+  - {key: x.lamp_voltage, label: Lamp voltage, table: holding, address: 12, type: u16, unit: V, note: ±10 %.}
+  - {key: x.lamp_current, label: Lamp current, table: holding, address: 13, type: u16, unit: A, scale: 0.001, note: Sent in mA (±10 %).}
+
+enums:
+  standby: {'0': On (ballast works), '1': Off (standby)}
+  dimming_source: {'0': Analog 1-10 V input, '1': Digital via RS-485}
+  ballast_type: {'1': LT-UVC1x(40..150)W 0.8..1.5 A, '2': LT-UVC1x(80..200)W 1.2..2.1 A, '3': LT-UVC1x(80..200)W 1.8..2.9 A, '4': LT-UVC1x(200..400)W 1.8..2.9 A, '5': LT-UVC1x(200..400)W 3.2..4.8 A, '6': LT-UVC1x480W 4.8 A}
+  state: {'1': Ballast start, '2': Lamp preheating, '3': Ballast works, '4': Ballast waits for start, '5': Reserved, '6': Failure - temperature, '7': Failure - mains undervoltage, '8': Failure - mains overvoltage, '9': Failure - lamp voltage, '10': Failure - overcurrent, '11': Failure - overcurrent preheating}
+  mains_voltage: {'1': Below limit (< 187 V), '2': Within tolerance (187 … 253 V), '3': Above limit (> 253 V)}
+
+problems:
+  - {when: {key: state, equals: 6}, kind: fault, text: Ballast overtemperature (state 6)}
+  - {when: {key: state, equals: 7}, kind: fault, text: Mains undervoltage (state 7)}
+  - {when: {key: state, equals: 8}, kind: fault, text: Mains overvoltage (state 8)}
+  - {when: {key: state, equals: 9}, kind: fault, text: Lamp voltage fault (state 9)}
+  - {when: {key: state, equals: 10}, kind: fault, text: Overcurrent (state 10)}
+  - {when: {key: state, equals: 11}, kind: fault, text: Overcurrent during preheating (state 11)}
+  - {when: {key: x.mains_voltage_state, in: [1, 3]}, kind: warning, text: 'Mains voltage out of tolerance ({text})'}
+
+notes:
+- The document numbers coils 1–3 and holding registers 4001–4014 and gives their 0-based addresses 0x00–0x0D alongside; those
+  addresses are used here.
+- RS-485 at 5 V signal level, 9600 baud 8N1 fixed. The unit address (1 … 32) is set with five DIP switches; address 0 is broadcast.
+- 'Supported functions: 01 and 05 for the coils, 03 for the holding registers, 06 only for the dimming setpoint (0x08).'
+- 'No identification: the ballast type register only holds a small number (1 … 6) and there is no serial number.'
+- 'Model name pattern in the type table shortened: the document lists suffixes -C/D/M/I for each type.'

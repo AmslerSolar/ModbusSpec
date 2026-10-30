@@ -1,0 +1,101 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Dini Argeo Modbus protocol technical manual for DFW series indicators (22.11).
+
+modbusspec: 0
+id: diniargeo-dfw
+manufacturer: Dini Argeo
+name: DFW series weighing indicators (DFWIECEX, DFWL-10, DFWLI-10)
+kind: other
+
+sources:
+- title: Dini Argeo Modbus protocol for DFW series indicators, technical manual (TECH_MAN_ENG_DFW_MODBUS_22.11)
+  version: 22.11 (2022-11-18)
+  url: https://www.vetek.com/en/dynamics/WebFiles/document/b4f68fdd-3358-4855-a9b3-49f723109675/technical_manual_dfw_modbus_22.11_eng.pdf
+  sha256: 7c16659d15c27a9ae64d3de20bac2a0d85ceb0404286c03208ed06091f795277
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 121
+    type: u32
+
+points:
+  # Input area (30001 ff.)
+  - {key: x.gross_weight, label: Gross weight, table: input, address: 0, type: s32, scale_exponent_from: {table: holding, address: 953, type: u16, negate: true}, verified: false, note: 'In the unit (holding 950) scaled by the number of decimals in holding 953 (the calibration example: decimals 3, range 50000 = 50.000 kg). Signedness not stated; the input status also carries a polarity bit.'}
+  - {key: x.net_weight, label: Net weight, table: input, address: 2, type: s32, scale_exponent_from: {table: holding, address: 953, type: u16, negate: true}, verified: false, note: Same format as the gross weight.}
+  - {key: x.input_status, label: Input status register, table: input, address: 4, type: u16, flags: input_status}
+  - {key: x.command_status, label: Command status register, table: input, address: 5, type: u16, note: 'Bits 8–15 last command received, 4–7 its result (0 = executed, 1 = incorrect command, 2 = incorrect data, 3 = not allowed, 4 = non-existent), 0–3 processed command count modulo 16.'}
+  - {key: x.output_status, label: Output status register, table: input, address: 6, type: u16, flags: output_status}
+  - {key: x.firmware_release, label: Firmware release, table: input, address: 100, type: u32, poll: slow, verified: false, note: Two registers; the format isn't stated.}
+  - {key: x.calibration_status, label: Calibration status, table: input, address: 115, type: u16, enum: calibration_status, poll: slow}
+  - {key: x.type_approved, label: Type-approval status, table: input, address: 120, type: u16, enum: yes_no, poll: slow}
+  - {key: serial, label: Serial number, table: input, address: 121, type: u32, poll: slow}
+  - {key: x.weight_percent_ch1, label: Weight percentage channel 1, table: input, address: 123, type: s16, unit: '%', scale: 0.01, verified: false, note: Signedness not stated.}
+  - {key: x.weight_percent_ch2, label: Weight percentage channel 2, table: input, address: 124, type: s16, unit: '%', scale: 0.01, verified: false}
+  - {key: x.weight_percent_ch3, label: Weight percentage channel 3, table: input, address: 125, type: s16, unit: '%', scale: 0.01, verified: false}
+  - {key: x.weight_percent_ch4, label: Weight percentage channel 4, table: input, address: 126, type: s16, unit: '%', scale: 0.01, verified: false}
+  - {key: x.firmware_name, label: Firmware name, table: input, address: 131, type: str, length: 4, poll: slow}
+  - {key: state, label: Indicator status, table: input, address: 143, type: u16, enum: indicator_status}
+  # Holding area (40001 ff.)
+  - {key: x.tare, label: Tare, table: holding, address: 104, type: s32, scale_exponent_from: {table: holding, address: 953, type: u16, negate: true}, verified: false, note: Same format as the gross weight.}
+  - {key: x.command, label: Command, table: holding, address: 231, type: u16, enum: command, writable: true, note: 'Parameters at holding 232, 234 and 236 (two registers each); write 0 before sending the same command twice. Result in the command status (input 5).'}
+  - {key: x.weight_unit, label: Unit of measure, table: holding, address: 950, type: u16, enum: weight_unit, poll: slow}
+  - {key: x.decimals, label: Decimals, table: holding, address: 953, type: u16, poll: slow}
+  - {key: x.range_1, label: Range 1, table: holding, address: 954, type: u32, poll: slow, note: Capacity without the decimal point.}
+  - {key: x.modbus_id, label: Modbus ID, table: holding, address: 981, type: u16, writable: true, min: 0, max: 98, poll: slow, note: Saved with the SAVE SETUP command (28).}
+  # Coils
+  - {key: x.output_1, label: Digital output 1, table: coil, address: 0, type: bool, writable: true}
+  - {key: x.output_2, label: Digital output 2, table: coil, address: 1, type: bool, writable: true}
+  - {key: x.output_3, label: Digital output 3, table: coil, address: 2, type: bool, writable: true}
+  - {key: x.output_4, label: Digital output 4, table: coil, address: 3, type: bool, writable: true}
+  - {key: x.output_5, label: Digital output 5, table: coil, address: 4, type: bool, writable: true}
+  - {key: x.output_6, label: Digital output 6, table: coil, address: 5, type: bool, writable: true}
+  - {key: x.output_7, label: Digital output 7, table: coil, address: 6, type: bool, writable: true, optional: true, note: DFWIECEX only.}
+  - {key: x.output_8, label: Digital output 8, table: coil, address: 7, type: bool, writable: true, optional: true, note: DFWIECEX only.}
+  - {key: x.output_9, label: Digital output 9, table: coil, address: 8, type: bool, writable: true, optional: true, note: DFWIECEX only.}
+  - {key: x.output_10, label: Digital output 10, table: coil, address: 9, type: bool, writable: true, optional: true, note: DFWIECEX only.}
+  - {key: x.output_11, label: Digital output 11, table: coil, address: 10, type: bool, writable: true, optional: true, note: DFWIECEX only.}
+  - {key: x.output_12, label: Digital output 12, table: coil, address: 11, type: bool, writable: true, optional: true, note: DFWIECEX only.}
+
+enums:
+  calibration_status: {'0': Calibration not started, '1': Acquisition in progress, '2': Acquisition OK, '3': Acquisition error, '4': Calibration OK, '5': Calibration error, '6': Zero calibration in progress}
+  yes_no: {'0': 'No', '1': 'Yes'}
+  indicator_status: {'0': Weighing, '1': Numeric entry, '2': Setup, '3': Boot, '4': TxRx setup, '5': Serial test, '6': Print test, '7': Firmware update, '8': Stand-by, '9': Auto-zero, '10': Change channel, '11': Digital input test, '12': Exclude scheduler, '13': Warm-up}
+  weight_unit: {'0': g, '1': kg, '2': t, '3': lb}
+  command: {'0': No command, '1': Zero, '2': Tare, '3': Manual tare, '10': Write setpoint 1, '11': Write setpoint 2, '12': Write setpoint 3, '13': Write setpoint 4, '14': Write setpoint 5, '15': Write setpoint 6, '25': Set relay status, '28': Save setup, '30': Read alibi memory, '31': Save weighing in alibi memory, '34': Restart instrument, '35': Data reading, '36': Write and save data, '37': Calibration point acquisition, '38': Cancel calibration, '39': Zero calibration, '40': Enable / disable keypad, '55': Disable a peripheral, '60': Modbus ID setting, '65': Serial baud rate setting, '66': Theoretical calibration}
+
+flags:
+  input_status: {'0': Net weight negative, '1': Gross weight negative, '2': Weight stable, '3': Underload, '4': Overload, '5': Tare entered, '6': Manual tare, '7': Gross weight zero, '8': Input 1 active, '9': Input 2 active, '12': Little-endian word order}
+  output_status: {'0': Relay 1, '1': Relay 2, '2': Relay 3, '3': Relay 4, '4': Relay 5, '5': Relay 6, '6': Relay 7, '7': Relay 8, '8': Relay 9, '9': Relay 10, '10': Relay 11, '11': Relay 12}
+
+problems:
+  - {when: {key: x.input_status, bit: 4}, kind: warning, text: Scale overload (bit 4)}
+  - {when: {key: x.input_status, bit: 3}, kind: warning, text: Scale underload (bit 3)}
+
+notes:
+- The document numbers registers 30001 (input, function 04), 40001 (holding, function 03 / 06 / 16) and coils from 1; protocol
+  address = number − 30001, − 40001 or − 1.
+- Two-register values are high word first by default (the manual tare example). Bit 12 of the input status reports little-endian
+  when the indicator is set so; that can't be detected here, so the default is assumed.
+- Weights are integers in display units, scaled here by the number of decimals (holding 953, set at calibration); the unit
+  (holding 950) varies and isn't applied.
+- Modbus is chosen in the indicator's serial port setup (RTU or ASCII, address 0–98); the default address, baud rate and frame
+  format aren't stated (unit 1 and port 502 are assumed). Reading only input 0–4 in one request gives about 110 readings per
+  second, otherwise 25–30.
+- The document's coil table lists 12 digital outputs although its heading says 6; outputs and relays 7–12 and the analog output
+  exist only on the DFWIECEX.
+- 'Left out: setpoints, alibi memory, calibration points, filters, metric parameters, the setup backup area (43001–45048),
+  I/O and analog output configuration, the one-word weight copies (41101 ff.) and the ADC / µV raw values.'

@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the M-TEC Energy Butler RTU Protocol GEN2 + GEN3 (V1.0, 19.11.2022).
+
+modbusspec: 0
+id: mtec-energybutler
+manufacturer: M-TEC
+name: Energy Butler GEN2 / GEN3 hybrid inverters
+kind: inverter
+
+sources:
+- title: M-TEC Energy Butler RTU Protocol GEN2 + GEN3
+  version: 1.0 (19.11.2022)
+  url: https://forum.iobroker.net/assets/uploads/files/1681811699113-20221125_mtec-energybutler_modbus_rtu_protkoll.pdf
+  sha256: d7d5638c9f424cfc48285f5b1b7cc591d5ff9deb183112d4a50fb9518081fbc2
+
+connection:
+  default_port: 502
+  default_unit: 247
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+model_choice: user
+
+models:
+  - {id: gen2, name: Energy Butler GEN2 (inverter slave firmware 25.98 or later)}
+  - {id: gen3, name: Energy Butler GEN3 (inverter slave firmware 3.04.01 or later)}
+
+points:
+  # Power
+  - {key: grid_power, label: Zähler (NVP) Leistung, table: holding, address: 11000, type: s32, unit: W, positive: export, verified: false, note: Power at the grid connection meter. The document doesn't state the sign; assumed positive = export.}
+  - {key: x.ac_power, label: AC Leistung Netz, table: holding, address: 11016, type: s32, unit: W, note: Power at the inverter's AC (grid) port; sign not stated.}
+  - {key: pv_power, label: PV Leistung, table: holding, address: 11028, type: u32, unit: W}
+  - {key: x.backup_power, label: AC Leistung Backup, table: holding, address: 40230, type: s32, unit: W, models: [gen2], note: Power at the backup output; sign not stated.}
+  - {key: x.backup_power, label: AC Leistung Backup, table: holding, address: 30230, type: s32, unit: W, models: [gen3], note: Power at the backup output; sign not stated.}
+  - {key: battery_power, label: Batterie Leistung, table: holding, address: 40258, type: s32, unit: W, models: [gen2], positive: discharge, verified: false, note: Charge / discharge power; the document doesn't state the sign. Assumed positive = discharge.}
+  - {key: battery_power, label: Batterie Leistung, table: holding, address: 30258, type: s32, unit: W, models: [gen3], positive: discharge, verified: false, note: Charge / discharge power; the document doesn't state the sign. Assumed positive = discharge.}
+
+  # Battery
+  - {key: battery_soc, label: State of Charge (SOC), table: holding, address: 43000, type: u16, unit: '%', scale: 0.01, models: [gen2]}
+  - {key: battery_soc, label: State of Charge (SOC), table: holding, address: 33000, type: u16, unit: '%', scale: 0.01, models: [gen3]}
+  - {key: battery_voltage, label: Batterie Spannung, table: holding, address: 40254, type: u16, unit: V, scale: 0.1, models: [gen2]}
+  - {key: battery_voltage, label: Batterie Spannung, table: holding, address: 30254, type: u16, unit: V, scale: 0.1, models: [gen3]}
+  - {key: x.battery_current, label: Batterie Strom, table: holding, address: 40255, type: s16, unit: A, scale: 0.1, models: [gen2], note: Sign not stated.}
+  - {key: x.battery_current, label: Batterie Strom, table: holding, address: 30255, type: s16, unit: A, scale: 0.1, models: [gen3], note: Sign not stated.}
+  - {key: battery_temperature, label: Batterie Temperatur, table: holding, address: 43003, type: s16, unit: °C, scale: 0.1, models: [gen2], verified: false, note: The document gives no data type; signed 16-bit assumed.}
+  - {key: battery_temperature, label: Batterie Temperatur, table: holding, address: 33003, type: s16, unit: °C, scale: 0.1, models: [gen3], verified: false, note: The document gives no data type; signed 16-bit assumed.}
+  - {key: x.bms_status, label: BMS Status, table: holding, address: 43002, type: u16, models: [gen2], note: The document has no table for the codes.}
+  - {key: x.bms_status, label: BMS Status, table: holding, address: 33002, type: u16, models: [gen3], note: The document has no table for the codes.}
+  - {key: x.bms_error, label: BMS Error, table: holding, address: 43016, type: u32, models: [gen2], note: The document has no table for the codes.}
+  - {key: x.bms_error, label: BMS Error, table: holding, address: 33016, type: u32, models: [gen3], note: The document has no table for the codes.}
+  - {key: x.bms_warning, label: BMS Warnung, table: holding, address: 43018, type: u32, models: [gen2], note: The document has no table for the codes.}
+  - {key: x.bms_warning, label: BMS Warnung, table: holding, address: 33018, type: u32, models: [gen3], note: The document has no table for the codes.}
+
+  # Inverter
+  - {key: state, label: Running State, table: holding, address: 10105, type: u16, enum: running_state}
+  - {key: x.fault_flag1, label: Fault FLAG1, table: holding, address: 10112, type: u32, flags: fault_flag1}
+  - {key: x.fault_flag2, label: Fault FLAG2, table: holding, address: 10114, type: u32, flags: fault_flag2}
+
+enums:
+  running_state: {'0': Wait (for on-grid), '1': Check (self-check), '2': On grid, '3': Fault, '4': Flash (firmware update), '5': Off grid}
+
+flags:
+  fault_flag1: {'0': Mains lost, '1': Grid voltage fault, '2': Grid frequency fault, '3': DCI fault, '4': ISO over limitation, '5': GFCI fault, '6': PV over voltage, '7': Bus voltage fault, '8': Inverter over temperature}
+  fault_flag2: {'1': SPI fault, '2': E2 fault, '3': GFCI device fault, '4': AC transducer fault, '5': Relay check fail, '6': Internal fan fault, '7': External fan fault}
+
+problems:
+  - {when: {key: state, equals: 3}, kind: fault, text: Inverter fault (running state 3)}
+  - {when: {key: state, equals: 5}, kind: backup_mode, text: Off-grid operation (running state 5)}
+  - {when: {key: x.fault_flag1, bit: 0}, kind: mains_lost, text: 'Mains lost (fault flag 1, bit 0)'}
+  - {when: {key: x.fault_flag1, bit: 1}, kind: fault, text: 'Grid voltage fault (fault flag 1, bit 1)'}
+  - {when: {key: x.fault_flag1, bit: 2}, kind: fault, text: 'Grid frequency fault (fault flag 1, bit 2)'}
+  - {when: {key: x.fault_flag1, bit: 3}, kind: fault, text: 'DCI fault (fault flag 1, bit 3)'}
+  - {when: {key: x.fault_flag1, bit: 4}, kind: fault, text: 'Insulation resistance fault (fault flag 1, bit 4)'}
+  - {when: {key: x.fault_flag1, bit: 5}, kind: fault, text: 'GFCI fault (fault flag 1, bit 5)'}
+  - {when: {key: x.fault_flag1, bit: 6}, kind: fault, text: 'PV over voltage (fault flag 1, bit 6)'}
+  - {when: {key: x.fault_flag1, bit: 7}, kind: fault, text: 'Bus voltage fault (fault flag 1, bit 7)'}
+  - {when: {key: x.fault_flag1, bit: 8}, kind: fault, text: 'Inverter over temperature (fault flag 1, bit 8)'}
+  - {when: {key: x.fault_flag2, bit: 1}, kind: fault, text: 'SPI fault (fault flag 2, bit 1)'}
+  - {when: {key: x.fault_flag2, bit: 2}, kind: fault, text: 'E2 fault (fault flag 2, bit 2)'}
+  - {when: {key: x.fault_flag2, bit: 3}, kind: fault, text: 'GFCI device fault (fault flag 2, bit 3)'}
+  - {when: {key: x.fault_flag2, bit: 4}, kind: fault, text: 'AC transducer fault (fault flag 2, bit 4)'}
+  - {when: {key: x.fault_flag2, bit: 5}, kind: fault, text: 'Relay check failed (fault flag 2, bit 5)'}
+  - {when: {key: x.fault_flag2, bit: 6}, kind: fault, text: 'Internal fan fault (fault flag 2, bit 6)'}
+  - {when: {key: x.fault_flag2, bit: 7}, kind: fault, text: 'External fan fault (fault flag 2, bit 7)'}
+  - {when: {key: x.bms_error, not: 0}, kind: fault, text: 'BMS error (code {value})'}
+  - {when: {key: x.bms_warning, not: 0}, kind: warning, text: 'BMS warning (code {value})'}
+
+notes:
+- All registers are read with function 03 (holding) and are read-only; the document also lists 06 / 16 for writing but no
+  writable registers. Addresses are the document's decimal start registers, taken as 0-based protocol addresses.
+- GEN2 and GEN3 share the power and inverter registers; the battery registers sit at 4xxxx on GEN2 and 3xxxx on GEN3. The
+  document gives no register to tell them apart, so the user picks the generation.
+- RS485 only, 8N1, 9600 baud, unicast only. The default RTU address is 247 (settable under General Settings).
+- Word order of the 32-bit values is not stated; most significant register first assumed.
+- 'BMS error and warning: the document has no code tables; treating any non-zero value as an error / warning is an assumption.'
+- Fault flag 2 has no bit 0 in the document's table.
+- Most of these registers are at the same addresses in the Solinteg inverter map (solinteg-inverter, from the projects, which
+  also list M-TEC Energy Butler GEN2/GEN3 under Solinteg); 33003 is u16 there.

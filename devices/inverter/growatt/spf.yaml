@@ -1,0 +1,312 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Growatt OffGrid Modbus RS485&RS232 RTU Protocol (V0.26, 2024-07-15); V0.14 checked against it.
+# The protocol of Growatt's off-grid inverters (SPF, and the SPE grid-feeding variants it also covers).
+
+modbusspec: 0
+id: growatt-spf
+manufacturer: Growatt
+name: SPF / SPE off-grid inverters (off-grid protocol)
+kind: inverter
+
+sources:
+- title: Growatt OffGrid Modbus RS485&RS232 RTU Protocol
+  version: V0.26 (2024-07-15)
+  url: https://github.com/0xAHA/Growatt_ModbusTCP/blob/42f01bc346245197787b2976f6a9d2f4558bc503/Protocols/OffGrid-Modbus-RS485-RS232-RTU-Protocol-V0-26.xlsx
+  sha256: 7801b3fd3c5d1341a437090a4fdf8d402de29768761a8814be477bb0f60d0d2e
+- title: Growatt OffGrid Modbus RS485/RS232 RTU Protocol
+  version: V0.14 (2021-04-20)
+  url: https://github.com/SeByDocKy/pvbrain2/blob/39e895fe7c6597ed51515ce7e8c1effa19a69054/pvbrain2/inverter/growatt/OffGrid-Modbus-RS485RS232-RTU-Protocol-V0.14-20210420.pdf
+  sha256: 376a778f8f4bdf1f9013b22252d26e248835dda49ed8b01941e47ff23815c603
+- id: growatt-modbustcp
+  title: Growatt_ModbusTCP (Home Assistant integration)
+  url: https://github.com/0xAHA/Growatt_ModbusTCP
+  license: MIT
+  commit: 42f01bc346245197787b2976f6a9d2f4558bc503
+  path: custom_components/growatt_modbus/profiles
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 45
+    min_interval_ms: 850
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  any:
+  - table: input
+    address: 44
+    type: u16
+    in:
+    - 3400
+    - 3401
+    - 3402
+    - 3403
+  serial:
+    table: holding
+    address: 23
+    type: str
+    length: 5
+
+models:
+  - {id: spf_3000_6000_es_plus, name: SPF 3000-6000 ES PLUS, match: {table: input, address: 44, type: u16, in: [3400, 3401, 3402, 3403]}}
+  - {id: spe_8000_12000_es, name: SPE 8000-12000 ES}
+
+points:
+  # Holding: operation and settings
+  - {key: x.standby, label: 'On/Off (low byte: standby on/off)', table: holding, address: 0, type: u16, bits: [0, 7], enum: on_off, writable: true, poll: slow}
+  - {key: x.output_disable, label: 'On/Off (high byte: AC output disable)', table: holding, address: 0, type: u16, bits: [8, 15], enum: output_disable, writable: true, poll: slow, note: '0x0000 = output enabled, 0x0100 = output disabled.'}
+  - {key: x.output_config, label: OutputConfig (AC output source priority), table: holding, address: 1, type: u16, enum: output_config, writable: true, poll: slow}
+  - {key: x.charge_config, label: ChargeConfig (charge source priority), table: holding, address: 2, type: u16, enum: charge_config, writable: true, poll: slow}
+  - {key: x.uti_out_start, label: UtiOutStart (utility output start time), table: holding, address: 3, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, poll: slow, conflicts: [{sources: [growatt-modbustcp], type: u16, unit: h, label: uti_out_start}]}
+  - {key: x.uti_out_end, label: UtiOutEnd (utility output end time), table: holding, address: 4, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, poll: slow}
+  - {key: x.uti_charge_start, label: UtiChargeStart (utility charge start time), table: holding, address: 5, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, poll: slow}
+  - {key: x.uti_charge_end, label: UtiChargeEnd (utility charge end time), table: holding, address: 6, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [0, 7]}, minute: {register: 0, bits: [8, 15]}}, writable: true, poll: slow}
+  - {key: x.pv_input_mode, label: PVModel (PV input mode), table: holding, address: 7, type: u16, enum: pv_input_mode, writable: true, poll: slow}
+  - {key: x.ac_input_mode, label: ACInModel (AC input mode), table: holding, address: 8, type: u16, enum: ac_input_mode, writable: true, poll: slow}
+  - {key: firmware, label: Fw version H/M/L, table: holding, address: 9, type: str, length: 3, poll: slow, conflicts: [{sources: [growatt-modbustcp], type: u16, label: firmware_version_high}]}
+  - {key: x.control_firmware, label: Fw version2 H/M/L (control firmware), table: holding, address: 12, type: str, length: 3, poll: slow, conflicts: [{sources: [growatt-modbustcp], type: u16, label: control_firmware_version_high}]}
+  - {key: x.output_voltage_type, label: OutputVoltType, table: holding, address: 18, type: u16, enum: output_voltage_type, writable: true, poll: slow}
+  - {key: x.output_frequency_type, label: OutputFreqType, table: holding, address: 19, type: u16, enum: output_frequency_type, writable: true, poll: slow}
+  - {key: x.overload_restart, label: OverLoadRestart, table: holding, address: 20, type: u16, enum: overload_restart, writable: true, poll: slow}
+  - {key: x.overtemp_restart, label: OverTempRestart, table: holding, address: 21, type: u16, enum: yes_no, writable: true, poll: slow}
+  - {key: x.buzzer_enable, label: BuzzerEN, table: holding, address: 22, type: u16, enum: enable, writable: true, poll: slow}
+  - {key: serial, label: Serial NO. 5…1, table: holding, address: 23, type: str, length: 5, poll: slow, verified: false, note: 'Five registers, two ASCII characters each. The document numbers them 5 (holding 23) down to 1 (holding 27); that 23 holds the first characters is assumed (as in Growatt''s grid-tie protocol).', conflicts: [{sources: [growatt-modbustcp], type: u16, label: serial_number_5}]}
+  - {key: x.model_power, label: Moudle L (inverter model power), table: holding, address: 29, type: u16, unit: W, scale: 100, poll: slow, note: 'In 0.1 kW, e.g. 50 = 5.0 kW model.'}
+  - {key: x.modbus_address, label: Com Address, table: holding, address: 30, type: u16, writable: true, min: 1, max: 254, poll: slow, note: Default 1; 253 is reserved for debugging.}
+  - {key: x.max_charge_current, label: MaxChargeCurr, table: holding, address: 34, type: u16, unit: A, writable: true, min: 0, max: 400, poll: slow, note: Default 70.}
+  - {key: x.bulk_charge_voltage, label: BulkChargeVolt, table: holding, address: 35, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '50.0–64.0 V in the document, which fits 48 V systems; 24 V models take lower values.'}
+  - {key: x.float_charge_voltage, label: FloatChargeVolt, table: holding, address: 36, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '50.0–56.0 V in the document, which fits 48 V systems; 24 V models take lower values.'}
+  - {key: x.bat_low_to_uti, label: BatLowToUtiVolt (switch to utility at), table: holding, address: 37, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '0.1 V (20.0–64.0 V) for non-lithium batteries; with a lithium battery the value is the SOC in % (5–100), scale 1. The unit depends on the battery type (holding 39) and can''t be expressed here: the non-lithium reading is given.', conflicts: [{sources: [growatt-modbustcp], label: bat_low_to_uti}]}
+  - {key: x.ac_charge_current, label: ACChargeCurr, table: holding, address: 38, type: u16, unit: A, writable: true, min: 0, max: 400, poll: slow, note: Default 30.}
+  - {key: x.battery_type, label: Battery Type, table: holding, address: 39, type: u16, enum: battery_type, writable: true, poll: slow, note: Only settable in standby.}
+  - {key: x.dtc, label: DTC (device type code), table: holding, address: 43, type: u16, poll: slow}
+  - {key: x.system_time, label: Sys Year…Sec (system time), table: holding, address: 45, type: datetime, length: 6, datetime: {year: {register: 0, offset: 2000}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, writable: true, poll: slow}
+  - {key: x.manufacturer, label: Manufacturer Info 8…1, table: holding, address: 59, type: str, length: 8, poll: slow}
+  - {key: x.modbus_version, label: ModbusVersion, table: holding, address: 73, type: u16, poll: slow, note: 207 = V2.07.}
+  - {key: x.rated_power, label: Rate Watt H/L (rated active power), table: holding, address: 76, type: u32, unit: W, scale: 0.1, poll: slow}
+  - {key: x.rated_apparent_power, label: Rate VA H/L (rated apparent power), table: holding, address: 78, type: u32, unit: VA, scale: 0.1, poll: slow}
+  - {key: x.bat_low_cutoff, label: wBatLowCutOff (battery low cut-off), table: holding, address: 82, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, verified: false, note: Same unit rule as holding 37 (SOC in % for lithium). The W column is empty in the document; writable assumed., conflicts: [{sources: [growatt-modbustcp], label: bat_low_cutoff}]}
+  - {key: x.gen_charge_current, label: MaxGenChgCurr (maximum generator charge current), table: holding, address: 83, type: u16, unit: A, writable: true, min: 0, max: 400, poll: slow, verified: false, note: The W column is empty in the document; writable assumed.}
+  - {key: x.ac_to_bat_volt, label: uwAC2BatVolt (switch from AC back to battery at), table: holding, address: 95, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, verified: false, note: Same unit rule as holding 37 (SOC in % for lithium). The W column is empty in the document; writable assumed., conflicts: [{sources: [growatt-modbustcp], label: ac_to_bat_volt}]}
+  - {key: x.fault_restart_enable, label: uwFaultResartEn, table: holding, address: 114, type: u16, enum: enable, poll: slow}
+  # Holding: grid feed (SPE models)
+  - {key: x.feed_enable, label: uwFeedEn (grid feed enable), table: holding, address: 115, type: u16, enum: enable, poll: slow}
+  - {key: x.load_first, label: uwLoadFirst (load first or charge first), table: holding, address: 116, type: u16, enum: load_first, poll: slow}
+  - {key: x.feed_range, label: uwFeedRange, table: holding, address: 117, type: u16, enum: feed_range, poll: slow}
+  - {key: x.battery_feed_enable, label: uwBatFeedEn (battery feed enable), table: holding, address: 118, type: u16, enum: enable, poll: slow}
+  - {key: x.feed_power_limit, label: uwFeedPow (feed power limit), table: holding, address: 119, type: u16, unit: W, scale: 100, poll: slow, note: 0–12.0 kW in 0.1 kW.}
+  - {key: x.battery_feed_current, label: uwBatFeedCurr (battery feed current), table: holding, address: 120, type: u16, unit: A, poll: slow}
+  - {key: x.battery_feed_volt_loss, label: uwBatFeedVLoss (battery feed stop voltage), table: holding, address: 121, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.battery_feed_volt_back, label: uwBatFeedVBack (battery feed resume voltage), table: holding, address: 122, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.battery_feed_soc_loss, label: uwBatFeedSocLoss (battery feed stop SOC), table: holding, address: 123, type: u16, unit: '%', poll: slow}
+  - {key: x.battery_feed_soc_back, label: uwBatFeedSocBack (battery feed resume SOC), table: holding, address: 124, type: u16, unit: '%', poll: slow}
+  - {key: x.max_gen_run_time, label: MaxGenRunTime, table: holding, address: 137, type: u16, unit: h, poll: slow}
+  - {key: x.shaving_power, label: ShavingPow (grid peak-shaving power), table: holding, address: 157, type: u16, unit: W, scale: 100, poll: slow}
+  - {key: x.export_limit_power, label: ExpLimPow (export limit power), table: holding, address: 158, type: u16, unit: W, scale: 100, poll: slow}
+  - {key: x.typical_setup, label: TypicalSet, table: holding, address: 159, type: u16, enum: typical_setup, poll: slow}
+  - {key: x.serial_new, label: uwNewSerNum15…1 (new serial number), table: holding, address: 209, type: str, length: 15, poll: slow, optional: true, verified: false, note: 30 characters; which models fill it isn't stated. Register order (15 first) as for holding 23.}
+
+  # Input: live values
+  - {key: state, label: System Status, table: input, address: 0, type: u16, enum: system_status}
+  - {key: x.pv1_voltage, label: Vpv1, table: input, address: 1, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_voltage, label: Vpv2, table: input, address: 2, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_power, label: Ppv1 H/L (PV1 charge power), table: input, address: 3, type: u32, unit: W, scale: 0.1}
+  - {key: x.pv2_power, label: Ppv2 H/L (PV2 charge power), table: input, address: 5, type: u32, unit: W, scale: 0.1}
+  - {key: x.pv1_current, label: Buck1Curr / Pv1Curr, table: input, address: 7, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv2_current, label: Buck2Curr / Pv2Curr, table: input, address: 8, type: u16, unit: A, scale: 0.1}
+  - {key: load_power, label: OP_Watt H/L (output active power), table: input, address: 9, type: u32, unit: W, scale: 0.1}
+  - {key: x.output_apparent_power, label: OP_VA H/L (output apparent power), table: input, address: 11, type: u32, unit: VA, scale: 0.1}
+  - {key: x.ac_charge_power, label: ACChr_Watt H/L (AC charge power), table: input, address: 13, type: u32, unit: W, scale: 0.1}
+  - {key: x.ac_charge_apparent_power, label: ACChr_VA H/L, table: input, address: 15, type: u32, unit: VA, scale: 0.1}
+  - {key: battery_voltage, label: Bat Volt (M3), table: input, address: 17, type: u16, unit: V, scale: 0.01}
+  - {key: battery_soc, label: BatterySOC, table: input, address: 18, type: u16, unit: '%'}
+  - {key: x.bus_voltage, label: Bus Volt (inverter bus total voltage), table: input, address: 19, type: u16, unit: V, scale: 0.1}
+  - {key: x.grid_voltage, label: Grid Volt (AC input voltage), table: input, address: 20, type: u16, unit: V, scale: 0.1}
+  - {key: frequency, label: Line Freq (AC input frequency), table: input, address: 21, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.output_voltage, label: OutputVolt (AC output voltage), table: input, address: 22, type: u16, unit: V, scale: 0.1}
+  - {key: x.output_frequency, label: OutputFreq (AC output frequency), table: input, address: 23, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.output_dc_voltage, label: Ouput DCV, table: input, address: 24, type: u16, unit: V, scale: 0.1}
+  - {key: temperature, label: InvTemp, table: input, address: 25, type: s16, unit: °C, scale: 0.1}
+  - {key: x.dcdc_temperature, label: DcDc Temp, table: input, address: 26, type: s16, unit: °C, scale: 0.1}
+  - {key: x.load_percent, label: LoadPercent, table: input, address: 27, type: u16, unit: '%', scale: 0.1}
+  - {key: x.battery_port_voltage, label: 'Bat_s_Volt (battery port voltage, DSP)', table: input, address: 28, type: u16, unit: V, scale: 0.01}
+  - {key: x.battery_bus_voltage, label: 'Bat_Volt_DSP (battery bus voltage, DSP)', table: input, address: 29, type: u16, unit: V, scale: 0.01}
+  - {key: x.work_time_total, label: Time total H/L, table: input, address: 30, type: u32, unit: s, scale: 0.5, poll: slow}
+  - {key: x.buck1_temperature, label: Buck1_NTC, table: input, address: 32, type: s16, unit: °C, scale: 0.1}
+  - {key: x.buck2_temperature, label: Buck2_NTC, table: input, address: 33, type: s16, unit: °C, scale: 0.1}
+  - {key: x.output_current, label: OP_Curr (output current), table: input, address: 34, type: u16, unit: A, scale: 0.1}
+  - {key: x.inverter_current, label: Inv_Curr, table: input, address: 35, type: u16, unit: A, scale: 0.1}
+  - {key: grid_power, label: AC_InWatt H/L (AC input power), table: input, address: 36, type: s32, unit: W, scale: 0.1, positive: import, note: 'Signed: positive = taken from the AC input (grid), negative = exported to the grid (SPE). In generator mode the AC input is the generator.', conflicts: [{sources: [growatt-modbustcp], type: u32, models: [spf_3000_6000_es_plus], label: ac_input_power}]}
+  - {key: x.ac_input_apparent_power, label: AC_InVA H/L, table: input, address: 38, type: u32, unit: VA, scale: 0.1}
+  - {key: error_code, label: Fault bit (fault code), table: input, address: 40, type: u16, enum: fault_code, verified: false, note: 'Named "fault bit", but its table lists fault numbers (1–81), not bits: read as a code, 0 = none (assumed).'}
+  - {key: x.warning_bits, label: Warning bit, table: input, address: 41, type: u16, flags: warning_bits}
+  - {key: x.warning_bits_high, label: Warning bit high, table: input, address: 42, type: u16, flags: warning_bits_high}
+  - {key: x.warning_value, label: warning value, table: input, address: 43, type: u16}
+  - {key: x.dtc_input, label: DTC (device type code), table: input, address: 44, type: u16, poll: slow, note: The table only says 03xxx = PV storage.}
+  - {key: x.export_energy_today, label: Export to Grid Today, table: input, address: 45, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_export_energy, label: Export to Grid Total H/L, table: input, address: 46, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv1_energy_today, label: Epv1_today H/L, table: input, address: 48, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv1_energy_total, label: Epv1_total H/L, table: input, address: 50, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv2_energy_today, label: Epv2_today H/L, table: input, address: 52, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv2_energy_total, label: Epv2_total H/L, table: input, address: 54, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.ac_charge_energy_today, label: Eac_chrToday H/L, table: input, address: 56, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.ac_charge_energy_total, label: Eac_chrTotal H/L, table: input, address: 58, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_discharge_energy_today, label: Ebat_dischrToday H/L, table: input, address: 60, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_discharge_energy_total, label: Ebat_dischrTotal H/L, table: input, address: 62, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.ac_discharge_energy_today, label: Eac_dischrToday H/L, table: input, address: 64, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.ac_discharge_energy_total, label: Eac_dischrTotal H/L, table: input, address: 66, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.ac_charge_battery_current, label: ACChrCurr (AC charge battery current), table: input, address: 68, type: u16, unit: A, scale: 0.1}
+  - {key: x.ac_discharge_power, label: AC_DisChrWatt H/L, table: input, address: 69, type: u32, unit: W, scale: 0.1}
+  - {key: x.ac_discharge_apparent_power, label: AC_DisChrVA H/L, table: input, address: 71, type: u32, unit: VA, scale: 0.1}
+  - {key: x.battery_discharge_power, label: Bat_DisChrWatt H/L, table: input, address: 73, type: u32, unit: W, scale: 0.1}
+  - {key: x.battery_discharge_apparent_power, label: Bat_DisChrVA H/L, table: input, address: 75, type: u32, unit: VA, scale: 0.1}
+  - {key: battery_power, label: Bat_Watt H/L, table: input, address: 77, type: s32, unit: W, scale: 0.1, positive: discharge}
+  - {key: x.slave_count, label: uwSlaveExistCnt (number of parallel slaves), table: input, address: 79, type: u16, poll: slow}
+  - {key: x.mppt_fan_speed, label: MpptFanSpeed, table: input, address: 81, type: u16, unit: '%'}
+  - {key: x.inverter_fan_speed, label: InvFanSpeed, table: input, address: 82, type: u16, unit: '%'}
+  - {key: x.total_charge_current, label: TotalChgCur, table: input, address: 83, type: u16, unit: A, scale: 0.1}
+  - {key: x.total_discharge_current, label: TotalDisChgCur, table: input, address: 84, type: u16, unit: A, scale: 0.1}
+  - {key: x.output_energy_today, label: Eop_dischrToday H/L (output energy today), table: input, address: 85, type: u32, unit: kWh, scale: 0.1, poll: slow, verified: false, note: No unit in the document; 0.1 kWh like the other energies assumed.}
+  - {key: x.output_energy_total, label: Eop_dischrTotal H/L (output energy total), table: input, address: 87, type: u32, unit: kWh, scale: 0.1, poll: slow, verified: false, note: No unit in the document; 0.1 kWh like the other energies assumed.}
+  - {key: x.parallel_charge_current, label: ParaChgCurr, table: input, address: 90, type: u16, unit: A, scale: 0.1}
+  - {key: x.parallel_status, label: ParStatus, table: input, address: 91, type: u16, enum: parallel_status, poll: slow}
+  - {key: x.generator_energy_today, label: EGen_dischrToday H/L, table: input, address: 92, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.generator_energy_total, label: EGen_dischrTotal H/L, table: input, address: 94, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.generator_power, label: EGen_dischrPower, table: input, address: 96, type: u16, unit: W}
+  - {key: x.generator_voltage, label: EGen_voltage, table: input, address: 97, type: u16, unit: V, scale: 0.1}
+  - {key: x.battery_charge_energy_today, label: EBatChgToday H/L, table: input, address: 98, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_charge_energy_total, label: EBatChgTotal H/L, table: input, address: 100, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.ct_power, label: CT_InWatt H/L (CT input power), table: input, address: 102, type: s32, unit: W, scale: 0.1, optional: true, verified: false, note: Only with an external CT. Sign and signedness not stated; signed like holding 36 assumed.}
+  - {key: x.ct_load_power, label: CtLoadWatt H/L (CT load active power), table: input, address: 104, type: u32, unit: W, scale: 0.1, optional: true}
+  - {key: x.ct_load_percent, label: CtLoadPer, table: input, address: 106, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.transformer_temperature, label: TxTemp, table: input, address: 107, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.llc_temperature, label: LLCTemp, table: input, address: 108, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.llc_bus_voltage, label: LLCBusVolt, table: input, address: 109, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.llc_battery_voltage, label: LLCBatVolt, table: input, address: 110, type: u16, unit: V, scale: 0.01, optional: true}
+  - {key: x.environment_temperature, label: EnvTemp, table: input, address: 111, type: s16, unit: °C, scale: 0.1, optional: true}
+
+  # Input: lithium battery BMS (200–289)
+  - {key: x.bms_status, label: BMS_Status, table: input, address: 200, type: u16, flags: bms_status_bits}
+  - {key: x.bms_state, label: BMS_Status bits 0–1, table: input, address: 200, type: u16, bits: [0, 1], enum: bms_state}
+  - {key: x.bms_error_old, label: BMS_Error_old, table: input, address: 201, type: u16, flags: bms_error_old}
+  - {key: x.bms_warning_old, label: BMS_WarnInfo_old, table: input, address: 202, type: u16, bits: [0, 13], flags: bms_warning_old}
+  - {key: x.bms_soc, label: BMS_SOC, table: input, address: 203, type: u16, unit: '%'}
+  - {key: x.bms_voltage, label: BMS_BatteryVolt (average voltage), table: input, address: 204, type: u16, unit: V, scale: 0.01}
+  - {key: x.bms_current, label: BMS_BatteryCurr (average current), table: input, address: 205, type: s16, unit: A, scale: 0.1, verified: false, note: Signed; the document doesn't say which direction is positive.}
+  - {key: battery_temperature, label: BMS_BatteryTemp (average temperature), table: input, address: 206, type: s16, unit: °C, scale: 0.1}
+  - {key: x.bms_max_charge_current, label: BMS_MaxCurrChg, table: input, address: 207, type: u16, unit: A, scale: 0.1}
+  - {key: x.bms_cv_voltage, label: BMS_CVolt (constant-voltage charge voltage), table: input, address: 208, type: u16, unit: V, scale: 0.01, poll: slow}
+  - {key: x.bms_protect_1_2, label: BatProtect1_2, table: input, address: 233, type: u16, flags: bat_protect_1_2}
+  - {key: x.bms_warning_1_2, label: BatWarnInfo1_2, table: input, address: 234, type: u16, flags: bat_warning_1_2}
+  - {key: x.bms_pack_count, label: PackNumber (packs in parallel), table: input, address: 235, type: u16, poll: slow}
+  - {key: battery_soh, label: SOH, table: input, address: 237, type: u16, bits: [0, 6], unit: '%'}
+  - {key: x.bms_life_warning, label: SOH bit 7 (battery life warning), table: input, address: 237, type: u16, bits: [7, 7]}
+  - {key: x.bms_remaining_capacity, label: GaugeRM (remaining capacity), table: input, address: 238, type: u16, unit: Ah, scale: 0.01}
+  - {key: x.bms_full_capacity, label: GaugeFCC (full charge capacity), table: input, address: 239, type: u16, unit: Ah, scale: 0.01, poll: slow}
+  - {key: x.bms_cycle_count, label: CycleCount, table: input, address: 241, type: u16, poll: slow}
+  - {key: x.bms_max_cell_voltage, label: MaximumCellVoltage, table: input, address: 243, type: u16, unit: V, scale: 0.001}
+  - {key: x.bms_min_cell_voltage, label: MinimumCellVoltage, table: input, address: 244, type: u16, unit: V, scale: 0.001}
+  - {key: x.bms_max_cell_temperature, label: MaxCellTemp, table: input, address: 251, type: s16, unit: °C, scale: 0.1}
+  - {key: x.bms_min_cell_temperature, label: MinCellTemp, table: input, address: 252, type: s16, unit: °C, scale: 0.1}
+  - {key: x.bms_protect_3_4, label: BatProtect3_4, table: input, address: 256, type: u16, flags: bat_protect_3_4}
+  - {key: x.bms_protect_5, label: BatProtect5, table: input, address: 257, type: u16, flags: bat_protect_5}
+  - {key: x.bms_warning_3, label: BatWarnInfo3, table: input, address: 258, type: u16, flags: bat_warning_3}
+  - {key: x.bms_serial, label: BatSerialNumber0_1…18_19, table: input, address: 263, type: str, length: 10, poll: slow}
+  - {key: x.on_off, label: on_off, table: holding, address: 0, type: u16, enum: on_off, writable: true, verified: false, sources: [growatt-modbustcp]}
+
+derived:
+  - {key: pv_power, label: PV power (PV1 + PV2), unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}]}
+  - {key: pv_energy_today, label: PV energy today (PV1 + PV2), unit: kWh, sum: [{key: x.pv1_energy_today}, {key: x.pv2_energy_today}]}
+  - {key: pv_energy, label: PV energy total (PV1 + PV2), unit: kWh, sum: [{key: x.pv1_energy_total}, {key: x.pv2_energy_total}]}
+  - {key: battery_current, label: Battery current (discharge − charge), unit: A, positive: discharge, sum: [{key: x.total_discharge_current}, {key: x.total_charge_current, factor: -1}], verified: false, note: From the separate unsigned total charge and discharge currents; assumes only one of them is non-zero at a time.}
+
+enums:
+  on_off: {'0': 'Off', '1': 'On'}
+  output_disable: {'0': Output enabled, '1': Output disabled}
+  output_config: {'0': Battery first, '1': PV first, '2': Utility first, '3': PV and utility first}
+  charge_config: {'0': PV first, '1': PV and utility, '2': PV only}
+  pv_input_mode: {'0': Independent, '1': Parallel}
+  ac_input_mode: {'0': 'APL (appliance, 90–280 V)', '1': UPS (170–280 V), '2': Generator}
+  output_voltage_type: {'0': 208 V, '1': 230 V, '2': 240 V, '3': 220 V, '4': 100 V, '5': 110 V, '6': 120 V}
+  output_frequency_type: {'0': 50 Hz, '1': 60 Hz}
+  overload_restart: {'0': 'Yes', '1': 'No', '2': Switch to utility}
+  yes_no: {'0': 'Yes', '1': 'No'}
+  enable: {'0': Disabled, '1': Enabled}
+  battery_type: {'0': AGM, '1': Flooded, '2': User defined, '3': Lithium, '4': User defined 2}
+  load_first: {'0': Charge first, '1': Load first, '2': Feed first}
+  feed_range: {'0': Asia, '1': Europe, '2': South America, '3': South Africa}
+  typical_setup: {'0': User defined, '1': On grid, '2': Zero export limit, '3': Off grid}
+  system_status: {'0': Standby, '1': PV and grid supporting loads, '2': Battery discharging, '3': Fault, '4': Flash (firmware update), '5': PV charging, '6': Grid charging, '7': PV and grid charging, '8': 'PV and grid charging, grid bypass', '9': 'PV charging, grid bypass', '10': 'Grid charging, grid bypass', '11': Grid bypass, '12': 'PV charging, loads supported', '13': PV discharging, '14': PV and battery discharging, '15': Generator charging, '16': 'Generator charging, generator bypass', '17': PV and generator charging, '18': 'PV and generator charging, generator bypass', '19': 'PV charging, generator bypass', '20': Generator bypass, '21': PV export to grid, '22': 'PV export to grid, loads supported', '23': 'PV charging, export to grid', '24': 'PV charging, export to grid, loads supported', '25': Battery export to grid, '26': 'Battery export to grid, loads supported', '27': Battery and PV export to grid, '28': 'Battery and PV export to grid, loads supported'}
+  fault_code: {'0': No fault, '1': Fan locked, '2': Over temperature, '3': Battery voltage high, '4': Battery voltage low, '5': Output short circuit, '6': Output voltage high, '7': Overload, '8': Bus voltage high, '9': Bus soft start failed, '11': Main relay failed, '51': Over current, '52': Bus voltage low, '53': Inverter soft start failed, '56': IGBT over current, '58': Output voltage low, '60': Negative power too high, '61': PV voltage high, '62': Internal communication (SCI) error, '80': CAN communication failed, '81': Host (master) lost}
+  parallel_status: {'0': New module, '1': Master, '2': Slave (single-phase parallel), '3': 'Slave 1 (three-phase, R)', '4': 'Slave 2 (three-phase, S)', '5': 'Slave 3 (three-phase, T)', '6': 'Slave 4 (two-phase, R)', '7': 'Slave 5 (two-phase 120°, S)', '8': 'Slave 6 (two-phase 180°, S)'}
+  bms_state: {'0': Soft starting, '1': Standby, '2': Charging, '3': Discharging}
+
+flags:
+  warning_bits: {'0': Fan locked (01), '1': Over charge (03), '2': Battery voltage low (04), '3': Overload (07), '4': Output power derating (10), '5': 'Solar stopped, battery low (12)', '6': 'Solar stopped, PV voltage high (13)', '7': 'Solar stopped, overload (14)', '8': Parallel units see different grid (15), '9': Parallel grid phase error (16), '10': Parallel output phase loss (17), '11': Over temperature (02), '12': Buck current too high (18), '13': Battery disconnected (19), '14': BMS communication error (20), '15': PV power insufficient (21)}
+  warning_bits_high: {'0': 'No battery, parallel disabled (22)', '1': Parallel firmware versions differ (23), '3': Parallel units' capacity differs (25), '4': Host lost (81), '5': BMS cell over voltage (34), '6': BMS total over voltage (36), '7': BMS discharge over current (38), '8': BMS charge over current (39), '9': BMS over temperature (43), '10': Battery voltage inconsistent (63)}
+  bms_status_bits: {'2': Error byte valid, '3': Cells balanced, '4': Sleep enabled, '5': Discharge output enabled, '6': Charge output enabled, '7': Battery terminal open, '12': Forced charge requested}
+  bms_error_old: {'0': Discharge over current protection, '1': Discharge short circuit protection, '2': Over voltage protection, '3': Under voltage protection, '4': Discharge over temperature protection, '5': Charge over temperature protection, '6': Discharge under temperature protection, '7': Charge under temperature protection, '8': Soft start failed, '9': Permanent fault, '10': Delta V failure, '11': Charge over current protection, '12': MOS over temperature protection, '13': Ambient over temperature protection, '14': Ambient under temperature protection}
+  bms_warning_old: {'0': Cell over voltage, '1': Cell under voltage, '2': Total over voltage, '3': Total under voltage, '4': Discharge over current, '5': Charge over current, '6': Discharge high temperature, '7': Discharge low temperature, '8': Charge high temperature, '9': Charge low temperature, '10': MOS high temperature, '11': Ambient high temperature, '12': Ambient low temperature, '13': 'System low voltage, shutdown pending'}
+  bat_protect_1_2: {'0': Soft start failed, '1': Module under voltage, '2': Module over voltage, '3': Cell under voltage, '4': Cell over voltage, '5': Discharge short circuit, '6': Charge over current, '7': Discharge over current 1, '8': Parallel versions differ, '9': Parallel failure, '10': Delta V failure, '11': MOS control failure, '12': Charge under temperature, '13': Discharge under temperature, '14': Charge over temperature, '15': Discharge over temperature}
+  bat_warning_1_2: {'0': SOC low, '1': Module under voltage, '2': Module over voltage, '3': Cell under voltage, '4': Cell over voltage, '5': Shutdown pending, '6': Charge over current, '7': Discharge over current, '8': Internal communication failure, '9': External CAN communication failure, '10': Delta V failure, '11': External RS485 communication failure, '12': Charge under temperature, '13': Discharge under temperature, '14': Charge over temperature, '15': Discharge over temperature}
+  bat_protect_3_4: {'0': Charge over power, '1': Discharge over power, '2': Duplicate parallel address, '3': Precharge failed, '4': Precharge short circuit, '5': AFE–MCU communication error, '6': Cell failure, '7': Cell temperature sensor failure, '8': Total voltage sampling fault, '9': Temperature sensor short circuit, '10': Load-side voltage sampling fault, '11': Calibration parameters failed to load, '12': Hardware over voltage (AFE), '13': Hardware under voltage (AFE), '14': Hardware over current, '15': Hardware discharge over current}
+  bat_protect_5: {'0': Voltage difference to master too large, '1': Charge current limit not followed, '2': Discharge current limit not followed, '3': Main circuit open, '4': Discharge over current 2, '5': MOS temperature high, '6': Cell voltage difference large, '7': Cell temperature difference large}
+  bat_warning_3: {'0': Charge over power, '1': Discharge over power, '2': Internal charge circulating current high, '3': Internal discharge circulating current high, '4': MOS temperature high, '5': Cell voltage difference large, '6': Cell temperature difference large, '7': Fully charged}
+
+problems:
+  - {when: {key: state, equals: 3}, kind: fault, text: Inverter fault (status 3)}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Inverter fault {value}: {text}'}
+  - {when: {key: x.warning_bits, not: 0}, kind: warning, text: 'Inverter warning (bits 0x{value:X})'}
+  - {when: {key: x.warning_bits_high, not: 0}, kind: warning, text: 'Inverter / BMS warning (high bits 0x{value:X})'}
+  - {when: {key: x.bms_error_old, not: 0}, kind: fault, text: 'Battery protection (BMS error bits 0x{value:X})'}
+  - {when: {key: x.bms_protect_1_2, not: 0}, kind: fault, text: 'Battery protection (bits 0x{value:X})'}
+  - {when: {key: x.bms_protect_3_4, not: 0}, kind: fault, text: 'Battery protection 3/4 (bits 0x{value:X})'}
+  - {when: {key: x.bms_protect_5, not: 0}, kind: fault, text: 'Battery protection 5 (bits 0x{value:X})'}
+  - {when: {key: x.bms_warning_1_2, not: 0}, kind: warning, text: 'Battery warning (bits 0x{value:X})'}
+  - {when: {key: x.bms_warning_3, not: 0}, kind: warning, text: 'Battery warning 3 (bits 0x{value:X})'}
+
+notes:
+- 'Protocol: Modbus RTU on RS485 or RS232, 9600 bps, 8 data bits, no parity, 1 stop bit; unit id 1–247 (253 is for debugging).
+  Wait at least 850 ms between requests (1 s suggested). At most 45 registers per read or write, and a request must stay inside
+  one block of 45 registers (the document''s example: 1–45 and 96–123 work, 40–60 doesn''t); that alignment can''t be expressed
+  here. Addresses are the register numbers of the tables, sent as they are (0-based; no 3xxxx/4xxxx offset). Function 3 reads
+  holding, 4 reads input, 6 and 16 write holding registers.'
+- 32-bit values are two registers, high word first (the tables list "H" before "L"). The document calls every register an
+  unsigned 16-bit integer, but marks input 36–37 and 77–78 as signed 32-bit; temperatures (range down to −30 °C) and the BMS
+  current and temperatures are read as signed here.
+- 'Signs from the document: input 36 (AC input power) positive = from the grid, negative = export to the grid; input 77 (battery
+  power) positive = discharging, negative = charging.'
+- 'Input 0: V0.26 gives two lists for the system status; the longer one in the register row (0–28, with the generator and
+  grid-export states) is used. Fault code 56 is "battery open" in V0.14 and "IGBT over current" in V0.26; V0.26 is used.'
+- Input 200–289 is the lithium battery's BMS data passed through by the inverter (empty without BMS communication). Some of
+  the BMS tables exist only in Chinese in the document; they were translated.
+- 'Left out: debug and factory registers (holding 16–17, 31–33, 40–42, 51–58, 84–113 except 95), the battery-feed, grid-charge
+  and second-output time windows and thresholds (holding 125–136, 138–156), grid-code settings (holding 160–169, 300–426),
+  the firmware build numbers (holding 67–70), the per-cell voltages and the per-module data of the BMS (input 209–232, 236,
+  240, 242, 245–250, 253–255, 259–262, 273–289).'
+- Identification as growatt-modbustcp recognises the device (not checked against a document).
+- 'Left out: firmware_version_medium (holding 10, u16) from growatt-modbustcp overlaps firmware from the documents.'
+- 'Left out: firmware_version_low (holding 11, u16) from growatt-modbustcp overlaps firmware from the documents.'
+- 'Left out: control_firmware_version_medium (holding 13, u16) from growatt-modbustcp overlaps x.control_firmware from the
+  documents.'
+- 'Left out: control_firmware_version_low (holding 14, u16) from growatt-modbustcp overlaps x.control_firmware from the documents.'
+- 'Left out: serial_number_4 (holding 24, u16) from growatt-modbustcp overlaps serial from the documents.'
+- 'Left out: serial_number_3 (holding 25, u16) from growatt-modbustcp overlaps serial from the documents.'
+- 'Left out: serial_number_2 (holding 26, u16) from growatt-modbustcp overlaps serial from the documents.'
+- 'Left out: serial_number_1 (holding 27, u16) from growatt-modbustcp overlaps serial from the documents.'
+- 'Off-grid protocol: one range from 0 for input and holding registers. The project warns that these inverters reset when
+  registers in the VPP ranges (30000 and up) are read.'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,59 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: climaveneta-ilife2
+manufacturer: Climaveneta
+name: Fan coils with iLife2 controller
+kind: hvac
+
+sources:
+- id: climaveneta
+  title: climaveneta (Home Assistant integration)
+  url: https://github.com/Tadiern/climaveneta
+  license: MIT
+  commit: 4cb8311fae1940260e120278f18c1dac297b4a3d
+  path: custom_components/climaveneta/pyclimaveneta.py, custom_components/climaveneta/coordinator.py, custom_components/climaveneta/binary_sensor.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+defaults:
+  verified: false
+  sources:
+  - climaveneta
+
+points:
+  - {key: x.air_temperature, label: Room air temperature, table: holding, address: 0, type: u16, unit: °C, scale: 0.1}
+  - {key: x.water_temperature, label: Water temperature, table: holding, address: 1, type: u16, unit: °C, scale: 0.1}
+  - {key: x.setpoint, label: Real set point, table: holding, address: 8, type: u16, unit: °C, scale: 0.1}
+  - {key: x.out, label: Outputs (OUT), table: holding, address: 9, type: u16, flags: ilife_out}
+  - {key: x.fan_speed, label: Fan motor speed set, table: holding, address: 15, type: u16, note: The project calls it the fan speed in rpm but shows it without unit.}
+  - {key: x.stat, label: Status (STAT), table: holding, address: 104, type: u16, flags: ilife_stat, note: Bit 1 set = heating; bit 0 set with bit 1 clear = cooling; both clear = idle.}
+  - {key: x.alarm, label: Alarms (ALR_STAT), table: holding, address: 105, type: u16, flags: ilife_alarm}
+  - {key: x.modbus_address, label: Modbus address, table: holding, address: 200, type: u16}
+  - {key: x.program_fan, label: 'Program: fan speed', table: holding, address: 201, type: u16, bits: [0, 2], enum: fan, writable: true}
+  - {key: x.program_standby, label: 'Program: standby', table: holding, address: 201, type: u16, bits: [7, 7], writable: true, note: '1 = standby (off), 0 = normal operation. The project writes the whole register: fan speed in bits 0–2 plus 0x80 for standby.'}
+  - {key: x.min_water_temp_heating, label: 'Minimum water temperature, heating', table: holding, address: 218, type: u16, unit: °C, scale: 0.1}
+  - {key: x.max_water_temp_cooling, label: 'Maximum water temperature, cooling', table: holding, address: 219, type: u16, unit: °C, scale: 0.1}
+  - {key: x.set_target_temperature, label: Set temperature (command), table: holding, address: 231, type: u16, unit: °C, scale: 0.1, writable: true, note: The real set point is read from register 8.}
+  - {key: x.man, label: Season mode (MAN), table: holding, address: 233, type: u16, enum: ilife_mode, writable: true}
+
+enums:
+  fan: {'0': Auto, '1': Low, '2': Medium, '3': High}
+  ilife_mode: {'0': Auto, '3': Winter (heating), '5': Summer (cooling)}
+
+flags:
+  ilife_out: {'2': Chiller, '3': Boiler}
+  ilife_stat: {'0': Cooling, '1': Heating}
+  ilife_alarm: {'0': Communication, '1': AIR Probe, '2': H4 Probe, '3': Water Temperature, '4': H2 Probe, '5': H4 Wrong Temperature, '6': High Resistance, '7': Motor Fault, '8': GRID Contact Open, '9': H2 Wrong Temperature, '10': Filter Maintenance, '11': 2 AIR M5}
+
+notes:
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

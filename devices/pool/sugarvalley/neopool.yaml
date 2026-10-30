@@ -1,0 +1,333 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Sugar Valley NeoPool Control System MODBUS Register description (2015-03-23).
+
+modbusspec: 0
+id: sugarvalley-neopool
+manufacturer: Sugar Valley
+name: NeoPool pool controllers (and rebrands)
+kind: pool
+
+sources:
+- title: NeoPool Control System – MODBUS Register description
+  version: '2015-03-23'
+  url: https://downloads.vodnici.net/uploads/wpforo/attachments/69/171-Modbus-registers.pdf
+  sha256: 959a6e405f58b06aaa502ea6a90668bd1eb609d3d8e6414902e91b35229f1f53
+  archive_url: https://web.archive.org/web/20260303140349/https://downloads.vodnici.net/uploads/wpforo/attachments/69/171-Modbus-registers.pdf
+- id: python-neopool-modbus
+  title: python-neopool-modbus (Python library used by Home Assistant's neopool integration)
+  url: https://github.com/svasek/python-neopool-modbus
+  license: Apache-2.0
+  commit: 02e325897f65478bc2f6921532f08d71cece111a
+  path: src/neopool_modbus/client.py, src/neopool_modbus/registers.py, src/neopool_modbus/decoders.py, src/neopool_modbus/status_mask.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 19200
+    format: 8N1
+
+points:
+  # Measurement page (0x01xx)
+  - {key: x.ion_current, label: MBF_ION_CURRENT, table: input, address: 256, type: u16, note: 'Ionization current, scaled by the controller from its calibration; unit not stated.', verified: false}
+  - {key: x.ph, label: MBF_MEASURE_PH, table: input, address: 258, type: u16, scale: 0.01, unit: '', note: Only valid while the pH module is enabled (see 0x0107)., verified: false}
+  - {key: x.redox, label: MBF_MEASURE_RX, table: input, address: 259, type: u16, unit: V, scale: 0.001, note: 'The document''s text gives hundredths of ppm, the wording of the chlorine register next to it; the redox setpoint (0x0508) is 0…1000, which fits millivolts. Assumed mV. Only valid while the redox module is enabled.', verified: false}
+  - {key: x.chlorine, label: MBF_MEASURE_CL, table: input, address: 260, type: u16, unit: ppm, scale: 0.01, note: Only valid while the chlorine module is enabled., verified: false}
+  - {key: x.conductivity, label: MBF_MEASURE_CONDUCTIVITY, table: input, address: 261, type: u16, note: Unit not stated. Only valid while the conductivity module is enabled., conflicts: [{sources: [python-neopool-modbus], unit: '%', label: Measure conductivity}], verified: false}
+  - {key: x.water_temperature, label: MBF_MEASURE_TEMPERATURE, table: input, address: 262, type: u16, unit: °C, scale: 0.1, verified: false}
+  - {key: x.ph_status, label: MBF_PH_STATUS, table: input, address: 263, type: u16, flags: ph_status, verified: false}
+  - {key: x.ph_alarm, label: pH alarm, table: input, address: 263, type: u16, bits: [0, 3], enum: ph_alarm, note: 'Meaning of 1/2 and 4/5 depends on the pH regulation (acid and base, acid only, base only; 0x0430): PH1 is the upper, PH2 the lower setpoint.', verified: false}
+  - {key: x.redox_status, label: MBF_RX_STATUS, table: input, address: 264, type: u16, flags: module_status, verified: false}
+  - {key: x.chlorine_status, label: MBF_CL_STATUS, table: input, address: 265, type: u16, flags: cl_status, verified: false}
+  - {key: x.conductivity_status, label: MBF_CD_STATUS, table: input, address: 266, type: u16, flags: module_status, verified: false}
+  - {key: x.ion_status, label: MBF_ION_STATUS, table: input, address: 268, type: u16, flags: ion_status, verified: false}
+  - {key: x.hidro_status, label: MBF_HIDRO_STATUS, table: input, address: 269, type: u16, flags: hidro_status, verified: false}
+  - {key: x.relay_state, label: MBF_RELAY_STATE, table: input, address: 270, type: u16, flags: relay_state, note: 'Which relay does what is set by the *_GPIO registers (relay number, 0 = none).', verified: false}
+  - {key: x.hidro_switch_value, label: MBF_HIDRO_SWITCH_VALUE, table: input, address: 271, type: u16, note: 'Hydrolysis PWM opening, 0…65535.', verified: false}
+  - {key: x.notification, label: MBF_NOTIFICATION, table: input, address: 272, type: u16, flags: notification, note: One bit per register page changed since the last read; the master writes 0 after reading., verified: false}
+
+  # Global page (0x02xx)
+  - {key: x.save_to_eeprom, label: MBF_SAVE_TO_EEPROM, table: holding, address: 752, type: u16, writable: true, note: Write 1 to store all settings in EEPROM (takes under 1 s; the controller may not answer meanwhile). Also done every 10 minutes; EEPROM is rated for 100000 writes.}
+
+  # Factory page (0x03xx)
+  - {key: x.mbf_par_version, label: MBF_PAR_VERSION, table: holding, address: 768, type: u16, poll: slow, note: 'Software version of the PowerBox. The document marks the register as not used, so it may not hold a meaningful version.'}
+  - {key: x.model_options, label: MBF_PAR_MODEL, table: holding, address: 769, type: u16, flags: model_options, poll: slow, note: Installed options. Must not be written.}
+  - {key: x.hidro_max_voltage, label: MBF_PAR_HIDRO_MAX_VOLTAGE, table: holding, address: 802, type: u16, unit: V, scale: 0.1, poll: slow, note: Fanless units only. Default 8.0 V.}
+  - {key: x.hidro_flow_signal, label: MBF_PAR_HIDRO_FLOW_SIGNAL, table: holding, address: 803, type: u16, enum: hidro_flow_signal, poll: slow, note: Fanless units only.}
+
+  # Installer page (0x04xx)
+  - {key: x.hidro_mode, label: MBF_PAR_HIDRO_MODE, table: holding, address: 1028, type: u16, enum: hidro_mode, poll: slow}
+  - {key: x.clock, label: MBF_PAR_TIME, table: holding, address: 1032, type: u32, word_order: little, epoch: {start: '1970-01-01', unit: s}, poll: slow, note: 'System time; 0x0408 is the low, 0x0409 the high word.'}
+  - {key: x.temperature_active, label: MBF_PAR_TEMPERATURE_ACTIVE, table: holding, address: 1039, type: u16, enum: on_off, poll: slow, note: Whether the unit measures temperature.}
+  - {key: x.filtration_mode, label: MBF_PAR_FILT_MODE, table: holding, address: 1041, type: u16, enum: filtration_mode, writable: true, poll: slow}
+  - {key: x.filtration_relay, label: MBF_PAR_FILT_GPIO, table: holding, address: 1042, type: u16, poll: slow, note: Relay used for filtration (default 2); 0 = the unit doesn't control filtration.}
+  - {key: x.filtration_manual_state, label: MBF_PAR_FILT_MANUAL_STATE, table: holding, address: 1043, type: u16, enum: on_off, writable: true, note: Filtration on/off in manual mode.}
+  - {key: x.heating_mode, label: MBF_PAR_HEATING_MODE, table: holding, address: 1044, type: u16, enum: on_off, poll: slow, note: 1 = the unit has heating.}
+  - {key: x.clima, label: MBF_PAR_CLIMA_ONOFF, table: holding, address: 1047, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.smart_anti_freeze, label: MBF_PAR_SMART_ANTI_FREEZE, table: holding, address: 1050, type: u16, enum: on_off, writable: true, poll: slow, note: Smart filtration mode only.}
+  - {key: x.smart_interval_reduction, label: MBF_PAR_SMART_INTERVAL_REDUCTION, table: holding, address: 1051, type: u16, unit: '%', note: 'Read only: share of the nominal filtration time being applied (100 = all of it).'}
+  - {key: x.intelligent_filt_min_time, label: MBF_PAR_INTELLIGENT_FILT_MIN_TIME, table: holding, address: 1053, type: u16, unit: min, writable: true, poll: slow}
+  - {key: x.filtration_state, label: MBF_PAR_FILTRATION_STATE, table: holding, address: 1057, type: u16, enum: on_off, note: Read only; the filtration's present state.}
+  - {key: x.uv_mode, label: MBF_PAR_UV_MODE, table: holding, address: 1063, type: u16, enum: on_off, writable: true, poll: slow, note: UV lamp switches on with the filtration.}
+  - {key: x.ph_regulation, label: MBF_PAR_RELAY_PH, table: holding, address: 1072, type: u16, enum: ph_regulation, poll: slow}
+  - {key: x.relay_max_time, label: MBF_PAR_RELAY_MAX_TIME, table: holding, address: 1073, type: u16, unit: s, writable: true, poll: slow, note: Longest a dosing pump may run before an alarm.}
+  - {key: x.relay_activation_delay, label: MBF_PAR_RELAY_ACTIVATION_DELAY, table: holding, address: 1075, type: u16, unit: s, writable: true, poll: slow, note: pH pump start delay; the controller adds 10 s., conflicts: [{sources: [python-neopool-modbus], offset: 10, label: Relay activation delay}]}
+  - {key: x.timer_filtration1_mode, label: Filtration interval 1 timer enable, table: holding, address: 1076, type: u16, enum: timer_mode, writable: true, poll: slow}
+  - {key: x.timer_filtration1_interval, label: Filtration interval 1 run time, table: holding, address: 1083, type: u32, word_order: little, unit: s, writable: true, poll: slow, note: Word order of the timer values not stated; assumed low word first like the other 32-bit registers., verified: false}
+  - {key: x.timer_filtration2_mode, label: Filtration interval 2 timer enable, table: holding, address: 1091, type: u16, enum: timer_mode, writable: true, poll: slow}
+  - {key: x.timer_filtration2_interval, label: Filtration interval 2 run time, table: holding, address: 1098, type: u32, word_order: little, unit: s, writable: true, poll: slow, note: Word order assumed as above., verified: false}
+  - {key: x.timer_filtration3_mode, label: Filtration interval 3 timer enable, table: holding, address: 1106, type: u16, enum: timer_mode, writable: true, poll: slow}
+  - {key: x.timer_filtration3_interval, label: Filtration interval 3 run time, table: holding, address: 1113, type: u32, word_order: little, unit: s, writable: true, poll: slow, note: Word order assumed as above., verified: false}
+  - {key: x.timer_lighting_mode, label: Lighting interval timer enable, table: holding, address: 1136, type: u16, enum: timer_mode, writable: true, poll: slow}
+  - {key: x.filtvalve_remaining, label: MBF_PAR_FILTVALVE_REMAINING, table: holding, address: 1263, type: u16, unit: s, note: Remaining time of the running filter cleaning; 0 = none running.}
+
+  # User page (0x05xx)
+  - {key: x.ion_setpoint, label: MBF_PAR_ION, table: holding, address: 1280, type: u16, writable: true, poll: slow, note: Ionization target level; at most MBF_PAR_ION_NOM (0x0303).}
+  - {key: x.ion_time, label: MBF_PAR_ION_PR, table: holding, address: 1281, type: u16, unit: min, writable: true, poll: slow, note: Ionization time each time the filtration starts.}
+  - {key: x.ph_setpoint_high, label: MBF_PAR_PH1, table: holding, address: 1284, type: u16, scale: 0.01, unit: '', writable: true, poll: slow, note: Upper pH limit; must stay above PH2.}
+  - {key: x.ph_setpoint_low, label: MBF_PAR_PH2, table: holding, address: 1285, type: u16, scale: 0.01, unit: '', writable: true, poll: slow, note: Lower pH limit; must stay below PH1.}
+  - {key: x.redox_setpoint, label: MBF_PAR_RX1, table: holding, address: 1288, type: u16, writable: true, min: 0, max: 1000, poll: slow, note: Unit not stated (presumably mV)., verified: false}
+  - {key: x.chlorine_setpoint, label: MBF_PAR_CL1, table: holding, address: 1290, type: u16, unit: ppm, scale: 0.01, writable: true, poll: slow}
+
+  # Display page (0x06xx)
+  - {key: x.machine, label: MBF_PAR_UICFG_MACHINE, table: holding, address: 1536, type: u16, enum: machine, poll: slow, note: Brand style the display shows.}
+  - {key: x.language, label: MBF_PAR_UICFG_LANGUAGE, table: holding, address: 1537, type: u16, enum: language, writable: true, poll: slow}
+  - {key: x.mbf_power_module_version, label: Power module version, table: holding, address: 2, type: u16, note: 'High byte major, low byte minor version.', verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_power_module_register, label: Power module register, table: holding, address: 12, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_power_module_data, label: Power module data, table: holding, address: 13, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.cell_runtime_total, label: Cell runtime total, table: holding, address: 518, type: u32, word_order: little, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.cell_runtime_part, label: Cell runtime part, table: holding, address: 520, type: u32, word_order: little, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_cell_boost, label: Cell boost, table: holding, address: 524, type: u16, enum: cell_boost, writable: true, note: '0 = off; boost active when bits 0x05A0 are set, bit 15 additionally disables redox control. The values in the table are those the library writes.', verified: false, sources: [python-neopool-modbus]}
+  - {key: x.cell_runtime_pola, label: Cell runtime pola, table: holding, address: 532, type: u32, word_order: little, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.cell_runtime_polb, label: Cell runtime polb, table: holding, address: 534, type: u32, word_order: little, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.cell_runtime_pol_changes, label: Cell runtime pol changes, table: holding, address: 536, type: u32, word_order: little, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_hidro_module_version, label: Hidro module version, table: holding, address: 640, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_hidro_module_connectivity, label: Hidro module connectivity, table: holding, address: 641, type: u16, unit: '%', scale: 0.01, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.clear_errors, label: Clear error messages, table: holding, address: 663, type: u16, writable: true, note: Write 1 to trigger; the controller clears it., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.clear_eeprom, label: Clear EEPROM, table: holding, address: 753, type: u16, writable: true, note: Write 1 to trigger; the controller clears it., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.reset_user_counters, label: Reset user counters, table: holding, address: 754, type: u16, writable: true, note: Write 1 to trigger; the controller clears it., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.stop_all_modules, label: Stop all modules, table: holding, address: 756, type: u16, writable: true, note: Write 1 to trigger; the controller clears it., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.restart_modules, label: Apply changes (restart modules), table: holding, address: 757, type: u16, writable: true, note: Write 1 to trigger; the controller clears it., verified: false, sources: [python-neopool-modbus]}
+  - {key: serial, label: Serial number, table: holding, address: 770, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_ion_nom, label: Ion nom, table: holding, address: 771, type: u16, note: Do not write., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_hidro_nom, label: Hidro nom, table: holding, address: 774, type: u16, scale: 0.1, note: 'Maximum hydrolysis production; 100 in percent mode, else g/h. Do not write.', verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_hidro_nom2, label: Hidro nom2, table: holding, address: 775, type: u16, unit: g/h, note: Do not write., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_sal_amps, label: Sal amps, table: holding, address: 778, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_sal_cellk, label: Sal cellk, table: holding, address: 779, type: u16, note: Ratio between measured cell resistance and salinity in g/l., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_sal_tcomp, label: Sal tcomp, table: holding, address: 780, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_hidro_max_pwm_step_up, label: Hidro max pwm step up, table: holding, address: 804, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_hidro_max_pwm_step_down, label: Hidro max pwm step down, table: holding, address: 805, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_ph_acid_relay_gpio, label: Ph acid relay gpio, table: holding, address: 1034, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_ph_base_relay_gpio, label: Ph base relay gpio, table: holding, address: 1035, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_rx_relay_gpio, label: Rx relay gpio, table: holding, address: 1036, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_cl_relay_gpio, label: Cl relay gpio, table: holding, address: 1037, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_cd_relay_gpio, label: Cd relay gpio, table: holding, address: 1038, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_lighting_gpio, label: Lighting gpio, table: holding, address: 1040, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_heating_gpio, label: Heating gpio, table: holding, address: 1045, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_heating_temp, label: Heating temp, table: holding, address: 1046, type: u16, unit: °C, bits: [0, 7], writable: true, note: 'Setpoint in the low byte; some firmware (seen on Hayward AquaRite+) puts a measured temperature in the high byte, so writes must keep it.', verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_smart_temp_high, label: Smart temp high, table: holding, address: 1048, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_smart_temp_low, label: Smart temp low, table: holding, address: 1049, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_intelligent_temp, label: Intelligent temp, table: holding, address: 1052, type: u16, unit: °C, bits: [0, 7], writable: true, note: Setpoint in the low byte; the high byte may hold a measured temperature as at 0x0416., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_intelligent_bonus_time, label: Intelligent bonus time, table: holding, address: 1054, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_intelligent_tt_next_interval, label: Intelligent tt next interval, table: holding, address: 1055, type: u16, unit: s, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_intelligent_intervals, label: Intelligent intervals, table: holding, address: 1056, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_heating_delay_time, label: Heating delay time, table: holding, address: 1058, type: u16, unit: s, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_filtering_time, label: Filtering time, table: holding, address: 1059, type: u32, word_order: little, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_intelligent_interval_time, label: Intelligent interval time, table: holding, address: 1061, type: u32, word_order: little, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uv_hide_warn, label: Uv hide warn, table: holding, address: 1064, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uv_relay_gpio, label: Uv relay gpio, table: holding, address: 1065, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_ph_pump_rep_time_on, label: Ph pump rep time on, table: holding, address: 1066, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_ph_pump_rep_time_off, label: Ph pump rep time off, table: holding, address: 1067, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_hidro_cover_enable, label: Hidro cover enable, table: holding, address: 1068, type: u16, flags: hidro_options, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_hidro_cover_reduction, label: Hidro cover reduction, table: holding, address: 1069, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.hidro_cover_reduction_percent, label: Hydrolysis reduction with cover closed, table: holding, address: 1069, type: u16, unit: '%', bits: [0, 7], writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.hidro_shutdown_temperature, label: Hydrolysis shutdown temperature, table: holding, address: 1069, type: u16, unit: °C, bits: [8, 15], writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_pump_relay_time_off, label: Pump relay time off, table: holding, address: 1070, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_pump_relay_time_on, label: Pump relay time on, table: holding, address: 1071, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_relay_mode, label: Relay mode, table: holding, address: 1074, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration1_on, label: Filtration1 timer start (seconds since midnight), table: holding, address: 1077, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration1_off, label: Filtration1 timer off, table: holding, address: 1079, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration1_period, label: Filtration1 timer period, table: holding, address: 1081, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration1_countdown, label: Filtration1 timer countdown, table: holding, address: 1085, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration1_function, label: Filtration1 timer relay function, table: holding, address: 1087, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration1_work_time, label: Filtration1 timer work time, table: holding, address: 1089, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration2_on, label: Filtration2 timer start (seconds since midnight), table: holding, address: 1092, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration2_off, label: Filtration2 timer off, table: holding, address: 1094, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration2_period, label: Filtration2 timer period, table: holding, address: 1096, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration2_countdown, label: Filtration2 timer countdown, table: holding, address: 1100, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration2_function, label: Filtration2 timer relay function, table: holding, address: 1102, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration2_work_time, label: Filtration2 timer work time, table: holding, address: 1104, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration3_on, label: Filtration3 timer start (seconds since midnight), table: holding, address: 1107, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration3_off, label: Filtration3 timer off, table: holding, address: 1109, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration3_period, label: Filtration3 timer period, table: holding, address: 1111, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration3_countdown, label: Filtration3 timer countdown, table: holding, address: 1115, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration3_function, label: Filtration3 timer relay function, table: holding, address: 1117, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_filtration3_work_time, label: Filtration3 timer work time, table: holding, address: 1119, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1b_enable, label: AUX 1b timer mode, table: holding, address: 1121, type: u16, enum: python_neopool_modbus_timer_mode, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1b_on, label: AUX 1b timer start (seconds since midnight), table: holding, address: 1122, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1b_off, label: AUX 1b timer off, table: holding, address: 1124, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1b_period, label: AUX 1b timer period, table: holding, address: 1126, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1b_interval, label: AUX 1b timer run time, table: holding, address: 1128, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1b_countdown, label: AUX 1b timer countdown, table: holding, address: 1130, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1b_function, label: AUX 1b timer relay function, table: holding, address: 1132, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1b_work_time, label: AUX 1b timer work time, table: holding, address: 1134, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_light_on, label: Light timer start (seconds since midnight), table: holding, address: 1137, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_light_off, label: Light timer off, table: holding, address: 1139, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_light_period, label: Light timer period, table: holding, address: 1141, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_light_interval, label: Light timer run time, table: holding, address: 1143, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_light_countdown, label: Light timer countdown, table: holding, address: 1145, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_light_function, label: Light timer relay function, table: holding, address: 1147, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_light_work_time, label: Light timer work time, table: holding, address: 1149, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2b_enable, label: AUX 2b timer mode, table: holding, address: 1151, type: u16, enum: python_neopool_modbus_timer_mode, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2b_on, label: AUX 2b timer start (seconds since midnight), table: holding, address: 1152, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2b_off, label: AUX 2b timer off, table: holding, address: 1154, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2b_period, label: AUX 2b timer period, table: holding, address: 1156, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2b_interval, label: AUX 2b timer run time, table: holding, address: 1158, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2b_countdown, label: AUX 2b timer countdown, table: holding, address: 1160, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2b_function, label: AUX 2b timer relay function, table: holding, address: 1162, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2b_work_time, label: AUX 2b timer work time, table: holding, address: 1164, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3b_enable, label: AUX 3b timer mode, table: holding, address: 1166, type: u16, enum: python_neopool_modbus_timer_mode, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3b_on, label: AUX 3b timer start (seconds since midnight), table: holding, address: 1167, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3b_off, label: AUX 3b timer off, table: holding, address: 1169, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3b_period, label: AUX 3b timer period, table: holding, address: 1171, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3b_interval, label: AUX 3b timer run time, table: holding, address: 1173, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3b_countdown, label: AUX 3b timer countdown, table: holding, address: 1175, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3b_function, label: AUX 3b timer relay function, table: holding, address: 1177, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3b_work_time, label: AUX 3b timer work time, table: holding, address: 1179, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4b_enable, label: AUX 4b timer mode, table: holding, address: 1181, type: u16, enum: python_neopool_modbus_timer_mode, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4b_on, label: AUX 4b timer start (seconds since midnight), table: holding, address: 1182, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4b_off, label: AUX 4b timer off, table: holding, address: 1184, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4b_period, label: AUX 4b timer period, table: holding, address: 1186, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4b_interval, label: AUX 4b timer run time, table: holding, address: 1188, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4b_countdown, label: AUX 4b timer countdown, table: holding, address: 1190, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4b_function, label: AUX 4b timer relay function, table: holding, address: 1192, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4b_work_time, label: AUX 4b timer work time, table: holding, address: 1194, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1_enable, label: AUX 1 timer mode, table: holding, address: 1196, type: u16, enum: python_neopool_modbus_timer_mode, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1_on, label: AUX 1 timer start (seconds since midnight), table: holding, address: 1197, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1_off, label: AUX 1 timer off, table: holding, address: 1199, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1_period, label: AUX 1 timer period, table: holding, address: 1201, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1_interval, label: AUX 1 timer run time, table: holding, address: 1203, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1_countdown, label: AUX 1 timer countdown, table: holding, address: 1205, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1_function, label: AUX 1 timer relay function, table: holding, address: 1207, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux1_work_time, label: AUX 1 timer work time, table: holding, address: 1209, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2_enable, label: AUX 2 timer mode, table: holding, address: 1211, type: u16, enum: python_neopool_modbus_timer_mode, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2_on, label: AUX 2 timer start (seconds since midnight), table: holding, address: 1212, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2_off, label: AUX 2 timer off, table: holding, address: 1214, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2_period, label: AUX 2 timer period, table: holding, address: 1216, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2_interval, label: AUX 2 timer run time, table: holding, address: 1218, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2_countdown, label: AUX 2 timer countdown, table: holding, address: 1220, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2_function, label: AUX 2 timer relay function, table: holding, address: 1222, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux2_work_time, label: AUX 2 timer work time, table: holding, address: 1224, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3_enable, label: AUX 3 timer mode, table: holding, address: 1226, type: u16, enum: python_neopool_modbus_timer_mode, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3_on, label: AUX 3 timer start (seconds since midnight), table: holding, address: 1227, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3_off, label: AUX 3 timer off, table: holding, address: 1229, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3_period, label: AUX 3 timer period, table: holding, address: 1231, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3_interval, label: AUX 3 timer run time, table: holding, address: 1233, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3_countdown, label: AUX 3 timer countdown, table: holding, address: 1235, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3_function, label: AUX 3 timer relay function, table: holding, address: 1237, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux3_work_time, label: AUX 3 timer work time, table: holding, address: 1239, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4_enable, label: AUX 4 timer mode, table: holding, address: 1241, type: u16, enum: python_neopool_modbus_timer_mode, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4_on, label: AUX 4 timer start (seconds since midnight), table: holding, address: 1242, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4_off, label: AUX 4 timer off, table: holding, address: 1244, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4_period, label: AUX 4 timer period, table: holding, address: 1246, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4_interval, label: AUX 4 timer run time, table: holding, address: 1248, type: u32, unit: s, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4_countdown, label: AUX 4 timer countdown, table: holding, address: 1250, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4_function, label: AUX 4 timer relay function, table: holding, address: 1252, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.timer_relay_aux4_work_time, label: AUX 4 timer work time, table: holding, address: 1254, type: u32, word_order: little, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_filtvalve_enable, label: Filtvalve enable, table: holding, address: 1256, type: u16, enum: filtvalve, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_filtvalve_mode, label: Filtvalve mode, table: holding, address: 1257, type: u16, enum: python_neopool_modbus_timer_mode, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_filtvalve_gpio, label: Filtvalve gpio, table: holding, address: 1258, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_filtvalve_period_minutes, label: Filtvalve period minutes, table: holding, address: 1261, type: u16, unit: min, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_filtvalve_interval, label: Filtvalve interval, table: holding, address: 1262, type: u16, unit: s, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.copy_time_to_rtc, label: Copy time to the real-time clock, table: holding, address: 1264, type: u16, writable: true, note: Write 1 to trigger; the controller clears it., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_hidro, label: Hydrolysis setpoint, table: holding, address: 1282, type: u16, scale: 0.1, writable: true, note: Hydrolysis production setpoint; in % or g/h like 0x0101., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_filtration_conf, label: Filtration conf, table: holding, address: 1295, type: u16, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.filtration_pump_type, label: Filtration pump type, table: holding, address: 1295, type: u16, bits: [0, 3], enum: pump_type, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.filtration_speed, label: Filtration speed, table: holding, address: 1295, type: u16, bits: [4, 6], enum: filtration_speed, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.filtration_timer1_speed, label: Filtration timer1 speed, table: holding, address: 1295, type: u16, bits: [7, 9], enum: filtration_speed, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.filtration_timer2_speed, label: Filtration timer2 speed, table: holding, address: 1295, type: u16, bits: [10, 12], enum: filtration_speed, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.filtration_timer3_speed, label: Filtration timer3 speed, table: holding, address: 1295, type: u16, bits: [13, 15], enum: filtration_speed, writable: true, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uicfg_backlight, label: Uicfg backlight, table: holding, address: 1538, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uicfg_sound, label: Uicfg sound, table: holding, address: 1539, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uicfg_password, label: Uicfg password, table: holding, address: 1540, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uicfg_visual_options, label: Uicfg visual options, table: holding, address: 1541, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uicfg_visual_options_ext, label: Uicfg visual options ext, table: holding, address: 1542, type: u16, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uicfg_mach_visual_style, label: Uicfg mach visual style, table: holding, address: 1543, type: u16, flags: visual_style, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uicfg_mach_name_bold, label: Uicfg mach name bold, table: holding, address: 1544, type: str, length: 4, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_par_uicfg_mach_name_light, label: Uicfg mach name light, table: holding, address: 1548, type: str, length: 4, verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_hidro_current, label: Hydrolysis production, table: input, address: 257, type: u16, scale: 0.1, note: Hydrolysis production; in % or g/h depending on the machine type (0x0600) and the unit bits of 0x0607., verified: false, sources: [python-neopool-modbus]}
+  - {key: x.mbf_hidro_voltage, label: Hidro voltage, table: input, address: 273, type: u16, unit: V, scale: 0.1, verified: false, sources: [python-neopool-modbus]}
+
+enums:
+  ph_alarm: {'0': No alarm, '1': pH too high (0.8 above setpoint), '2': pH too low (0.8 below setpoint), '3': pH pump exceeded its maximum run time and stopped, '4': pH above setpoint, '5': pH below setpoint}
+  filtration_mode: {'0': Manual, '1': Auto, '2': Heating, '3': Smart, '4': Intelligent, '13': Backwash, '14': Chlorination shock}
+  timer_mode: {'0': Disabled, '1': Enabled, '2': 'Enabled, linked to timer 0''s relay', '3': Always on, '4': Always off, '5': Countdown}
+  on_off: {'0': 'Off', '1': 'On'}
+  hidro_mode: {'0': No control, '1': Standard (on/off), '2': Timed pump}
+  hidro_flow_signal: {'0': Standard, '1': Always on, '2': Paddle switch (FL1), '3': Paddle and standard, '4': Paddle or standard}
+  ph_regulation: {'0': Acid and base, '1': Acid only, '2': Base only}
+  machine: {'0': None, '1': Hidrolife, '2': Aquascenic, '3': Oxilife, '4': Bionet, '5': Hidroniser, '6': UVScenic, '7': Station, '8': Brilix, '9': Generic, '10': Bayrol, '11': Hay}
+  language: {'0': Spanish, '1': English, '2': French, '3': German, '4': Italian, '5': Portuguese, '6': Turkish, '7': Czech}
+  filtration_speed: {'0': low, '1': mid, '2': high}
+  python_neopool_modbus_timer_mode: {'0': Disable, '1': Enabled, '2': Enabled linked, '3': Always on, '4': Always off, '5': Countdown key}
+  cell_boost: {'0': inactive, '1440': active_redox, '34208': active}
+  filtvalve: {'0': 'Off', '1': Besgo valve}
+  pump_type: {'0': Standard, '1': Variable speed, '2': Variable speed}
+
+flags:
+  ph_status: {'10': Control held by flow detection, '11': Low pH (acid) pump relay on, '12': High pH (base) pump relay on, '13': pH control active, '14': pH measurement active, '15': pH module detected}
+  module_status: {'12': Pump relay on, '13': Control active, '14': Measurement active, '15': Module detected}
+  cl_status: {'3': 'Chlorine probe flow sensor (0 = no flow, measurement invalid)', '12': Chlorine pump relay on, '13': Chlorine control active, '14': Chlorine measurement active, '15': Chlorine module detected}
+  ion_status: {'0': On target, '1': Low (target not reached), '2': Reserved, '3': Programmed ionization time exceeded, '12': Dead time, '13': Polarity 1, '14': Polarity 2}
+  hidro_status: {'0': On target, '1': Low (target not reached), '2': Reserved, '3': Cell flow (FL1), '4': Cover input active, '5': Hydrolysis module active, '6': Hydrolysis under regulation, '7': Enabled by the redox module, '8': Chlorine shock mode, '9': Chlorine probe flow (FL2), '10': Enabled by the chlorine module, '12': Dead time, '13': Polarity 1, '14': Polarity 2}
+  relay_state: {'0': Relay 1 (usually pH), '1': Relay 2 (usually filtration), '2': Relay 3 (usually lighting), '3': Relay 4, '4': Relay 5, '5': Relay 6, '6': Relay 7}
+  notification: {'0': Modbus page changed, '1': Global page changed, '2': Factory page changed, '3': Installer page changed, '4': User page changed, '5': Misc page changed}
+  model_options: {'0': Ionization, '1': Hydrolysis / electrolysis, '2': UV lamp, '3': Salinity measurement (fanless units)}
+  hidro_options: {'0': Cover reduces hydrolysis, '1': Temperature shutdown}
+  visual_style: {'13': Force g/h units, '14': Force percent units, '15': Electrolysis}
+
+problems:
+  - {when: {key: x.ph_alarm, equals: 1}, kind: warning, text: pH too high}
+  - {when: {key: x.ph_alarm, equals: 2}, kind: warning, text: pH too low}
+  - {when: {key: x.ph_alarm, equals: 3}, kind: warning, text: pH pump stopped after its maximum run time}
+  - {when: {key: x.hidro_status, bit: 1}, kind: warning, text: Hydrolysis can't reach its target}
+  - {when: {key: x.ion_status, bit: 1}, kind: warning, text: Ionization can't reach its target}
+
+notes:
+- 'Register pages: 0x00xx Modbus (internal), 0x01xx measurements, 0x02xx global, 0x03xx factory, 0x04xx installer, 0x05xx
+  user, 0x06xx display. Addresses are the document''s (0-based hex).'
+- The document doesn't name function codes. The measurement page is taken as input registers (function 04) and every other
+  page as holding registers (function 03); not stated in the document, assumed.
+- Two RS485 ports; the one labelled DISPLAY usually connects the screen (itself a Modbus master), the RF/WIFI one is for external
+  use. Unit id 1 by default.
+- Written settings are lost at power-off until stored with 0x02F0 (or the automatic store every 10 minutes); write all settings
+  first, then store once.
+- 32-bit values are stored low word first.
+- 'Left out: hydrolysis current (0x0101), hydrolysis target (0x0502), hydrolysis voltage (0x0111) and maximum production (0x0306/0x0307),
+  whose scaling the document doesn''t give (their unit is % or g/h depending on the machine type and 0x0607); calibration,
+  polarity times, relay assignments, pump timing codes, the remaining timer registers, function dependencies and display options.'
+- 'Timer blocks of 15 registers from 0x0434 (filtration 1–3, aux relays second interval, lighting at 0x0470, aux relays first
+  interval): +0 mode, +1 start, +3 stop (unused), +5 period (s), +7 run time (s), +9 countdown (s), +11 function code, +13
+  work time (s).'
+- The serial number register (0x0302) is marked unused in the document, so it isn't listed.
+- Only the measurement page 0x0100-0x01FF is read with function 04 (input registers); all other pages use function 03. The
+  wrong function code reads a different register set.
+- The controller refuses reads of more than 31 registers per request.
+- 'Pages: 0x00xx Modbus/power module, 0x01xx measurements, 0x02xx global counters, 0x03xx factory, 0x04xx installer, 0x05xx
+  user settings, 0x06xx display settings. Register 0x0110 flags which pages changed.'
+- Settings written to configuration registers are made permanent by writing 1 to 0x02F0 (save to EEPROM) and applied by writing
+  1 to 0x02F5. These command registers clear themselves.
+- 'Timer blocks of 15 registers (filtration 1-3, light, AUX1-4 and a second block per AUX relay): +0 mode, +1/+2 start (seconds
+  since midnight), +3/+4 off, +5/+6 period, +7/+8 run time (s), +9/+10 countdown, +11 relay function, +13/+14 work time. The
+  AUX/light relay is switched by writing its function code to +11 and always on/off to +0, then 1 to 0x02F5. Function codes:
+  light 2, AUX1 0x0800, AUX2 0x1000, AUX3 0x2000, AUX4 0x4000.'
+- Installed modules (ionization, hydrolysis, UV, salinity) are flagged in 0x0301; the pH, redox, chlorine and conductivity
+  modules set bit 15 of their status word when detected.
+- The controller is sold under several brand names; 0x0600 says which one the display shows (enum machine).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,154 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DEHN DEHNrecord SD Modbus Documentation (form 2091/E/0921).
+
+modbusspec: 0
+id: dehn-dehnrecord-sd
+manufacturer: DEHN
+name: DEHNrecord SD power quality and energy monitor
+kind: meter
+
+sources:
+- title: DEHNrecord SD – Modbus Documentation (DEHN Form No. 2091/E)
+  version: 2091/E/0921
+  url: https://de.hn/sites/default/files/media/files/drc-modbus-manual-2091-en.pdf
+  sha256: 01f5754d60ede8c77f7d6e36a81960992278a508aa7bce2a21d8e8d78383950c
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 0
+    type: str
+    length: 12
+    byte_order: little
+  checks:
+  - table: holding
+    address: 0
+    type: str
+    length: 12
+    byte_order: little
+    prefix: FHA
+
+points:
+  # Identity and system
+  - {key: serial, label: Serial Number, table: holding, address: 0, type: str, length: 12, byte_order: little, poll: slow, note: Factory format FHA followed by digits.}
+  - {key: x.description_1, label: Description 1, table: holding, address: 12, type: str, length: 16, byte_order: little, writable: true, poll: slow, note: 'Free text, e.g. a name; default smartDevice. Written with the bytes in normal order (see notes).'}
+  - {key: firmware, label: Firmware-Version, table: holding, address: 66, type: str, length: 32, byte_order: little, poll: slow}
+  - {key: x.firmware_status, label: Firmware-Status, table: holding, address: 98, type: u16, enum: firmware_status, poll: slow}
+  - {key: x.firmware_major, label: Firmware-Version-Major, table: holding, address: 100, type: u16, poll: slow}
+  - {key: x.firmware_minor, label: Firmware-Version-Minor, table: holding, address: 101, type: u16, poll: slow}
+  - {key: x.firmware_build, label: Firmware-Version-Build, table: holding, address: 102, type: u16, poll: slow}
+  - {key: x.calibration_date, label: Date of last calibration, table: holding, address: 111, type: str, length: 8, byte_order: little, poll: slow, note: YYYY-MM-DD.}
+  - {key: x.mac_address, label: MAC address, table: holding, address: 1387, type: str, length: 10, byte_order: little, poll: slow}
+  - {key: x.datetime, label: Date/Time ISO 8601, table: holding, address: 22528, type: str, length: 13, byte_order: little, note: '25 bytes, ISO 8601 text; updated every second.'}
+  - {key: x.cloud_status, label: Cloud Status (online/offline), table: holding, address: 22546, type: u16, enum: online, poll: slow}
+
+  # Live data (200 ms values unless noted)
+  - {key: x.cycle_counter, label: 10cycles-Counter, table: holding, address: 22784, type: u32}
+  - {key: l1_voltage, label: U L1 (200 ms mean), table: holding, address: 22786, type: f32, unit: V}
+  - {key: l2_voltage, label: U L2 (200 ms mean), table: holding, address: 22788, type: f32, unit: V}
+  - {key: l3_voltage, label: U L3 (200 ms mean), table: holding, address: 22790, type: f32, unit: V}
+  - {key: x.frequency_ref, label: f ref (10 s mean), table: holding, address: 22792, type: f32, unit: Hz}
+  - {key: x.voltage_unbalance, label: u2 (200 ms mean), table: holding, address: 22794, type: f32, unit: '%'}
+  - {key: x.l1_thd_voltage, label: THDu L1 (200 ms mean), table: holding, address: 22796, type: f32, unit: '%'}
+  - {key: x.l2_thd_voltage, label: THDu L2 (200 ms mean), table: holding, address: 22798, type: f32, unit: '%'}
+  - {key: x.l3_thd_voltage, label: THDu L3 (200 ms mean), table: holding, address: 22800, type: f32, unit: '%'}
+  - {key: l1_current, label: I L1 (200 ms mean), table: holding, address: 22802, type: f32, unit: A}
+  - {key: l2_current, label: I L2 (200 ms mean), table: holding, address: 22804, type: f32, unit: A}
+  - {key: l3_current, label: I L3 (200 ms mean), table: holding, address: 22806, type: f32, unit: A}
+  - {key: x.neutral_current, label: I N (200 ms mean), table: holding, address: 22808, type: f32, unit: A}
+
+  # Power quality (EN 50160 style intervals)
+  - {key: x.l1_voltage_10min, label: U(PQ) L1 (10 min mean), table: holding, address: 23040, type: f32, unit: V, poll: slow}
+  - {key: x.l2_voltage_10min, label: U(PQ) L2 (10 min mean), table: holding, address: 23042, type: f32, unit: V, poll: slow}
+  - {key: x.l3_voltage_10min, label: U(PQ) L3 (10 min mean), table: holding, address: 23044, type: f32, unit: V, poll: slow}
+  - {key: x.frequency_10min, label: f (10 min mean), table: holding, address: 23296, type: f32, unit: Hz, poll: slow}
+  - {key: frequency, label: f (10 s mean), table: holding, address: 23302, type: f32, unit: Hz}
+  - {key: x.l1_pst, label: Pst L1 (10 min), table: holding, address: 23558, type: f32, poll: slow}
+  - {key: x.l2_pst, label: Pst L2 (10 min), table: holding, address: 23560, type: f32, poll: slow}
+  - {key: x.l3_pst, label: Pst L3 (10 min), table: holding, address: 23562, type: f32, poll: slow}
+  - {key: x.l1_plt, label: Plt L1 (2 h), table: holding, address: 23564, type: f32, poll: slow}
+  - {key: x.l2_plt, label: Plt L2 (2 h), table: holding, address: 23566, type: f32, poll: slow}
+  - {key: x.l3_plt, label: Plt L3 (2 h), table: holding, address: 23568, type: f32, poll: slow}
+  - {key: x.negative_unbalance_10min, label: u2 (10 min mean), table: holding, address: 23808, type: f32, unit: '%', poll: slow}
+  - {key: x.zero_unbalance_10min, label: u0 (10 min mean), table: holding, address: 23816, type: f32, unit: '%', poll: slow}
+  - {key: x.l1_thd_voltage_10min, label: THDu L1 (10 min mean), table: holding, address: 24064, type: f32, unit: '%', poll: slow}
+  - {key: x.l2_thd_voltage_10min, label: THDu L2 (10 min mean), table: holding, address: 24066, type: f32, unit: '%', poll: slow}
+  - {key: x.l3_thd_voltage_10min, label: THDu L3 (10 min mean), table: holding, address: 24068, type: f32, unit: '%', poll: slow}
+  - {key: x.dip_active, label: Dip = active, table: holding, address: 26886, type: u16, enum: active}
+  - {key: x.swell_active, label: Swell = active, table: holding, address: 26887, type: u16, enum: active}
+  - {key: x.interruption_active, label: Interruption = active, table: holding, address: 26888, type: u16, enum: active}
+  - {key: x.pop_active, label: POP = active, table: holding, address: 26889, type: u16, enum: active, note: 'Power-frequency overvoltage per EN 50550 (POP monitoring, setting 2560).'}
+
+  # Energy (3 s mean values)
+  - {key: l1_power, label: P L1 (3 s mean), table: holding, address: 27910, type: f32, unit: W, positive: import, verified: false, note: Not stated in the document; assumed positive = drawn from the grid.}
+  - {key: l2_power, label: P L2 (3 s mean), table: holding, address: 27912, type: f32, unit: W, positive: import, verified: false, note: Not stated in the document; assumed.}
+  - {key: l3_power, label: P L3 (3 s mean), table: holding, address: 27914, type: f32, unit: W, positive: import, verified: false, note: Not stated in the document; assumed.}
+  - {key: x.l1_apparent_power, label: S L1 (3 s mean), table: holding, address: 28166, type: f32, unit: VA}
+  - {key: x.l2_apparent_power, label: S L2 (3 s mean), table: holding, address: 28168, type: f32, unit: VA}
+  - {key: x.l3_apparent_power, label: S L3 (3 s mean), table: holding, address: 28170, type: f32, unit: VA}
+  - {key: x.l1_reactive_power, label: Q L1 (3 s mean), table: holding, address: 28422, type: f32, unit: var}
+  - {key: x.l2_reactive_power, label: Q L2 (3 s mean), table: holding, address: 28424, type: f32, unit: var}
+  - {key: x.l3_reactive_power, label: Q L3 (3 s mean), table: holding, address: 28426, type: f32, unit: var}
+  - {key: x.l1_power_factor, label: PF L1 (3 s mean), table: holding, address: 28678, type: f32}
+  - {key: x.l2_power_factor, label: PF L2 (3 s mean), table: holding, address: 28680, type: f32}
+  - {key: x.l3_power_factor, label: PF L3 (3 s mean), table: holding, address: 28682, type: f32}
+  - {key: x.energy_5min, label: 'E total (5 min, L1+L2+L3)', table: holding, address: 28928, type: f32, unit: kWh, poll: slow, note: Active energy of the last 5-minute period; direction not stated.}
+  - {key: x.active_energy, label: E sum (active energy meter L1+L2+L3), table: holding, address: 28930, type: f32, unit: kWh, poll: slow, note: 'Updated every 5 minutes. Whether it counts import, export or both is not stated.'}
+
+  # Digital inputs and outputs
+  - {key: x.digital_input_1, label: Dig.IN 1, table: holding, address: 29184, type: u16, enum: on_off}
+  - {key: x.digital_input_2, label: Dig.IN 2, table: holding, address: 29185, type: u16, enum: on_off}
+  - {key: x.digital_input_3, label: Dig.IN 3, table: holding, address: 29186, type: u16, enum: on_off}
+  - {key: x.digital_output_1, label: Dig.OUT 1, table: holding, address: 29440, type: u16, enum: on_off}
+  - {key: x.digital_output_2, label: Dig.OUT 2, table: holding, address: 29441, type: u16, enum: on_off}
+
+  # Settings
+  - {key: x.pop_monitoring, label: POP monitoring, table: holding, address: 2560, type: u16, enum: enabled, writable: true, poll: slow, note: Monitoring of EN 50550 overvoltage limits.}
+  - {key: x.current_sensor_type, label: Current Sensor Type, table: holding, address: 3072, type: u16, enum: current_sensor_type, writable: true, poll: slow}
+  - {key: x.l1_nominal_current, label: Nominal current L1, table: holding, address: 3093, type: f32, unit: A, writable: true, min: 0, max: 10000, poll: slow, note: Rated current of the sensor on L1.}
+  - {key: x.l2_nominal_current, label: Nominal current L2, table: holding, address: 3143, type: f32, unit: A, writable: true, min: 0, max: 10000, poll: slow}
+  - {key: x.l3_nominal_current, label: Nominal current L3, table: holding, address: 3193, type: f32, unit: A, writable: true, min: 0, max: 10000, poll: slow}
+  - {key: x.n_nominal_current, label: Nominal current N, table: holding, address: 3243, type: f32, unit: A, writable: true, min: 0, max: 10000, poll: slow}
+
+derived:
+  - {key: x.total_power, label: Active power L1+L2+L3 (3 s mean), unit: W, verified: false, note: 'Sum of the per-phase powers; the document has no total power register, and its sign is not stated.', sum: [{key: l1_power}, {key: l2_power}, {key: l3_power}]}
+
+enums:
+  firmware_status: {'0': Current, '1': Downloading, '2': Applying (flash and reboot), '3': Error}
+  online: {'0': Offline, '1': Online}
+  active: {'0': Inactive, '1': Active}
+  on_off: {'0': 'Off', '1': 'On'}
+  enabled: {'0': Disabled, '1': Enabled}
+  current_sensor_type: {'0': 'Off', '1': Rogowski coil, '2': Split core}
+
+problems:
+  - {when: {key: x.interruption_active, equals: 1}, kind: mains_lost, text: Voltage interruption}
+  - {when: {key: x.dip_active, equals: 1}, kind: warning, text: Voltage dip}
+  - {when: {key: x.swell_active, equals: 1}, kind: warning, text: Voltage swell}
+  - {when: {key: x.pop_active, equals: 1}, kind: warning, text: Power-frequency overvoltage (POP)}
+  - {when: {key: x.firmware_status, equals: 3}, kind: warning, text: Firmware update error}
+
+notes:
+- The register numbers are used as 0-based protocol addresses (the serial number starts at register 0). All values are holding
+  registers (function 03; writes with 06 / 16).
+- 32-bit values (FLOAT, UINT_32) are read low word first (CDAB) but must be written fully reversed (DCBA); text is read with
+  the two bytes of each register swapped and written in normal order. UINT_8 and BOOL values sit in the low byte of their
+  register when read, in the high byte when written.
+- The Modbus unit id is not stated in the document; 1 assumed.
+- 'Left out: minimum / maximum and 3 s variants of the PQ values, the individual harmonics and interharmonics (2nd–50th, 200
+  ms / 3 s / 10 min / max), mains signalling voltage, rapid voltage change, 5-minute energy means, and most configuration
+  (descriptions 2–3, location, LED, digital I/O logic, network, POP criteria, energy events, PQ limits).'
+- Each value has its own update rate (200 ms, 3 s, 10 s, 5 min, 10 min, 2 h or on change), given in the labels.
+- The register pages carry form number 2091/E/0921, the introduction pages 2091/E/0722.

@@ -1,0 +1,149 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From ETEK's "Usage Manual for EKEPC2-C-S" (RS485 communication description, table A) and the newer
+# "ETEK V1.002 Communication address Description" (software version 1002).
+
+modbusspec: 0
+id: etek-ekepc2
+manufacturer: ETEK
+name: EKEPC2-C/S charge controller (ETEK Mode 3 wallboxes with Modbus-RTU)
+kind: charger
+
+sources:
+- title: Usage Manual for EKEPC2-C-S
+  version: 2022-03
+  url: https://www.etek-china.com/uploads/2m/2203/Usage-Manual-for-EKEPC2-C-S.pdf
+  sha256: f4763620218d9e4293073788060e02949ad625910f769d7ac84d1dcac4a92bc9
+  archive_url: https://web.archive.org/web/20251113155519/https://www.etek-china.com/uploads/2m/2203/Usage-Manual-for-EKEPC2-C-S.pdf
+- title: ETEK V1.002 Communication address Description (RS485 communication description)
+  version: V1.002
+  url: https://github.com/SeByDocKy/pvbrain2/blob/39e895fe7c6597ed51515ce7e8c1effa19a69054/pvbrain2/evse/etek/ETEK_V1.002%20Communication%20address%20Description%20V1.002.pdf
+  sha256: 475e0a061db4cd2f3b8c6a91b93f9264e66f8ded5d1916e904149933995c0e61
+
+connection:
+  default_port: 502
+  default_unit: 255
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 141
+    type: u16
+    range:
+    - 0
+    - 13
+  # software version; a device answering 0 or FFFFh everywhere is not this one
+  - table: holding
+    address: 140
+    type: u16
+    not_in:
+    - 0
+    - 65535
+
+points:
+  # Settings (read/write, kept over power failure)
+  - {key: x.overvoltage_limit, label: Overvoltage protection value, table: holding, address: 86, type: u16, unit: V, scale: 0.01, writable: true, poll: slow, note: Default 26500 (265.00 V); V1.002 only.}
+  - {key: x.undervoltage_limit, label: Under-voltage protection value, table: holding, address: 87, type: u16, unit: V, scale: 0.01, writable: true, poll: slow, note: Default 16500 (165.00 V); V1.002 only.}
+  - {key: x.overcurrent_limit, label: Overcurrent protection value, table: holding, address: 88, type: u16, unit: '%', writable: true, poll: slow, note: Default 120; V1.002 only.}
+  - {key: x.remote_start_stop, label: Remote start and stop, table: holding, address: 89, type: u16, enum: remote_start_stop, writable: true, note: Default 0; V1.002 only.}
+  - {key: x.meter1_voltage_a_register, label: Meter 1 phase A voltage register number, table: holding, address: 90, type: u16, invalid: [65535], writable: true, poll: slow, note: Register of the external meter (Modbus address 1) the controller reads; 65535 = not used. V1.002 only.}
+  - {key: x.meter1_voltage_b_register, label: Meter 1 phase B voltage register number, table: holding, address: 91, type: u16, invalid: [65535], writable: true, poll: slow, note: 65535 = not used. V1.002 only.}
+  - {key: x.meter1_voltage_c_register, label: Meter 1 phase C voltage register number, table: holding, address: 92, type: u16, invalid: [65535], writable: true, poll: slow, note: 65535 = not used. V1.002 only.}
+  - {key: x.meter1_current_register, label: Meter 1 total current register number, table: holding, address: 93, type: u16, invalid: [65535], writable: true, poll: slow, note: 65535 = not used. V1.002 only.}
+  - {key: x.meter1_power_register, label: Meter 1 total power register number, table: holding, address: 94, type: u16, invalid: [65535], writable: true, poll: slow, note: 65535 = not used. V1.002 only.}
+  - {key: x.meter1_energy_register, label: Meter 1 total kWh register number, table: holding, address: 95, type: u16, invalid: [65535], writable: true, poll: slow, note: 65535 = not used. V1.002 only.}
+  - {key: x.meter2_dlb_current_register, label: Meter 2 DLB current register number, table: holding, address: 96, type: u16, invalid: [65535], writable: true, poll: slow, note: Register of the external meter at Modbus address 2 for load balancing; 65535 = use the current transformer. V1.002 only.}
+  - {key: x.device_address, label: Device address, table: holding, address: 100, type: u16, writable: true, min: 1, max: 255, poll: slow, note: Default 255.}
+  - {key: x.dlb_max_starting_current, label: DLB maximum starting current, table: holding, address: 101, type: u16, unit: A, scale: 0.01, writable: true, poll: slow, note: Default 3500 (35.00 A).}
+  - {key: x.dlb_max_current, label: DLB maximum current, table: holding, address: 102, type: u16, unit: A, scale: 0.01, writable: true, poll: slow, note: Default 4500 (45.00 A).}
+  - {key: x.dlb_reference_current, label: Reference current (DLB current transformer ratio), table: holding, address: 103, type: u16, unit: A, scale: 0.01, writable: true, poll: slow, note: Default 10000 (100.00 A).}
+  - {key: x.pwm_max_duty, label: Maximum output PWM duty cycle, table: holding, address: 109, type: u16, unit: '%', scale: 0.01, writable: true, poll: slow, note: Default 9000 (90.00 %).}
+  - {key: x.rcmu_select, label: RCMU function selection, table: holding, address: 110, type: u16, enum: function_select, writable: true, poll: slow}
+  - {key: x.rfid_select, label: RFID function selection, table: holding, address: 111, type: u16, enum: function_select, writable: true, poll: slow}
+  - {key: x.lock_select, label: Lock function selection, table: holding, address: 112, type: u16, enum: function_select, writable: true, poll: slow}
+  - {key: x.cable_socket_select, label: Cable / socket selection, table: holding, address: 113, type: u16, enum: cable_socket_select, writable: true, poll: slow, note: 'V1.002 calls it cable function version selection: 0 disabled, 1 enabled, other values = DIP switch.'}
+  - {key: x.dlb_select, label: DLB function selection, table: holding, address: 114, type: u16, enum: function_select, writable: true, poll: slow}
+  - {key: x.controller_id, label: Controller ID number, table: holding, address: 118, type: u32, writable: true, min: 0, max: 999999999, poll: slow}
+  - {key: x.trademark, label: Trademark selection, table: holding, address: 126, type: u16, enum: trademark, writable: true, poll: slow, note: V1.002; the 2022-03 manual has the pole option here.}
+  - {key: x.pole_option, label: Pole option 1P / 3P, table: holding, address: 127, type: u16, writable: true, poll: slow, verified: false, note: Default 1; the value coding (presumably 1 / 3) isn't given. V1.002 address; the 2022-03 manual gives 126.}
+  - {key: x.gear1_pwm, label: Current step 1 PWM value, table: holding, address: 128, type: u16, unit: '%', scale: 0.01, writable: true, poll: slow, verified: false, note: Default 1667; scale 0.01 % assumed as for 109. V1.002 only.}
+  - {key: x.gear2_pwm, label: Current step 2 PWM value, table: holding, address: 129, type: u16, unit: '%', scale: 0.01, writable: true, poll: slow, verified: false, note: Default 2167; scale 0.01 % assumed as for 109. V1.002 only.}
+  - {key: x.gear3_pwm, label: Current step 3 PWM value, table: holding, address: 130, type: u16, unit: '%', scale: 0.01, writable: true, poll: slow, verified: false, note: Default 3333; scale 0.01 % assumed as for 109. V1.002 only.}
+  - {key: x.gear4_pwm, label: Current step 4 PWM value, table: holding, address: 131, type: u16, unit: '%', scale: 0.01, writable: true, poll: slow, verified: false, note: Default 4167; scale 0.01 % assumed as for 109. V1.002 only.}
+  - {key: x.gear5_pwm, label: Current step 5 PWM value, table: holding, address: 132, type: u16, unit: '%', scale: 0.01, writable: true, poll: slow, verified: false, note: Default 5333; scale 0.01 % assumed as for 109. V1.002 only.}
+  - {key: x.gear6_pwm, label: Current step 6 PWM value, table: holding, address: 133, type: u16, unit: '%', scale: 0.01, writable: true, poll: slow, verified: false, note: Default 5333; scale 0.01 % assumed as for 109. V1.002 only.}
+
+  # Live values (read only)
+  - {key: firmware, label: Software version, table: holding, address: 140, type: u16, poll: slow}
+  - {key: state, label: Current working status, table: holding, address: 141, type: u16, enum: working_status}
+  - {key: x.cable_pwm, label: PWM value of cable specification, table: holding, address: 142, type: u16}
+  - {key: x.rcmu_status, label: RCMU status, table: holding, address: 143, type: u16, enum: rcmu_status}
+  - {key: x.rfid_status, label: RFID status, table: holding, address: 144, type: u16, enum: rfid_status}
+  - {key: x.lock_status, label: Lock status, table: holding, address: 145, type: u16, enum: lock_status, note: V1.002's English text repeats the RFID status here; its Chinese text gives the lock status codes used here.}
+  - {key: x.dlb_current, label: Present (DLB transformer) current, table: holding, address: 146, type: u16, unit: A, verified: false, note: The decimal places depend on the reference current (103); scale not given.}
+  - {key: l1_current, label: Charging current, table: holding, address: 147, type: u16, unit: A, scale: 0.1, note: '0–200.0 A. One value for the charge point, given here as L1.'}
+  - {key: l1_voltage, label: Charging voltage, table: holding, address: 148, type: u16, unit: V, scale: 0.1, note: '0–500.0 V. One value for the charge point, given here as L1.'}
+  - {key: consumer_power, label: Charging power, table: holding, address: 149, type: u16, unit: W, positive: consumption, verified: false, note: '0–22000 W, unsigned, so positive = consumption (derived).'}
+  - {key: x.pwm_switch_duty, label: PWM duty cycle for the rotary-switch current, table: holding, address: 151, type: u16}
+  - {key: x.pwm_duty, label: Current output PWM duty cycle, table: holding, address: 152, type: u16}
+  - {key: x.cp_negative, label: CP negative voltage, table: holding, address: 154, type: u16, verified: false, note: Unit and scale not given.}
+  - {key: temperature, label: Current temperature, table: holding, address: 157, type: u16, unit: °C, verified: false, note: 'Unit, scale and signedness not given.'}
+  # External meter readings (V1.002 only); scales not given
+  - {key: x.meter1_voltage_a, label: Meter 1 phase A voltage, table: holding, address: 159, type: u16, unit: V, verified: false, note: Scale not given.}
+  - {key: x.meter1_voltage_b, label: Meter 1 phase B voltage, table: holding, address: 160, type: u16, unit: V, verified: false, note: Scale not given.}
+  - {key: x.meter1_voltage_c, label: Meter 1 phase C voltage, table: holding, address: 161, type: u16, unit: V, verified: false, note: Scale not given.}
+  - {key: x.meter1_current, label: Meter 1 current, table: holding, address: 162, type: u16, unit: A, verified: false, note: Scale not given.}
+  - {key: x.meter1_power, label: Meter 1 total power, table: holding, address: 163, type: u16, unit: W, verified: false, note: Scale and sign not given.}
+  - {key: x.meter1_energy, label: Meter 1 total energy, table: holding, address: 164, type: u32, unit: kWh, verified: false, note: 32-bit; scale and word order not given.}
+  - {key: x.meter2_dlb_current, label: Meter 2 (DLB) current, table: holding, address: 166, type: u16, unit: A, verified: false, note: Scale not given.}
+
+enums:
+  working_status: {'0': K – power self-check failed (fault 1), '1': 'A – ready, no car', '2': I – waiting for RFID card, '3': B – car connected (2.7 kΩ), '4': B – car connected (1.3 kΩ), '5': C – charging, '6': D – ventilation required (fault 2), '7': F – CP shorted to PE (fault 3), '8': H – residual current or RCMU self-check failed (fault 4), '9': E – diode short circuit (fault 5), '10': G – PP wire disconnected (fault 6), '11': J – electronic lock failed (fault 7), '12': L – RFID card not valid (fault 8), '13': 'M – circuit overload, DLB mode active (fault 9)'}
+  function_select: {'0': Disabled, '1': Enabled, '3': Set by DIP switch}
+  cable_socket_select: {'0': Cable, '1': Socket, '3': Set by DIP switch}
+  rcmu_status: {'0': Not selected, '1': Normal, '2': Self-check failed, '3': Leakage in the charging circuit}
+  rfid_status: {'0': Not selected, '1': Card reader not operating, '2': Card closed, '3': Card open}
+  lock_status: {'0': Not selected, '1': Locked, '2': Unlocked, '3': Fault}
+  remote_start_stop: {'0': No action, '1': Start, '2': Stop}
+  trademark: {'0': None, '1': WATT, '2': VOLU}
+
+problems:
+  - {when: {key: state, equals: 0}, kind: fault, text: Power self-check failed (status 0)}
+  - {when: {key: state, equals: 6}, kind: fault, text: 'Car requests ventilation, charging stopped (status 6)'}
+  - {when: {key: state, equals: 7}, kind: fault, text: CP line shorted to PE (status 7)}
+  - {when: {key: state, equals: 8}, kind: fault, text: Residual current or RCMU self-check failed (status 8)}
+  - {when: {key: state, equals: 9}, kind: fault, text: Diode short circuit (status 9)}
+  - {when: {key: state, equals: 10}, kind: fault, text: PP wire disconnected (status 10)}
+  - {when: {key: state, equals: 11}, kind: fault, text: Electronic lock failed (status 11)}
+  - {when: {key: state, equals: 12}, kind: warning, text: RFID card not valid (status 12)}
+  - {when: {key: state, equals: 13}, kind: warning, text: 'Circuit overload, load balancing active (status 13)'}
+  - {when: {key: x.rcmu_status, equals: 3}, kind: fault, text: Leakage in the charging circuit (RCMU status 3)}
+  - {when: {key: x.lock_status, equals: 3}, kind: fault, text: Cable lock fault (lock status 3)}
+
+notes:
+- Modbus-RTU slave on RS485, 9600 baud 8N1 (V1.002; the 2022-03 manual gives 38400 baud 8N1), address 1–255, default 255 (called
+  the broadcast address). The manual doesn't name function codes or say whether addresses are 0- or 1-based; the registers
+  are taken as holding registers at the addresses as printed (unverified).
+- The manual gives every register as a 16-bit integer without saying signed or unsigned; read as unsigned. The 32-bit controller
+  ID (118–119) is assumed most significant word first.
+- V1.002 says the working status runs 0–11 but gives no table; the texts here come from the 2022-03 manual (0–13).
+- V1.002 marks 147–150, 153–156 and 158 as temporarily not valid; it reads voltages, current, power and energy from an external
+  meter instead (90–96 select the meter registers, 159–166 hold the readings). Its table 1 / table 2 list the register numbers
+  for ADL200/ADL400 and SDM120M/SDM73 meters.
+- The working-status texts follow the manual's LED table (state letter, meaning, fault number); 12 and 13 are listed as faults
+  there but are reported here as warnings (invalid card, load balancing).
+- 'Left out: calibration and tuning registers (104–108 reference/current/voltage/power corrections, 125 duty cycle correction,
+  115–117 DLB PID parameters, 120–124 temperature and frequency settings, 150, 155, 156, 158 AD and counter values).'
+- No register for setting the charging current is documented; the maximum current is set with the rotary switch (or by DLB).
+  V1.002 adds remote start / stop (89) and the PWM values of the six rotary-switch current steps (128–133).
+- Default port 502 only applies behind an RS485-to-TCP gateway.

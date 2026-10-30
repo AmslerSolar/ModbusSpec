@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: huawei-scharger
+manufacturer: Huawei
+name: SCharger (FusionCharge)
+kind: charger
+
+sources:
+- id: huawei-solar
+  title: huawei-solar-lib (Python library used by Home Assistant)
+  url: https://github.com/wlcrs/huawei-solar-lib
+  license: AGPL-3.0
+  commit: 19dfcfb642f362890b037ce781fb93c396fabc2e
+  path: src/huawei_solar/registers.py, src/huawei_solar/register_names.py, src/huawei_solar/register_values.py
+
+connection:
+  default_port: 502
+  default_unit: 0
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+  limits:
+    max_registers: 64
+    max_gap: 14
+    min_interval_ms: 50
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 30015
+    type: str
+    length: 16
+  any:
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    prefix: FusionCharge
+
+defaults:
+  verified: false
+  sources:
+  - huawei-solar
+
+points:
+  - {key: x.model_name, label: model_name, table: holding, address: 30000, type: str, length: 15}
+  - {key: serial, label: charger_serial_number, table: holding, address: 30015, type: str, length: 16}
+  - {key: x.charger_software_version, label: charger_software_version, table: holding, address: 30031, type: str, length: 16}
+  - {key: x.charger_rated_power, label: charger_rated_power, table: holding, address: 30076, type: u32, unit: W, scale: 100, invalid: [4294967295]}
+  - {key: x.charger_model, label: charger_model, table: holding, address: 30078, type: str, length: 14}
+  - {key: l1_voltage, label: charger_phase_a_voltage, table: holding, address: 30500, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: l2_voltage, label: charger_phase_b_voltage, table: holding, address: 30502, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: l3_voltage, label: charger_phase_c_voltage, table: holding, address: 30504, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: consumer_energy, label: charger_total_energy_charged, table: holding, address: 30506, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: temperature, label: charger_temperature, table: holding, address: 30508, type: s32, unit: °C, scale: 0.1, invalid: [2147483647]}
+
+notes:
+- huawei-solar-lib reads and writes everything as holding registers (function 03, writes 06/16).
+- Huawei devices accept only one Modbus TCP connection at a time.
+- The library waits 1 s after connecting and 50 ms between requests.
+- Detected by the model name (30000) starting with FusionCharge; read through an EMMA.
+- Identification as huawei-solar recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

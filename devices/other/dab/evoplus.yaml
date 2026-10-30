@@ -1,0 +1,116 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DAB Pumps INSTRUCTION-MODBUS- (09/14, cod. 60153188).
+
+modbusspec: 0
+id: dab-evoplus
+manufacturer: DAB Pumps
+name: Evoplus circulator
+kind: other
+
+sources:
+- title: Instructions for use of the Modbus protocol (Evoplus circulators, INSTRUCTION-MODBUS-)
+  version: 09/14 (cod. 60153188)
+  url: https://dabpumps.co.za/wp-content/uploads/2024/02/INSTRUCTION-MODBUS-.pdf
+  sha256: bbf2581862898eb5975def6d2475318c737ecd84802ee5795d83485fe5467d26
+  archive_url: https://web.archive.org/web/20250503032140/https://dabpumps.co.za/wp-content/uploads/2024/02/INSTRUCTION-MODBUS-.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+model_choice: user
+
+models:
+  - {id: ml, name: Evoplus M / L}
+  - {id: small, name: Evoplus Small}
+
+points:
+  # Modbus settings (read-only on Evoplus Small)
+  - {key: x.min_reply_delay, label: SlaveMinimumReplyDelay, table: holding, address: 0, type: u16, unit: ms, writable: true, poll: slow}
+  - {key: x.modbus_address, label: SetModbusAddress, table: holding, address: 1, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.modbus_baud, label: ModbusBaudRate, table: holding, address: 2, type: u16, enum: baud, writable: true, poll: slow}
+  - {key: x.modbus_parity, label: ModbusParityBits, table: holding, address: 3, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: x.modbus_stop_bits, label: ModbusStopBits, table: holding, address: 4, type: u16, writable: true, min: 1, max: 2, poll: slow}
+  - {key: x.auto_ack, label: AutoAckControlBits, table: holding, address: 5, type: u16, enum: auto_ack, writable: true, poll: slow}
+
+  # System configuration and status
+  - {key: x.reset_alarm, label: SystemResetAlarm, table: holding, address: 100, type: u16, writable: true, poll: slow, note: Write 1 while the register holds 0 to reset the system alarms.}
+  - {key: x.clear_history, label: System ClearHistory, table: holding, address: 101, type: u16, writable: true, poll: slow, note: Write 1 while the register holds 0 to clear the alarm history.}
+  - {key: x.regulation_mode, label: RegulationMode, table: holding, address: 102, type: u16, writable: true, poll: slow, note: 'The meaning of the values depends on the model and its software version (three different tables: Evoplus M/L 1.xx and 2.xx, Evoplus Small 1.xx, Evoplus M/L 3.xx and Small 2.xx), so no enum is given. Modes are proportional or constant differential pressure (set point from the register, from the 0–10 V / PWM input or depending on temperature) and constant or fixed curve.'}
+  - {key: x.setpoint_head, label: RegulationSetPoint, table: holding, address: 103, type: u16, unit: m, scale: 0.1, writable: true, poll: slow}
+  - {key: x.regulation_tmax, label: RegulationTmax, table: holding, address: 104, type: u16, unit: °C, writable: true, min: 0, max: 100, poll: slow, note: Tmax for the temperature-dependent curves.}
+  - {key: x.auto_economy, label: RegulationAutoEconomy, table: holding, address: 105, type: u16, enum: auto_economy, writable: true, verified: false, poll: slow, note: The access column is empty for this register; writable assumed.}
+  - {key: x.economy_reduction, label: SetPointPerCentReduction, table: holding, address: 106, type: u16, unit: '%', writable: true, min: 50, max: 90, poll: slow, note: Set point reduction in economy mode.}
+  - {key: x.ext_signal_type, label: ExtSignalType, table: holding, address: 107, type: u16, enum: ext_signal, writable: true, poll: slow}
+  - {key: x.twin_mode, label: TwinPumpSystemMode, table: holding, address: 108, type: u16, enum: twin_mode, writable: true, poll: slow}
+  - {key: x.max_rpm_percent, label: MaxRpmPercent, table: holding, address: 109, type: u16, unit: '%', writable: true, min: 25, max: 100, poll: slow, note: Set point as a share of the maximum allowed speed.}
+  - {key: x.on_off, label: OnOffExt, table: holding, address: 110, type: u16, enum: on_off, writable: true, poll: slow}
+
+  # Pump 1 status
+  - {key: x.pump_reset_alarm, label: Pump1ResetAlarm, table: holding, address: 200, type: u16, bits: [0, 0], writable: true, poll: slow, note: Write 1 to the bit while it is 0 to reset the pump alarm.}
+  - {key: x.pump_clear_history, label: Pump1ClearHistory, table: holding, address: 200, type: u16, bits: [1, 1], writable: true, poll: slow, note: Write 1 to the bit while it is 0 to clear the pump alarm history.}
+  - {key: state, label: Pump1Status, table: holding, address: 201, type: u16, enum: pump_status, poll: fast}
+  - {key: x.pump_fault, label: Pump1Fault, table: holding, address: 202, type: u16, enum: fault, poll: fast}
+  - {key: x.board_temperature, label: Pump1ElectronicBoardTemperature, table: holding, address: 210, type: s16, unit: °C, poll: fast, invalid: [32767], note: Temperature inside the housing.}
+  - {key: temperature, label: Pump1ElectronicHeatsinkTemperature, table: holding, address: 211, type: s16, unit: °C, poll: fast, invalid: [32767]}
+  - {key: x.line_voltage, label: Pump1LineVoltage, table: holding, address: 212, type: u16, unit: V, poll: fast, invalid: [32767], note: Input voltage (RMS).}
+  - {key: x.output_current, label: Pump1OutCurrent, table: holding, address: 213, type: u16, unit: A, scale: 0.001, poll: fast, invalid: [32767]}
+  - {key: x.speed, label: Pump1RPM, table: holding, address: 215, type: u16, unit: rpm, poll: fast, invalid: [32767]}
+  - {key: x.motor_power, label: Pump1Power, table: holding, address: 216, type: u16, unit: W, models: [ml], poll: fast, invalid: [32767], note: Power delivered (output of the drive).}
+  - {key: x.motor_power, label: Pump1Power, table: holding, address: 216, type: u16, unit: W, scale: 0.001, models: [small], poll: fast, invalid: [32767], note: Evoplus Small gives this register in mW.}
+  - {key: x.operating_hours, label: Pump1OperatingTime, table: holding, address: 217, type: u32, unit: h, poll: slow, note: 'HI word in 217, LO word in 218.'}
+  - {key: x.head, label: Pump1Head, table: holding, address: 219, type: u16, unit: m, scale: 0.1, poll: fast, invalid: [32767]}
+  - {key: x.flow, label: Pump1EstimatedFlow, table: holding, address: 220, type: u16, unit: m³/h, scale: 0.1, poll: fast, invalid: [32767], note: Estimated.}
+  - {key: x.liquid_temperature, label: Pump1LiquidTemperature, table: holding, address: 221, type: s16, unit: °C, poll: fast, invalid: [32767], note: Internal sensor.}
+  - {key: x.liquid_temperature_ext, label: Pump1LiquidTemperatureExt, table: holding, address: 222, type: s16, unit: °C, poll: fast, invalid: [32767], optional: true, note: External sensor.}
+  - {key: x.last_alarm, label: Pump1Alarm (most recent), table: holding, address: 230, type: u16, poll: slow, note: 'Alarm history 230–244, 230 the most recent. Alarm codes are listed in the user manual, not here.'}
+
+  # Identity
+  - {key: x.software_a, label: SoftwareNumberVersionA, table: holding, address: 250, type: u16, poll: slow}
+  - {key: x.software_b, label: SoftwareNumberVersionB, table: holding, address: 251, type: u16, poll: slow}
+  - {key: x.software_c, label: SoftwareNumberVersionC, table: holding, address: 252, type: u16, poll: slow}
+  - {key: x.software_d, label: SoftwareNumberVersionD, table: holding, address: 253, type: u16, poll: slow}
+  - {key: x.software_e, label: SoftwareNumberVersionE, table: holding, address: 254, type: u16, poll: slow}
+  - {key: x.software_f, label: SoftwareNumberVersionF, table: holding, address: 255, type: u16, poll: slow}
+  - {key: x.unit_family, label: Unit Family, table: holding, address: 256, type: u16, poll: slow, note: Device family; the values aren't listed.}
+  - {key: x.unit_type, label: UnitType, table: holding, address: 257, type: u16, poll: slow, note: Device type within the family; the values aren't listed.}
+  - {key: x.unit_version, label: Unit Version, table: holding, address: 258, type: u16, poll: slow}
+
+enums:
+  baud: {'0': 1200 baud, '1': 2400 baud, '2': 4800 baud, '3': 9600 baud, '4': 19200 baud, '5': 38400 baud}
+  parity: {'0': None, '1': Even, '2': Odd}
+  auto_ack: {'0': Reset and clear-history registers return to 0 by themselves, '1': Reset and clear-history registers must be set back to 0}
+  auto_economy: {'0': Auto, '1': Economy}
+  ext_signal: {'0': 0–10 V increasing, '1': 0–10 V decreasing, '2': PWM increasing, '3': PWM decreasing}
+  twin_mode: {'0': Simultaneous, '1': Alternate every 24 h, '2': Main / reserve}
+  on_off: {'0': 'On', '1': 'Off', '2': External}
+  pump_status: {'0': Pump off, '1': Charge status, '2': Pump running}
+  fault: {'0': OK, '1': Fault}
+
+problems:
+  - {when: {key: x.pump_fault, equals: 1}, kind: fault, text: Pump stopped by a fault}
+
+notes:
+- 'Addresses: the document numbers registers from 1 (00001, 00217 …); the protocol address is the number minus 1, as its example
+  (pump power, register 00217, read at 216) shows. All addresses here are converted that way.'
+- 'Function 03 and 04 read the same registers; writes use 06 or 16 (Evoplus Small: 06 only). 0x7FFF means not available. Data
+  are unsigned except the temperatures.'
+- 'Serial: RS485 2-wire on screw terminals; 1200–38400 baud, parity none/even/odd, 1 or 2 stop bits, set on the display or
+  over Modbus (Evoplus Small: display only, and registers 0–5 are read-only). Modbus is off by default and must be enabled
+  on the display (parameter En). The 19200 baud default comes from a garbled table cell; even parity and 1 stop bit are stated.'
+- The model (M/L or Small) only changes the unit of the power register here; Unit Family / UnitType (256 / 257) might tell
+  them apart, but the document gives no values, so the user picks the model and there is no identify.
+- Pump status 1 is called 'charge status' in both the English and the Italian text (MCE/C uses the same number for starting);
+  its exact meaning isn't explained.

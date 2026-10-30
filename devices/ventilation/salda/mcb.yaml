@@ -1,0 +1,140 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Salda MCB 1.21 Modbus table (2018-05-03).
+
+modbusspec: 0
+id: salda-mcb
+manufacturer: Salda
+name: RIS / RIRS (MCB)
+kind: ventilation
+
+sources:
+- title: MCB 1.21 Modbus table
+  version: 1.21 (2018-05-03)
+  url: http://salda.lt/mcb/downloads/doc/MCB%201.21%20Modbus%20table%202018-05-03.xlsx
+  sha256: fdcaea0c0684beffd6a0fca083b41f2a9831ae1f5466a6d3ff1f628fa1fe7202
+- id: modbus-local-gateway
+  title: modbus_local_gateway (Home Assistant integration)
+  url: https://github.com/timlaing/modbus_local_gateway
+  license: MIT
+  commit: e770d6c91220d98b8f0be22b103fdb607c3c67f4
+  path: custom_components/modbus_local_gateway/device_configs/Salda_RIS_MCB.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Input registers (function 04)
+  - {key: state, label: Current system state, table: input, address: 0, type: u16, enum: system_state, conflicts: [{sources: [modbus-local-gateway], type: s16, unit: °C, scale: 0.1, label: Exhaust Air Temperature}]}
+  - {key: firmware, label: Software version, table: input, address: 1, type: u16, poll: slow}
+  - {key: x.configuration_version, label: Configuration version, table: input, address: 2, type: u16, poll: slow}
+  - {key: x.clock, label: Controller date and time, table: input, address: 3, type: datetime, length: 7, poll: slow, datetime: {year: {register: 0, offset: 2000}, month: {register: 1}, day: {register: 2}, hour: {register: 4}, minute: {register: 5}, second: {register: 6}}, note: 'Registers: years (0…99), month, day, week day (1…7, not used here), hours, minutes, seconds. Two-digit year: 2000 added (assumed).', verified: false, conflicts: [{sources: [modbus-local-gateway], type: s16, unit: °C, scale: 0.1, label: Supply Air Temperature}]}
+  - {key: x.working_days, label: Working days, table: input, address: 10, type: u16, unit: d, poll: slow}
+  - {key: x.working_hours, label: Working hours, table: input, address: 11, type: u16, unit: h, poll: slow, note: '0…23: the hours on top of the working days.'}
+  - {key: x.boost_time_left, label: Intensive air flow time left, table: input, address: 12, type: u16, unit: s}
+  - {key: x.current_system_mode, label: Current system mode, table: input, address: 14, type: u16, enum: system_mode}
+  - {key: x.current_air_flow, label: Current air flow, table: input, address: 15, type: u16, unit: '%', conflicts: [{sources: [modbus-local-gateway], label: Current Air Flow Mode}]}
+  - {key: x.required_supply_temperature, label: Required supply temperature, table: input, address: 16, type: s16, unit: °C, scale: 0.1}
+  - {key: x.supply_air_temperature, label: T1-Supply air temperature, table: input, address: 17, type: s16, unit: °C, scale: 0.1}
+  - {key: x.extract_air_temperature, label: T2-Extract air temperature, table: input, address: 18, type: s16, unit: °C, scale: 0.1}
+  - {key: x.exhaust_air_temperature, label: T3-Exhaust air temperature, table: input, address: 19, type: s16, unit: °C, scale: 0.1}
+  - {key: x.outdoor_air_temperature, label: T4-Outdoor air temperature, table: input, address: 20, type: s16, unit: °C, scale: 0.1}
+  - {key: x.supply_air_rh, label: A1-Supply air RH, table: input, address: 21, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.supply_air_co2, label: A1-Supply air CO2, table: input, address: 22, type: u16, unit: ppm, optional: true}
+  - {key: x.extract_air_rh, label: A2-Extract air RH, table: input, address: 23, type: u16, unit: '%', scale: 0.1, optional: true}
+  - {key: x.extract_air_co2, label: A2-Extract air CO2, table: input, address: 24, type: u16, unit: ppm, optional: true}
+  - {key: x.active_alarms_count, label: Active alarms count, table: input, address: 27, type: u16}
+  - {key: x.filter_days_left, label: Filters timer days left, table: input, address: 29, type: u16, unit: d, poll: slow}
+  - {key: x.supply_fan_rpm, label: Supply fan speed RPM, table: input, address: 54, type: u16, unit: rpm}
+  - {key: x.extract_fan_rpm, label: Extract fan speed RPM, table: input, address: 55, type: u16, unit: rpm}
+  - {key: x.supply_fan_output, label: AO1-Current supply air fan output, table: input, address: 56, type: u16, unit: V, scale: 0.01}
+  - {key: x.supply_air_flow_percent, label: Current supply air flow (%), table: input, address: 57, type: u16, unit: '%', scale: 0.1}
+  - {key: x.supply_air_flow, label: Current supply air flow (m3/h), table: input, address: 59, type: u16, unit: m³/h}
+  - {key: x.extract_fan_output, label: AO2-Current extract air fan output, table: input, address: 60, type: u16, unit: V, scale: 0.01}
+  - {key: x.extract_air_flow_percent, label: Current extract air flow (%), table: input, address: 61, type: u16, unit: '%', scale: 0.1}
+  - {key: x.extract_air_flow, label: Current extract air flow (m3/h), table: input, address: 63, type: u16, unit: m³/h}
+  - {key: x.heater_output, label: AO3-Heater control output, table: input, address: 88, type: u16, unit: '%', scale: 0.1}
+  - {key: x.heater_water_temperature, label: T5-Hydronic heater water temperature, table: input, address: 89, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.preheater_output, label: AO4-Pre-heater control output, table: input, address: 90, type: u16, unit: '%', scale: 0.1}
+  - {key: x.preheater_water_temperature, label: T6-Hydronic pre-heater water temperature, table: input, address: 91, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.bypass_position, label: Bypass position, table: input, address: 92, type: u16, unit: '%', scale: 0.1}
+  - {key: x.rotor_speed, label: Rotor speed RPM, table: input, address: 93, type: u16, unit: rpm}
+  - {key: x.rotor_output, label: AO5-Rotor control output, table: input, address: 94, type: u16, unit: '%', scale: 0.1}
+  - {key: x.cooler_water_temperature, label: T7-Hydronic cooler water temperature, table: input, address: 95, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.cooler_output, label: AO6-Hydronic cooler control output, table: input, address: 96, type: u16, unit: '%', scale: 0.1}
+  - {key: x.cabinet_temperature, label: T8-Controller cabinet temperature, table: input, address: 101, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.supply_filter_pressure, label: Supply air filter pressure, table: input, address: 111, type: u16, unit: Pa, optional: true}
+  - {key: x.extract_filter_pressure, label: Extract air filter pressure, table: input, address: 114, type: u16, unit: Pa, optional: true}
+  - {key: x.heat_transfer_efficiency, label: Heat transfer efficiency, table: input, address: 124, type: u16, unit: '%'}
+
+  # Holding registers (functions 03 / 06 / 16)
+  - {key: x.fan_speed_select, label: Current system mode, table: holding, address: 0, type: u16, enum: user_mode, writable: true}
+  - {key: x.temperature_setpoint_number, label: Comfort mode temperature set point, table: holding, address: 1, type: u16, unit: °C, scale: 0.1, writable: true, min: 16, max: 30, poll: slow, note: Default 21.0., conflicts: [{sources: [modbus-local-gateway], scale: 1, label: Temperature Set Point}]}
+  - {key: x.air_flow_percent_setpoint, label: Air flow control by percents, table: holding, address: 2, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, note: 0 is the default.}
+  - {key: x.economy_setpoint, label: Economy mode temperature set point, table: holding, address: 3, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow, note: '0 = energy saving, else 16.0…30.0 °C; default 18.0.'}
+  - {key: x.building_protection_setpoint, label: Building protection mode temperature set point, table: holding, address: 5, type: u16, unit: °C, scale: 0.1, writable: true, poll: slow, note: '0 = energy saving, else 16.0…30.0 °C; default 16.5.'}
+  - {key: x.boost_time_set, label: Intensive air flow time set, table: holding, address: 13, type: u16, unit: s, writable: true, min: 0, max: 18000, poll: slow, note: Default 600.}
+  - {key: x.winter_summer_mode, label: Winter/Summer mode, table: holding, address: 14, type: u16, enum: winter_summer_mode, writable: true, poll: slow}
+  - {key: x.alarm_a, label: Alarm A, table: holding, address: 199, type: u16, enum: alarm_a}
+  - {key: x.alarm_b, label: Alarm B, table: holding, address: 200, type: u16, enum: alarm_b}
+  - {key: x.alarms_reset, label: Alarms reset, table: holding, address: 201, type: u16, writable: true, note: Write 1 to reset the alarms.}
+  - {key: x.co2_setpoint, label: CO2 set point, table: holding, address: 678, type: u16, unit: ppm, writable: true, min: 0, max: 3000, poll: slow, note: Default 700.}
+
+  # Coils (function 01 / 05)
+  - {key: x.filter_timer_reset, label: Filters timer reset, table: coil, address: 0, type: bool, writable: true, note: Write 1 to reset the filter timer.}
+  - {key: x.night_cooling, label: Night cooling function, table: coil, address: 3, type: bool, writable: true, poll: slow}
+  - {key: x.boost, label: Intensive air flow, table: coil, address: 4, type: bool, writable: true, note: Write 1 to start intensive air flow (boost) for the time set in holding 13.}
+
+  # Discrete inputs (function 02)
+  - {key: x.any_critical_alarm, label: Any active critical alarm, table: discrete, address: 187, type: bool}
+  - {key: x.any_warning, label: Any active warning, table: discrete, address: 188, type: bool}
+  - {key: x.heating_season, label: Winter, table: discrete, address: 206, type: bool, note: '0 = cooling, 1 = heating season.'}
+  - {key: x.no_power, label: No power indication, table: discrete, address: 214, type: bool}
+  - {key: x.supply_fan_failure, label: Alarm! Supply fan failure, table: discrete, address: 37, type: bool}
+  - {key: x.extract_fan_failure, label: Alarm! Extract fan failure, table: discrete, address: 38, type: bool}
+  - {key: x.fire_alarm, label: Alarm! Fire, table: discrete, address: 40, type: bool}
+  - {key: x.filter_change, label: Warning! Change supply and extract filters (timeout), table: discrete, address: 13, type: bool}
+  - {key: x.power_supply_failure, label: Alarm! Power supply failure (F1 fuse), table: discrete, address: 14, type: bool}
+
+enums:
+  system_state: {'0': Stand-by, '1': Building protection, '2': Economy, '3': Comfort, '4': Emergency run, '5': Preparing, '6': Opening dampers, '7': Boost, '8': Cooling heaters, '9': Closing dampers, '10': Night cooling, '11': Critical alarm, '12': Fire alarm, '13': Heat exchanger frost protection, '14': Change filters, '15': 'Room RH 3-day average below 30 %, limiting speed', '16': DX cooler defrosting, '17': Fire damper testing}
+  system_mode: {'0': Stand-by, '1': Building protection, '2': Economy, '3': Comfort, '4': Emergency}
+  user_mode: {'0': Stand-by, '1': Building protection, '2': Economy, '3': Comfort}
+  winter_summer_mode: {'0': Summer, '1': Winter, '2': By date, '3': By 3-day outside temperature average}
+  alarm_a: {'0': No alarms, '1': Alarm}
+  alarm_b: {'0': No warning, '1': Warning}
+
+problems:
+  - {when: {key: x.any_critical_alarm, equals: 1}, kind: fault, text: Ventilation unit critical alarm}
+  - {when: {key: x.any_warning, equals: 1}, kind: warning, text: Ventilation unit warning}
+  - {when: {key: state, equals: 12}, kind: fault, text: Fire alarm}
+  - {when: {key: state, equals: 4}, kind: warning, text: Emergency run}
+  - {when: {key: state, equals: 13}, kind: warning, text: Heat exchanger frost protection}
+  - {when: {key: state, equals: 14}, kind: warning, text: Change filters}
+  - {when: {key: x.no_power, equals: 1}, kind: fault, text: No power to peripherals}
+
+notes:
+- The table numbers registers, coils and discrete inputs from 1; addresses here are that number − 1 (input 15 "current system
+  mode" = address 14). The project data for this unit agrees for holding 0 and inputs 14/15.
+- RS485 (two ports), defaults address 1, 19200 baud, 8E1 (holding 671…676 in protocol addresses). Port 502 only applies behind
+  a Modbus TCP gateway.
+- Discrete inputs 0…66 (table numbers 1…67) are one flag per alarm; the 'Alarm list' sheet gives the same codes as the alarm
+  history message ids. Only the main ones are listed here; any alarm shows in 187 (critical) and 188 (warning).
+- Pressures 58/62 (current supply/extract flow pressure) are in 0.1 Pa when coil 140 (air pressure factor) is 0, else Pa;
+  left out.
+- 'Left out: holiday and weekly schedulers (holding 209…308), alarm history (329 ff.), manual control, air flow levels, sensor
+  corrections, PID and service configuration, I/O map, and most configuration coils. Some need the adjuster or service password
+  (holding 197 / 198).'
+- 'Left out: Inside Temperature (input 6, s16) from modbus-local-gateway overlaps x.clock from the documents.'
+- 'Left out: Outside Temperature (input 9, s16) from modbus-local-gateway overlaps x.clock from the documents.'

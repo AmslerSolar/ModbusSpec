@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From cFos's Modbus register page for the Power Brain controller (S0 meter devices), below.
+
+modbusspec: 0
+id: cfos-power-brain-meter
+manufacturer: cFos
+name: Power Brain wallbox / Power Brain controller S0 meter inputs
+kind: meter
+
+sources:
+- title: cFos Power Brain Controller – Modbus Registers (web page)
+  version: retrieved 2026-10-24 (no version or date given)
+  url: https://cfos.de/en/cfos-power-brain/modbus-registers.htm
+  sha256: 0fdcf5fe6d816c3d2dd0479f2ae561a3c3c64547552273b9ca38e22172145315
+
+connection:
+  default_port: 4702
+  default_unit: 2
+  transports:
+  - tcp
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 8008
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 8000
+    type: u32
+    equals: 52997
+
+points:
+  # Identification (same block on the EVSE and the S0 meters)
+  - {key: x.vendor_id, label: vendor_id, table: holding, address: 8000, type: u32, poll: slow, note: Always 0xCF05.}
+  - {key: x.product_id, label: product_id, table: holding, address: 8002, type: u16, poll: slow}
+  - {key: x.device_id, label: device_id, table: holding, address: 8003, type: u16, poll: slow}
+  - {key: firmware, label: product_version, table: holding, address: 8004, type: u16, poll: slow, verified: false, note: Major.minor. The page lists it as 2 registers although product_build follows at 8005; read as one register here.}
+  - {key: x.product_build, label: product_build, table: holding, address: 8005, type: u16, poll: slow}
+  - {key: x.mapping_version, label: mapping_version, table: holding, address: 8006, type: u16, poll: slow}
+  - {key: serial, label: serial_no, table: holding, address: 8008, type: str, length: 8, poll: slow}
+  - {key: x.name, label: name, table: holding, address: 8016, type: str, length: 16, poll: slow}
+  - {key: x.slave_id, label: slave_id, table: holding, address: 8040, type: u16, writable: true, persistent: true, poll: slow}
+
+  # S0 meter
+  - {key: x.pulses_per_kwh, label: pulsesperkwh, table: holding, address: 8042, type: u32, writable: true, persistent: true, poll: slow}
+  - {key: x.phases, label: phases, table: holding, address: 8044, type: u16, writable: true, persistent: true, flags: phases, poll: slow, note: Phases the calculated per-phase values are spread over.}
+  - {key: x.nominal_voltage_l1, label: voltage_l1, table: holding, address: 8045, type: u16, unit: V, writable: true, persistent: true, poll: slow, note: 'Nominal (configured) voltage, not a measurement.'}
+  - {key: x.nominal_voltage_l2, label: voltage_l2, table: holding, address: 8046, type: u16, unit: V, writable: true, persistent: true, poll: slow}
+  - {key: x.nominal_voltage_l3, label: voltage_l3, table: holding, address: 8047, type: u16, unit: V, writable: true, persistent: true, poll: slow}
+  - {key: x.pulses, label: pulses, table: holding, address: 8050, type: u64, writable: true, persistent: true, poll: slow}
+  - {key: x.time_per_pulse, label: timeperpulse, table: holding, address: 8054, type: u32, unit: ms}
+  - {key: x.level, label: level, table: holding, address: 8056, type: u16, note: 'S0 input level: 0 = current flows, 1 = no current.'}
+  - {key: x.meter_flags, label: meter_flags, table: holding, address: 8057, type: u16, flags: meter_flags, poll: slow}
+  - {key: consumer_energy, label: energy, table: holding, address: 8058, type: u64, unit: kWh, scale: 0.001, writable: true, persistent: true, poll: slow, verified: false, note: 'Active import in Wh. What it counts depends on where the S0 meter is wired (consumer, PV, grid); consumer assumed.'}
+  - {key: consumer_power, label: power, table: holding, address: 8062, type: s32, unit: W, positive: consumption, verified: false, note: Power calculated from the S0 pulse interval. Signedness not stated; an S0 input only counts one direction. Meaning depends on wiring; consumer assumed.}
+  - {key: l1_current, label: current_l1, table: holding, address: 8064, type: s32, unit: A, scale: 0.1, verified: false, note: Calculated from power and nominal voltage; signedness not stated.}
+  - {key: l2_current, label: current_l2, table: holding, address: 8066, type: s32, unit: A, scale: 0.1, verified: false, note: Calculated; signedness not stated.}
+  - {key: l3_current, label: current_l3, table: holding, address: 8068, type: s32, unit: A, scale: 0.1, verified: false, note: Calculated; signedness not stated.}
+  - {key: x.reset_pulses, label: reset_pulses, table: holding, address: 8070, type: u16, writable: true, write_only: true, persistent: true, poll: slow, note: 1 resets the pulse counter.}
+  - {key: x.reset_energy, label: reset_energy, table: holding, address: 8071, type: u16, writable: true, write_only: true, persistent: true, poll: slow, note: 1 resets the energy counter.}
+
+flags:
+  phases: {'0': L1, '1': L2, '2': L3}
+  meter_flags: {'0': Meter has individual phases}
+
+notes:
+- The controller's two S0 inputs appear as separate Modbus devices; S0 meter 1 = unit 2 on TCP port 4702, S0 meter 2 = unit
+  3 on port 4703. The charging station itself is unit 1 on port 4701 (file cfos-power-brain).
+- Holding registers only, function 03 read, 06 / 16 write; addresses as printed on the page, taken as protocol addresses (unverified).
+- The page gives no word order, signedness or serial settings; most significant word first is assumed.
+- 'Not covered: the cFos-branded YTL DTS353 and DEM4A meters; their register PDFs linked from the page returned 404.'

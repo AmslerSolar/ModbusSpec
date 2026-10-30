@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Aalborg Modbus RTU Slave Interface for DPC/DPM Digital Mass Flow Instruments operating manual (TD-DPCM-MB-0319, March 2019).
+
+modbusspec: 0
+id: aalborg-dpm-dpc
+manufacturer: Aalborg
+name: DPM / DPC digital mass flow meters and controllers
+kind: io
+
+sources:
+- title: Aalborg operating manual, Modbus RTU Slave Interface for DPC/DPM Digital Mass Flow Instruments (Technical Data Sheet
+    TD-DPCM-MB-0319)
+  version: TD-DPCM-MB-0319 (March 2019)
+  url: https://www.aalborg.com/images/file_to_download/DPMC%20Modbus%20Manual%20TD-DPCM-MB-0320.pdf
+  sha256: 40c654dabf4a685851d033b7f4b32e26ddce1d9e1fc555ca2b82431427897da4
+  archive_url: https://web.archive.org/web/20260122132954/https://www.aalborg.com/images/file_to_download/DPMC%20Modbus%20Manual%20TD-DPCM-MB-0320.pdf
+
+connection:
+  default_port: 502
+  default_unit: 11
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+  limits:
+    max_registers: 125
+    max_gap: 0
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 10
+    type: str
+    length: 20
+    chars: low
+
+models:
+  - {id: dpm, name: DPM mass flow meter, match: {table: input, address: 3003, type: u16, equals: 0}}
+  - {id: dpc, name: DPC mass flow controller, match: {table: input, address: 3003, type: u16, equals: 1}}
+
+points:
+  # Process information (input registers, 32-bit floats)
+  - {key: x.mass_flow, label: Mass flow rate reading in current MEU, table: input, address: 2700, type: f32, poll: fast, note: 'In the mass flow unit selected by register 362 (the unit table is in the instrument''s operation manual, not in this document).'}
+  - {key: x.volumetric_flow, label: Volumetric flow rate reading in current VEU, table: input, address: 2702, type: f32, poll: fast, note: In the volumetric unit selected by register 374.}
+  - {key: x.totalizer_1, label: 'Totalizer #1 reading', table: input, address: 2704, type: f32, note: In the selected flow units.}
+  - {key: x.totalizer_2, label: 'Totalizer #2 reading', table: input, address: 2706, type: f32, note: In the selected flow units.}
+  - {key: x.gas_temperature, label: Gas temperature, table: input, address: 2708, type: f32, unit: °C, poll: fast}
+  - {key: x.gas_absolute_pressure, label: Gas absolute pressure, table: input, address: 2710, type: f32, unit: psi, poll: fast, note: 'Absolute pressure (PSIA). The document gives the range 2710–2712; a float takes two registers, 2710–2711.'}
+  - {key: x.mass_flow_average, label: Mass flow average in current MEU, table: input, address: 2712, type: f32, poll: fast}
+
+  # Diagnostic values (input registers, 32-bit)
+  - {key: x.dp_sensor_temperature, label: DP sensor temperature, table: input, address: 2612, type: f32, unit: °C}
+  - {key: x.ap_sensor_temperature, label: AP sensor temperature, table: input, address: 2614, type: f32, unit: °C}
+  - {key: x.reference_voltage, label: 2.5 Vdc reference voltage, table: input, address: 2616, type: f32, unit: V}
+  - {key: x.cpu_temperature, label: CPU die temperature, table: input, address: 2618, type: f32, unit: °C}
+  - {key: x.gas_temperature_kelvin, label: Gas temperature, table: input, address: 2622, type: f32, unit: K}
+  - {key: x.dp_sensor_pressure, label: DP sensor pressure, table: input, address: 2624, type: f32, unit: psi, note: Differential pressure (PSID).}
+  - {key: x.ap_sensor_pressure, label: AP sensor pressure, table: input, address: 2626, type: f32, unit: psi, note: Absolute pressure (PSIA).}
+  - {key: x.analog_input, label: Analog input PFS, table: input, address: 2628, type: f32, unit: '%', models: [dpc], note: 'Analog set point input, % of full scale.'}
+  - {key: x.solenoid_current, label: Solenoid current PFS, table: input, address: 2630, type: f32, models: [dpc], note: Normalized 0.0–1.0.}
+
+  # Status (input registers, 16-bit)
+  - {key: x.instrument_type, label: DPM / DPC H/W status, table: input, address: 3003, type: u16, enum: instrument_type, poll: slow}
+  - {key: x.diagnostic_events, label: Diagnostic events status register, table: input, address: 3007, type: u16, note: Bit meanings are not given in this document.}
+  - {key: x.alarm_events, label: Alarm events status register, table: input, address: 3008, type: u16, note: Bit meanings are not given in this document.}
+  - {key: x.uart1_errors, label: UART#1 error register, table: input, address: 3009, type: u16, poll: slow}
+  - {key: x.uart2_errors, label: UART#2 error register, table: input, address: 3010, type: u16, poll: slow}
+  - {key: x.modbus_overrun_errors, label: Modbus overrun error counter, table: input, address: 3011, type: u16, poll: slow}
+  - {key: x.auto_zero_status, label: DP auto zero status, table: input, address: 3012, type: s16, enum: auto_zero_status, poll: slow}
+  - {key: x.flow_alarm, label: Flow alarm status, table: input, address: 3014, type: s16, enum: alarm_status}
+  - {key: x.temperature_alarm, label: Temperature alarm status, table: input, address: 3015, type: s16, enum: alarm_status}
+  - {key: x.pressure_alarm, label: Pressure alarm status, table: input, address: 3016, type: s16, enum: alarm_status, verified: false, note: The document prints 3015 for this register too; 3016 assumed from the stated range 3000–3016.}
+
+  # Identity (holding, one ASCII character per register in the low byte)
+  - {key: serial, label: Serial number, table: holding, address: 10, type: str, length: 20, chars: low, poll: slow}
+  - {key: x.model_number, label: Model number, table: holding, address: 30, type: str, length: 20, chars: low, poll: slow}
+  - {key: x.calibrated_by, label: Calibrated by, table: holding, address: 50, type: str, length: 20, chars: low, poll: slow}
+  - {key: x.date_calibrated, label: Date calibrated, table: holding, address: 70, type: str, length: 12, chars: low, poll: slow}
+  - {key: x.calibration_gas, label: Calibration gas identifier, table: holding, address: 82, type: str, length: 20, chars: low, poll: slow}
+  - {key: x.full_scale_range, label: 'Device nominal FS range [sl/min] N2', table: holding, address: 2016, type: f32, unit: sl/min, poll: slow}
+  - {key: x.configurable_full_scale, label: Instrument configurable FS range, table: holding, address: 2058, type: f32, unit: sl/min, poll: slow}
+
+  # Settings
+  - {key: x.modbus_address, label: Modbus device address, table: holding, address: 356, type: u16, writable: true, min: 1, max: 247, persistent: true, poll: slow, note: Takes effect after a power cycle.}
+  - {key: x.modbus_baud_index, label: Modbus baud rate index, table: holding, address: 357, type: u16, writable: true, min: 0, max: 7, persistent: true, poll: slow, note: The document lists 1200 to 115200 baud but not which index is which.}
+  - {key: x.modbus_parity_index, label: Modbus parity index, table: holding, address: 358, type: u16, writable: true, min: 0, max: 2, persistent: true, poll: slow, note: 'None, odd, even; index order not stated.'}
+  - {key: x.modbus_stop_bits, label: Modbus stop bits, table: holding, address: 359, type: u16, writable: true, min: 1, max: 2, persistent: true, poll: slow}
+  - {key: x.flow_unit_index, label: Flow rate measure units index, table: holding, address: 362, type: u16, writable: true, min: 0, max: 43, persistent: true, poll: slow}
+  - {key: x.active_gas_index, label: Active gas index, table: holding, address: 367, type: u16, writable: true, persistent: true, poll: slow}
+  - {key: x.temperature_unit_index, label: Temperature units index, table: holding, address: 372, type: u16, writable: true, min: 0, max: 3, persistent: true, poll: slow}
+  - {key: x.volumetric_flow_unit, label: Volumetric flow units, table: holding, address: 374, type: u16, writable: true, min: 0, max: 15, persistent: true, poll: slow}
+  - {key: x.pressure_unit_index, label: Pressure units index, table: holding, address: 377, type: u16, writable: true, min: 0, max: 14, persistent: true, poll: slow}
+  - {key: x.setpoint_source, label: Set point input source, table: holding, address: 433, type: u16, writable: true, min: 0, max: 3, persistent: true, poll: slow, models: [dpc], note: '1 = digital interface, needed for setting the set point over Modbus.'}
+  - {key: x.valve_mode, label: 'Valve control mode: ''C'', ''A'', ''O''', table: holding, address: 700, type: u16, enum: valve_mode, writable: true, models: [dpc]}
+  - {key: x.psp_run, label: PSP run / stop mode control, table: holding, address: 701, type: u16, writable: true, min: 0, max: 1, models: [dpc], note: Program set point run / stop.}
+  - {key: x.setpoint, label: Digital set point (engineering units), table: holding, address: 2540, type: f32, writable: true, persistent: true, models: [dpc]}
+
+enums:
+  instrument_type: {'0': DPM, '1': DPC}
+  auto_zero_status: {'-1': Failed, '0': Not started, '1': In process, '2': Completed}
+  alarm_status: {'68': Disabled, '78': No alarm, '72': High alarm, '76': Low alarm}
+  valve_mode: {'67': C, '65': A, '79': O}
+
+problems:
+  - {when: {key: x.flow_alarm, in: [72, 76]}, kind: warning, text: 'Flow alarm ({text})'}
+  - {when: {key: x.temperature_alarm, in: [72, 76]}, kind: warning, text: 'Temperature alarm ({text})'}
+  - {when: {key: x.pressure_alarm, in: [72, 76]}, kind: warning, text: 'Pressure alarm ({text})'}
+  - {when: {key: x.auto_zero_status, equals: -1}, kind: warning, text: Auto zero failed}
+
+notes:
+- Addresses are the document's PDU addresses (0-based). Function 03 reads holding registers, 04 input registers; writes with
+  06 / 16.
+- 32-bit values (floats, longs) take two registers, bits 31–16 first. Reading only part of a multi-register value gives exception
+  2, so requests must start and end on whole values.
+- 'Factory settings: address 11, 9600 baud, no parity, 2 stop bits (no parity needs 2 stop bits). Baud 1200–115200, parity
+  none / odd / even selectable. The device answers within 200 ms.'
+- 'The alarm status registers hold ASCII letters: ''D'' disabled, ''N'' no alarm, ''H'' high, ''L'' low. Valve mode register
+  700 holds ''C'', ''A'' or ''O''; the document doesn''t spell out the letters (presumably closed, automatic, open).'
+- 'The DPC (controller) registers marked here with models: [dpc] apply only to controllers. To control a DPC over Modbus,
+  set register 433 to 1 and use 700 (valve mode) and 2540 (set point).'
+- 'Holding registers 10–209, 307–461, 2540–2541 and 7008–7210 are stored in EEPROM: limit writes to about 200 per day.'
+- 'Left out: calibration and signal-conditioning parameters (354–461, 2016–2421 except the full scale, 7050–7210; the document
+  warns that changing them voids the calibration), display and alarm configuration, raw ADC counts, the action registers (write
+  0 to 1–5 to reset totalizers, start auto zero, reset the instrument) and the ''Daniel''s Extension'' mapping (7008–7210,
+  7500–7515, 7600–7606), which repeats the floats with one 32-bit value per register.'
+- Flow and totalizer values are in the units set in registers 362 / 374; the unit tables are in the instrument operation manual,
+  not in this document.

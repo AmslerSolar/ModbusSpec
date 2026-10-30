@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: franklinwh-agate
+manufacturer: FranklinWH
+name: aGate (with aPower batteries)
+kind: battery
+
+sources:
+- id: franklinwh-local-api
+  title: franklinwh-local-api (Python library, used by ha-franklinwh-modbus)
+  url: https://github.com/hAr1x/franklinwh-local-api
+  license: GPL-3.0-or-later
+  commit: c4c59f4e05112193fbefd14aa1e2a331ca6be1f0
+  path: franklinwh_local_api/const.py, franklinwh_local_api/models.py, franklinwh_local_api/client.py
+
+connection:
+  default_port: 502
+  default_unit: 0
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - franklinwh-local-api
+
+sunspec: true
+
+points:
+  - {key: x.manufacturer, label: Manufacturer, table: holding, address: 4, type: str, length: 16, note: SunSpec Model 1 string; the library reads up to the next field and stops at the first NUL.}
+  - {key: x.model, label: Model, table: holding, address: 20, type: str, length: 24, note: SunSpec Model 1 string; the library reads up to the next field and stops at the first NUL.}
+  - {key: firmware, label: Firmware version, table: holding, address: 44, type: str, length: 8, note: SunSpec Model 1 string; the library reads up to the next field and stops at the first NUL.}
+  - {key: serial, label: Serial number, table: holding, address: 52, type: str, length: 18, note: SunSpec Model 1 string; the library reads up to the next field and stops at the first NUL.}
+  - {key: x.conn_st, label: Grid connection state (M701 ConnSt), table: holding, address: 75, type: u16, enum: conn_state}
+  - {key: x.alrm, label: Alarms (M701 Alrm), table: holding, address: 76, type: u32, flags: alarm}
+  - {key: grid_power, label: Grid power (M701 W), table: holding, address: 80, type: s16, unit: W, scale_exponent_from: {table: holding, address: 186, type: s16}, positive: import}
+  - {key: x.llv, label: Grid line-to-line voltage (M701 LLV), table: holding, address: 85, type: u16, unit: V, scale_exponent_from: {table: holding, address: 184, type: s16}}
+  - {key: x.lnv, label: Grid line-to-neutral voltage (M701 LNV), table: holding, address: 86, type: u16, unit: V, scale_exponent_from: {table: holding, address: 184, type: s16}}
+  - {key: frequency, label: Grid frequency (M701 Hz), table: holding, address: 87, type: u32, unit: Hz, scale_exponent_from: {table: holding, address: 185, type: s16}}
+  - {key: x.tmp_amb, label: Ambient temperature (M701 TmpAmb), table: holding, address: 105, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 192, type: s16}}
+  - {key: temperature, label: Cabinet temperature (M701 TmpCab), table: holding, address: 106, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 192, type: s16}}
+  - {key: x.w_max_rtg_charge, label: Battery charge rate rating (M702 WChaRteMaxRtg), table: holding, address: 235, type: u16, unit: W, scale_exponent_from: {table: holding, address: 270, type: s16}}
+  - {key: x.w_max_rtg_discharge, label: Battery discharge rate rating (M702 WDisChaRteMaxRtg), table: holding, address: 236, type: u16, unit: W, scale_exponent_from: {table: holding, address: 270, type: s16}}
+  - {key: x.wset_ena, label: Battery power command enable (M704 WSetEna), table: holding, address: 318, type: u16, enum: enabled, writable: true}
+  - {key: x.wset_mod, label: Battery power command mode (M704 WSetMod), table: holding, address: 319, type: u16, writable: true, note: The library writes 0 (percent of the charge or discharge rating).}
+  - {key: x.wset_pct, label: Battery power command (M704 WSetPct), table: holding, address: 324, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 352, type: s16}, writable: true, note: 'Percent of the battery rating: negative = charge (of the charge rate rating), positive = discharge (of the discharge rate rating). Takes effect while WSetEna is 1; the library writes WSetEna 0, WSetMod, WSetPct, then WSetEna 1.'}
+  - {key: x.wh_rtg, label: Battery capacity (M713 WHRtg), table: holding, address: 1035, type: u16, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 1040, type: s16}}
+  - {key: x.wh_avail, label: Battery energy available (M713 WHAvail), table: holding, address: 1036, type: u16, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 1040, type: s16}}
+  - {key: battery_soc, label: Battery state of charge (M713 SoC), table: holding, address: 1037, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 1041, type: s16}, note: Whole percent on the aGate; the library computes a finer value as WHAvail / WHRtg.}
+  - {key: battery_soh, label: Battery state of health (M713 SoH), table: holding, address: 1038, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 1041, type: s16}}
+  - {key: battery_power, label: Battery power (M714 DCW), table: holding, address: 1048, type: s16, unit: W, scale_exponent_from: {table: holding, address: 1059, type: s16}, positive: discharge, note: 'Positive = discharging, the opposite of the SunSpec convention, per the library.'}
+  - {key: pv_power, label: Solar power, table: holding, address: 15502, type: u16, unit: W, invalid: [65535], note: FranklinWH extension block. The library treats values above 25000 W as invalid.}
+  - {key: state, label: Operating mode, table: holding, address: 15507, type: u16, enum: operating_mode, writable: true, note: Writes (1-3 only) need the installer's "SPAN Modbus" unlock; without it the aGate acknowledges and ignores them.}
+  - {key: x.self_reserve, label: Self-consumption reserve, table: holding, address: 15508, type: u16, unit: '%', writable: true, note: Writes need the "SPAN Modbus" unlock (see operating mode).}
+  - {key: x.tou_reserve, label: Time-of-use reserve, table: holding, address: 15509, type: u16, unit: '%', writable: true, note: Writes need the "SPAN Modbus" unlock (see operating mode).}
+  - {key: x.tou_dispatch, label: Time-of-use dispatch state, table: holding, address: 15516, type: u16, enum: tou_dispatch, note: Meaningful only in time-of-use mode.}
+  - {key: load_power, label: Home load, table: holding, address: 16000, type: u16, unit: W, invalid: [65535], note: Undocumented register. The library treats values above 50000 W as invalid.}
+
+enums:
+  conn_state: {'0': Disconnected, '1': Connected, '2': Fault}
+  operating_mode: {'0': Standby, '1': Emergency Backup, '2': Self-Consumption, '3': TOU, '4': Manual}
+  tou_dispatch: {'0': Idle, '1': Home Loads, '2': Standby, '3': Solar Charging, '4': Grid Charging, '5': Grid Discharge, '6': Self Consumption, '7': Grid Export, '8': Grid Charge}
+  enabled: {'0': Disabled, '1': Enabled}
+
+flags:
+  alarm: {'0': Ground fault, '1': Dc over volt, '2': Ac disconnect, '3': Dc disconnect, '4': Grid disconnect, '5': Cabinet open, '6': Manual shutdown, '7': Over temp, '8': Over frequency, '9': Under frequency, '10': Ac over volt, '11': Ac under volt, '12': Blown string fuse, '13': Under temp, '14': Memory loss, '15': Hw test failure}
+
+notes:
+- 'SunSpec models at fixed addresses: 1 (common) from 4, 701 (AC measurement) from 72, 702 (capacity) from 227, 704 (active
+  power control) from 318, 713 (storage) from 1035, 714 (DC measurement) from 1042; FranklinWH''s own block from 15500. Addresses
+  are protocol addresses (SunSpec 40072 = 72).'
+- Writes to the FranklinWH block (15507-15509) need the installer-level "SPAN Modbus" unlock; the SunSpec 704 battery command
+  registers take writes without it.
+- The library's default unit id is 0.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

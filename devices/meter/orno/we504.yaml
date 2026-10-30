@@ -1,0 +1,67 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: orno-we504
+manufacturer: ORNO
+name: OR-WE-504 single-phase energy meter
+kind: meter
+
+sources:
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/orno1p504.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  word_order: big
+
+identify:
+  checks:
+  - - table: holding
+      address: 0
+      type: u32
+      range:
+      - 99
+      - 121
+    - table: holding
+      address: 0
+      type: u32
+      range:
+      - 207
+      - 253
+
+defaults:
+  verified: false
+  sources:
+  - mbmd
+
+points:
+  - {key: l1_voltage, label: Voltage, table: holding, address: 0, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Current, table: holding, address: 1, type: u16, unit: A, scale: 0.1}
+  - {key: frequency, label: Frequency, table: holding, address: 2, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.power, label: Power, table: holding, address: 3, type: u16, unit: W}
+  - {key: reactive_power, label: Reactive Power, table: holding, address: 4, type: u16, unit: var}
+  - {key: apparent_power, label: Apparent Power, table: holding, address: 5, type: u16, unit: VA}
+  - {key: power_factor, label: Cosphi, table: holding, address: 6, type: u16, scale: 0.001}
+  - {key: x.sum, label: Total Sum, table: holding, address: 7, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.reactive_sum, label: Total Reactive, table: holding, address: 9, type: u32, unit: kvarh, scale: 0.001}
+
+notes:
+- Serial defaults to 9600 baud 8E1, unit id 1.
+- mbmd (type code ORNO1P504) detects the meter by reading Voltage (holding register 0, u32); its bus scan accepts a value
+  within 10% of 110 or 230 V. Its normal read of that register uses u16.
+- Identification as mbmd recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

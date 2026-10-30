@@ -1,0 +1,126 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Future Design Controls FDC-2500/9300/8300/4300 Modbus Protocol Parameters (ModParm 7-17-2003).
+
+modbusspec: 0
+id: futuredesigncontrols-fdc300
+manufacturer: Future Design Controls
+name: FDC 300 series temperature and process controller (2500 / 9300 / 8300 / 4300)
+kind: other
+
+sources:
+- title: FDC-2500/9300/8300/4300 Modbus Protocol Parameters
+  version: ModParm 7-17-2003
+  url: https://futuredesigncontrols.com/wp-content/uploads/2026/09/FDC-Modbus-300-Series-Parameters.pdf
+  sha256: e2fa1901576cb02945363d2f3c4d6b440e8e5e74c0f0a05783c63beab44f2240
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 111
+    type: u16
+
+models:
+  - {id: fdc2500, name: FDC-2500, match: {table: holding, address: 140, type: u16, range: [0, 99]}}
+  - {id: fdc9300, name: FDC-9300, match: {table: holding, address: 140, type: u16, range: [100, 199]}}
+  - {id: fdc8300, name: FDC-8300, match: {table: holding, address: 140, type: u16, range: [300, 399]}}
+  - {id: fdc4300, name: FDC-4300, match: {table: holding, address: 140, type: u16, range: [400, 499]}}
+
+points:
+  # Live values
+  - {key: x.process_value, label: PV current process value, table: holding, address: 128, type: u16, scale: 0.1, offset: -1999.9, poll: fast, verified: false, note: Scaling for one decimal (the default); see notes.}
+  - {key: x.setpoint_current, label: SV current set point value, table: holding, address: 129, type: u16, scale: 0.1, offset: -1999.9, poll: fast, verified: false, note: Scaling as x.process_value.}
+  - {key: x.output1, label: MV1 current output 1 value, table: holding, address: 130, type: u16, scale: 0.01, unit: '%', poll: fast}
+  - {key: x.output2, label: MV2 current output 2 value, table: holding, address: 131, type: u16, scale: 0.01, unit: '%', poll: fast}
+  - {key: x.alarm_status, label: ALM alarm status, table: holding, address: 132, type: u16, bits: [0, 1], enum: alarm_status, poll: fast}
+  - {key: x.alm, label: ALM conditional code and alarm status, table: holding, address: 132, type: u16, poll: slow, note: 'Bits 0–1 alarm status, 2 A1FN kind, 3 A2FN kind, 4–5 AOFN kind, 6 PV mode kind, 8–9 DP1, 10–11 DP2, 12–13 IN1 kind, 14–15 IN2 kind.'}
+  - {key: x.pv1_decimals, label: ALM DP1 (IN1 decimal point), table: holding, address: 132, type: u16, bits: [8, 9], poll: slow}
+  - {key: x.deviation, label: DV current deviation (PV − SV), table: holding, address: 133, type: u16, scale: 0.1, offset: -1999.9, poll: fast, verified: false, note: Scaling as x.process_value.}
+  - {key: x.pv1, label: PV1 IN1 process value, table: holding, address: 134, type: u16, scale: 0.1, offset: -1999.9, poll: fast, verified: false, note: Scaling for DP1 = 1 (the default).}
+  - {key: x.pv2, label: PV2 IN2 process value, table: holding, address: 135, type: u16, scale: 0.1, offset: -1999.9, poll: fast, optional: true, verified: false, note: Scaling for DP2 = 1 (the default).}
+  - {key: x.setpoint_target, label: SPC current target value of set point, table: holding, address: 148, type: u16, scale: 0.1, offset: -1999.9, poll: fast, verified: false, note: Scaling as x.process_value.}
+  - {key: x.pv_rate, label: PVR current process rate value, table: holding, address: 145, type: u16, scale: 0.1, offset: -1999.9, poll: fast, verified: false, note: PV units per minute; scaling as x.process_value.}
+  - {key: x.pv_max, label: PVHI historical maximum value of PV, table: holding, address: 122, type: u16, scale: 0.1, offset: -1999.9, poll: slow, verified: false}
+  - {key: x.pv_min, label: PVLO historical minimum value of PV, table: holding, address: 123, type: u16, scale: 0.1, offset: -1999.9, poll: slow, verified: false}
+  - {key: x.cold_junction_temperature, label: CJCT cold junction compensation temperature, table: holding, address: 144, type: u16, scale: 0.01, offset: -199.99, unit: °C, poll: slow, verified: false, note: Range −40.00…90.00 °C; two decimals assumed from that range.}
+  - {key: x.proportional_band_current, label: PB current proportional band value, table: holding, address: 136, type: u16, scale: 0.1, poll: slow, verified: false, note: One decimal assumed (range 0…500.0).}
+  - {key: x.integral_time_current, label: TI current integral time value, table: holding, address: 137, type: u16, unit: s, poll: slow}
+  - {key: x.derivative_time_current, label: TD current derivative time value, table: holding, address: 138, type: u16, unit: s, poll: slow}
+  - {key: error_code, label: EROR current error code, table: holding, address: 139, type: u16, enum: error_code, poll: fast, verified: false, note: 0 = no error is not stated in the document; assumed.}
+  - {key: x.mode, label: MODE lockout status and system mode, table: holding, address: 141, type: u16, poll: fast, note: 'Shown as X.Y (0…3.5): Y = system mode (0 normal, 1 calibration, 2 auto-tuning, 3 failure, 4 manual, 5 sleep), X = lockout (0 unlocked, 1 SP1 and SEL1…SEL5 unlocked, 2 all locked except SP1, 3 all locked). How X and Y sit in the register is not stated.'}
+  - {key: x.error_record1, label: ERR1 historical error record 1, table: holding, address: 114, type: u16, poll: slow}
+  - {key: x.error_record2, label: ERR2 historical error record 2, table: holding, address: 115, type: u16, poll: slow}
+
+  # Identity
+  - {key: firmware, label: PROG program identification code, table: holding, address: 140, type: u16, scale: 0.01, poll: slow, verified: false, note: 'Integer part = product, two decimals = program version (0.xx FDC-2500, 1.xx FDC-9300, 3.xx FDC-8300, 4.xx FDC-4300). Two decimals assumed from the 0…15.99 range.'}
+  - {key: x.manufacturing_date, label: DATE manufacturing date of product, table: holding, address: 110, type: u16, poll: slow}
+  - {key: serial, label: NO serial number of product, table: holding, address: 111, type: u16, poll: slow}
+  - {key: x.working_hours, label: HOUR working hour value, table: holding, address: 112, type: u16, unit: h, poll: slow}
+
+  # Settings (writable)
+  - {key: x.setpoint1, label: SP1 set point 1, table: holding, address: 0, type: u16, scale: 0.1, offset: -1999.9, writable: true, poll: slow, verified: false, note: Scaling as x.process_value.}
+  - {key: x.setpoint2, label: SP2 set point 2, table: holding, address: 15, type: u16, scale: 0.1, offset: -1999.9, writable: true, poll: slow, verified: false, note: Scaling as x.process_value.}
+  - {key: x.alarm1_setpoint, label: A1SP alarm 1 set point, table: holding, address: 2, type: u16, scale: 0.1, offset: -1999.9, writable: true, poll: slow, verified: false}
+  - {key: x.alarm2_setpoint, label: A2SP alarm 2 set point, table: holding, address: 4, type: u16, scale: 0.1, offset: -1999.9, writable: true, poll: slow, verified: false}
+  - {key: x.input1_type, label: IN1 sensor type selection, table: holding, address: 35, type: u16, enum: in1_type, writable: true, poll: slow}
+  - {key: x.input1_unit, label: IN1U IN1 unit selection, table: holding, address: 36, type: u16, enum: input_unit, writable: true, poll: slow}
+  - {key: x.input1_decimals, label: DP1 IN1 decimal point selection, table: holding, address: 37, type: u16, writable: true, min: 0, max: 3, poll: slow, note: Default 1.}
+  - {key: x.input2_type, label: IN2 signal type selection, table: holding, address: 42, type: u16, enum: in2_type, writable: true, poll: slow}
+  - {key: x.pv_mode, label: PVMD PV mode selection, table: holding, address: 65, type: u16, enum: pv_mode, writable: true, poll: slow}
+  - {key: x.setpoint_mode, label: SPMD set point mode selection, table: holding, address: 68, type: u16, enum: setpoint_mode, writable: true, poll: slow}
+  - {key: x.self_tune, label: SELF self tune function selection, table: holding, address: 63, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.output1_power_limit, label: PL1 output 1 power limit, table: holding, address: 22, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, verified: false, note: Scale 1 assumed.}
+  - {key: x.output2_power_limit, label: PL2 output 2 power limit, table: holding, address: 23, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, verified: false, note: Scale 1 assumed.}
+  - {key: x.modbus_address, label: ADDR address of digital COMM, table: holding, address: 27, type: u16, poll: slow, note: Read only over Modbus; set on the front panel.}
+  - {key: x.baud, label: BAUD baud rate of digital COMM, table: holding, address: 28, type: u16, enum: baud, poll: slow, note: Read only over Modbus.}
+  - {key: x.parity, label: PARI parity bit of digital COMM, table: holding, address: 30, type: u16, enum: parity, poll: slow, note: Read only over Modbus.}
+  - {key: x.command, label: CMND command password, table: holding, address: 142, type: u16, writable: true, poll: slow}
+
+enums:
+  alarm_status: {'0': No alarm, '1': Alarm 1, '2': Alarm 2, '3': Alarm 1 and alarm 2}
+  off_on: {'0': 'off', '1': 'on'}
+  input_unit: {'0': °C, '1': °F, '2': Process unit}
+  in1_type: {'0': J thermocouple, '1': K thermocouple, '2': T thermocouple, '3': E thermocouple, '4': B thermocouple, '5': R thermocouple, '6': S thermocouple, '7': N thermocouple, '8': L thermocouple, '9': PT100 DIN, '10': PT100 JIS, '11': 4–20 mA, '12': 0–20 mA, '13': 0–1 V, '14': 0–5 V, '15': 1–5 V, '16': 0–10 V, '17': Special sensor curve}
+  in2_type: {'0': None, '1': Current transformer, '2': 4–20 mA, '3': 0–20 mA, '4': 0–1 V, '5': 0–5 V, '6': 1–5 V, '7': 0–10 V, '8': J thermocouple, '9': K thermocouple, '10': T thermocouple, '11': E thermocouple, '12': B thermocouple, '13': R thermocouple, '14': S thermocouple, '15': N thermocouple, '16': L thermocouple, '17': PT100 DIN, '18': PT100 JIS, '19': Special sensor curve, '20': Event input function}
+  pv_mode: {'0': PV1, '1': PV2, '2': PV1 − PV2, '3': PV2 − PV1}
+  setpoint_mode: {'0': SP1 or SP2, '1': Minute ramp rate, '2': Hour ramp rate, '3': IN1 process value, '4': IN2 process value, '5': Pump control}
+  baud: {'0': '300', '1': '600', '2': '1200', '3': '2400', '4': '4800', '5': '9600', '6': '14400', '7': '19200', '8': '28800', '9': '38400'}
+  parity: {'0': Even, '1': Odd, '2': None}
+  error_code: {'0': No error, '1': 'Illegal setup, PV1 used for both PVMD and SPMD', '2': 'Illegal setup, PV2 used for both PVMD and SPMD', '3': 'Illegal setup, PV difference with PV1 or PV2 as set point', '4': 'Illegal setup, OUT2 cooling with OUT1 not in reverse PID mode', '5': 'Illegal setup, IN1 and IN2 units or decimal points differ', '6': 'Illegal setup, OUT2 = alarm 2 but A2FN = none', '7': 'Illegal setup, dwell timer selected for both alarms', '9': 'Communication error, receive error', '10': 'Communication error, bad function code', '11': 'Communication error, register address out of range', '12': 'Communication error, non-existent parameter', '14': 'Communication error, write to read-only data', '15': 'Communication error, value out of range', '17': 'Computing error, illegal floating point data', '18': 'Computing error, overflow or underflow', '19': 'Computing error, divided by zero', '20': 'Computing error, illegal BCD data', '21': 'Timing error, A/D conversion overrun', '22': 'Timing error, multi-chip check-sum error', '23': 'Timing error, multi-chip wrong function code', '26': Auto-tuning failed, '27': Calibration error, '28': Memory comparison error (EEPROM / RAM), '29': EEPROM can't be written, '32': Cold junction compensation malfunction, '33': Key switch shorted, '34': IN2 signal too low, '35': IN2 signal too high, '36': IN1 signal too low, '37': IN1 signal too high, '38': IN2 sensor break, '39': IN1 sensor break, '40': A/D converter malfunction}
+
+problems:
+  - {when: {key: error_code, range: [1, 15]}, kind: warning, text: '{text} (error {value})'}
+  - {when: {key: error_code, in: [26, 27]}, kind: warning, text: '{text} (error {value})'}
+  - {when: {key: error_code, range: [16, 23]}, kind: fault, text: '{text} (error {value})'}
+  - {when: {key: error_code, range: [28, 40]}, kind: fault, text: '{text} (error {value})'}
+  - {when: {key: x.alarm_status, not: 0}, kind: warning, text: '{text}'}
+
+notes:
+- Register addresses are protocol addresses as the document numbers them (0…157). The document gives no function codes; reading
+  with function 03 is assumed.
+- Interface RS-485 or RS-232, Modbus RTU or ASCII (PROT). Communication settings can only be changed on the front panel; defaults
+  9600 bit/s, 8 data bits, even parity, 1 stop bit (BAUD 5, DATA 1, PARI 0, STOP 0). The default address is not stated; 1
+  assumed. Port 502 is for a Modbus TCP gateway in front of it. No request size limit is stated.
+- Every register is an unsigned word; the value is scale low + raw × (scale high − scale low) / 65535. For PV-type values
+  the scale is −19999…45536 (raw − 19999 in display counts), and the decimal point follows DP1 / DP2 (0…3, default 1, also
+  in ALM bits 8–11). One decimal is taken here; with another DP setting scale and offset must be adapted. The unit follows
+  IN1U / IN2U (°C, °F or process unit) and PVMD, so no unit is set.
+- 'Possibly related to other controller lines: the PROG table also lists FDC-9500 (2.xx), FDC-7200 (5.xx), FDC-9100 (6.xx),
+  SM-40A (7.xx) and ST-30A / ST-20A transmitters, which this register map doesn''t cover.'
+- 'Left out: PID, alarm, output, retransmission, event input, special sensor curve and calibration parameters, selection parameters
+  SEL1…SEL5, the job password and fractional hour value.'

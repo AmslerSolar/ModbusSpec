@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Flowair VNTLCD 2.1 ModBus parameters list (file version 1.0.272, 11/06/2014).
+
+modbusspec: 0
+id: flowair-vnt
+manufacturer: Flowair
+name: VNT LCD controller (VNTLCD 2.1) for heating / cooling / ventilation fan units
+kind: hvac
+
+sources:
+- title: Flowair VNTLCD 2.1 ModBus parameters list
+  version: 1.0.272 (11/06/2014)
+  url: https://www.orfejas.lt/dokumentacija/flowair/kiti/Flowair_VNT_LCD_MODBUS_protocol_EN.pdf
+  sha256: 2ccb86335b6085b711a974899cbf25058accfd99db3362cc8765fa3197c3738f
+  archive_url: https://web.archive.org/web/20230204153347/https://www.orfejas.lt/dokumentacija/flowair/kiti/Flowair_VNT_LCD_MODBUS_protocol_EN.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Measurements and outputs
+  - {key: x.interior_temperature, label: Interior sensor temperature (INT_SENS), table: holding, address: 0, type: s16, unit: °C, scale: 0.0625, verified: false, note: Signed type not stated in the document; assumed.}
+  - {key: x.exterior_temperature, label: Exterior sensor temperature (EXT_SENS), table: holding, address: 1, type: s16, unit: °C, scale: 0.0625, verified: false, note: Signed type not stated in the document; assumed.}
+  - {key: x.control_temperature, label: Temperature used by the controller (PROCESS_TEMP), table: holding, address: 2, type: s16, unit: °C, scale: 0.0625, verified: false, note: Signed type not stated in the document; assumed.}
+  - {key: x.valve_output, label: Heating/cooling valve output (DIG_OUT), table: holding, address: 3, type: u16, bits: [8, 15], enum: off_on}
+  - {key: x.analog_output, label: AOUT output voltage (ANALOG_OUT), table: holding, address: 3, type: u16, bits: [1, 7], unit: V, scale: 0.0909090909, verified: false, note: 'The document gives bits 1–7, 2 … 11 V and a multiplier of 1/11, which don''t fit together; taken as written (scale ≈ 1/11).'}
+  - {key: x.fan_speed, label: Fan current speed (CURR_SPEED), table: holding, address: 4, type: u16, bits: [8, 15], unit: '%'}
+  - {key: x.antifreeze_temperature, label: Antifreeze temperature (TAF_SET_TEMP), table: holding, address: 4, type: u16, bits: [0, 7], unit: °C, poll: slow}
+  # Status (0x05, 0x06)
+  - {key: x.setpoint, label: Pre-set temperature (TZAD_SET_TEMP), table: holding, address: 5, type: u16, bits: [8, 15], unit: °C}
+  - {key: x.antifreeze_active, label: Antifreeze condition (CRS1_REG_AF), table: holding, address: 5, type: u16, bits: [0, 0], enum: off_on}
+  - {key: x.antifreeze_above, label: 'Antifreeze condition: Tm above TAF (CRS1_REG_AFTm)', table: holding, address: 5, type: u16, bits: [1, 1], enum: false_true}
+  - {key: state, label: Device operating status (CRS1_RUN), table: holding, address: 5, type: u16, bits: [2, 2], enum: run}
+  - {key: x.program_run, label: Operating status in programmer mode (CRS1_CAL_FORCE_RUN), table: holding, address: 5, type: u16, bits: [3, 3], enum: run}
+  - {key: x.control_mode, label: Control condition (CRS1_MODE0), table: holding, address: 5, type: u16, bits: [4, 4], enum: control_mode}
+  - {key: x.work_mode, label: 'Work mode (CRS1_MODE1, CRS1_MODE2)', table: holding, address: 5, type: u16, bits: [5, 6], enum: work_mode, verified: false, note: 'The document writes the two bits as "MODE1:MODE2" pairs without saying which is the high bit; this file reads bits 6–5 as a binary number (bit 6 high). If bit 5 is the high one, ventilation and cooling swap.'}
+  - {key: x.leading_sensor, label: Leading sensor (CRS1_T1), table: holding, address: 5, type: u16, bits: [7, 7], enum: sensor}
+  - {key: x.fan_manual_mode, label: Fan condition in manual mode (CRS2_REG), table: holding, address: 6, type: u16, bits: [8, 8], enum: fan_mode}
+  - {key: x.alarm, label: Device internal error alarm (ALARM_ID), table: holding, address: 10, type: u16, bits: [8, 15]}
+  # Settings (read only here; written through 0x14 ff.)
+  - {key: x.setpoint_manual, label: Pre-set temperature in manual mode (TZAD_MANUAL), table: holding, address: 8, type: u16, bits: [8, 15], unit: °C, poll: slow}
+  - {key: x.setpoint_auto, label: Pre-set temperature in automatic mode (TZAD_AUTO), table: holding, address: 8, type: u16, bits: [0, 7], unit: °C, poll: slow}
+  - {key: x.fan_speed_max, label: Fan speed upper limit (VSPEED_HI), table: holding, address: 9, type: u16, bits: [8, 15], unit: '%', poll: slow}
+  - {key: x.fan_speed_min, label: Fan speed lower limit (VSPEED_LO), table: holding, address: 9, type: u16, bits: [0, 7], unit: '%', poll: slow, note: The document labels this one an upper limit as well; the name says lower.}
+  - {key: x.fan_speed_correction, label: Fan speed correction (VSPEED_CORR), table: holding, address: 10, type: u16, bits: [0, 7], unit: '%', poll: slow}
+  - {key: x.temperature_correction, label: Exterior sensor temperature correction (TEMP_CORR), table: holding, address: 11, type: s16, unit: °C, scale: 0.0625, poll: slow}
+  - {key: x.regulator, label: Temperature regulator setting (PLANT_COEFF), table: holding, address: 12, type: u16, poll: slow, note: 1 … 5.}
+  - {key: x.fan_speed_manual, label: Fan speed in manual mode (VSPEED_MANUAL), table: holding, address: 13, type: u16, bits: [8, 15], unit: '%', poll: slow}
+  - {key: x.fan_speed_auto, label: Fan speed in automatic mode (VSPEED_AUTO), table: holding, address: 13, type: u16, bits: [0, 7], unit: '%', poll: slow}
+  - {key: x.fan_speed_antifreeze, label: Fan speed in antifreeze mode (VSPEED_AF), table: holding, address: 14, type: u16, bits: [8, 15], unit: '%', poll: slow}
+  - {key: x.programmer, label: Programmer condition (CRS3_REG), table: holding, address: 15, type: u16, bits: [8, 10], enum: programmer, poll: slow}
+  - {key: firmware, label: Software version (SOFT_VER), table: holding, address: 15, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.hysteresis_high, label: Temperature hysteresis upper limit (TEMP_HIST_HI), table: holding, address: 16, type: u16, bits: [8, 15], unit: °C, scale: 0.1, offset: -10, poll: slow, note: (raw − 100) / 10.}
+  - {key: x.hysteresis_low, label: Temperature hysteresis lower limit (TEMP_HIST_LO), table: holding, address: 16, type: u16, bits: [0, 7], unit: °C, scale: 0.1, offset: -10, poll: slow, note: (raw − 100) / 10.}
+  # Clock (0x11–0x13)
+  - {key: x.year, label: Actual year (DATE_REG1), table: holding, address: 17, type: u16, bits: [8, 15], poll: slow, verified: false, note: The document gives 0 … 2099 for an 8-bit field; probably years since 2000. Not stated in the document.}
+  - {key: x.month, label: Actual month (DATE_REG2), table: holding, address: 17, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.day, label: Actual day (DATE_REG3), table: holding, address: 18, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.hour, label: Actual hour (TIME_REG1), table: holding, address: 18, type: u16, bits: [0, 7], unit: h, poll: slow}
+  - {key: x.minute, label: Actual minutes (TIME_REG2), table: holding, address: 19, type: u16, bits: [8, 15], unit: min, poll: slow}
+  - {key: x.time_zone, label: Actual time zone of the weekly programmer (CURR_ZONE), table: holding, address: 19, type: u16, bits: [0, 7], poll: slow, note: 0 … 6.}
+  # Writable settings (0x14–0x17)
+  - {key: x.set_fan_manual_mode, label: Fan condition in manual mode selection (COM_PRACA_WENT), table: holding, address: 20, type: u16, bits: [11, 11], enum: fan_mode, writable: true, poll: slow}
+  - {key: x.set_leading_sensor, label: Leading sensor selection (COM_T1), table: holding, address: 20, type: u16, bits: [10, 10], enum: sensor, writable: true, poll: slow}
+  - {key: x.set_control_mode, label: Control mode selection (COM_MODE0), table: holding, address: 20, type: u16, bits: [9, 9], enum: control_mode, writable: true, poll: slow}
+  - {key: x.set_on_off, label: COM connector device on/off (COMctrlSTART), table: holding, address: 20, type: u16, bits: [8, 8], enum: off_on, writable: true, poll: slow}
+  - {key: x.set_antifreeze_temperature, label: Antifreeze temperature set (TAF_SET_TEMP_WR), table: holding, address: 20, type: u16, bits: [0, 7], unit: °C, writable: true, min: 0, max: 12, poll: slow}
+  - {key: x.set_setpoint_manual, label: Manual mode pre-set temperature set (TZAD_MANUAL_WR), table: holding, address: 21, type: u16, bits: [8, 15], unit: °C, writable: true, min: 5, max: 50, poll: slow}
+  - {key: x.set_setpoint_auto, label: Automatic mode pre-set temperature set (TZAD_AUTO_WR), table: holding, address: 21, type: u16, bits: [0, 7], unit: °C, writable: true, min: 5, max: 50, poll: slow}
+  - {key: x.set_fan_speed_manual, label: Manual mode fan speed set (VSPEED_MANUAL_WR), table: holding, address: 22, type: u16, bits: [8, 15], unit: '%', writable: true, min: 1, max: 99, poll: slow}
+  - {key: x.set_regulator, label: Temperature regulator set (PLANT_COEFF_WR), table: holding, address: 22, type: u16, bits: [0, 7], writable: true, min: 1, max: 5, poll: slow}
+  - {key: x.set_programmer, label: Programmer mode set (SEL_CALENDAR_TYPE), table: holding, address: 23, type: u16, bits: [8, 10], enum: programmer, writable: true, poll: slow}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  false_true: {'0': 'No', '1': 'Yes'}
+  run: {'0': Stop, '1': Start}
+  control_mode: {'0': Manual, '1': Automatic}
+  work_mode: {'0': Heating, '1': Ventilation, '2': Cooling, '3': Empty}
+  sensor: {'0': Interior sensor, '1': Exterior sensor}
+  fan_mode: {'0': Continuous, '1': Thermostatic}
+  programmer: {'0': 'Off', '1': 7 days, '2': 5 + 2 days, '3': 1 day}
+
+problems:
+  - {when: {key: x.alarm, not: 0}, kind: fault, text: 'Controller internal error alarm ({value})'}
+  - {when: {key: x.antifreeze_active, equals: 1}, kind: warning, text: Antifreeze protection active}
+
+notes:
+- The VNT LCD (VNTLCD 2.1) is Flowair's wall controller for its fan heaters, coolers and air curtains; it is a Modbus RTU
+  slave on RS-485, 8 data bits, no parity, 1 stop bit. The document leaves the baud rate blank and gives no default slave
+  address (1 assumed; not stated in the document). Port 502 is for a gateway.
+- Only holding registers (function 03; writes with 06 / 16). Addresses are the document's hex addresses, taken as 0-based
+  protocol addresses. Most registers hold two 8-bit values (high byte bits 8–15, low byte bits 0–7).
+- Temperatures in 0x00–0x02 and 0x0B are in 1/16 °C; set temperatures are whole °C. 0x00–0x13 are read-only; settings are
+  changed through 0x14–0x17.
+- Display contrast (0x06) and backlight (0x07) are left out.
+- 'The programmer (CRS3_REG / SEL_CALENDAR_TYPE) bits are read as a binary number with bit 10 high: 0 off, 1 seven days, 2
+  five plus two days, 3 one day.'

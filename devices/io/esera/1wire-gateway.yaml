@@ -1,0 +1,255 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the ESERA Interface-Manual Modbus V1.0 (V1.0 R1.2).
+
+modbusspec: 0
+id: esera-1wire-gateway
+manufacturer: ESERA
+name: 1-Wire Gateway 10 / 11 / 20, ECO 100, Station 200 (without web server)
+kind: io
+
+sources:
+- title: ESERA Interface-Manual Modbus V1.0
+  version: V1.0 R1.2 (2023)
+  url: https://download.esera.de/esera_doku/Handbuecher/Interface-Manual_Modbus_V1.0.pdf
+  sha256: 2e33ff3de47725bd9a0b6f8ea3cb66fd20629904da0e446b2d8cfa5f6fca07cd
+
+connection:
+  default_port: 5000
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+  limits:
+    max_registers: 20
+    min_interval_ms: 500
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 61020
+    type: str
+    length: 9
+  checks:
+  - table: holding
+    address: 61039
+    type: u16
+    range:
+    - 0
+    - 30
+  - table: holding
+    address: 40111
+    type: u32
+    in:
+    - 0
+    - 5
+    - 10
+  # serial number; a device answering 0 or FFFFh everywhere is not this one
+  - table: holding
+    address: 61020
+    type: str
+    length: 9
+    printable: true
+
+points:
+  # System variables
+  - {key: x.gateway_number, label: Gateway no., table: holding, address: 60000, type: u16, poll: slow}
+  - {key: x.item_number, label: Item no., table: holding, address: 60001, type: u16, poll: slow, note: ESERA part number of the gateway.}
+  - {key: firmware, label: Firmware version, table: holding, address: 61000, type: str, length: 4, poll: slow}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 61010, type: str, length: 3, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 61020, type: str, length: 9, poll: slow}
+  - {key: x.rtc_time, label: Time (RTC), table: holding, address: 61030, type: str, length: 4, poll: slow, note: 'Text hh:mm:ss.'}
+  - {key: x.rtc_date, label: Date (RTC), table: holding, address: 61035, type: str, length: 4, poll: slow, note: Text dd.mm.yy.}
+  - {key: x.owd_count, label: OWD quantity, table: holding, address: 61039, type: u16, poll: slow, note: Number of 1-Wire sensors / actuators stored.}
+  # Gateway I/O (only some gateways, see notes)
+  - {key: x.binary_inputs, label: Binary inputs (Gateway 2 / 20), table: holding, address: 1, type: u16, optional: true}
+  - {key: x.binary_outputs, label: Binary outputs (Gateway 2 / 20), table: holding, address: 2, type: u16, optional: true, writable: true, note: Also coils 32–36.}
+  - {key: x.analog_output, label: Analog output (Gateway 2 / 20), table: holding, address: 3, type: u16, optional: true, writable: true}
+  # OWD 1 (1-Wire device slot 1)
+  - {key: x.owd1_temperature, label: OWD 1 temperature, table: holding, address: 40100, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd1_status, label: OWD 1 status, table: holding, address: 40111, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd1_part_number, label: OWD 1 part number / type, table: holding, address: 40115, type: u32, optional: true, poll: slow}
+  # OWD 2 (1-Wire device slot 2)
+  - {key: x.owd2_temperature, label: OWD 2 temperature, table: holding, address: 40200, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd2_status, label: OWD 2 status, table: holding, address: 40211, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd2_part_number, label: OWD 2 part number / type, table: holding, address: 40215, type: u32, optional: true, poll: slow}
+  # OWD 3 (1-Wire device slot 3)
+  - {key: x.owd3_temperature, label: OWD 3 temperature, table: holding, address: 40300, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd3_status, label: OWD 3 status, table: holding, address: 40311, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd3_part_number, label: OWD 3 part number / type, table: holding, address: 40315, type: u32, optional: true, poll: slow}
+  # OWD 4 (1-Wire device slot 4)
+  - {key: x.owd4_temperature, label: OWD 4 temperature, table: holding, address: 40400, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd4_status, label: OWD 4 status, table: holding, address: 40411, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd4_part_number, label: OWD 4 part number / type, table: holding, address: 40415, type: u32, optional: true, poll: slow}
+  # OWD 5 (1-Wire device slot 5)
+  - {key: x.owd5_temperature, label: OWD 5 temperature, table: holding, address: 40500, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd5_status, label: OWD 5 status, table: holding, address: 40511, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd5_part_number, label: OWD 5 part number / type, table: holding, address: 40515, type: u32, optional: true, poll: slow}
+  # OWD 6 (1-Wire device slot 6)
+  - {key: x.owd6_temperature, label: OWD 6 temperature, table: holding, address: 40600, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd6_status, label: OWD 6 status, table: holding, address: 40611, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd6_part_number, label: OWD 6 part number / type, table: holding, address: 40615, type: u32, optional: true, poll: slow}
+  # OWD 7 (1-Wire device slot 7)
+  - {key: x.owd7_temperature, label: OWD 7 temperature, table: holding, address: 40700, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd7_status, label: OWD 7 status, table: holding, address: 40711, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd7_part_number, label: OWD 7 part number / type, table: holding, address: 40715, type: u32, optional: true, poll: slow}
+  # OWD 8 (1-Wire device slot 8)
+  - {key: x.owd8_temperature, label: OWD 8 temperature, table: holding, address: 40800, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd8_status, label: OWD 8 status, table: holding, address: 40811, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd8_part_number, label: OWD 8 part number / type, table: holding, address: 40815, type: u32, optional: true, poll: slow}
+  # OWD 9 (1-Wire device slot 9)
+  - {key: x.owd9_temperature, label: OWD 9 temperature, table: holding, address: 40900, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd9_status, label: OWD 9 status, table: holding, address: 40911, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd9_part_number, label: OWD 9 part number / type, table: holding, address: 40915, type: u32, optional: true, poll: slow}
+  # OWD 10 (1-Wire device slot 10)
+  - {key: x.owd10_temperature, label: OWD 10 temperature, table: holding, address: 41000, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd10_status, label: OWD 10 status, table: holding, address: 41011, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd10_part_number, label: OWD 10 part number / type, table: holding, address: 41015, type: u32, optional: true, poll: slow}
+  # OWD 11 (1-Wire device slot 11)
+  - {key: x.owd11_temperature, label: OWD 11 temperature, table: holding, address: 41100, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd11_status, label: OWD 11 status, table: holding, address: 41111, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd11_part_number, label: OWD 11 part number / type, table: holding, address: 41115, type: u32, optional: true, poll: slow}
+  # OWD 12 (1-Wire device slot 12)
+  - {key: x.owd12_temperature, label: OWD 12 temperature, table: holding, address: 41200, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd12_status, label: OWD 12 status, table: holding, address: 41211, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd12_part_number, label: OWD 12 part number / type, table: holding, address: 41215, type: u32, optional: true, poll: slow}
+  # OWD 13 (1-Wire device slot 13)
+  - {key: x.owd13_temperature, label: OWD 13 temperature, table: holding, address: 41300, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd13_status, label: OWD 13 status, table: holding, address: 41311, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd13_part_number, label: OWD 13 part number / type, table: holding, address: 41315, type: u32, optional: true, poll: slow}
+  # OWD 14 (1-Wire device slot 14)
+  - {key: x.owd14_temperature, label: OWD 14 temperature, table: holding, address: 41400, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd14_status, label: OWD 14 status, table: holding, address: 41411, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd14_part_number, label: OWD 14 part number / type, table: holding, address: 41415, type: u32, optional: true, poll: slow}
+  # OWD 15 (1-Wire device slot 15)
+  - {key: x.owd15_temperature, label: OWD 15 temperature, table: holding, address: 41500, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd15_status, label: OWD 15 status, table: holding, address: 41511, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd15_part_number, label: OWD 15 part number / type, table: holding, address: 41515, type: u32, optional: true, poll: slow}
+  # OWD 16 (1-Wire device slot 16)
+  - {key: x.owd16_temperature, label: OWD 16 temperature, table: holding, address: 41600, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd16_status, label: OWD 16 status, table: holding, address: 41611, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd16_part_number, label: OWD 16 part number / type, table: holding, address: 41615, type: u32, optional: true, poll: slow}
+  # OWD 17 (1-Wire device slot 17)
+  - {key: x.owd17_temperature, label: OWD 17 temperature, table: holding, address: 41700, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd17_status, label: OWD 17 status, table: holding, address: 41711, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd17_part_number, label: OWD 17 part number / type, table: holding, address: 41715, type: u32, optional: true, poll: slow}
+  # OWD 18 (1-Wire device slot 18)
+  - {key: x.owd18_temperature, label: OWD 18 temperature, table: holding, address: 41800, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd18_status, label: OWD 18 status, table: holding, address: 41811, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd18_part_number, label: OWD 18 part number / type, table: holding, address: 41815, type: u32, optional: true, poll: slow}
+  # OWD 19 (1-Wire device slot 19)
+  - {key: x.owd19_temperature, label: OWD 19 temperature, table: holding, address: 41900, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd19_status, label: OWD 19 status, table: holding, address: 41911, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd19_part_number, label: OWD 19 part number / type, table: holding, address: 41915, type: u32, optional: true, poll: slow}
+  # OWD 20 (1-Wire device slot 20)
+  - {key: x.owd20_temperature, label: OWD 20 temperature, table: holding, address: 42000, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd20_status, label: OWD 20 status, table: holding, address: 42011, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd20_part_number, label: OWD 20 part number / type, table: holding, address: 42015, type: u32, optional: true, poll: slow}
+  # OWD 21 (1-Wire device slot 21)
+  - {key: x.owd21_temperature, label: OWD 21 temperature, table: holding, address: 42100, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd21_status, label: OWD 21 status, table: holding, address: 42111, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd21_part_number, label: OWD 21 part number / type, table: holding, address: 42115, type: u32, optional: true, poll: slow}
+  # OWD 22 (1-Wire device slot 22)
+  - {key: x.owd22_temperature, label: OWD 22 temperature, table: holding, address: 42200, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd22_status, label: OWD 22 status, table: holding, address: 42211, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd22_part_number, label: OWD 22 part number / type, table: holding, address: 42215, type: u32, optional: true, poll: slow}
+  # OWD 23 (1-Wire device slot 23)
+  - {key: x.owd23_temperature, label: OWD 23 temperature, table: holding, address: 42300, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd23_status, label: OWD 23 status, table: holding, address: 42311, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd23_part_number, label: OWD 23 part number / type, table: holding, address: 42315, type: u32, optional: true, poll: slow}
+  # OWD 24 (1-Wire device slot 24)
+  - {key: x.owd24_temperature, label: OWD 24 temperature, table: holding, address: 42400, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd24_status, label: OWD 24 status, table: holding, address: 42411, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd24_part_number, label: OWD 24 part number / type, table: holding, address: 42415, type: u32, optional: true, poll: slow}
+  # OWD 25 (1-Wire device slot 25)
+  - {key: x.owd25_temperature, label: OWD 25 temperature, table: holding, address: 42500, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd25_status, label: OWD 25 status, table: holding, address: 42511, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd25_part_number, label: OWD 25 part number / type, table: holding, address: 42515, type: u32, optional: true, poll: slow}
+  # OWD 26 (1-Wire device slot 26)
+  - {key: x.owd26_temperature, label: OWD 26 temperature, table: holding, address: 42600, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd26_status, label: OWD 26 status, table: holding, address: 42611, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd26_part_number, label: OWD 26 part number / type, table: holding, address: 42615, type: u32, optional: true, poll: slow}
+  # OWD 27 (1-Wire device slot 27)
+  - {key: x.owd27_temperature, label: OWD 27 temperature, table: holding, address: 42700, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd27_status, label: OWD 27 status, table: holding, address: 42711, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd27_part_number, label: OWD 27 part number / type, table: holding, address: 42715, type: u32, optional: true, poll: slow}
+  # OWD 28 (1-Wire device slot 28)
+  - {key: x.owd28_temperature, label: OWD 28 temperature, table: holding, address: 42800, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd28_status, label: OWD 28 status, table: holding, address: 42811, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd28_part_number, label: OWD 28 part number / type, table: holding, address: 42815, type: u32, optional: true, poll: slow}
+  # OWD 29 (1-Wire device slot 29)
+  - {key: x.owd29_temperature, label: OWD 29 temperature, table: holding, address: 42900, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd29_status, label: OWD 29 status, table: holding, address: 42911, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd29_part_number, label: OWD 29 part number / type, table: holding, address: 42915, type: u32, optional: true, poll: slow}
+  # OWD 30 (1-Wire device slot 30)
+  - {key: x.owd30_temperature, label: OWD 30 temperature, table: holding, address: 43000, type: s16, optional: true, verified: false, note: Raw value; unit and scaling not stated.}
+  - {key: x.owd30_status, label: OWD 30 status, table: holding, address: 43011, type: u32, enum: owd_status, optional: true}
+  - {key: x.owd30_part_number, label: OWD 30 part number / type, table: holding, address: 43015, type: u32, optional: true, poll: slow}
+
+enums:
+  owd_status: {'0': active, '5': currently not readable, '10': no sensor / actuator present}
+
+problems:
+  - {when: {key: x.owd1_status, equals: 5}, kind: warning, text: 1-Wire device 1 currently not readable}
+  - {when: {key: x.owd2_status, equals: 5}, kind: warning, text: 1-Wire device 2 currently not readable}
+  - {when: {key: x.owd3_status, equals: 5}, kind: warning, text: 1-Wire device 3 currently not readable}
+  - {when: {key: x.owd4_status, equals: 5}, kind: warning, text: 1-Wire device 4 currently not readable}
+  - {when: {key: x.owd5_status, equals: 5}, kind: warning, text: 1-Wire device 5 currently not readable}
+  - {when: {key: x.owd6_status, equals: 5}, kind: warning, text: 1-Wire device 6 currently not readable}
+  - {when: {key: x.owd7_status, equals: 5}, kind: warning, text: 1-Wire device 7 currently not readable}
+  - {when: {key: x.owd8_status, equals: 5}, kind: warning, text: 1-Wire device 8 currently not readable}
+  - {when: {key: x.owd9_status, equals: 5}, kind: warning, text: 1-Wire device 9 currently not readable}
+  - {when: {key: x.owd10_status, equals: 5}, kind: warning, text: 1-Wire device 10 currently not readable}
+  - {when: {key: x.owd11_status, equals: 5}, kind: warning, text: 1-Wire device 11 currently not readable}
+  - {when: {key: x.owd12_status, equals: 5}, kind: warning, text: 1-Wire device 12 currently not readable}
+  - {when: {key: x.owd13_status, equals: 5}, kind: warning, text: 1-Wire device 13 currently not readable}
+  - {when: {key: x.owd14_status, equals: 5}, kind: warning, text: 1-Wire device 14 currently not readable}
+  - {when: {key: x.owd15_status, equals: 5}, kind: warning, text: 1-Wire device 15 currently not readable}
+  - {when: {key: x.owd16_status, equals: 5}, kind: warning, text: 1-Wire device 16 currently not readable}
+  - {when: {key: x.owd17_status, equals: 5}, kind: warning, text: 1-Wire device 17 currently not readable}
+  - {when: {key: x.owd18_status, equals: 5}, kind: warning, text: 1-Wire device 18 currently not readable}
+  - {when: {key: x.owd19_status, equals: 5}, kind: warning, text: 1-Wire device 19 currently not readable}
+  - {when: {key: x.owd20_status, equals: 5}, kind: warning, text: 1-Wire device 20 currently not readable}
+  - {when: {key: x.owd21_status, equals: 5}, kind: warning, text: 1-Wire device 21 currently not readable}
+  - {when: {key: x.owd22_status, equals: 5}, kind: warning, text: 1-Wire device 22 currently not readable}
+  - {when: {key: x.owd23_status, equals: 5}, kind: warning, text: 1-Wire device 23 currently not readable}
+  - {when: {key: x.owd24_status, equals: 5}, kind: warning, text: 1-Wire device 24 currently not readable}
+  - {when: {key: x.owd25_status, equals: 5}, kind: warning, text: 1-Wire device 25 currently not readable}
+  - {when: {key: x.owd26_status, equals: 5}, kind: warning, text: 1-Wire device 26 currently not readable}
+  - {when: {key: x.owd27_status, equals: 5}, kind: warning, text: 1-Wire device 27 currently not readable}
+  - {when: {key: x.owd28_status, equals: 5}, kind: warning, text: 1-Wire device 28 currently not readable}
+  - {when: {key: x.owd29_status, equals: 5}, kind: warning, text: 1-Wire device 29 currently not readable}
+  - {when: {key: x.owd30_status, equals: 5}, kind: warning, text: 1-Wire device 30 currently not readable}
+
+notes:
+- 'The addresses are taken as the document lists them, as 0-based protocol addresses: its request example reads 61030 with
+  start address bytes 238/102. Whether the 40100… sensor addresses are meant the same way (and not as 4xxxx references) is
+  not stated; assumed.'
+- The document allows function codes 3 and 4 for words, 1 and 2 for bits, 5, 6 and 16 for writing; that both read the same
+  registers is assumed.
+- Default unit id not stated; the request examples use 1. Assumed.
+- Words and double words are big-endian (HL LH, HH HL LH LL).
+- Each 1-Wire device (OWD) n = 1…30 has a block at 40000 + n × 100. What each register holds depends on the sensor or actuator
+  type in that slot (Auto-E-Connect); only the temperature, status and part number are generic. Scaling and units of sensor
+  values are not stated, so they are given raw.
+- Actuator slots (switch modules, 8-fold outputs) hold input / output status words instead of sensor values; their bits can
+  also be read as coils / discrete inputs at register × 16 (e.g. 1632–1639 for OWD 1). Writing outputs uses the same blocks.
+  Left out here.
+- Status 10 (no device present) is normal for unused slots.
+- Time and date can be set by writing 61030 / 61035.
+- For gateways without web server (up to manufacturing year 2023). Newer gateways with web server use esera-eco.
+- Modbus TCP via port 5000 by default (configurable, e.g. 502, with the Network Config Tool). RTU is fixed at 19200 baud 8N1.
+  At most 20 data points per request; poll no faster than every 500 ms, and wait at least 25 ms between requests.
+- ECO 100 and Station 200 detect the protocol (ESERA ASCII or Modbus) from the first command received; after power-on they
+  talk Modbus.
+- Per slot the document also lists operating voltage / input status (+1), humidity (+3), dew point (+5), brightness (+7),
+  air quality (+9) and error counter (+13), varying with the sensor type; left out.

@@ -1,0 +1,95 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: sma-sunny-island
+manufacturer: SMA
+name: Sunny Island (Modbus)
+kind: battery
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/sma-si-modbus.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.sma
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/sma/sma_sunny_island
+
+connection:
+  default_port: 502
+  default_unit: 3
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - openems
+
+points:
+  - {key: x.device_class, label: Device class, table: holding, address: 30051, type: u32}
+  - {key: x.device_type, label: Device type, table: holding, address: 30053, type: u32, enum: sunny_island_device_type}
+  - {key: x.serial_number, label: Serial number, table: holding, address: 30057, type: u32}
+  - {key: x.software_package, label: Software package, table: holding, address: 30059, type: u32}
+  - {key: x.waiting_time_until_feed_in, label: Waiting time until feed in, table: holding, address: 30199, type: u32, unit: s}
+  - {key: x.system_state, label: System state, table: holding, address: 30201, type: u32, enum: system_state}
+  - {key: x.recommended_action, label: Recommended action, table: holding, address: 30211, type: u32}
+  - {key: x.message, label: Message, table: holding, address: 30213, type: u32}
+  - {key: x.fault_correction_measure, label: Fault correction measure, table: holding, address: 30215, type: u32}
+  - {key: x.battery_energy, label: Battery energy, table: holding, address: 30513, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], sources: [evcc]}
+  - {key: x.active_charge_energy, label: Active charge energy, table: holding, address: 30595, type: u32, unit: kWh, scale: 0.001, conflicts: [{sources: [openwb], type: s32, label: Battery imported energy}]}
+  - {key: x.active_discharge_energy, label: Active discharge energy, table: holding, address: 30597, type: u32, unit: kWh, scale: 0.001, conflicts: [{sources: [openwb], type: s32, label: Battery exported energy}]}
+  - {key: battery_power, label: Active power, table: holding, address: 30775, type: s32, unit: W, positive: discharge, sources: [openems, openwb]}
+  - {key: l1_power, label: Active power l1, table: holding, address: 30777, type: s32, unit: W, positive: discharge}
+  - {key: l2_power, label: Active power l2, table: holding, address: 30779, type: s32, unit: W, positive: discharge}
+  - {key: l3_power, label: Active power l3, table: holding, address: 30781, type: s32, unit: W, positive: discharge}
+  - {key: x.grid_voltage_l1, label: Grid voltage l1, table: holding, address: 30783, type: s32, unit: V, scale: 0.01}
+  - {key: x.grid_voltage_l2, label: Grid voltage l2, table: holding, address: 30785, type: s32, unit: V, scale: 0.01}
+  - {key: x.grid_voltage_l3, label: Grid voltage l3, table: holding, address: 30787, type: s32, unit: V, scale: 0.01}
+  - {key: x.frequency, label: Frequency, table: holding, address: 30803, type: u32, unit: Hz, scale: 0.01}
+  - {key: x.reactive_power_l1, label: Reactive power l1, table: holding, address: 30807, type: s32, unit: var, note: OpenEMS negates this register for its channel.}
+  - {key: x.reactive_power_l2, label: Reactive power l2, table: holding, address: 30809, type: s32, unit: var, note: OpenEMS negates this register for its channel.}
+  - {key: x.reactive_power_l3, label: Reactive power l3, table: holding, address: 30811, type: s32, unit: var, note: OpenEMS negates this register for its channel.}
+  - {key: x.operating_mode_for_active_power_limitation, label: Operating mode for active power limitation, table: holding, address: 30835, type: u32, enum: operating_mode_for_active_power_limitation}
+  - {key: x.battery_current, label: Battery current, table: holding, address: 30843, type: s32, unit: A, scale: 0.001}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 30845, type: u32, unit: '%', invalid: [4294967295], sources: [evcc, openems], conflicts: [{sources: [openwb], type: s32}]}
+  - {key: x.current_battery_capacity, label: Current battery capacity, table: holding, address: 30847, type: s32, unit: '%'}
+  - {key: x.battery_temperature, label: Battery temperature, table: holding, address: 30849, type: s32, unit: °C, scale: 0.1}
+  - {key: x.battery_voltage, label: Battery voltage, table: holding, address: 30851, type: u32, unit: V, scale: 0.01}
+  - {key: x.lowest_measured_battery_temperature, label: Lowest measured battery temperature, table: holding, address: 30997, type: s32, unit: °C, scale: 0.1}
+  - {key: x.highest_measured_battery_temperature, label: Highest measured battery temperature, table: holding, address: 30999, type: s32, unit: °C, scale: 0.1}
+  - {key: x.max_occurred_battery_voltage, label: Max occurred battery voltage, table: holding, address: 31001, type: s32, unit: V, scale: 0.01}
+  - {key: x.batterymode_40149, label: Battery mode control (write), table: holding, address: 40149, type: s32, unit: W, writable: true, note: 'evcc writes battery mode hold: 0; battery mode charge: -4200.', sources: [evcc, openems, openwb]}
+  - {key: x.batterymode_40151, label: Battery mode control (write), table: holding, address: 40151, type: u32, writable: true, note: 'evcc writes battery mode normal: 803; battery mode hold: 802; battery mode charge: 802.', sources: [evcc, openems, openwb]}
+  - {key: x.set_reactive_power, label: Set reactive power, table: holding, address: 40153, type: s32, unit: VA, writable: true}
+  - {key: x.allowed_charge_power, label: Allowed charge power, table: holding, address: 40189, type: u32, unit: W, note: OpenEMS negates this register for its channel.}
+  - {key: x.allowed_discharge_power, label: Allowed discharge power, table: holding, address: 40191, type: u32, unit: W}
+  - {key: x.min_soc_power_on, label: Min soc power on, table: holding, address: 40705, type: u32, writable: true}
+  - {key: x.min_soc_power_off, label: Min soc power off, table: holding, address: 40707, type: u32, writable: true}
+  - {key: x.grid_guard_code, label: Grid guard code, table: holding, address: 43090, type: u32, writable: true}
+  - {key: x.battery_power, label: Battery power, table: input, address: 30775, type: s32, unit: W, invalid: [-2147483648, 2147483647], sources: [evcc]}
+
+enums:
+  sunny_island_device_type: {'9223': Sunny Island 6.0H-11, '9224': Sunny Island 8.0H-11, '9278': Sunny Island 3.0M-11, '9279': Sunny Island 4.4M-11, '9331': Sunny Island 3.0M-12, '9332': Sunny Island 4.4M (SI 4.4M-12), '9333': Sunny Island 6.0H (SI 6.0H-12), '9334': Sunny Island 8.0H (SI 8.0H-12), '9474': Sunny Island 4.4M-13 (SI4.4M-13), '9475': Sunny Island 6.0H-13 (SI6.0H-13), '9476': Sunny Island 8.0H-13 (SI8.0H-13)}
+  system_state: {'35': Error, '303': 'Off', '307': OK, '455': Warning}
+  operating_mode_for_active_power_limitation: {'303': 'Off', '1077': Active Power Limitation P in W, '1078': Act. Power Lim. as % of Pmax, '1079': Act. Power Lim. via PV System Control, '1390': Act. Power Lim. P via Analog Input, '1391': Act. Power Lim. P via Digital Input}
+
+notes:
+- 'evcc template `sma-si-modbus` (battery) lists: SMA Sunny Island (Modbus).'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

@@ -1,0 +1,138 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Smart Motor Devices BMSD-20Modbus / BMSD-40Modbus user manual (BMSD.Modbus.001, 2025).
+
+modbusspec: 0
+id: smd-bmsd
+manufacturer: Smart Motor Devices
+name: BMSD-20Modbus / BMSD-40Modbus DC brush motor controller
+kind: other
+
+sources:
+- title: DC brush motor controller BMSD-20Modbus / BMSD-40Modbus, user manual
+  version: BMSD.Modbus.001 (2025)
+  url: https://smd.ee/files/products/dc-brush-motor-controllers/bmsd-40modbus/manuals/bmsd-40modbus-manual-en.pdf
+  sha256: 56719585c35fd3976a444f7bff3d6bbdf8acb66c5b6f8bbc104879629ab76287
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+  serial:
+    baud: 115200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  any:
+  - table: input
+    address: 32769
+    type: u16
+    equals: 1001
+  - table: input
+    address: 32769
+    type: u16
+    equals: 1002
+
+models:
+  - {id: bmsd20, name: BMSD-20Modbus, match: {table: input, address: 32769, type: u16, equals: 1001}}
+  - {id: bmsd40, name: BMSD-40Modbus, match: {table: input, address: 32769, type: u16, equals: 1002}}
+
+points:
+  # State registers (input, 3000h…)
+  - {key: x.motor_state, label: STATUS, table: input, address: 12288, type: u16, enum: motor_state, poll: fast}
+  - {key: x.motor_current, label: CURRENT_VALID, table: input, address: 12289, type: u16, unit: A, scale: 0.001, poll: fast, note: Current the motor draws from the supply (raw in mA).}
+  - {key: x.speed, label: SPEED_VALID, table: input, address: 12290, type: u16, unit: rpm, poll: fast}
+  - {key: x.position, label: CURRENT_POSITION, table: input, address: 12291, type: s32, poll: fast, verified: false, note: Hall sensor edges counted. Word order of 32-bit values not stated in the document; assumed high word first.}
+  - {key: x.mcu_temperature, label: TEMPERATURE_MCU, table: input, address: 12293, type: s16, unit: °C, scale: 0.1, poll: fast, verified: false, note: Signedness not stated; assumed signed.}
+  - {key: temperature, label: TEMPERATURE_MOSFET, table: input, address: 12294, type: s16, unit: °C, scale: 0.1, poll: fast, verified: false, note: Power stage (MOSFET) temperature. Signedness not stated; assumed signed.}
+  - {key: x.brake_temperature, label: TEMPERATURE_BRAKE, table: input, address: 12295, type: s16, unit: °C, scale: 0.1, poll: fast, verified: false, note: Braking resistor area. Signedness not stated; assumed signed.}
+  - {key: x.task_counter, label: TASK_COUNTER, table: input, address: 12296, type: u16, poll: fast, note: Random value for checking the link.}
+  - {key: x.user_program_state, label: STATUS_USER_PROGRAM, table: input, address: 12297, type: u16, enum: user_program_state, poll: fast}
+
+  # Inputs (discrete, 1000h…)
+  - {key: x.in1, label: IN1_bit, table: discrete, address: 4096, type: bool, poll: fast, note: 1 = input shorted to GND.}
+  - {key: x.in2, label: IN2_bit, table: discrete, address: 4097, type: bool, poll: fast, note: 1 = input shorted to GND.}
+  - {key: x.hard_stop_input, label: IN_HARD_STOP_bit, table: discrete, address: 4098, type: bool, poll: fast, note: 1 = input shorted to GND (operation allowed with the contact closed).}
+
+  # Motor control (coils, 2000h…): writing 1 triggers the action, the coil returns to 0
+  - {key: x.start, label: START_bit, table: coil, address: 8192, type: bool, writable: true, write_only: true}
+  - {key: x.stop, label: STOP_bit, table: coil, address: 8193, type: bool, writable: true, write_only: true}
+  - {key: x.hard_stop, label: HARD_STOP_bit, table: coil, address: 8194, type: bool, writable: true, write_only: true}
+  - {key: x.clear_position, label: CLR_POSITION_bit, table: coil, address: 8195, type: bool, writable: true, write_only: true}
+
+  # Settings (holding, 5000h…)
+  - {key: x.slave_address, label: SLAVE_ADDRESS_MODBUS, table: holding, address: 20480, type: u16, writable: true, min: 0, max: 247, poll: slow}
+  - {key: x.modbus_framing, label: TYPE_MODBUS, table: holding, address: 20481, type: u16, enum: modbus_framing, writable: true, poll: slow}
+  - {key: x.baud_rate, label: BITRATE_MODBUS, table: holding, address: 20482, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.mode_device, label: MODE_DEVICE, table: holding, address: 20484, type: u16, enum: mode_device, writable: true, poll: slow}
+  - {key: x.mode_user_program, label: MODE_USER_PROGRAM, table: holding, address: 20485, type: u16, enum: mode_user_program, writable: true, poll: slow}
+  - {key: x.mode_rotation, label: MODE_ROTATION, table: holding, address: 20486, type: u16, enum: mode_rotation, writable: true, poll: slow}
+  - {key: x.mode_ext_in, label: MODE_EXT_IN, table: holding, address: 20487, type: u16, writable: true, min: 1, max: 5, poll: slow, note: How IN1 / IN2 act as start/stop and direction signals (edge or level).}
+  - {key: x.position_number, label: POSITION_N, table: holding, address: 20488, type: u16, writable: true, min: 1, max: 4, poll: slow, note: Preset position used with MODE_ROTATION 3.}
+  - {key: x.current_limit, label: REF_CURRENT, table: holding, address: 20489, type: u16, unit: A, scale: 0.001, writable: true, poll: slow, note: 'Raw in mA: 1000…20000 (BMSD-20), 2000…40000 (BMSD-40).'}
+  - {key: x.rated_speed, label: RATED_SPEED, table: holding, address: 20490, type: u16, unit: rpm, writable: true, min: 1000, max: 15000, poll: slow}
+  - {key: x.speed_setpoint, label: SPEED, table: holding, address: 20491, type: u16, unit: rpm, writable: true, min: 30, max: 15000, poll: slow}
+  - {key: x.acceleration, label: ACC, table: holding, address: 20492, type: u16, writable: true, min: 10, max: 1000, poll: slow, note: 'A linear scale (10 ≈ 100 rps², 1000 ≈ 5000 rps²).'}
+  - {key: x.deceleration, label: DEC, table: holding, address: 20493, type: u16, writable: true, min: 10, max: 1000, poll: slow, note: Same scale as ACC.}
+  - {key: x.direction, label: DIRECTION, table: holding, address: 20494, type: u16, enum: direction, writable: true, poll: slow}
+  - {key: x.pulses_per_revolution, label: PULSES_PER_REVOLUTION, table: holding, address: 20495, type: u16, writable: true, min: 1, max: 12, poll: slow}
+  - {key: x.use_hall, label: USE_HALL, table: holding, address: 20496, type: u16, enum: use_hall, writable: true, poll: slow}
+  - {key: x.mode_coil, label: MODE_COIL, table: holding, address: 20497, type: u16, enum: mode_coil, writable: true, poll: slow}
+  - {key: x.offset_compensation, label: OFFSET_COMPENSATION, table: holding, address: 20498, type: s16, writable: true, poll: slow}
+  - {key: x.offset, label: OFFSET, table: holding, address: 20501, type: s32, writable: true, poll: fast, verified: false, note: Remaining move in MODE_ROTATION 2; counts down while moving. Word order assumed (see CURRENT_POSITION).}
+  - {key: x.target_position, label: TARGET_POSITION, table: holding, address: 20505, type: s32, writable: true, poll: slow, verified: false, note: Word order assumed (see CURRENT_POSITION).}
+  - {key: error_code, label: ERROR, table: holding, address: 20515, type: u16, flags: error_bits, poll: fast}
+
+  # Identification (input, 8001h…)
+  - {key: x.hw_major, label: HW_MAJOR (driver type), table: input, address: 32769, type: u16, poll: slow}
+  - {key: x.hw_minor, label: HW_MINOR (hardware version), table: input, address: 32770, type: u16, poll: slow}
+  - {key: x.fw_major, label: FW_MAJOR (software identifier), table: input, address: 32771, type: u16, poll: slow}
+  - {key: firmware, label: FW_MINOR (software version), table: input, address: 32772, type: u16, poll: slow}
+
+enums:
+  motor_state: {'0': Stopped, '1': Forward rotation, '2': Backward rotation}
+  user_program_state: {'1': Stopped by Modbus command, '2': Started by Modbus command, '3': Started at power-on, '4': Running, '5': Finished (END), '6': Finished (ENDF), '7': Stopped by an error}
+  modbus_framing: {'1': ASCII 7E1, '2': ASCII 7O1, '3': RTU 8E1, '4': RTU 8O1, '5': RTU 8N2}
+  baud_rate: {'0': '600', '1': '1200', '2': '2400', '3': '4800', '4': '9600', '5': '14400', '6': '19200', '7': '38400', '8': '57600', '9': '115200', '10': '128000'}
+  mode_device: {'1': Control via Modbus, '2': Control by external signals}
+  mode_user_program: {'1': Stop user program, '2': Start user program, '3': Start user program at power-on}
+  mode_rotation: {'1': Continuous rotation, '2': Move by OFFSET, '3': Move to preset position}
+  direction: {'1': Forward, '2': Backward}
+  use_hall: {'0': No Hall sensors, '1': One Hall sensor, '2': Two Hall sensors}
+  mode_coil: {'0': Open, '1': Closed}
+
+flags:
+  error_bits: {'0': Supply voltage out of range, '1': Motor winding short circuit, '2': Brake circuit overheating, '3': Power circuit overheating, '4': Hall sensor connection error, '5': Emergency stop, '6': MCU overheating, '7': Test control program, '8': User program execution error, '9': Settings read/write error, '10': Output transistor switch error, '11': Current limit exceeded, '12': Breakpoint can't be calculated, '13': Value written out of range, '14': RS-485 parity error, '15': Positioning mode with fewer than two Hall sensors}
+
+problems:
+  - {when: {key: error_code, bit: 0}, kind: fault, text: Supply voltage out of range (bit 0)}
+  - {when: {key: error_code, bit: 1}, kind: fault, text: Motor winding short circuit (bit 1)}
+  - {when: {key: error_code, bit: 2}, kind: fault, text: Brake circuit overheating (bit 2)}
+  - {when: {key: error_code, bit: 3}, kind: fault, text: Power circuit overheating (bit 3)}
+  - {when: {key: error_code, bit: 4}, kind: fault, text: Hall sensor connection error (bit 4)}
+  - {when: {key: error_code, bit: 5}, kind: fault, text: Emergency stop (bit 5)}
+  - {when: {key: error_code, bit: 6}, kind: fault, text: MCU overheating (bit 6)}
+  - {when: {key: error_code, bit: 8}, kind: fault, text: User program execution error (bit 8)}
+  - {when: {key: error_code, bit: 9}, kind: fault, text: Settings read/write error (bit 9)}
+  - {when: {key: error_code, bit: 10}, kind: fault, text: Output transistor switch error (bit 10)}
+  - {when: {key: error_code, bit: 11}, kind: fault, text: Current limit exceeded (bit 11)}
+  - {when: {key: error_code, bit: 12}, kind: warning, text: Breakpoint can't be calculated (bit 12)}
+  - {when: {key: error_code, bit: 13}, kind: warning, text: Value written out of range (bit 13)}
+  - {when: {key: error_code, bit: 14}, kind: warning, text: RS-485 parity error (bit 14)}
+  - {when: {key: error_code, bit: 15}, kind: warning, text: Positioning mode with fewer than two Hall sensors (bit 15)}
+  - {when: {key: x.user_program_state, equals: 7}, kind: fault, text: User program stopped by an error}
+
+notes:
+- Addresses are the document's hex register numbers, taken as 0-based protocol addresses.
+- RS-485 only; factory settings unit 1, 115200 baud, 8E1, RTU. Settings changes need FLAG_SAVE_INI (5024h, write 0x37FA) and
+  a reboot (FLAG_RESTART 5026h, write 0x95AF).
+- Left out the user program buffer (6000h…), the user program data registers (7000h…), the preset positions TARGET_POSITION1…4
+  (501Bh…5021h), OFFSET_CONST, the input debounce times and the broadcast timeout.
+- 'Identification: one of the model matches must hold.'

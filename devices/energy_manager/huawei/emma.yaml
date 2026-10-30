@@ -1,0 +1,192 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: huawei-emma
+manufacturer: Huawei
+name: EMMA
+kind: energy_manager
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/huawei-emma.yaml
+- id: huawei-solar
+  title: huawei-solar-lib (Python library used by Home Assistant)
+  url: https://github.com/wlcrs/huawei-solar-lib
+  license: AGPL-3.0
+  commit: 19dfcfb642f362890b037ce781fb93c396fabc2e
+  path: src/huawei_solar/registers.py, src/huawei_solar/register_names.py, src/huawei_solar/register_values.py
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/huawei/huawei_emma
+
+connection:
+  default_port: 502
+  default_unit: 0
+  transports:
+  - tcp
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 30015
+    type: str
+    length: 10
+  any:
+  - table: holding
+    address: 30000
+    type: str
+    length: 15
+    prefix: SmartHEMS
+
+defaults:
+  verified: false
+  sources:
+  - huawei-solar
+
+points:
+  - {key: x.model_name, label: model_name, table: holding, address: 30000, type: str, length: 15}
+  - {key: serial, label: serial_number, table: holding, address: 30015, type: str, length: 10}
+  - {key: x.emma_software_version, label: emma_software_version, table: holding, address: 30035, type: str, length: 15}
+  - {key: x.emma_model, label: emma_model, table: holding, address: 30222, type: str, length: 20}
+  - {key: x.inverter_total_absorbed_energy, label: inverter_total_absorbed_energy, table: holding, address: 30302, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615]}
+  - {key: x.energy_charged_today, label: energy_charged_today, table: holding, address: 30306, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.total_charged_energy, label: total_charged_energy, table: holding, address: 30308, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615]}
+  - {key: x.battery_energy, label: Battery energy, table: holding, address: 30312, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295], sources: [evcc, huawei-solar]}
+  - {key: x.total_discharged_energy, label: total_discharged_energy, table: holding, address: 30314, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615]}
+  - {key: x.ess_chargeable_energy, label: ess_chargeable_energy, table: holding, address: 30318, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.ess_dischargeable_energy, label: ess_dischargeable_energy, table: holding, address: 30320, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.rated_ess_capacity, label: rated_ess_capacity, table: holding, address: 30322, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.consumption_today, label: consumption_today, table: holding, address: 30324, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.total_energy_consumption, label: total_energy_consumption, table: holding, address: 30326, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615]}
+  - {key: x.feed_in_to_grid_today, label: feed_in_to_grid_today, table: holding, address: 30330, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: grid_export_energy, label: total_feed_in_to_grid, table: holding, address: 30332, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615]}
+  - {key: x.supply_from_grid_today, label: supply_from_grid_today, table: holding, address: 30336, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: grid_import_energy, label: total_supply_from_grid, table: holding, address: 30338, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615]}
+  - {key: x.inverter_energy_yield_today, label: inverter_energy_yield_today, table: holding, address: 30342, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.inverter_total_energy_yield, label: inverter_total_energy_yield, table: holding, address: 30344, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: pv_energy_today, label: pv_yield_today, table: holding, address: 30346, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: pv_energy, label: PV energy, table: holding, address: 30348, type: u64, unit: kWh, scale: 0.01, invalid: [18446744073709551615], sources: [evcc, huawei-solar, openwb]}
+  - {key: pv_power, label: PV power, table: holding, address: 30354, type: s32, unit: W, sources: [evcc, openwb], conflicts: [{sources: [huawei-solar], type: u32}]}
+  - {key: load_power, label: load_power, table: holding, address: 30356, type: u32, unit: W, invalid: [4294967295]}
+  - {key: x.feed_in_power, label: feed_in_power, table: holding, address: 30358, type: s32, unit: W, invalid: [2147483647]}
+  - {key: battery_power, label: Battery power, table: holding, address: 30360, type: s32, unit: W, positive: charge, invalid: [-2147483648, 2147483647], sources: [evcc, huawei-solar, openwb]}
+  - {key: x.inverter_rated_power, label: inverter_rated_power, table: holding, address: 30362, type: u32, unit: W, invalid: [4294967295]}
+  - {key: x.inverter_active_power, label: inverter_active_power, table: holding, address: 30364, type: s32, unit: W, invalid: [2147483647]}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 30368, type: u16, unit: '%', scale: 0.01, invalid: [65535], sources: [evcc, huawei-solar, openwb]}
+  - {key: x.ess_chargeable_capacity, label: ess_chargeable_capacity, table: holding, address: 30369, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.ess_dischargeable_capacity, label: ess_dischargeable_capacity, table: holding, address: 30371, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295]}
+  - {key: x.backup_power_state_of_charge, label: backup_power_state_of_charge, table: holding, address: 30373, type: u16, unit: '%', scale: 0.01, invalid: [65535]}
+  - {key: x.yield_this_month, label: yield_this_month, table: holding, address: 30380, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.monthly_energy_consumption, label: monthly_energy_consumption, table: holding, address: 30382, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.monthly_feed_in_to_grid, label: monthly_feed_in_to_grid, table: holding, address: 30384, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.yield_this_year, label: yield_this_year, table: holding, address: 30386, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.annual_energy_consumption, label: annual_energy_consumption, table: holding, address: 30388, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.yearly_feed_in_to_grid, label: yearly_feed_in_to_grid, table: holding, address: 30390, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.monthly_supply_from_grid, label: monthly_supply_from_grid, table: holding, address: 30394, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.yearly_supply_from_grid, label: yearly_supply_from_grid, table: holding, address: 30396, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.backup_time_notification_threshold, label: backup_time_notification_threshold, table: holding, address: 30406, type: u16, unit: min, invalid: [65535]}
+  - {key: x.energy_charged_this_month, label: energy_charged_this_month, table: holding, address: 30407, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.energy_discharged_this_month, label: energy_discharged_this_month, table: holding, address: 30409, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295]}
+  - {key: x.emma_external_meter_running_status, label: emma_external_meter_running_status, table: holding, address: 30500, type: u16, enum: emma_external_meter_running_status, invalid: [65535]}
+  - {key: x.emma_external_meter_phase_a_voltage, label: emma_external_meter_phase_a_voltage, table: holding, address: 30502, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.emma_external_meter_phase_b_voltage, label: emma_external_meter_phase_b_voltage, table: holding, address: 30504, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.emma_external_meter_phase_c_voltage, label: emma_external_meter_phase_c_voltage, table: holding, address: 30506, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.emma_external_meter_line_voltage_a_b, label: emma_external_meter_line_voltage_a_b, table: holding, address: 30508, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.emma_external_meter_line_voltage_b_c, label: emma_external_meter_line_voltage_b_c, table: holding, address: 30510, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.emma_external_meter_line_voltage_c_a, label: emma_external_meter_line_voltage_c_a, table: holding, address: 30512, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.emma_external_meter_phase_a_current, label: emma_external_meter_phase_a_current, table: holding, address: 30514, type: s32, unit: A, scale: 0.1, invalid: [2147483647]}
+  - {key: x.emma_external_meter_phase_b_current, label: emma_external_meter_phase_b_current, table: holding, address: 30516, type: s32, unit: A, scale: 0.1, invalid: [2147483647]}
+  - {key: x.emma_external_meter_phase_c_current, label: emma_external_meter_phase_c_current, table: holding, address: 30518, type: s32, unit: A, scale: 0.1, invalid: [2147483647]}
+  - {key: x.emma_external_meter_active_power, label: emma_external_meter_active_power, table: holding, address: 30520, type: s32, unit: W, invalid: [2147483647]}
+  - {key: x.emma_external_meter_power_factor, label: emma_external_meter_power_factor, table: holding, address: 30524, type: s32, scale: 0.001, invalid: [2147483647]}
+  - {key: x.emma_external_meter_apparent_power, label: emma_external_meter_apparent_power, table: holding, address: 30526, type: s32, unit: VA, invalid: [2147483647]}
+  - {key: x.emma_external_meter_phase_a_active_power, label: emma_external_meter_phase_a_active_power, table: holding, address: 30528, type: s32, unit: W, invalid: [2147483647]}
+  - {key: x.emma_external_meter_phase_b_active_power, label: emma_external_meter_phase_b_active_power, table: holding, address: 30530, type: s32, unit: W, invalid: [2147483647]}
+  - {key: x.emma_external_meter_phase_c_active_power, label: emma_external_meter_phase_c_active_power, table: holding, address: 30532, type: s32, unit: W, invalid: [2147483647]}
+  - {key: x.emma_external_meter_total_active_energy, label: emma_external_meter_total_active_energy, table: holding, address: 30534, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807]}
+  - {key: x.emma_external_meter_total_negative_active_energy, label: emma_external_meter_total_negative_active_energy, table: holding, address: 30542, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807]}
+  - {key: x.emma_external_meter_total_positive_active_energy, label: emma_external_meter_total_positive_active_energy, table: holding, address: 30550, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807]}
+  - {key: x.number_of_inverters_found, label: number_of_inverters_found, table: holding, address: 30801, type: u16, invalid: [65535]}
+  - {key: x.number_of_chargers_found, label: number_of_chargers_found, table: holding, address: 30804, type: u16, invalid: [65535]}
+  - {key: x.emma_dst_state, label: emma_dst_state, table: holding, address: 31002, type: u16, invalid: [65535]}
+  - {key: x.emma_local_time, label: emma_local_time, table: holding, address: 31003, type: u32, unit: s, invalid: [4294967295]}
+  - {key: l1_voltage, label: Grid L1 voltage, table: holding, address: 31639, type: u32, unit: V, scale: 0.01, sources: [evcc, huawei-solar]}
+  - {key: l2_voltage, label: Grid L2 voltage, table: holding, address: 31641, type: u32, unit: V, scale: 0.01, sources: [evcc, huawei-solar]}
+  - {key: l3_voltage, label: Grid L3 voltage, table: holding, address: 31643, type: u32, unit: V, scale: 0.01, sources: [evcc, huawei-solar]}
+  - {key: x.line_voltage_a_b_built_in_energy, label: line_voltage_a_b_built_in_energy, table: holding, address: 31645, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.line_voltage_b_c_built_in_energy, label: line_voltage_b_c_built_in_energy, table: holding, address: 31647, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.line_voltage_c_a_built_in_energy, label: line_voltage_c_a_built_in_energy, table: holding, address: 31649, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l1_current, label: Grid L1 current, table: holding, address: 31651, type: s32, unit: A, scale: 0.1, sources: [evcc, huawei-solar, openwb]}
+  - {key: l2_current, label: Grid L2 current, table: holding, address: 31653, type: s32, unit: A, scale: 0.1, sources: [evcc, huawei-solar, openwb]}
+  - {key: l3_current, label: Grid L3 current, table: holding, address: 31655, type: s32, unit: A, scale: 0.1, sources: [evcc, huawei-solar, openwb]}
+  - {key: grid_power, label: Grid power, table: holding, address: 31657, type: s32, unit: W, positive: import, sources: [evcc, huawei-solar, openwb]}
+  - {key: x.power_factor_built_in_energy, label: power_factor_built_in_energy, table: holding, address: 31661, type: s32, scale: 0.001, invalid: [2147483647]}
+  - {key: x.apparent_power_built_in_energy, label: apparent_power_built_in_energy, table: holding, address: 31663, type: s32, unit: VA, invalid: [2147483647]}
+  - {key: x.grid_l1_power, label: Grid L1 power, table: holding, address: 31665, type: s32, unit: W, sources: [evcc, huawei-solar]}
+  - {key: x.grid_l2_power, label: Grid L2 power, table: holding, address: 31667, type: s32, unit: W, sources: [evcc, huawei-solar]}
+  - {key: x.grid_l3_power, label: Grid L3 power, table: holding, address: 31669, type: s32, unit: W, sources: [evcc, huawei-solar]}
+  - {key: x.total_active_energy_built_in_energy, label: total_active_energy_built_in_energy, table: holding, address: 31671, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807]}
+  - {key: x.grid_returnenergy, label: Grid return energy, table: holding, address: 31679, type: s64, unit: kWh, scale: 0.01, sources: [evcc, huawei-solar]}
+  - {key: x.grid_energy, label: Grid energy, table: holding, address: 31687, type: s64, unit: kWh, scale: 0.01, sources: [evcc, huawei-solar]}
+  - {key: x.phase_a_voltage_external_energy, label: phase_a_voltage_external_energy, table: holding, address: 31895, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: x.phase_b_voltage_external_energy, label: phase_b_voltage_external_energy, table: holding, address: 31897, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: x.phase_c_voltage_external_energy, label: phase_c_voltage_external_energy, table: holding, address: 31899, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: x.line_voltage_a_b_external_energy, label: line_voltage_a_b_external_energy, table: holding, address: 31901, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: x.line_voltage_b_c_external_energy, label: line_voltage_b_c_external_energy, table: holding, address: 31903, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: x.line_voltage_c_a_external_energy, label: line_voltage_c_a_external_energy, table: holding, address: 31905, type: u32, unit: V, scale: 0.1, invalid: [4294967295]}
+  - {key: x.phase_a_current_external_energy, label: phase_a_current_external_energy, table: holding, address: 31907, type: s32, unit: A, scale: 0.01, invalid: [2147483647]}
+  - {key: x.phase_b_current_external_energy, label: phase_b_current_external_energy, table: holding, address: 31909, type: s32, unit: A, scale: 0.01, invalid: [2147483647]}
+  - {key: x.phase_c_current_external_energy, label: phase_c_current_external_energy, table: holding, address: 31911, type: s32, unit: A, scale: 0.01, invalid: [2147483647]}
+  - {key: x.active_power_external_energy, label: active_power_external_energy, table: holding, address: 31913, type: s32, unit: W, invalid: [2147483647]}
+  - {key: x.power_factor_external_energy, label: power_factor_external_energy, table: holding, address: 31917, type: s32, scale: 0.001, invalid: [2147483647]}
+  - {key: x.apparent_power_external_energy, label: apparent_power_external_energy, table: holding, address: 31919, type: s32, unit: VA, invalid: [2147483647]}
+  - {key: x.phase_a_active_power_external_energy, label: phase_a_active_power_external_energy, table: holding, address: 31921, type: s32, unit: W, invalid: [2147483647]}
+  - {key: x.phase_b_active_power_external_energy, label: phase_b_active_power_external_energy, table: holding, address: 31923, type: s32, unit: W, invalid: [2147483647]}
+  - {key: x.phase_c_active_power_external_energy, label: phase_c_active_power_external_energy, table: holding, address: 31925, type: s32, unit: W, invalid: [2147483647]}
+  - {key: x.total_active_energy_external_energy, label: total_active_energy_external_energy, table: holding, address: 31927, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807]}
+  - {key: x.total_negative_active_energy_external_energy, label: total_negative_active_energy_external_energy, table: holding, address: 31935, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807]}
+  - {key: x.total_positive_active_energy_external_energy, label: total_positive_active_energy_external_energy, table: holding, address: 31943, type: s64, unit: kWh, scale: 0.01, invalid: [9223372036854775807]}
+  - {key: x.emma_ess_control_mode, label: emma_ess_control_mode, table: holding, address: 40000, type: s16, enum: emma_ess_control_mode, invalid: [32767], writable: true}
+  - {key: x.emma_tou_preferred_use_of_surplus_pv_power, label: emma_tou_preferred_use_of_surplus_pv_power, table: holding, address: 40001, type: u16, enum: storage_excess_pv_energy_use_in_tou, invalid: [65535], writable: true}
+  - {key: x.emma_tou_maximum_power_for_charging_batteries_from_grid, label: emma_tou_maximum_power_for_charging_batteries_from_grid, table: holding, address: 40002, type: u32, unit: W, invalid: [4294967295], writable: true}
+  - {key: x.pv_curtailed_mode, label: PV feed-in / production limit (input mode), table: holding, address: 40100, type: u16, writable: true, note: 'evcc feeds it into a script that computes the PV feed-in / production limit. evcc writes curtail 100: 0; curtail (other values): 7.', sources: [evcc, huawei-solar]}
+  - {key: x.emma_limitation_mode, label: emma_limitation_mode, table: holding, address: 40101, type: u16, enum: emma_limitation_mode, invalid: [65535], writable: true}
+  - {key: x.emma_maximum_feed_grid_power_watt, label: emma_maximum_feed_grid_power_watt, table: holding, address: 40107, type: s32, unit: W, invalid: [2147483647], writable: true}
+  - {key: x.pv_curtailed_percent, label: PV feed-in / production limit (input percent), table: holding, address: 40109, type: u16, unit: '%', scale: 0.1, writable: true, note: evcc feeds it into a script that computes the PV feed-in / production limit., sources: [evcc, huawei-solar]}
+  - {key: x.emma_3phase_imbalance_control, label: emma_3phase_imbalance_control, table: holding, address: 40110, type: u16, enum: bool, invalid: [65535], writable: true}
+  - {key: x.emma_system_time, label: emma_system_time, table: holding, address: 40470, type: u32, unit: s, invalid: [4294967295], writable: true}
+  - {key: x.local_time_year, label: local_time_year, table: holding, address: 40490, type: u16, invalid: [65535], writable: true}
+  - {key: x.emma_power_supply_configuration, label: emma_power_supply_configuration, table: holding, address: 41214, type: u16, enum: emma_power_supply_configuration, invalid: [65535], writable: true}
+  - {key: x.emma_consider_mains_faulty_if, label: emma_consider_mains_faulty_if, table: holding, address: 41215, type: u16, enum: emma_consider_mains_faulty_if, invalid: [65535], writable: true}
+
+enums:
+  emma_external_meter_running_status: {'0': Online, '1': Offline}
+  emma_ess_control_mode: {'1': Reserved 1, '2': Maximum self consumption, '3': Reserved 3, '4': Fully fed to grid, '5': Time of use, '6': Third party dispatch}
+  storage_excess_pv_energy_use_in_tou: {'0': Fed to grid, '1': Charge}
+  emma_limitation_mode: {'0': Total power, '1': Single phase power}
+  bool: {'0': 'False', '1': 'True'}
+  emma_power_supply_configuration: {'0': None, '1': Mains only, '2': Mains and generator, '3': Generator only}
+  emma_consider_mains_faulty_if: {'0': Open, '1': Closed}
+
+notes:
+- 'evcc template `huawei-emma` (grid, pv, battery) lists: Huawei EMMA.'
+- huawei-solar-lib reads and writes everything as holding registers (function 03, writes 06/16).
+- Huawei devices accept only one Modbus TCP connection at a time.
+- The library waits 1 s after connecting and 50 ms between requests.
+- Detected by the model name (30000) starting with SmartHEMS; the product model is at 30222.
+- Identification as huawei-solar recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

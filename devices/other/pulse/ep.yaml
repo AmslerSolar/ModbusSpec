@@ -1,0 +1,220 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Pulse Instruments EP Modbus Manual (180676 Rev I, April 2022).
+
+modbusspec: 0
+id: pulse-ep
+manufacturer: Pulse Instruments
+name: EP200 / EP200N / EP1000 / EP2100 water treatment controllers (Modbus/TCP)
+kind: other
+
+sources:
+- title: Modbus Manual EP2100/EP200N, EP1000/EP200 (180676)
+  version: Rev I (April 2022)
+  url: https://pulseinstruments.net/content/EP%20PDFs/NEW%20EP%20Controllers/EP%20Modbus%20Manual.pdf
+  sha256: 6882b24a059aa83605d6e3f2d75c285743fe168463937b1569a9b5f69d3f0b2f
+  archive_url: https://web.archive.org/web/20240806013201/https://pulseinstruments.net/content/EP%20PDFs/NEW%20EP%20Controllers/EP%20Modbus%20Manual.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    min_interval_ms: 5000
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: detect
+  detect:
+    table: holding
+    address: 38
+    type: f32
+    plausible:
+    - 3
+    - 20
+
+points:
+  # System (block starting at 1-based x0037)
+  - {key: x.controller_time, label: Controller time, table: holding, address: 36, type: u32, epoch: {start: '1970-01-01', unit: s}, poll: slow}
+  - {key: firmware, label: Controller firmware version, table: holding, address: 38, type: f32, poll: slow}
+  - {key: x.last_data_log, label: Date of last data log, table: holding, address: 40, type: u32, epoch: {start: '1970-01-01', unit: s}, poll: slow}
+  - {key: temperature, label: Controller processor temperature, table: holding, address: 42, type: f32, unit: °C}
+  - {key: x.network_card_temperature, label: Network card temperature, table: holding, address: 44, type: f32, unit: °C, poll: slow}
+  - {key: x.di_card_temperature, label: Digital input card temperature, table: holding, address: 46, type: f32, unit: °C, poll: slow, optional: true, note: EP1000 and EP2100 only.}
+  - {key: x.io_card1_temperature, label: I/O card 1 temperature, table: holding, address: 48, type: f32, unit: °C, poll: slow, optional: true}
+  - {key: x.io_card2_temperature, label: I/O card 2 temperature, table: holding, address: 50, type: f32, unit: °C, poll: slow, optional: true}
+  - {key: x.io_card3_temperature, label: I/O card 3 temperature, table: holding, address: 52, type: f32, unit: °C, poll: slow, optional: true, note: EP1000 and EP2100 only.}
+  - {key: x.io_card4_temperature, label: I/O card 4 temperature, table: holding, address: 54, type: f32, unit: °C, poll: slow, optional: true, note: EP1000 and EP2100 only.}
+  - {key: x.battery_voltage, label: Battery power, table: holding, address: 62, type: f32, unit: V, poll: slow, note: Clock button cell.}
+  - {key: x.supply_3v3, label: +3.3 V supply, table: holding, address: 64, type: f32, unit: V, poll: slow}
+  - {key: x.supply_5v, label: +5 V supply, table: holding, address: 66, type: f32, unit: V, poll: slow}
+  - {key: x.supply_12v, label: +12 V supply, table: holding, address: 68, type: f32, unit: V, poll: slow, optional: true, note: EP1000 and EP2100 only.}
+  - {key: x.system_alarms, label: System alarm bitfield, table: holding, address: 71, type: u16, flags: system_alarms}
+
+  # Network (block starting at 1-based x0145)
+  - {key: x.fluent_last_data, label: Fluent last data time, table: holding, address: 144, type: u32, epoch: {start: '1970-01-01', unit: s}, poll: slow}
+  - {key: x.liveconnect_status, label: Fluent LiveConnect status, table: holding, address: 150, type: u16, enum: status, poll: slow}
+  - {key: x.webserver_status, label: WebServer status, table: holding, address: 151, type: u16, enum: status, poll: slow}
+  - {key: x.wifi_signal, label: WiFi signal strength, table: holding, address: 162, type: f32, unit: dBm, poll: slow, optional: true, note: EP1000 and EP2100 only.}
+  - {key: x.wifi_status, label: WiFi status, table: holding, address: 169, type: u16, enum: status, poll: slow, optional: true, note: EP1000 and EP2100 only.}
+  - {key: x.network_alarms, label: Network alarm bitfield, table: holding, address: 179, type: u16, flags: network_alarms}
+
+  # Sensor inputs, alternate map (numbered in the order the controller finds them)
+  - {key: x.sensor1_value, label: Sensor 1 primary value, table: holding, address: 9216, type: f32, optional: true}
+  - {key: x.sensor1_status, label: Sensor 1 status, table: holding, address: 9280, type: u16, enum: status, optional: true}
+  - {key: x.sensor1_alarms, label: Sensor 1 alarm bitfield, table: holding, address: 9312, type: u16, flags: sensor_alarms, optional: true}
+  - {key: x.sensor2_value, label: Sensor 2 primary value, table: holding, address: 9218, type: f32, optional: true}
+  - {key: x.sensor2_status, label: Sensor 2 status, table: holding, address: 9281, type: u16, enum: status, optional: true}
+  - {key: x.sensor2_alarms, label: Sensor 2 alarm bitfield, table: holding, address: 9313, type: u16, flags: sensor_alarms, optional: true}
+  - {key: x.sensor3_value, label: Sensor 3 primary value, table: holding, address: 9220, type: f32, optional: true}
+  - {key: x.sensor3_status, label: Sensor 3 status, table: holding, address: 9282, type: u16, enum: status, optional: true}
+  - {key: x.sensor3_alarms, label: Sensor 3 alarm bitfield, table: holding, address: 9314, type: u16, flags: sensor_alarms, optional: true}
+  - {key: x.sensor4_value, label: Sensor 4 primary value, table: holding, address: 9222, type: f32, optional: true}
+  - {key: x.sensor4_status, label: Sensor 4 status, table: holding, address: 9283, type: u16, enum: status, optional: true}
+  - {key: x.sensor4_alarms, label: Sensor 4 alarm bitfield, table: holding, address: 9315, type: u16, flags: sensor_alarms, optional: true}
+  - {key: x.sensor5_value, label: Sensor 5 primary value, table: holding, address: 9224, type: f32, optional: true}
+  - {key: x.sensor5_status, label: Sensor 5 status, table: holding, address: 9284, type: u16, enum: status, optional: true}
+  - {key: x.sensor5_alarms, label: Sensor 5 alarm bitfield, table: holding, address: 9316, type: u16, flags: sensor_alarms, optional: true}
+  - {key: x.sensor6_value, label: Sensor 6 primary value, table: holding, address: 9226, type: f32, optional: true}
+  - {key: x.sensor6_status, label: Sensor 6 status, table: holding, address: 9285, type: u16, enum: status, optional: true}
+  - {key: x.sensor6_alarms, label: Sensor 6 alarm bitfield, table: holding, address: 9317, type: u16, flags: sensor_alarms, optional: true}
+  - {key: x.sensor7_value, label: Sensor 7 primary value, table: holding, address: 9228, type: f32, optional: true}
+  - {key: x.sensor7_status, label: Sensor 7 status, table: holding, address: 9286, type: u16, enum: status, optional: true}
+  - {key: x.sensor7_alarms, label: Sensor 7 alarm bitfield, table: holding, address: 9318, type: u16, flags: sensor_alarms, optional: true}
+  - {key: x.sensor8_value, label: Sensor 8 primary value, table: holding, address: 9230, type: f32, optional: true}
+  - {key: x.sensor8_status, label: Sensor 8 status, table: holding, address: 9287, type: u16, enum: status, optional: true}
+  - {key: x.sensor8_alarms, label: Sensor 8 alarm bitfield, table: holding, address: 9319, type: u16, flags: sensor_alarms, optional: true}
+
+  # Digital inputs, alternate map
+  - {key: x.di1_state, label: Digital input 1 state, table: holding, address: 9680, type: u16, enum: di_state, optional: true}
+  - {key: x.di1_alarms, label: Digital input 1 alarm bitfield, table: holding, address: 9712, type: u16, flags: di_alarms, optional: true}
+  - {key: x.di2_state, label: Digital input 2 state, table: holding, address: 9681, type: u16, enum: di_state, optional: true}
+  - {key: x.di2_alarms, label: Digital input 2 alarm bitfield, table: holding, address: 9713, type: u16, flags: di_alarms, optional: true}
+  - {key: x.di3_state, label: Digital input 3 state, table: holding, address: 9682, type: u16, enum: di_state, optional: true}
+  - {key: x.di3_alarms, label: Digital input 3 alarm bitfield, table: holding, address: 9714, type: u16, flags: di_alarms, optional: true}
+  - {key: x.di4_state, label: Digital input 4 state, table: holding, address: 9683, type: u16, enum: di_state, optional: true}
+  - {key: x.di4_alarms, label: Digital input 4 alarm bitfield, table: holding, address: 9715, type: u16, flags: di_alarms, optional: true}
+
+  # Relay outputs, alternate map
+  - {key: x.relay1_state, label: Relay 1 state, table: holding, address: 9600, type: u16, enum: on_off, optional: true, note: Not for pulse outputs.}
+  - {key: x.relay1_time_on, label: Relay 1 time on, table: holding, address: 9728, type: u32, unit: s, optional: true}
+  - {key: x.relay1_status, label: Relay 1 status, table: holding, address: 9760, type: u16, enum: status, optional: true}
+  - {key: x.relay1_alarms, label: Relay 1 alarm bitfield, table: holding, address: 9776, type: u16, flags: relay_alarms, optional: true}
+  - {key: x.relay2_state, label: Relay 2 state, table: holding, address: 9601, type: u16, enum: on_off, optional: true, note: Not for pulse outputs.}
+  - {key: x.relay2_time_on, label: Relay 2 time on, table: holding, address: 9730, type: u32, unit: s, optional: true}
+  - {key: x.relay2_status, label: Relay 2 status, table: holding, address: 9761, type: u16, enum: status, optional: true}
+  - {key: x.relay2_alarms, label: Relay 2 alarm bitfield, table: holding, address: 9777, type: u16, flags: relay_alarms, optional: true}
+  - {key: x.relay3_state, label: Relay 3 state, table: holding, address: 9602, type: u16, enum: on_off, optional: true, note: Not for pulse outputs.}
+  - {key: x.relay3_time_on, label: Relay 3 time on, table: holding, address: 9732, type: u32, unit: s, optional: true}
+  - {key: x.relay3_status, label: Relay 3 status, table: holding, address: 9762, type: u16, enum: status, optional: true}
+  - {key: x.relay3_alarms, label: Relay 3 alarm bitfield, table: holding, address: 9778, type: u16, flags: relay_alarms, optional: true}
+  - {key: x.relay4_state, label: Relay 4 state, table: holding, address: 9603, type: u16, enum: on_off, optional: true, note: Not for pulse outputs.}
+  - {key: x.relay4_time_on, label: Relay 4 time on, table: holding, address: 9734, type: u32, unit: s, optional: true}
+  - {key: x.relay4_status, label: Relay 4 status, table: holding, address: 9763, type: u16, enum: status, optional: true}
+  - {key: x.relay4_alarms, label: Relay 4 alarm bitfield, table: holding, address: 9779, type: u16, flags: relay_alarms, optional: true}
+  - {key: x.relay5_state, label: Relay 5 state, table: holding, address: 9604, type: u16, enum: on_off, optional: true, note: Not for pulse outputs.}
+  - {key: x.relay5_time_on, label: Relay 5 time on, table: holding, address: 9736, type: u32, unit: s, optional: true}
+  - {key: x.relay5_status, label: Relay 5 status, table: holding, address: 9764, type: u16, enum: status, optional: true}
+  - {key: x.relay5_alarms, label: Relay 5 alarm bitfield, table: holding, address: 9780, type: u16, flags: relay_alarms, optional: true}
+  - {key: x.relay6_state, label: Relay 6 state, table: holding, address: 9605, type: u16, enum: on_off, optional: true, note: Not for pulse outputs.}
+  - {key: x.relay6_time_on, label: Relay 6 time on, table: holding, address: 9738, type: u32, unit: s, optional: true}
+  - {key: x.relay6_status, label: Relay 6 status, table: holding, address: 9765, type: u16, enum: status, optional: true}
+  - {key: x.relay6_alarms, label: Relay 6 alarm bitfield, table: holding, address: 9781, type: u16, flags: relay_alarms, optional: true}
+  - {key: x.relay7_state, label: Relay 7 state, table: holding, address: 9606, type: u16, enum: on_off, optional: true, note: Not for pulse outputs.}
+  - {key: x.relay7_time_on, label: Relay 7 time on, table: holding, address: 9740, type: u32, unit: s, optional: true}
+  - {key: x.relay7_status, label: Relay 7 status, table: holding, address: 9766, type: u16, enum: status, optional: true}
+  - {key: x.relay7_alarms, label: Relay 7 alarm bitfield, table: holding, address: 9782, type: u16, flags: relay_alarms, optional: true}
+  - {key: x.relay8_state, label: Relay 8 state, table: holding, address: 9607, type: u16, enum: on_off, optional: true, note: Not for pulse outputs.}
+  - {key: x.relay8_time_on, label: Relay 8 time on, table: holding, address: 9742, type: u32, unit: s, optional: true}
+  - {key: x.relay8_status, label: Relay 8 status, table: holding, address: 9767, type: u16, enum: status, optional: true}
+  - {key: x.relay8_alarms, label: Relay 8 alarm bitfield, table: holding, address: 9783, type: u16, flags: relay_alarms, optional: true}
+
+enums:
+  status: {'0': Error, '1': None, '2': 'Sensor: auto calibration', '3': 'Sensor: user calibration', '4': 'DI state: open', '5': 'DI state: closed', '6': 'DI interlock: active', '7': 'DI interlock: inactive', '8': 'Relay: on', '9': 'Relay: off', '10': Unused, '11': Output interlocked, '12': Output forced on, '13': Output timeout, '14': Output input error, '15': Output error, '16': Output hold, '17': 'Output HOA: auto on', '18': 'Output HOA: auto off', '19': 'Output HOA: hand', '20': 'Output HOA: off', '21': Output deadband, '22': Relay timeout, '23': Relay OK, '24': Daily max timeout, '25': 'Biocide: prebleed', '26': 'Biocide: hold', '27': 'Biocide: add', '28': 'Time proportional: off', '29': 'Bleed & feed: bleeding', '30': 'Bleed & feed: timeout', '31': 'Intermittent sampling: wait', '32': 'Intermittent sampling: sample', '33': 'Intermittent sampling: hold', '34': 'Intermittent sampling: bleed', '35': 'Probe wash: on', '36': 'Probe wash: hold', '40': 'Network: off-line', '41': N/A, '42': 'LiveConnect: success', '43': 'LiveConnect: failure', '44': 'Sensor: input failure', '45': 'Sensor: fault error', '46': 'Sensor: range alarm', '47': 'Relay: cycle delay', '48': 'Sensor: normal', '49': 'Sensor: initializing', '50': 'Sensor: default temperature', '51': 'Alarm relay: open', '52': 'Alarm relay: closed', '53': 'Probe wash: relay off', '54': Disabled, '55': 'Duty cycle: off', '56': 'VI calculation: error', '57': 'Output: on delay', '58': 'Output: off delay', '59': 'DI flow verify: off', '60': 'DI flow verify: auto', '61': 'Output PID saturated: high', '62': 'Output PID saturated: low', '63': 'Output: lead lag', '64': 'DI flow verify: reprime', '65': 'Spike: onset', '66': 'Spike event: on', '67': 'Spike event: off', '68': 'Sensor: stabilizing', '69': 'Corrosion sensor: circuit test', '70': 'Corrosion sensor: cable test', '71': 'Corrosion sensor: circuit cal', '72': 'Corrosion sensor: polarization', '73': 'Corrosion sensor: imbalance', '74': 'Corrosion sensor: resistance', '75': 'Ethernet: enabled', '76': 'WiFi: invalid config', '77': 'WiFi: connecting', '78': 'WiFi: network not found', '79': 'WiFi: invalid key', '80': 'WiFi: unable to connect', '81': 'WiFi: connected', '82': 'WiFi: ad-hoc mode', '84': 'WiFi: invalid ad-hoc config', '85': 'WiFi: WPA personal', '87': 'WiFi: WPA2 personal', '89': 'WiFi: WEP', '90': 'Input: alarm suppressed', '91': 'Corrosion sensor: dry', '92': 'Data logging: suppressed', '93': 'Webserver: HTTP', '94': 'Webserver: HTTPS, default certificate', '95': 'Webserver: HTTPS, user certificate'}
+  di_state: {'0': Open, '1': Closed}
+  on_off: {'0': 'Off', '1': 'On'}
+
+flags:
+  system_alarms: {'0': Temperature alarm, '1': Battery low, '2': Invalid setting, '3': Software version, '4': Board failure, '5': Internal voltage}
+  network_alarms: {'0': Web server failure, '1': Fluent data comm, '2': Fluent LiveConnect, '3': WiFi error}
+  sensor_alarms: {'0': Low, '1': High, '2': Low low, '3': High high, '4': Replace electrode / total, '5': Unused (older firmware - sensor fault), '6': Input failure, '7': Calibration required}
+  di_alarms: {'0': DI state, '1': Total, '2': Total range, '3': Input failure, '4': Flow verify / Modbus alarm, '5': Low, '6': High}
+  relay_alarms: {'0': Output timeout, '1': Event skipped / turnover limit, '2': Control failure, '3': State alarm, '4': Daily max timeout}
+
+problems:
+  - {when: {key: x.system_alarms, bit: 0}, kind: warning, text: Controller temperature out of range}
+  - {when: {key: x.system_alarms, bit: 1}, kind: warning, text: Clock battery low}
+  - {when: {key: x.system_alarms, bit: 2}, kind: warning, text: Invalid setting after a hardware change}
+  - {when: {key: x.system_alarms, bit: 3}, kind: warning, text: Add-on card firmware needs an update}
+  - {when: {key: x.system_alarms, bit: 4}, kind: fault, text: Board failure}
+  - {when: {key: x.system_alarms, bit: 5}, kind: fault, text: Internal voltage out of range}
+  - {when: {key: x.network_alarms, bit: 0}, kind: warning, text: Web server failure}
+  - {when: {key: x.network_alarms, bit: 1}, kind: warning, text: Cannot send data to Fluent}
+  - {when: {key: x.network_alarms, bit: 3}, kind: warning, text: WiFi error}
+  - {when: {key: x.sensor1_alarms, bit: 6}, kind: fault, text: Sensor 1 input failure}
+  - {when: {key: x.sensor1_alarms, bit: 2}, kind: warning, text: Sensor 1 low low alarm}
+  - {when: {key: x.sensor1_alarms, bit: 3}, kind: warning, text: Sensor 1 high high alarm}
+  - {when: {key: x.sensor2_alarms, bit: 6}, kind: fault, text: Sensor 2 input failure}
+  - {when: {key: x.sensor2_alarms, bit: 2}, kind: warning, text: Sensor 2 low low alarm}
+  - {when: {key: x.sensor2_alarms, bit: 3}, kind: warning, text: Sensor 2 high high alarm}
+  - {when: {key: x.sensor3_alarms, bit: 6}, kind: fault, text: Sensor 3 input failure}
+  - {when: {key: x.sensor3_alarms, bit: 2}, kind: warning, text: Sensor 3 low low alarm}
+  - {when: {key: x.sensor3_alarms, bit: 3}, kind: warning, text: Sensor 3 high high alarm}
+  - {when: {key: x.sensor4_alarms, bit: 6}, kind: fault, text: Sensor 4 input failure}
+  - {when: {key: x.sensor4_alarms, bit: 2}, kind: warning, text: Sensor 4 low low alarm}
+  - {when: {key: x.sensor4_alarms, bit: 3}, kind: warning, text: Sensor 4 high high alarm}
+  - {when: {key: x.sensor5_alarms, bit: 6}, kind: fault, text: Sensor 5 input failure}
+  - {when: {key: x.sensor5_alarms, bit: 2}, kind: warning, text: Sensor 5 low low alarm}
+  - {when: {key: x.sensor5_alarms, bit: 3}, kind: warning, text: Sensor 5 high high alarm}
+  - {when: {key: x.sensor6_alarms, bit: 6}, kind: fault, text: Sensor 6 input failure}
+  - {when: {key: x.sensor6_alarms, bit: 2}, kind: warning, text: Sensor 6 low low alarm}
+  - {when: {key: x.sensor6_alarms, bit: 3}, kind: warning, text: Sensor 6 high high alarm}
+  - {when: {key: x.sensor7_alarms, bit: 6}, kind: fault, text: Sensor 7 input failure}
+  - {when: {key: x.sensor7_alarms, bit: 2}, kind: warning, text: Sensor 7 low low alarm}
+  - {when: {key: x.sensor7_alarms, bit: 3}, kind: warning, text: Sensor 7 high high alarm}
+  - {when: {key: x.sensor8_alarms, bit: 6}, kind: fault, text: Sensor 8 input failure}
+  - {when: {key: x.sensor8_alarms, bit: 2}, kind: warning, text: Sensor 8 low low alarm}
+  - {when: {key: x.sensor8_alarms, bit: 3}, kind: warning, text: Sensor 8 high high alarm}
+  - {when: {key: x.di1_alarms, bit: 3}, kind: fault, text: Digital input 1 failure}
+  - {when: {key: x.di2_alarms, bit: 3}, kind: fault, text: Digital input 2 failure}
+  - {when: {key: x.di3_alarms, bit: 3}, kind: fault, text: Digital input 3 failure}
+  - {when: {key: x.di4_alarms, bit: 3}, kind: fault, text: Digital input 4 failure}
+  - {when: {key: x.relay1_alarms, bit: 0}, kind: warning, text: Relay 1 output timeout}
+  - {when: {key: x.relay1_alarms, bit: 2}, kind: fault, text: Relay 1 control failure}
+  - {when: {key: x.relay2_alarms, bit: 0}, kind: warning, text: Relay 2 output timeout}
+  - {when: {key: x.relay2_alarms, bit: 2}, kind: fault, text: Relay 2 control failure}
+  - {when: {key: x.relay3_alarms, bit: 0}, kind: warning, text: Relay 3 output timeout}
+  - {when: {key: x.relay3_alarms, bit: 2}, kind: fault, text: Relay 3 control failure}
+  - {when: {key: x.relay4_alarms, bit: 0}, kind: warning, text: Relay 4 output timeout}
+  - {when: {key: x.relay4_alarms, bit: 2}, kind: fault, text: Relay 4 control failure}
+  - {when: {key: x.relay5_alarms, bit: 0}, kind: warning, text: Relay 5 output timeout}
+  - {when: {key: x.relay5_alarms, bit: 2}, kind: fault, text: Relay 5 control failure}
+  - {when: {key: x.relay6_alarms, bit: 0}, kind: warning, text: Relay 6 output timeout}
+  - {when: {key: x.relay6_alarms, bit: 2}, kind: fault, text: Relay 6 control failure}
+  - {when: {key: x.relay7_alarms, bit: 0}, kind: warning, text: Relay 7 output timeout}
+  - {when: {key: x.relay7_alarms, bit: 2}, kind: fault, text: Relay 7 control failure}
+  - {when: {key: x.relay8_alarms, bit: 0}, kind: warning, text: Relay 8 output timeout}
+  - {when: {key: x.relay8_alarms, bit: 2}, kind: fault, text: Relay 8 control failure}
+
+notes:
+- The document numbers addresses 1-based (x0037 = data address 37 in any of the four tables); here they are 0-based (36).
+  All data can be read as holding or input registers (function 03 or 04 return the same); the booleans can also be read as
+  coils or discrete inputs at the same numbers.
+- Every object (system, network, each I/O channel) has a block of 36 addresses. The per-channel blocks sit at addresses that
+  depend on the model (EP200, EP200N, EP1000, EP2100) and the I/O card in each slot; they aren't listed here. This file uses
+  the system and network blocks and the alternate maps, which number sensors, digital inputs and relays consecutively (up
+  to 32 sensors and 16 each of the others; only the first 8 sensors, 4 digital inputs and 8 relays are listed, the rest follow
+  the same pattern). Virtual inputs, analog and control outputs, setpoints and the per-mode control settings are left out.
+- Sensor values are in the sensor's configured unit (pH, µS/cm, mV, °C, ppm …), which the controller doesn't report over Modbus;
+  no unit is given. Channels that aren't fitted are expected not to answer, so they are optional.
+- 32-bit values are sent low word first by default; a setting (inverse data format) swaps the words, so readers detect the
+  order from the firmware version (a float such as 3.xx).
+- Alarm bitfields use the low byte; the document numbers bits 1–8 from the least significant, here 0–7. Sensor alarm bits
+  4 and 5 meant out-of-range and sensor fault in firmware up to 3.09.
+- Modbus/TCP only (no RTU), port 502 by default (configurable); unit id 1 normally, 0 (broadcast) is not supported. The client
+  should not poll faster than once every 5 s. Supported from controller software 3.01.
+- The models can't be told apart over Modbus and there is no serial number register, so there is no identify.

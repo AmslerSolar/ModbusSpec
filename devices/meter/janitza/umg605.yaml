@@ -1,0 +1,158 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Janitza UMG 605 Modbus-address list and Formulary (doc. no. 1.038.009.2, 2011).
+
+modbusspec: 0
+id: janitza-umg605
+manufacturer: Janitza
+name: UMG 605 power quality analyser
+kind: meter
+
+sources:
+- title: Janitza UMG 605 Power Quality Analyser, Modbus-address list and Formulary, doc. no. 1.038.009.2
+  version: '2011'
+  url: http://www.everbrightpower.com/downfile/UMG605_Modbus-Register-Addresses_EN.pdf
+  sha256: b7382bf93ab6ee2223746980127618fa184ba68ef48f3c5cec11d5bcd297900d
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+  limits:
+    max_registers: 125
+    max_gap: 16
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 6856
+    type: u32
+  checks:
+  - table: holding
+    address: 3995
+    type: f32
+    range:
+    - 0
+    - 70
+  # rotation field: rejects word-swapped floats
+  - table: holding
+    address: 4009
+    type: f32
+    in:
+    - -1
+    - 0
+    - 1
+  # nominal frequency; text on the UMG 511
+  - table: holding
+    address: 6745
+    type: f32
+    in:
+    - 50
+    - 60
+
+points:
+  # Measured values, 200 ms measuring window
+  - {key: l1_voltage, label: Voltage L1-N, table: holding, address: 3845, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage L2-N, table: holding, address: 3847, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage L3-N, table: holding, address: 3849, type: f32, unit: V}
+  - {key: x.l4_voltage, label: Voltage L4-N, table: holding, address: 3851, type: f32, unit: V}
+  - {key: l1_current, label: Apparent current L1, table: holding, address: 3853, type: f32, unit: A}
+  - {key: l2_current, label: Apparent current L2, table: holding, address: 3855, type: f32, unit: A}
+  - {key: l3_current, label: Apparent current L3, table: holding, address: 3857, type: f32, unit: A}
+  - {key: x.l4_current, label: Apparent current L4, table: holding, address: 3859, type: f32, unit: A}
+  - {key: l1_power, label: Real power L1, table: holding, address: 3861, type: f32, unit: W, positive: import, verified: false, note: Sign derived like the total power.}
+  - {key: l2_power, label: Real power L2, table: holding, address: 3863, type: f32, unit: W, positive: import, verified: false, note: Sign derived like the total power.}
+  - {key: l3_power, label: Real power L3, table: holding, address: 3865, type: f32, unit: W, positive: import, verified: false, note: Sign derived like the total power.}
+  - {key: x.l4_power, label: Real power L4, table: holding, address: 3867, type: f32, unit: W}
+  - {key: x.l1_reactive_power, label: Reactive power L1, table: holding, address: 3869, type: f32, unit: var}
+  - {key: x.l2_reactive_power, label: Reactive power L2, table: holding, address: 3871, type: f32, unit: var}
+  - {key: x.l3_reactive_power, label: Reactive power L3, table: holding, address: 3873, type: f32, unit: var}
+  - {key: x.l1_apparent_power, label: Apparent power L1, table: holding, address: 3877, type: f32, unit: VA, note: The list labels all four apparent power registers L1; taken as L1…L4 by their index.}
+  - {key: x.l2_apparent_power, label: Apparent power L2, table: holding, address: 3879, type: f32, unit: VA}
+  - {key: x.l3_apparent_power, label: Apparent power L3, table: holding, address: 3881, type: f32, unit: VA}
+  - {key: x.l1_power_factor, label: Power factor L1, table: holding, address: 3893, type: f32, unit: '', note: Unsigned (the formulary defines the power factor without sign).}
+  - {key: x.l2_power_factor, label: Power factor L2, table: holding, address: 3895, type: f32, unit: ''}
+  - {key: x.l3_power_factor, label: Power factor L3, table: holding, address: 3897, type: f32, unit: ''}
+  - {key: x.l1_l2_voltage, label: Voltage L1-L2, table: holding, address: 3901, type: f32, unit: V}
+  - {key: x.l2_l3_voltage, label: Voltage L2-L3, table: holding, address: 3903, type: f32, unit: V}
+  - {key: x.l3_l1_voltage, label: Voltage L3-L1, table: holding, address: 3905, type: f32, unit: V}
+  - {key: x.neutral_current, label: 'Vector sum, IN = I1 + I2 + I3', table: holding, address: 3919, type: f32, unit: A}
+  - {key: apparent_power, label: 'Sum, S = S1 + S2 + S3', table: holding, address: 3923, type: f32, unit: VA}
+  - {key: grid_power, label: 'Sum, P = P1 + P2 + P3', table: holding, address: 3925, type: f32, unit: W, positive: import, verified: false, note: 'The list doesn''t give the sign of the power registers. The formulary gives cos φ (= P1 / S1) a − sign when supplying and a + sign when obtaining real power, so P > 0 is drawn from the grid when the analyser sits at the grid connection. Derived.'}
+  - {key: reactive_power, label: 'Sum, Q = Q1 + Q2 + Q3 (fundamental)', table: holding, address: 3927, type: f32, unit: var}
+  - {key: x.cos_phi, label: CosPhi of the fundamental from Psum3 and Qsum3, table: holding, address: 3929, type: f32, unit: '', note: '− when supplying, + when obtaining real power.'}
+  - {key: x.l1_cos_phi, label: CosPhi L1 (fundamental), table: holding, address: 3979, type: f32, unit: ''}
+  - {key: x.l2_cos_phi, label: CosPhi L2 (fundamental), table: holding, address: 3981, type: f32, unit: ''}
+  - {key: x.l3_cos_phi, label: CosPhi L3 (fundamental), table: holding, address: 3983, type: f32, unit: ''}
+  - {key: frequency, label: Measured frequency, table: holding, address: 3995, type: f32, unit: Hz}
+  - {key: x.voltage_unbalance, label: Unsymmetrical voltage, table: holding, address: 4005, type: f32, unit: '%'}
+  - {key: x.current_unbalance, label: Unsymmetrical current, table: holding, address: 4007, type: f32, unit: '%'}
+  - {key: x.rotation_field, label: Rotation field, table: holding, address: 4009, type: f32, enum: rotation_field}
+  - {key: x.l1_thd_u, label: THD U L1-N, table: holding, address: 3805, type: f32, unit: '%'}
+  - {key: x.l2_thd_u, label: THD U L2-N, table: holding, address: 3807, type: f32, unit: '%'}
+  - {key: x.l3_thd_u, label: THD U L3-N, table: holding, address: 3809, type: f32, unit: '%'}
+  - {key: x.l1_thd_i, label: THD I L1, table: holding, address: 3813, type: f32, unit: '%'}
+  - {key: x.l2_thd_i, label: THD I L2, table: holding, address: 3815, type: f32, unit: '%'}
+  - {key: x.l3_thd_i, label: THD I L3, table: holding, address: 3817, type: f32, unit: '%'}
+  - {key: x.temperature, label: Internal temperature, table: holding, address: 4209, type: f32, unit: °C, poll: slow, note: 'The designation is _EXT_TEMPERATUR, the description says internal temperature.'}
+
+  # Energy (Wh / VAh / varh in the list, read as k-units)
+  - {key: x.active_tariff, label: 'Current rate, real / apparent energy', table: holding, address: 6462, type: s16, poll: slow}
+  - {key: x.apparent_energy, label: Apparent energy L1+L2+L3, table: holding, address: 6472, type: f32, unit: kVAh, scale: 0.001, poll: slow}
+  - {key: x.net_energy, label: Real energy L1+L2+L3, table: holding, address: 6484, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.reactive_energy, label: Reactive energy L1+L2+L3, table: holding, address: 6496, type: f32, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.l1_import_energy, label: 'Real energy L1, consumed', table: holding, address: 6500, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_import_energy, label: 'Real energy L2, consumed', table: holding, address: 6502, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_import_energy, label: 'Real energy L3, consumed', table: holding, address: 6504, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: grid_import_energy, label: 'Real energy L1+L2+L3, consumed', table: holding, address: 6508, type: f32, unit: kWh, scale: 0.001}
+  - {key: x.l1_export_energy, label: 'Real energy L1, delivered', table: holding, address: 6512, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l2_export_energy, label: 'Real energy L2, delivered', table: holding, address: 6514, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.l3_export_energy, label: 'Real energy L3, delivered', table: holding, address: 6516, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: grid_export_energy, label: 'Real energy L1+L2+L3, delivered', table: holding, address: 6520, type: f32, unit: kWh, scale: 0.001}
+  - {key: x.import_energy_t1, label: 'Real energy L1+L2+L3, consumed, rate 1', table: holding, address: 6532, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.import_energy_t2, label: 'Real energy L1+L2+L3, consumed, rate 2', table: holding, address: 6544, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.export_energy_t1, label: 'Real energy L1+L2+L3, delivered, rate 1', table: holding, address: 6556, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.export_energy_t2, label: 'Real energy L1+L2+L3, delivered, rate 2', table: holding, address: 6568, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.inductive_reactive_energy, label: 'Reactive energy L1+L2+L3, inductive', table: holding, address: 6580, type: f32, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.capacitive_reactive_energy, label: 'Reactive energy L1+L2+L3, capacitive', table: holding, address: 6592, type: f32, unit: kvarh, scale: 0.001, poll: slow}
+
+  # Inputs, outputs, settings, identity
+  - {key: x.digital_output_1, label: Status digital output 1, table: holding, address: 6630, type: s16, enum: active}
+  - {key: x.digital_output_2, label: Status digital output 2, table: holding, address: 6631, type: s16, enum: active}
+  - {key: x.digital_input_1, label: Status digital input 1, table: holding, address: 6632, type: s16, enum: active}
+  - {key: x.digital_input_2, label: Status digital input 2, table: holding, address: 6633, type: s16, enum: active, note: The list labels it input 1 as well; taken as input 2 by its index.}
+  - {key: x.event_counter, label: Event counter, table: holding, address: 6634, type: u32, poll: slow}
+  - {key: x.ct_primary, label: 'Current transformer primary, L1–L3', table: holding, address: 6689, type: f32, unit: A, poll: slow, writable: true, verified: false, note: Writability not stated in the list; assumed.}
+  - {key: x.ct_secondary, label: 'Current transformer secondary, L1–L3', table: holding, address: 6693, type: f32, unit: A, poll: slow, writable: true, verified: false, note: Writability not stated in the list; assumed.}
+  - {key: x.vt_primary, label: 'Voltage transformer primary, L1–L3', table: holding, address: 6697, type: f32, unit: V, poll: slow, writable: true, verified: false, note: Writability not stated in the list; assumed.}
+  - {key: x.vt_secondary, label: 'Voltage transformer secondary, L1–L3', table: holding, address: 6701, type: f32, unit: V, poll: slow, writable: true, verified: false, note: Writability not stated in the list; assumed.}
+  - {key: x.nominal_frequency, label: Nominal frequency, table: holding, address: 6745, type: f32, unit: Hz, poll: slow}
+  - {key: x.device_name, label: Device name, table: holding, address: 6750, type: str, length: 32, poll: slow, note: 64 characters; marked for internal use.}
+  - {key: serial, label: Serial number, table: holding, address: 6856, type: u32, poll: slow, note: Marked for internal use.}
+  - {key: x.production_number, label: Production number, table: holding, address: 6858, type: u32, poll: slow, note: Marked for internal use.}
+
+enums:
+  rotation_field: {'1': Right, '0': None, '-1': Left}
+  active: {'0': Not active, '1': Active}
+
+notes:
+- The list names function 03 and 04 (and 06, 16, 23 for writing) as slave functions. Addresses are used as listed; the list
+  doesn't say whether they are 0-based, so they are taken as protocol addresses (unverified).
+- The listed addresses deliver big-endian data (high byte first); the same values little-endian are at address + 32768. Values
+  in float format include the transformer ratios.
+- The 2011 list has no block of frequently needed readings at 19000; later firmware may have one, as other UMG analysers do.
+- Many registers are left out (mean, minimum and maximum values with their time stamps, harmonics, flicker, the fourth measuring
+  channel, tariffs 3–8, monthly highs, EMAX and FFT values, network and display settings).
+- 'RS485: 8 data bits, no parity, 2 stop bits; 9600 baud is assumed as the default (the list gives the rates, not a default).
+  TCP port 502, unit id 1 and 125 registers per request are not stated in the list; assumed.'
+- No daily counters.

@@ -1,0 +1,165 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Garo GNM3D Series and GNM3T Series Communication Protocol (Version 1 Revision 1).
+
+modbusspec: 0
+id: garo-gnm3
+manufacturer: Garo
+name: GNM3D / GNM3T energy meters (RS485)
+kind: meter
+
+sources:
+- title: Garo GNM3D Series and GNM3T Series Communication Protocol
+  version: Version 1 Revision 1
+  url: https://github.com/nmakel/sdm_modbus/blob/fead352846b36ff8ca9f89c1491ee047ab2b55d1/documents/garo_gnm3d_modbus_protocol.pdf
+  sha256: 51e791ba5796a42d13b1af9c2f9da8811d79d72cc3259985bd4de085e96e9c0b
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  input_equals_holding: true
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 50
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 20480
+    type: str
+    length: 7
+  checks:
+  - table: input
+    address: 11
+    type: u16
+    in:
+    - 341
+    - 342
+
+models:
+  - {id: gnm3d, name: 'GNM3D-RS485 (direct connection, single or three phase)', match: {table: input, address: 11, type: u16, equals: 341}}
+  - {id: gnm3t, name: 'GNM3T-RS485 (CT connection, three phase)', match: {table: input, address: 11, type: u16, equals: 342}}
+
+points:
+  # Instantaneous variables (table 2.4-1)
+  - {key: l1_voltage, label: V L1-N, table: input, address: 0, type: s32, unit: V, scale: 0.1, invalid: [2147483647]}
+  - {key: l2_voltage, label: V L2-N, table: input, address: 2, type: s32, unit: V, scale: 0.1, invalid: [2147483647]}
+  - {key: l3_voltage, label: V L3-N, table: input, address: 4, type: s32, unit: V, scale: 0.1, invalid: [2147483647]}
+  - {key: x.l1_l2_voltage, label: V L1-L2, table: input, address: 6, type: s32, unit: V, scale: 0.1, invalid: [2147483647]}
+  - {key: x.l2_l3_voltage, label: V L2-L3, table: input, address: 8, type: s32, unit: V, scale: 0.1, invalid: [2147483647]}
+  - {key: x.l3_l1_voltage, label: V L3-L1, table: input, address: 10, type: s32, unit: V, scale: 0.1, invalid: [2147483647]}
+  - {key: l1_current, label: A L1, table: input, address: 12, type: s32, unit: A, scale: 0.001, invalid: [2147483647], note: Negative in bidirectional mode when the power flows out (export).}
+  - {key: l2_current, label: A L2, table: input, address: 14, type: s32, unit: A, scale: 0.001, invalid: [2147483647]}
+  - {key: l3_current, label: A L3, table: input, address: 16, type: s32, unit: A, scale: 0.001, invalid: [2147483647]}
+  - {key: l1_power, label: kW L1, table: input, address: 18, type: s32, unit: W, scale: 0.1, positive: import, invalid: [2147483647], verified: false, note: The document states the sign for the power factor and the total; assumed the same per phase.}
+  - {key: l2_power, label: kW L2, table: input, address: 20, type: s32, unit: W, scale: 0.1, positive: import, invalid: [2147483647], verified: false, note: Assumed like L1.}
+  - {key: l3_power, label: kW L3, table: input, address: 22, type: s32, unit: W, scale: 0.1, positive: import, invalid: [2147483647], verified: false, note: Assumed like L1.}
+  - {key: x.l1_apparent_power, label: kVA L1, table: input, address: 24, type: s32, unit: VA, scale: 0.1, invalid: [2147483647]}
+  - {key: x.l2_apparent_power, label: kVA L2, table: input, address: 26, type: s32, unit: VA, scale: 0.1, invalid: [2147483647]}
+  - {key: x.l3_apparent_power, label: kVA L3, table: input, address: 28, type: s32, unit: VA, scale: 0.1, invalid: [2147483647]}
+  - {key: x.l1_reactive_power, label: kvar L1, table: input, address: 30, type: s32, unit: var, scale: 0.1, invalid: [2147483647]}
+  - {key: x.l2_reactive_power, label: kvar L2, table: input, address: 32, type: s32, unit: var, scale: 0.1, invalid: [2147483647]}
+  - {key: x.l3_reactive_power, label: kvar L3, table: input, address: 34, type: s32, unit: var, scale: 0.1, invalid: [2147483647]}
+  - {key: x.system_voltage_ln, label: V L-N sys, table: input, address: 36, type: s32, unit: V, scale: 0.1, invalid: [2147483647]}
+  - {key: x.system_voltage_ll, label: V L-L sys, table: input, address: 38, type: s32, unit: V, scale: 0.1, invalid: [2147483647]}
+  - {key: grid_power, label: kW sys, table: input, address: 40, type: s32, unit: W, scale: 0.1, positive: import, invalid: [2147483647], note: 'In bidirectional mode (measurement mode B) positive = imported, negative = exported: the document''s quadrant table shows −W in quadrants II and III and its geometric representation names + as imported active power. In easy connection mode (measurement mode A, and the MID GNM3D except the GNM3D-LP) the power is always positive, whichever way it flows.'}
+  - {key: apparent_power, label: kVA sys, table: input, address: 42, type: s32, unit: VA, scale: 0.1, invalid: [2147483647]}
+  - {key: reactive_power, label: kvar sys, table: input, address: 44, type: s32, unit: var, scale: 0.1, invalid: [2147483647]}
+  - {key: x.l1_power_factor, label: PF L1, table: input, address: 46, type: s16, unit: '', scale: 0.001, note: 'Negative = exported active power, positive = imported.'}
+  - {key: x.l2_power_factor, label: PF L2, table: input, address: 47, type: s16, unit: '', scale: 0.001}
+  - {key: x.l3_power_factor, label: PF L3, table: input, address: 48, type: s16, unit: '', scale: 0.001}
+  - {key: power_factor, label: PF sys, table: input, address: 49, type: s16, unit: '', scale: 0.001, note: 'Negative = exported active power, positive = imported.'}
+  - {key: x.phase_sequence, label: Phase sequence, table: input, address: 50, type: s16, enum: phase_sequence, note: Only meaningful in a three-phase system.}
+  - {key: frequency, label: Hz, table: input, address: 51, type: s16, unit: Hz, scale: 0.1}
+  - {key: grid_import_energy, label: kWh (+) TOT, table: input, address: 52, type: s32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.import_reactive_energy, label: kvarh (+) TOT, table: input, address: 54, type: s32, unit: kvarh, scale: 0.1, poll: slow}
+  - {key: x.power_demand, label: kW dmd, table: input, address: 56, type: s32, unit: W, scale: 0.1}
+  - {key: x.power_demand_peak, label: kW dmd peak, table: input, address: 58, type: s32, unit: W, scale: 0.1, poll: slow}
+  - {key: x.import_energy_partial, label: kWh (+) PARTIAL, table: input, address: 60, type: s32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.import_reactive_energy_partial, label: kvarh (+) PARTIAL, table: input, address: 62, type: s32, unit: kvarh, scale: 0.1, poll: slow}
+  - {key: x.l1_import_energy, label: kWh (+) L1, table: input, address: 64, type: s32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.l2_import_energy, label: kWh (+) L2, table: input, address: 66, type: s32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.l3_import_energy, label: kWh (+) L3, table: input, address: 68, type: s32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.import_energy_t1, label: kWh (+) t1, table: input, address: 70, type: s32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.import_energy_t2, label: kWh (+) t2, table: input, address: 72, type: s32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: grid_export_energy, label: kWh (-) TOT, table: input, address: 78, type: s32, unit: kWh, scale: 0.1, poll: slow, note: Only counts in bidirectional mode (measurement mode B).}
+  - {key: x.export_reactive_energy, label: kvarh (-) TOT, table: input, address: 80, type: s32, unit: kvarh, scale: 0.1, poll: slow}
+  - {key: x.run_hours, label: Run hour meter, table: input, address: 90, type: s32, unit: h, scale: 0.01, models: [gnm3t], poll: slow}
+  - {key: x.neutral_current, label: A n, table: input, address: 248, type: s32, unit: A, scale: 0.001, models: [gnm3t], invalid: [2147483647]}
+
+  # Identification and status
+  - {key: x.version_code, label: Version code, table: input, address: 770, type: u16, poll: slow, note: 1 = version B; read one register at a time.}
+  - {key: firmware, label: Revision code, table: input, address: 771, type: u16, poll: slow, note: 0 = revision 0; read one register at a time.}
+  - {key: serial, label: Serial number (letters 1–13), table: input, address: 20480, type: str, length: 7, poll: slow}
+  - {key: x.wrong_connection, label: Wrong connection (installing help) status, table: holding, address: 4357, type: u16, flags: wrong_connection, poll: slow}
+
+  # Settings (read and write)
+  - {key: x.measuring_system, label: Measuring system, table: holding, address: 4098, type: u16, enum: measuring_system, writable: true, poll: slow}
+  - {key: x.ct_ratio, label: Current transformer ratio, table: holding, address: 4099, type: u32, scale: 0.1, writable: true, min: 1, max: 1000, poll: slow}
+  - {key: x.vt_ratio, label: Voltage transformer ratio, table: holding, address: 4101, type: u32, scale: 0.1, writable: true, min: 1, max: 1000, poll: slow}
+  - {key: x.demand_interval, label: Integration time for dmd power calculation, table: holding, address: 4112, type: u32, unit: min, writable: true, min: 1, max: 30, poll: slow, verified: false, note: The unit is not stated in the document; assumed minutes.}
+  - {key: x.display_mode, label: Display mode, table: holding, address: 4352, type: u16, enum: display_mode, writable: true, poll: slow}
+  - {key: x.measurement_mode, label: Measurement mode selection, table: holding, address: 4355, type: u16, enum: measurement_mode, writable: true, poll: slow}
+  - {key: x.wrong_connection_help, label: Wrong connection (installing help) management enabling, table: holding, address: 4356, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.tariff_management, label: Tariff management enabling, table: holding, address: 4353, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.tariff_source, label: Tariff mode selection, table: holding, address: 4608, type: u16, enum: tariff_source, writable: true, poll: slow}
+  - {key: x.tariff, label: Tariff number selection via serial comm., table: holding, address: 4609, type: u16, enum: tariff, writable: true, poll: slow, note: Read only while the tariff comes from the digital input.}
+  - {key: x.rs485_address, label: RS485 instrument address, table: holding, address: 8192, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.rs485_baud, label: RS485 baud rate, table: holding, address: 8193, type: u16, enum: baud, writable: true, poll: slow}
+  - {key: x.rs485_parity, label: RS485 parity, table: holding, address: 8194, type: u16, enum: parity, writable: true, poll: slow}
+
+enums:
+  phase_sequence: {'-1': L1-L3-L2, '0': L1-L2-L3}
+  measuring_system: {'0': 3Pn (3-phase with neutral), '1': 3P (3-phase without neutral), '2': 2P (2-phase with neutral)}
+  display_mode: {'0': Full, '1': Easy}
+  measurement_mode: {'0': A (easy connection), '1': B (bidirectional)}
+  on_off: {'0': 'On', '1': 'Off'}
+  off_on: {'0': 'Off', '1': 'On'}
+  tariff_source: {'0': Digital inputs, '1': Serial communication}
+  tariff: {'1': Tariff 1, '2': Tariff 2}
+  baud: {'1': '9600', '2': '19200', '3': '38400', '4': '57600', '5': '115200'}
+  parity: {'1': None, '2': Even}
+
+flags:
+  wrong_connection: {'0': Wrong voltage sequence, '1': Phase 1 inverted, '2': Phase 2 inverted, '3': Phase 3 inverted, '4': Phases 1 and 2 exchanged, '5': Phases 1 and 3 exchanged, '6': Phases 2 and 3 exchanged, '7': 'Phases 1, 2, 3 exchanged'}
+
+problems:
+  - {when: {key: x.wrong_connection, bit: 0}, kind: warning, text: 'Wiring: wrong voltage sequence (bit 0)'}
+  - {when: {key: x.wrong_connection, bit: 1}, kind: warning, text: 'Wiring: phase 1 inverted (bit 1)'}
+  - {when: {key: x.wrong_connection, bit: 2}, kind: warning, text: 'Wiring: phase 2 inverted (bit 2)'}
+  - {when: {key: x.wrong_connection, bit: 3}, kind: warning, text: 'Wiring: phase 3 inverted (bit 3)'}
+  - {when: {key: x.wrong_connection, bit: 4}, kind: warning, text: 'Wiring: phases 1 and 2 exchanged (bit 4)'}
+  - {when: {key: x.wrong_connection, bit: 5}, kind: warning, text: 'Wiring: phases 1 and 3 exchanged (bit 5)'}
+  - {when: {key: x.wrong_connection, bit: 6}, kind: warning, text: 'Wiring: phases 2 and 3 exchanged (bit 6)'}
+  - {when: {key: x.wrong_connection, bit: 7}, kind: warning, text: 'Wiring: phases 1, 2, 3 exchanged (bit 7)'}
+
+notes:
+- Garo-branded meters built on a Carlo Gavazzi platform (the document's data format section names Carlo Gavazzi instruments);
+  the map matches the Carlo Gavazzi EM24-DIN up to 002Dh and differs after it.
+- Addresses are the document's "physical address" column (0-based); its 6-digit Modicom numbers are those plus 300001, though
+  a few are misprinted, so the physical addresses were used throughout.
+- Function 03 and 04 read the same registers. Settings are written with function 06 (single register).
+- 32-bit integers are least significant word first; bytes within a register most significant first.
+- Overflow (display "EEE") reads as 7FFFFFFFh; such values are not available.
+- The text and register 2004h give 50 registers per request; the request frame table says 1 … 20 (14h). Readers having trouble
+  should use 20.
+- 'The Garo identification code (000Bh: 341 = GNM3D-RS485, 342 = GNM3T-RS485, used for the models) overlaps the high word
+  of V L3-L1; it and the version / revision codes (0302h / 0303h) can only be read one register at a time.'
+- Registers 0102h … 0154h repeat the same values grouped by phase (all as 32-bit values, PF and Hz included); not listed here.
+- 'Not listed: the password (1000h), home page selection (1102h) and the reset commands (4000h partial / tariff / demand;
+  4001h total energies, non-MID only; write 1 to execute).'
+- 'RS485 defaults: address 1, 9600 baud, no parity, 1 stop bit (stop bits at 2003h: 0 or 1 = one, 2 = two only with even parity).'
+- In easy connection mode current and power are always positive and only kWh(+) counts; the sign and kWh(−) need bidirectional
+  mode (measurement mode B; not available on the MID GNM3D, but on the GNM3D-LP).
+- Single- and two-phase setups read 0 for the unused phases.
+- Garo's DLM installation manuals (GNM3T-RS485 art. 108740, GNM3T-LP RS485 N art. 109385) use the meter for wallbox load balancing
+  at unit 2 (stand-alone wallbox) or 100 / 101 (wallbox network), 9600 baud 8N1; they hold no register map.

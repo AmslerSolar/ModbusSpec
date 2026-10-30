@@ -1,0 +1,167 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SATEC C192PF8-RPR Power Factor Manager and Reactive Power Regulator Modbus Communications Protocol
+# reference guide (BG0348 Rev. A1).
+
+modbusspec: 0
+id: satec-c192pf8
+manufacturer: SATEC
+name: C192PF8-RPR power factor manager and reactive power regulator
+kind: meter
+
+sources:
+- title: C192PF8-RPR Power Factor Manager and Reactive Power Regulator – Modbus Communications Protocol Reference Guide
+  version: BG0348 Rev. A1
+  url: https://nepsi.com/resource/SATEC-C192PF8-Controller-Modbus-Instructions.pdf
+  sha256: 0a29c83462e6c6651580ad8ae472eab7cdad3394e19f8e3146562e875cb25361
+  archive_url: https://web.archive.org/web/20250617041622/https://nepsi.com/resource/SATEC-C192PF8-Controller-Modbus-Instructions.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  checks:
+  # wiring mode
+  - table: holding
+    address: 2304
+    type: u16
+    range:
+    - 0
+    - 7
+  # reserved, reads 65535
+  - table: holding
+    address: 2311
+    type: u16
+    equals: 65535
+  # reserved, reads 65535
+  - table: holding
+    address: 2344
+    type: u16
+    equals: 65535
+
+points:
+  # Real-time values per phase (32-bit extended data registers)
+  - {key: l1_voltage, label: Voltage L1/L12, table: holding, address: 13312, type: s32, unit: V, scale: 0.1, verified: false, note: 'Line-to-neutral in the 4LN3 and 3LN3 wiring modes, line-to-line otherwise. Scale for direct wiring (PT ratio 1); with a PT ratio above 1 the unit is 1 V (see notes).'}
+  - {key: l2_voltage, label: Voltage L2/L23, table: holding, address: 13314, type: s32, unit: V, scale: 0.1, verified: false}
+  - {key: l3_voltage, label: Voltage L3/L31, table: holding, address: 13316, type: s32, unit: V, scale: 0.1, verified: false}
+  - {key: l1_current, label: Current L1, table: holding, address: 13318, type: s32, unit: A, scale: 0.01}
+  - {key: l2_current, label: Current L2, table: holding, address: 13320, type: s32, unit: A, scale: 0.01}
+  - {key: l3_current, label: Current L3, table: holding, address: 13322, type: s32, unit: A, scale: 0.01}
+  - {key: l1_power, label: kW L1, table: holding, address: 13324, type: s32, unit: W, positive: import, verified: false, note: '0.001 kW units with direct wiring, 1 kW with a PT ratio above 1. The sign isn''t stated; import is assumed positive, as the import/export split registers suggest. Zero in 3-wire wiring modes.'}
+  - {key: l2_power, label: kW L2, table: holding, address: 13326, type: s32, unit: W, positive: import, verified: false}
+  - {key: l3_power, label: kW L3, table: holding, address: 13328, type: s32, unit: W, positive: import, verified: false}
+  - {key: x.l1_power_factor, label: Power factor L1, table: holding, address: 13342, type: s32, scale: 0.001}
+  - {key: x.l2_power_factor, label: Power factor L2, table: holding, address: 13344, type: s32, scale: 0.001}
+  - {key: x.l3_power_factor, label: Power factor L3, table: holding, address: 13346, type: s32, scale: 0.001}
+  - {key: x.l1_voltage_thd, label: Voltage THD L1/L12, table: holding, address: 13348, type: s32, unit: '%', scale: 0.1}
+  - {key: x.l2_voltage_thd, label: Voltage THD L2/L23, table: holding, address: 13350, type: s32, unit: '%', scale: 0.1}
+  - {key: x.l3_voltage_thd, label: Voltage THD L3/L31, table: holding, address: 13352, type: s32, unit: '%', scale: 0.1}
+  - {key: x.l1_current_thd, label: Current THD L1, table: holding, address: 13354, type: s32, unit: '%', scale: 0.1}
+  - {key: x.l2_current_thd, label: Current THD L2, table: holding, address: 13356, type: s32, unit: '%', scale: 0.1}
+  - {key: x.l3_current_thd, label: Current THD L3, table: holding, address: 13358, type: s32, unit: '%', scale: 0.1}
+  - {key: x.l12_voltage, label: Voltage L12, table: holding, address: 13372, type: s32, unit: V, scale: 0.1, verified: false}
+  - {key: x.l23_voltage, label: Voltage L23, table: holding, address: 13374, type: s32, unit: V, scale: 0.1, verified: false}
+  - {key: x.l31_voltage, label: Voltage L31, table: holding, address: 13376, type: s32, unit: V, scale: 0.1, verified: false}
+
+  # Real-time totals
+  - {key: grid_power, label: Total kW, table: holding, address: 13696, type: s32, unit: W, positive: import, verified: false, note: '0.001 kW units with direct wiring, 1 kW with a PT ratio above 1. The sign isn''t stated; import is assumed positive.'}
+  - {key: reactive_power, label: Total kvar, table: holding, address: 13698, type: s32, unit: var, verified: false}
+  - {key: apparent_power, label: Total kVA, table: holding, address: 13700, type: s32, unit: VA, verified: false}
+  - {key: power_factor, label: Total PF, table: holding, address: 13702, type: s32, unit: '', scale: 0.001}
+  - {key: x.import_power, label: Total kW import, table: holding, address: 13708, type: s32, unit: W, verified: false}
+  - {key: x.export_power, label: Total kW export, table: holding, address: 13710, type: s32, unit: W, verified: false}
+  - {key: x.neutral_current, label: Neutral current, table: holding, address: 13826, type: s32, unit: A, scale: 0.01}
+  - {key: frequency, label: Frequency, table: holding, address: 13828, type: s32, unit: Hz, scale: 0.01}
+  - {key: x.voltage_unbalance, label: Voltage unbalance, table: holding, address: 13830, type: s32, unit: '%'}
+  - {key: x.current_unbalance, label: Current unbalance, table: holding, address: 13832, type: s32, unit: '%'}
+
+  # Total energies
+  - {key: grid_import_energy, label: kWh import, table: holding, address: 14720, type: u32, unit: kWh, poll: slow, note: 'Rolls over at the energy roll value (register 2377), at most 10^8.'}
+  - {key: grid_export_energy, label: kWh export, table: holding, address: 14722, type: u32, unit: kWh, poll: slow}
+  - {key: x.import_reactive_energy, label: kvarh import, table: holding, address: 14728, type: u32, unit: kvarh, poll: slow}
+  - {key: x.export_reactive_energy, label: kvarh export, table: holding, address: 14730, type: u32, unit: kvarh, poll: slow}
+  - {key: x.apparent_energy, label: kVAh total, table: holding, address: 14736, type: u32, unit: kVAh, poll: slow}
+
+  # Status
+  - {key: x.relay_status, label: Relay status, table: holding, address: 3452, type: u16, flags: relays}
+  - {key: x.status_input, label: Status inputs, table: holding, address: 3454, type: u16, bits: [0, 0], enum: contact}
+  - {key: x.setpoint_status, label: Setpoints status, table: holding, address: 3455, type: u16, note: Bit n = setpoint n+1 operated.}
+  - {key: x.setpoint_alarms, label: Setpoint alarm status, table: holding, address: 3474, type: u16, note: Bit n = alarm n+1 (setpoint has operated); latched until cleared by writing 0 (or the word with that bit cleared).}
+  - {key: x.self_check, label: Self-check diagnostics, table: holding, address: 3475, type: u16, flags: self_check, note: Hardware bits are cleared by writing 0.}
+  - {key: x.pfc_mode, label: PFC operating mode, table: holding, address: 3486, type: u16, enum: pfc_mode}
+  - {key: state, label: PFC status, table: holding, address: 3487, type: u16, enum: pfc_status}
+  - {key: firmware, label: Firmware version number, table: holding, address: 2565, type: u16, poll: slow}
+  - {key: x.options1, label: Instrument options 1, table: holding, address: 2566, type: u16, flags: options1, poll: slow}
+  - {key: x.relay_count, label: Number of relays − 1, table: holding, address: 2567, type: u16, bits: [0, 2], poll: slow, note: Instrument options 2.}
+  - {key: x.input_count, label: Number of digital inputs − 1, table: holding, address: 2567, type: u16, bits: [3, 6], poll: slow}
+
+  # Setup
+  - {key: x.wiring_mode, label: Wiring mode, table: holding, address: 2304, type: u16, enum: wiring_mode, writable: true, poll: slow, note: Can't be changed while the PFC is running.}
+  - {key: x.pt_ratio, label: PT ratio, table: holding, address: 2305, type: u16, scale: 0.1, writable: true, min: 1, max: 6500, poll: slow, note: 1.0 = direct wiring. Decides the units of voltage and power registers (see notes).}
+  - {key: x.ct_primary, label: CT primary current, table: holding, address: 2306, type: u16, unit: A, writable: true, min: 1, max: 6500, poll: slow}
+  - {key: x.nominal_frequency, label: Nominal frequency, table: holding, address: 2315, type: u16, unit: Hz, writable: true, poll: slow}
+  - {key: x.energy_roll, label: Energy roll value, table: holding, address: 2377, type: u16, enum: energy_roll, writable: true, poll: slow}
+  - {key: x.pfc_operating_mode, label: PFC operating mode (setup), table: holding, address: 2408, type: u16, enum: pfc_operating_mode, writable: true, poll: slow, note: The only PFC setup register that may be changed while the PFC runs. 2458 is an alias.}
+  - {key: x.setpoint_trigger, label: Setpoint trigger, table: holding, address: 2409, type: u16, enum: setpoint_trigger, writable: true, poll: slow}
+  - {key: x.target_low_1, label: 'Setpoint 1: low target PF1 / kvar 1', table: holding, address: 2412, type: s16, writable: true, poll: slow, note: 'PF mode: −500 … 500 × 0.001; RPR (kvar) mode: −10000 … 10000 kvar. Raw value here; the scale depends on the setpoint trigger.'}
+  - {key: x.target_high_1, label: 'Setpoint 1: high target PF1 / kvar 1', table: holding, address: 2413, type: s16, writable: true, poll: slow}
+  - {key: x.pfc_command, label: PFC manual command register, table: holding, address: 2456, type: u16, enum: pfc_command, writable: true, write_only: true, note: Manual/remote mode only.}
+
+enums:
+  contact: {'0': Open, '1': Closed}
+  pfc_mode: {'0': 'Off', '1': AUTO 1 (self-adapting), '2': AUTO 2 (optimizing), '3': Manual, '4': Shut down}
+  pfc_operating_mode: {'0': 'Off', '1': AUTO 1 (self-adapting), '2': AUTO 2 (optimizing), '3': Manual / remote}
+  pfc_status: {'0': Ready, '1': Alarm, '2': Busy, '3': Low power, '4': Excessive inductive load, '5': Excessive capacitive load, '6': Full (all banks in), '7': Idle (all banks off), '8': 'Off'}
+  wiring_mode: {'0': '3OP2 (3-wire open delta, 2 CTs)', '1': '4LN3 (4-wire wye, 3 PTs, L-N)', '2': '3DIR2 (3-wire direct, 2 CTs)', '3': '4LL3 (4-wire wye, 3 PTs, L-L)', '4': '3OP3 (3-wire open delta, 3 CTs)', '5': '3LN3 (4-wire wye, 2 PTs, L-N)', '6': '3LL3 (4-wire wye, 2 PTs, L-L)', '7': '2LL1 (2-wire L-L, 1 PT)'}
+  energy_roll: {'0': 10^4, '1': 10^5, '2': 10^6, '3': 10^7, '4': 10^8}
+  setpoint_trigger: {'0': True power factor (PFC), '1': Displacement power factor (PFC), '2': True kvar (RPR), '3': Fundamental kvar (RPR)}
+  pfc_command: {'1': Switch in a capacitor bank, '2': Switch off a capacitor bank}
+
+flags:
+  relays: {'0': Relay 1 energized, '1': Relay 2 energized, '2': Relay 3 energized, '3': Relay 4 energized, '4': Relay 5 energized, '5': Relay 6 energized, '6': Relay 7 energized, '7': Relay 8 energized}
+  self_check: {'2': RAM error, '3': Watchdog timer reset, '4': Sampling failure, '5': Hardware exception, '7': Software exception, '8': Loss of power (power up), '9': External reset (warm restart), '10': Configuration corrupted}
+  options1: {'0': 120 V input, '1': 690 V input, '6': Analog output 0/4–20 mA, '9': Relays, '10': Digital input}
+
+problems:
+  - {when: {key: state, equals: 1}, kind: fault, text: PFC stopped by an alarm setpoint}
+  - {when: {key: state, equals: 4}, kind: warning, text: 'Excessive inductive load: not compensated'}
+  - {when: {key: state, equals: 5}, kind: warning, text: 'Excessive capacitive load: not compensated'}
+  - {when: {key: x.setpoint_alarms, not: 0}, kind: warning, text: 'Setpoint alarm (0x{value:X})'}
+  - {when: {key: x.self_check, bit: 2}, kind: fault, text: RAM error (self-check bit 2)}
+  - {when: {key: x.self_check, bit: 3}, kind: warning, text: Watchdog timer reset (self-check bit 3)}
+  - {when: {key: x.self_check, bit: 4}, kind: fault, text: Sampling failure (self-check bit 4)}
+  - {when: {key: x.self_check, bit: 5}, kind: fault, text: Hardware exception (self-check bit 5)}
+  - {when: {key: x.self_check, bit: 7}, kind: warning, text: Software exception (self-check bit 7)}
+  - {when: {key: x.self_check, bit: 10}, kind: warning, text: 'Configuration corrupted, defaults in use (self-check bit 10)'}
+
+notes:
+- A panel controller that switches up to eight capacitor banks and measures the three-phase supply like a power meter.
+- Addresses are the device's register addresses as the document gives them (decimal, 0-based); the document's 4XXXX style
+  adds 40001. Function 03 and 04 read the same registers.
+- 'The values here are the 32-bit extended data registers (13312 ff.): two registers, low-order word first, as decimal-scaled
+  integers. The document also has 16-bit copies of the same values (256 ff., 7136 ff.), scaled 0…9999 onto ranges that depend
+  on PT ratio, CT primary current and wiring mode; they are left out.'
+- 'Units depend on the PT ratio (register 2305): with direct wiring (PT ratio 1) voltages are in 0.1 V, currents 0.01 A, powers
+  0.001 kW (= 1 W, as here); with a PT ratio above 1 voltages are in 1 V and powers in 1 kW. A reader must multiply voltages
+  by 10 and powers by 1000 in that case.'
+- In 3-wire wiring modes the per-phase power, reactive power and power factor read 0; only totals are meaningful.
+- 'Serial: RTU only, 8N1 or 8E1, 110–19200 baud (address 2346, baud 2347, format 2348). The document gives no factory address,
+  baud rate or parity: unit 1, 9600 baud, 8N1 are assumptions.'
+- 'Left out: average, minimum/maximum and demand values, phase energies, harmonic (fundamental) values, K-factors, TDD, event
+  and relay operation counters, analog output, digital input, alarm/pulse setpoint setup, user-assignable register map (0–239),
+  min/max log, capacitor bank sizes and timing (2410–2427), external breaker status (2457), reset registers (3404–3421) and
+  the instrument reset (2560).'

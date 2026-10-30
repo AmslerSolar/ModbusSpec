@@ -1,0 +1,55 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the ZETLAB ZETSENSOR digital sensors programmer's guide (ЭТМС.421400.000 33, undated).
+
+modbusspec: 0
+id: zetlab-zetsensor
+manufacturer: ZETLAB
+name: ZETSENSOR digital sensors ZET 70xx (RS-485 Modbus RTU)
+kind: io
+
+sources:
+- title: Цифровые датчики семейства ZETSENSOR, руководство программиста ЭТМС.421400.000 33 (РП ZET7XXX)
+  version: undated
+  url: https://file.zetlab.com/Document/04_7XXX/03_RS485_INTERFACE/%D0%A0%D0%9F_ZET7XXX.pdf
+  sha256: 7a7bee8728255c1b30eeaab767f2b40a24c9f329b35cbf2f6e987d0bbdae3624
+
+connection:
+  default_port: 502
+  default_unit: 2
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8O1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+
+points:
+  - {key: x.channel1_value, label: Channel value (CHANNEL_PAR value), table: holding, address: 20, type: f32, poll: fast, note: 'Current measured value of the (first) channel, in the sensor''s own unit (pressure, acceleration, temperature … depending on the sensor type). Read only. The document states this address for all ZET 70xx sensors.'}
+  - {key: x.channel1_frequency, label: Channel update rate (CHANNEL_PAR frequency), table: holding, address: 22, type: f32, unit: Hz, poll: slow, note: Address derived from the CHANNEL_PAR layout (value at 0x14) and consistent with the document's example dump., verified: false}
+  - {key: x.channel1_name, label: Channel name (CHANNEL_PAR channel_name), table: holding, address: 28, type: str, length: 16, byte_order: little, poll: slow, note: '32 bytes, low byte of each register first. Address derived from the CHANNEL_PAR layout and consistent with the document''s example dump.', verified: false}
+  - {key: x.channel1_min_level, label: Channel minimum measurable value (CHANNEL_PAR min_level), table: holding, address: 44, type: f32, poll: slow, note: In the channel's unit. Address derived from the CHANNEL_PAR layout., verified: false}
+  - {key: x.channel1_max_level, label: Channel maximum measurable value (CHANNEL_PAR max_level), table: holding, address: 46, type: f32, poll: slow, note: In the channel's unit. Address derived from the CHANNEL_PAR layout., verified: false}
+  - {key: x.channel2_value, label: Channel 2 value (Y axis on ZET 7052), table: holding, address: 58, type: f32, poll: fast, optional: true, note: Given for the ZET 7052 three-axis accelerometer only; other multi-channel sensors may place their further channels elsewhere (check the register table the vendor's service utility generates).}
+  - {key: x.channel3_value, label: Channel 3 value (Z axis on ZET 7052), table: holding, address: 96, type: f32, poll: fast, optional: true, note: Given for the ZET 7052 three-axis accelerometer only; see channel 2.}
+
+notes:
+- The document names ООО «ЭТМС» (Электронные технологии и метрологические системы) as the company; the products are sold under
+  the ZETLAB / ZETSENSOR brand.
+- The sensors keep their settings as a chain of self-describing structures (each with a header holding size, type id, status,
+  write state and CRC16); their addresses depend on the sensor type and are listed in a table the vendor's service utility
+  generates. Only the channel value at 0x14 is stated as fixed for all ZET 70xx sensors; the other channel 1 fields follow
+  from the documented CHANNEL_PAR structure (header at 0x10, 4 registers). The identification structure DEV_PAR (type, 64-bit
+  serial number, firmware time, bus address) has no fixed address in the document, so there is no identify or serial here.
+- 'Floats: the document states little-endian data; its example dump and its Modbus Poll setting (Float CD AB) mean big-endian
+  bytes within each register, low word first.'
+- Function 04 on the value address returns streamed measurement data; function 06 is used by the vendor to read structure
+  descriptors (not the standard write-single-register). Settings are written with function 16 under a write_enable handshake
+  (start, transfer, end; the sensor then verifies and stores); not described here.
+- 'Bus addresses: 1 is reserved for the interface converter (master), sensors use 2 … 63. The default unit id 2 and the serial
+  settings 19200 8O1 come from the document''s example setup, not from a stated factory default.'

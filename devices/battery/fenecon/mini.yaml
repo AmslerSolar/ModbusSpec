@@ -1,0 +1,212 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the FENECON Modbus protocol 485 (MINIES) (spreadsheet, from the OpenEMS repository at commit
+# c044448d). The spreadsheet names the system only "MINIES"; it sits with FENECON's Mini driver.
+
+modbusspec: 0
+id: fenecon-mini
+manufacturer: FENECON
+name: FENECON Mini (MINIES)
+kind: battery
+
+sources:
+- title: Modbus protocol 485 (MINIES) (spreadsheet)
+  version: commit c044448d6346209e4aa8dae7f4bde08a676ad0ed
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.fenecon.mini/doc/Modbus%20protocol_485%28MINIES%29.xlsx
+  sha256: adab9cfc93055937e78b6fd1730ff9b322b3e89be442f898e4cea5d26703f435
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.fenecon.mini
+
+connection:
+  default_port: 502
+  default_unit: 4
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Status
+  - {key: x.system_state, label: System status, table: holding, address: 100, type: u16, enum: system_state, note: The read function code isn't stated; holding registers assumed., verified: false}
+  - {key: x.control_mode, label: Control mode, table: holding, address: 101, type: u16, enum: control_mode, poll: slow, note: Commands (registers 200 … 202) are only accepted in remote mode.}
+  - {key: x.charge_power_limit, label: Battery allowable charging power limitation, table: holding, address: 104, type: u32, unit: W, note: 'High word at 104, low word at 105. The document gives the unit as 1 Wh; taken as W because it is a power limit.', verified: false}
+  - {key: x.battery_discharge_energy, label: Total energy discharged from battery, table: holding, address: 106, type: u32, unit: kWh, scale: 0.001, poll: slow, note: '1 Wh per step; high word at 106, low word at 107.'}
+  - {key: x.battery_group_state, label: Battery group status, table: holding, address: 108, type: u16, enum: battery_group_state}
+  - {key: battery_soc, label: Battery group SOC, table: holding, address: 109, type: u16, unit: '%'}
+  - {key: battery_voltage, label: Battery group voltage, table: holding, address: 110, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [openems], scale: 0.001, label: Battery voltage}]}
+  - {key: battery_current, label: Battery group current, table: holding, address: 111, type: s16, unit: A, scale: 0.1, positive: discharge, note: Signed; the positive direction isn't stated (assumed discharge)., conflicts: [{sources: [openems], scale: 0.001, label: Battery current}], verified: false}
+  - {key: battery_power, label: Battery group power, table: holding, address: 112, type: s16, unit: W, positive: discharge, note: Signed; the positive direction isn't stated (assumed discharge)., verified: false}
+  - {key: x.battery_alarm, label: Battery group alarm message, table: holding, address: 113, type: u16, flags: battery_alarm}
+  - {key: x.pcs_state, label: PCS operation status, table: holding, address: 114, type: u16, enum: pcs_state}
+  # Inverter (PCS) and grid
+  - {key: x.pcs_current, label: PCS output current, table: holding, address: 118, type: s16, unit: A, scale: 0.1, note: 'Signed; the document only remarks ''inverting output'', the positive direction isn''t stated.', verified: false}
+  - {key: x.grid_voltage, label: Grid voltage, table: holding, address: 121, type: u16, unit: V, scale: 0.1}
+  - {key: x.pcs_active_power, label: PCS active power, table: holding, address: 124, type: s16, unit: W, note: 'Signed; the document only remarks ''inverting output'', the positive direction isn''t stated.', verified: false}
+  - {key: reactive_power, label: PCS reactive power, table: holding, address: 127, type: s16, unit: var}
+  - {key: frequency, label: Grid frequency, table: holding, address: 131, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.pcs_max_power, label: PCS maximum output apparent power, table: holding, address: 134, type: u16, unit: W, poll: slow, note: The document gives the unit as W.}
+  - {key: x.meter_active_power, label: Meter total active power, table: holding, address: 139, type: s16, unit: W, note: Total active power of the grid meter; the positive direction isn't stated., verified: false}
+  - {key: x.meter_reactive_power, label: Meter total reactive power, table: holding, address: 140, type: s16, unit: var}
+  - {key: x.charge_limit, label: System charging limitation, table: holding, address: 141, type: u16, unit: W}
+  - {key: x.discharge_limit, label: System discharging limitation, table: holding, address: 142, type: u16, unit: W}
+  - {key: pv_power, label: PV inverter power, table: holding, address: 143, type: u16, unit: W}
+  # Control (write-only)
+  - {key: x.set_system_control, label: System control, table: holding, address: 200, type: u16, enum: system_control, writable: true, write_only: true, write_multiple: true, poll: slow, note: Registers 200 … 202 are written together; without a command for 60 s the system returns to local mode. Remote off-grid start (2) isn't available yet according to the document.}
+  - {key: x.set_active_power, label: Target active power, table: holding, address: 201, type: s16, unit: W, writable: true, write_only: true, write_multiple: true, min: -10000, max: 10000, poll: slow, note: The sign convention isn't stated.}
+  - {key: x.set_reactive_power, label: Target reactive power, table: holding, address: 202, type: s16, unit: var, writable: true, write_only: true, write_multiple: true, min: -10000, max: 10000, poll: slow}
+  - {key: l1_power, label: Active power l1, table: holding, address: 2007, type: u16, unit: W, offset: -10000, positive: discharge, note: Raw value minus 10000; OpenEMS keeps a raw 0 as 0., verified: false, sources: [openems]}
+  - {key: l2_power, label: Active power l2, table: holding, address: 2107, type: u16, unit: W, offset: -10000, positive: discharge, note: Raw value minus 10000; OpenEMS keeps a raw 0 as 0., verified: false, sources: [openems]}
+  - {key: l3_power, label: Active power l3, table: holding, address: 2207, type: u16, unit: W, offset: -10000, positive: discharge, note: Raw value minus 10000; OpenEMS keeps a raw 0 as 0., verified: false, sources: [openems]}
+  - {key: x.debug_run_state, label: Debug run state, table: holding, address: 2992, type: u16, enum: debug_run_state, writable: true, verified: false, sources: [openems]}
+  - {key: x.becu1_allowed_charge_current, label: Becu1 allowed charge current, table: holding, address: 3000, type: u16, unit: A, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.becu1_allowed_discharge_current, label: Becu1 allowed discharge current, table: holding, address: 3001, type: u16, unit: A, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.becu1_total_voltage, label: Becu1 total voltage, table: holding, address: 3002, type: u16, unit: V, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.becu1_total_current, label: Becu1 total current, table: holding, address: 3003, type: u16, unit: A, verified: false, sources: [openems]}
+  - {key: x.becu1_soc, label: Becu1 soc, table: holding, address: 3004, type: u16, unit: '%', verified: false, sources: [openems]}
+  - {key: x.state_word_3005, label: Status bits at 3005, table: holding, address: 3005, type: u16, flags: state_word_3005, verified: false, sources: [openems]}
+  - {key: x.state_word_3006, label: Status bits at 3006, table: holding, address: 3006, type: u16, flags: state_word_3006, verified: false, sources: [openems]}
+  - {key: x.state_word_3007, label: Status bits at 3007, table: holding, address: 3007, type: u16, flags: state_word_3007, verified: false, sources: [openems]}
+  - {key: x.state_word_3008, label: Status bits at 3008, table: holding, address: 3008, type: u16, flags: state_word_3008, verified: false, sources: [openems]}
+  - {key: x.becu1_version, label: Becu1 version, table: holding, address: 3009, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu1_nominal_capacity, label: Becu1 nominal capacity, table: holding, address: 3010, type: u16, unit: Ah, verified: false, sources: [openems]}
+  - {key: x.becu1_current_capacity, label: Becu1 current capacity, table: holding, address: 3011, type: u16, unit: Ah, verified: false, sources: [openems]}
+  - {key: x.becu1_minimum_voltage_no, label: Becu1 minimum voltage no, table: holding, address: 3012, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu1_minimum_voltage, label: Becu1 minimum voltage, table: holding, address: 3013, type: u16, unit: V, verified: false, sources: [openems]}
+  - {key: x.becu1_maximum_voltage_no, label: Becu1 maximum voltage no, table: holding, address: 3014, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu1_maximum_voltage, label: Becu1 maximum voltage, table: holding, address: 3015, type: u16, unit: V, verified: false, sources: [openems]}
+  - {key: x.becu1_minimum_temperature_no, label: Becu1 minimum temperature no, table: holding, address: 3016, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu1_minimum_temperature, label: Becu1 minimum temperature, table: holding, address: 3017, type: u16, unit: °C, offset: -40, verified: false, sources: [openems]}
+  - {key: x.becu1_maximum_temperature_no, label: Becu1 maximum temperature no, table: holding, address: 3018, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu1_maximum_temperature, label: Becu1 maximum temperature, table: holding, address: 3019, type: u16, unit: °C, offset: -40, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_1, label: Battery voltage section 1, table: holding, address: 3020, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_2, label: Battery voltage section 2, table: holding, address: 3021, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_3, label: Battery voltage section 3, table: holding, address: 3022, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_4, label: Battery voltage section 4, table: holding, address: 3023, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_5, label: Battery voltage section 5, table: holding, address: 3024, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_6, label: Battery voltage section 6, table: holding, address: 3025, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_7, label: Battery voltage section 7, table: holding, address: 3026, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_8, label: Battery voltage section 8, table: holding, address: 3027, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_9, label: Battery voltage section 9, table: holding, address: 3028, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_10, label: Battery voltage section 10, table: holding, address: 3029, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_11, label: Battery voltage section 11, table: holding, address: 3030, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_12, label: Battery voltage section 12, table: holding, address: 3031, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_13, label: Battery voltage section 13, table: holding, address: 3032, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_14, label: Battery voltage section 14, table: holding, address: 3033, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_15, label: Battery voltage section 15, table: holding, address: 3034, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_voltage_section_16, label: Battery voltage section 16, table: holding, address: 3035, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_1, label: Battery temperature section 1, table: holding, address: 3036, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_2, label: Battery temperature section 2, table: holding, address: 3037, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_3, label: Battery temperature section 3, table: holding, address: 3038, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_4, label: Battery temperature section 4, table: holding, address: 3039, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_5, label: Battery temperature section 5, table: holding, address: 3040, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_6, label: Battery temperature section 6, table: holding, address: 3041, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_7, label: Battery temperature section 7, table: holding, address: 3042, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_8, label: Battery temperature section 8, table: holding, address: 3043, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_9, label: Battery temperature section 9, table: holding, address: 3044, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_10, label: Battery temperature section 10, table: holding, address: 3045, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_11, label: Battery temperature section 11, table: holding, address: 3046, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_12, label: Battery temperature section 12, table: holding, address: 3047, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_13, label: Battery temperature section 13, table: holding, address: 3048, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_14, label: Battery temperature section 14, table: holding, address: 3049, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_15, label: Battery temperature section 15, table: holding, address: 3050, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.battery_temperature_section_16, label: Battery temperature section 16, table: holding, address: 3051, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.becu2_charge_current, label: Becu2 charge current, table: holding, address: 3200, type: u16, unit: A, verified: false, sources: [openems]}
+  - {key: x.becu2_discharge_current, label: Becu2 discharge current, table: holding, address: 3201, type: u16, unit: A, verified: false, sources: [openems]}
+  - {key: x.becu2_volt, label: Becu2 volt, table: holding, address: 3202, type: u16, unit: V, verified: false, sources: [openems]}
+  - {key: x.becu2_current, label: Becu2 current, table: holding, address: 3203, type: u16, unit: A, verified: false, sources: [openems]}
+  - {key: x.becu2_soc, label: Becu2 soc, table: holding, address: 3204, type: u16, unit: '%', verified: false, sources: [openems]}
+  - {key: x.state_word_3205, label: Status bits at 3205, table: holding, address: 3205, type: u16, flags: state_word_3205, verified: false, sources: [openems]}
+  - {key: x.state_word_3206, label: Status bits at 3206, table: holding, address: 3206, type: u16, flags: state_word_3206, verified: false, sources: [openems]}
+  - {key: x.state_word_3207, label: Status bits at 3207, table: holding, address: 3207, type: u16, flags: state_word_3207, verified: false, sources: [openems]}
+  - {key: x.state_word_3208, label: Status bits at 3208, table: holding, address: 3208, type: u16, flags: state_word_3208, verified: false, sources: [openems]}
+  - {key: x.becu2_version, label: Becu2 version, table: holding, address: 3209, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu2_min_volt_no, label: Becu2 min volt no, table: holding, address: 3212, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu2_min_volt, label: Becu2 min volt, table: holding, address: 3213, type: u16, unit: V, verified: false, sources: [openems]}
+  - {key: x.becu2_max_volt_no, label: Becu2 max volt no, table: holding, address: 3214, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu2_max_volt, label: Becu2 max volt, table: holding, address: 3215, type: u16, unit: V, verified: false, sources: [openems]}
+  - {key: x.becu2_min_temp_no, label: Becu2 min temp no, table: holding, address: 3216, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu2_min_temp, label: Becu2 min temp, table: holding, address: 3217, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.becu2_max_temp_no, label: Becu2 max temp no, table: holding, address: 3218, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu2_max_temp, label: Becu2 max temp, table: holding, address: 3219, type: u16, unit: °C, verified: false, sources: [openems]}
+  - {key: x.system_work_state, label: System work state, table: holding, address: 4000, type: u32, verified: false, sources: [openems]}
+  - {key: x.system_work_mode_state, label: System work mode state, table: holding, address: 4002, type: u32, verified: false, sources: [openems]}
+  - {key: grid_power, label: Active power, table: holding, address: 4004, type: s16, unit: W, positive: import, note: OpenEMS reads a raw −10000 as 0., verified: false, sources: [openems]}
+  - {key: x.active_power_4006, label: Active power, table: holding, address: 4006, type: u16, unit: W, note: Positive = generation (OpenEMS channel active power)., verified: false, sources: [openems]}
+  - {key: x.becu_num, label: Becu num, table: holding, address: 4800, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu_work_state, label: Becu work state, table: holding, address: 4801, type: u16, verified: false, sources: [openems]}
+  - {key: x.becu_charge_current, label: Becu charge current, table: holding, address: 4803, type: u16, unit: A, verified: false, sources: [openems]}
+  - {key: x.becu_discharge_current, label: Becu discharge current, table: holding, address: 4804, type: u16, unit: A, verified: false, sources: [openems]}
+  - {key: x.becu_volt, label: Becu volt, table: holding, address: 4805, type: u16, unit: V, verified: false, sources: [openems]}
+  - {key: x.becu_current, label: Becu current, table: holding, address: 4806, type: u16, unit: A, verified: false, sources: [openems]}
+  - {key: x.state_word_4808, label: Status bits at 4808, table: holding, address: 4808, type: u16, flags: state_word_4808, verified: false, sources: [openems]}
+  - {key: x.state_word_4809, label: Status bits at 4809, table: holding, address: 4809, type: u16, flags: state_word_4809, writable: true, verified: false, sources: [openems]}
+  - {key: x.state_word_4810, label: Status bits at 4810, table: holding, address: 4810, type: u16, flags: state_word_4810, verified: false, sources: [openems]}
+  - {key: x.state_word_4811, label: Status bits at 4811, table: holding, address: 4811, type: u16, flags: state_word_4811, verified: false, sources: [openems]}
+  - {key: x.rtc_year, label: Year, table: holding, address: 9014, type: u16, writable: true, verified: false, sources: [openems]}
+  - {key: x.rtc_month, label: Month, table: holding, address: 9015, type: u16, writable: true, verified: false, sources: [openems]}
+  - {key: x.rtc_day, label: Day, table: holding, address: 9016, type: u16, writable: true, verified: false, sources: [openems]}
+  - {key: x.rtc_hour, label: Hour, table: holding, address: 9017, type: u16, writable: true, verified: false, sources: [openems]}
+  - {key: x.rtc_minute, label: Minute, table: holding, address: 9018, type: u16, writable: true, verified: false, sources: [openems]}
+  - {key: x.rtc_second, label: Second, table: holding, address: 9019, type: u16, writable: true, verified: false, sources: [openems]}
+  - {key: x.grid_max_charge_current_30126, label: Grid max charge current, table: holding, address: 30126, type: u16, unit: A, scale: 0.1, writable: true, verified: false, sources: [openems]}
+  - {key: x.grid_max_discharge_current_30127, label: Grid max discharge current, table: holding, address: 30127, type: u16, unit: A, scale: 0.1, writable: true, verified: false, sources: [openems]}
+  - {key: x.setup_mode_30157, label: Setup mode, table: holding, address: 30157, type: u16, enum: setup_mode, writable: true, verified: false, sources: [openems]}
+  - {key: x.pcs_mode_30158, label: Pcs mode, table: holding, address: 30158, type: u16, enum: pcs_mode, writable: true, verified: false, sources: [openems]}
+  - {key: x.grid_max_charge_current, label: Grid max charge current, table: holding, address: 30526, type: u16, unit: A, scale: 0.1, writable: true, verified: false, sources: [openems]}
+  - {key: x.grid_max_discharge_current, label: Grid max discharge current, table: holding, address: 30527, type: u16, unit: A, scale: 0.1, writable: true, verified: false, sources: [openems]}
+  - {key: x.setup_mode, label: Setup mode, table: holding, address: 30558, type: u16, enum: setup_mode, writable: true, verified: false, sources: [openems]}
+  - {key: x.pcs_mode, label: Pcs mode, table: holding, address: 30559, type: u16, enum: pcs_mode, writable: true, verified: false, sources: [openems]}
+
+enums:
+  system_state: {'0': Standby, '1': Off-grid, '2': On-grid, '3': Fail, '4': Off-grid PV}
+  control_mode: {'1': Remote, '2': Local}
+  battery_group_state: {'0': Initial, '1': Off grid, '2': On griding, '3': On grid, '4': Stopping, '5': Fail}
+  pcs_state: {'0': Self-checking, '1': Standby, '2': Off-grid PV, '3': Off-grid, '4': On-grid, '5': Fail, '6': Bypass 1, '7': Bypass 2}
+  system_control: {'0': Local, '1': Remote on-grid start, '2': Remote off-grid start, '3': Stop, '4': Emergency stop}
+  setup_mode: {'0': 'Off', '1': 'On'}
+  pcs_mode: {'0': Emergency, '1': Consumers Peak Pattern, '2': Economic, '3': Eco, '4': Debug, '5': Smooth PV, '6': Remote, '7': Riyuan, '8': Timing}
+  debug_run_state: {'0': Forbid, '1': Charge, '2': Discharge}
+
+flags:
+  battery_alarm: {'0': 'Fail, system should be stopped', '1': Common low voltage (no discharging allowed), '2': Common high voltage (no charging allowed), '3': Charging overcurrent, '4': Discharging overcurrent, '5': Over temperature, '6': Internal communication broken}
+  state_word_3005: {'0': BECU1GeneralChargeOverCurrentAlarm, '1': BECU1GeneralDischargeOverCurrentAlarm, '2': BECU1ChargeCurrentLimitAlarm, '3': BECU1DischargeCurrentLimitAlarm, '4': BECU1GeneralHighVoltageAlarm, '5': BECU1GeneralLowVoltageAlarm, '6': BECU1AbnormalVoltageChangeAlarm, '7': BECU1GeneralHighTemperatureAlarm, '8': BECU1GeneralLowTemperatureAlarm, '9': BECU1AbnormalTemperatureChangeAlarm, '10': BECU1SevereHighVoltageAlarm, '11': BECU1SevereLowVoltageAlarm, '12': BECU1SevereLowTemperatureAlarm, '13': BECU1SeverveChargeOverCurrentAlarm, '14': BECU1SeverveDischargeOverCurrentAlarm, '15': BECU1AbnormalCellCapacityAlarm}
+  state_word_3006: {'0': BECU1BalancedSamplingAlarm, '1': BECU1BalancedControlAlarm, '2': BECU1HallSensorDoesNotWorkAccurately, '4': BECU1Generalleakage, '5': BECU1Severeleakage, '6': BECU1Contactor1TurnOnAbnormity, '7': BECU1Contactor1TurnOffAbnormity, '8': BECU1Contactor2TurnOnAbnormity, '9': BECU1Contactor2TurnOffAbnormity, '10': BECU1Contactor4CheckAbnormity, '11': BECU1ContactorCurrentUnsafe, '12': BECU1Contactor5CheckAbnormity, '13': BECU1HighVoltageOffset, '14': BECU1LowVoltageOffset, '15': BECU1HighTemperatureOffset}
+  state_word_3007: {'0': BECU1DischargeSevereOvercurrent, '1': BECU1ChargeSevereOvercurrent, '2': BECU1GeneralUndervoltage, '3': BECU1SevereOvervoltage, '4': BECU1GeneralOvervoltage, '5': BECU1SevereUndervoltage, '6': BECU1InsideCANBroken, '7': BECU1GeneralUndervoltageHighCurrentDischarge, '8': BECU1BMUError, '9': BECU1CurrentSamplingInvalidation, '10': BECU1BatteryFail, '13': BECU1TemperatureSamplingBroken, '14': BECU1Contactor1TestBackIsAbnormalTurnOnAbnormity, '15': BECU1Contactor1TestBackIsAbnormalTurnOffAbnormity}
+  state_word_3008: {'0': BECU1Contactor2TestBackIsAbnormalTurnOnAbnormity, '1': BECU1Contactor2TestBackIsAbnormalTurnOffAbnormity, '2': BECU1SevereHighTemperatureFault, '9': BECU1HallInvalidation, '10': BECU1ContactorInvalidation, '12': BECU1OutsideCANBroken, '13': BECU1CathodeContactorBroken}
+  state_word_3205: {'0': BECU2GeneralChargeOverCurrentAlarm, '1': BECU2GeneralDischargeOverCurrentAlarm, '2': BECU2ChargeCurrentLimitAlarm, '3': BECU2DischargeCurrentLimitAlarm, '4': BECU2GeneralHighVoltageAlarm, '5': BECU2GeneralLowVoltageAlarm, '6': BECU2AbnormalVoltageChangeAlarm, '7': BECU2GeneralHighTemperatureAlarm, '8': BECU2GeneralLowTemperatureAlarm, '9': BECU2AbnormalTemperatureChangeAlarm, '10': BECU2SevereHighVoltageAlarm, '11': BECU2SevereLowVoltageAlarm, '12': BECU2SevereLowTemperatureAlarm, '13': BECU2SeverveChargeOverCurrentAlarm, '14': BECU2SeverveDischargeOverCurrentAlarm, '15': BECU2AbnormalCellCapacityAlarm}
+  state_word_3206: {'0': BECU2BalancedSamplingAlarm, '1': BECU2BalancedControlAlarm, '2': BECU2HallSensorDoesNotWorkAccurately, '4': BECU2Generalleakage, '5': BECU2Severeleakage, '6': BECU2Contactor1TurnOnAbnormity, '7': BECU2Contactor1TurnOffAbnormity, '8': BECU2Contactor2TurnOnAbnormity, '9': BECU2Contactor2TurnOffAbnormity, '10': BECU2Contactor4CheckAbnormity, '11': BECU2ContactorCurrentUnsafe, '12': BECU2Contactor5CheckAbnormity, '13': BECU2HighVoltageOffset, '14': BECU2LowVoltageOffset, '15': BECU2HighTemperatureOffset}
+  state_word_3207: {'0': BECU2DischargeSevereOvercurrent, '1': BECU2ChargeSevereOvercurrent, '2': BECU2GeneralUndervoltage, '3': BECU2SevereOvervoltage, '4': BECU2GeneralOvervoltage, '5': BECU2SevereUndervoltage, '6': BECU2InsideCANBroken, '7': BECU2GeneralUndervoltageHighCurrentDischarge, '8': BECU2BMUError, '9': BECU2CurrentSamplingInvalidation, '10': BECU2BatteryFail, '13': BECU2TemperatureSamplingBroken, '14': BECU2Contactor1TestBackIsAbnormalTurnOnAbnormity, '15': BECU2Contactor1TestBackIsAbnormalTurnOffAbnormity}
+  state_word_3208: {'0': BECU2Contactor2TestBackIsAbnormalTurnOnAbnormity, '1': BECU2Contactor2TestBackIsAbnormalTurnOffAbnormity, '2': BECU2SevereHighTemperatureFault, '9': BECU2HallInvalidation, '10': BECU2ContactorInvalidation, '12': BECU2OutsideCANBroken, '13': BECU2CathodeContactorBroken}
+  state_word_4809: {'0': StackAndGroup1CANCommunicationInterrupt, '1': StackAndGroup2CANCommunicationInterrupt}
+  state_word_4808: {'0': NoAvailableBatteryGroup, '1': StackGeneralLeakage, '2': StackSevereLeakage, '3': StackStartingFail, '4': StackStoppingFail, '9': BatteryProtection}
+  state_word_4810: {'0': GeneralOvercurrentAlarmAtCellStackCharge, '1': GeneralOvercurrentAlarmAtCellStackDischarge, '2': CurrentLimitAlarmAtCellStackCharge, '3': CurrentLimitAlarmAtCellStackDischarge, '4': GeneralCellStackHighVoltageAlarm, '5': GeneralCellStackLowVoltageAlarm, '6': AbnormalCellStackVoltageChangeAlarm, '7': GeneralCellStackHighTemperatureAlarm, '8': GeneralCellStackLowTemperatureAlarm, '9': AbnormalCellStackTemperatureChangeAlarm, '10': SevereCellStackHighVoltageAlarm, '11': SevereCellStackLowVoltageAlarm, '12': SevereCellStackLowTemperatureAlarm, '13': SeverveOverCurrentAlarmAtCellStackDharge, '14': SeverveOverCurrentAlarmAtCellStackDischarge, '15': AbnormalCellStackCapacityAlarm}
+  state_word_4811: {'0': TheParameterOfEEPROMInCellStackLoseEffectiveness, '1': IsolatingSwitchInConfluenceArkBreak, '2': State 131, '3': TheTemperatureOfCollectorFail, '4': HallSensorDoNotWorkAccurately, '5': TheCommunicationOfPCSBreak, '6': AdvancedChargingOrMainContactorCloseAbnormally, '7': AbnormalSampledVoltage, '8': State 137, '9': AbnormalMainContactor, '10': GeneralCellStackLeakage, '11': SevereCellStackLeakage, '12': SmokeAlarm, '14': TheCommunicationWireToDredBreak}
+
+problems:
+  - {when: {key: x.system_state, equals: 3}, kind: fault, text: System fail (state 3)}
+  - {when: {key: x.system_state, in: [1, 4]}, kind: backup_mode, text: 'System running off-grid ({text})'}
+  - {when: {key: x.battery_group_state, equals: 5}, kind: fault, text: Battery group fail (state 5)}
+  - {when: {key: x.pcs_state, equals: 5}, kind: fault, text: PCS fail (state 5)}
+  - {when: {key: x.battery_alarm, bit: 0}, kind: fault, text: 'Battery fail, system should be stopped (bit 0)'}
+  - {when: {key: x.battery_alarm, bit: 1}, kind: warning, text: Battery common low voltage (bit 1)}
+  - {when: {key: x.battery_alarm, bit: 2}, kind: warning, text: Battery common high voltage (bit 2)}
+  - {when: {key: x.battery_alarm, bit: 3}, kind: warning, text: Battery charging overcurrent (bit 3)}
+  - {when: {key: x.battery_alarm, bit: 4}, kind: warning, text: Battery discharging overcurrent (bit 4)}
+  - {when: {key: x.battery_alarm, bit: 5}, kind: warning, text: Battery over temperature (bit 5)}
+  - {when: {key: x.battery_alarm, bit: 6}, kind: warning, text: Battery internal communication broken (bit 6)}
+
+notes:
+- Addresses are the document's decimal register addresses, taken as 0-based protocol addresses; the read function code isn't
+  stated (holding registers assumed, writes use function 0x10).
+- Device ID 4 per the document; the title names RS485 as the interface.
+- The document refers to power limits in registers 102 and 103 but doesn't list them.
+- No identification registers are given (no model, serial or manufacturer register).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,104 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SKI780-485 communication protocol (no version or date). The document doesn't name the maker;
+# see the notes.
+
+modbusspec: 0
+id: generic-ski780
+manufacturer: Generic
+name: SKI780 frequency converter (RS485)
+kind: other
+
+sources:
+- title: SKI780-485 communication protocol
+  version: undated (copy re-hosted on the LinuxCNC forum, file dated 2019)
+  url: https://forum.linuxcnc.org/media/kunena/attachments/31178/ski-780-rs485.pdf
+  sha256: 64f0179407cf0588b1ef3d980059d439150341733ce491a8d0a3098b70115a0d
+  archive_url: https://web.archive.org/web/20230203160951/https://forum.linuxcnc.org/media/kunena/attachments/31178/ski-780-rs485.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+  limits:
+    max_registers: 12
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Running values (function 03)
+  - {key: x.running_frequency, label: Running frequency, table: holding, address: 4097, type: u16, unit: Hz, scale: 0.01, verified: false, note: Not stated in the document; scale assumed from the two-decimal frequency format the document uses elsewhere.}
+  - {key: x.bus_voltage, label: Busbar voltage, table: holding, address: 4098, type: u16, unit: V, verified: false, note: Unit and scale not stated; assumed.}
+  - {key: x.output_voltage, label: Output voltage, table: holding, address: 4099, type: u16, unit: V, verified: false, note: Unit and scale not stated; assumed.}
+  - {key: x.output_current, label: Output current, table: holding, address: 4100, type: u16, unit: A, scale: 0.01, verified: false, note: 'Resolution set by Fd-06 (0xFD06): 0 = 0.01 A (factory), 1 = 0.1 A; the factory setting is taken.'}
+  - {key: x.output_power, label: Output power, table: holding, address: 4101, type: u16, verified: false, note: Unit and scale not stated.}
+  - {key: x.output_torque, label: Output torque, table: holding, address: 4102, type: u16, verified: false, note: Unit and scale not stated.}
+  - {key: x.running_speed, label: Running speed, table: holding, address: 4103, type: u16, verified: false, note: Unit not stated.}
+  - {key: x.di_state, label: DI input sign, table: holding, address: 4104, type: u16, note: Digital input states; bit layout not given.}
+  - {key: x.do_state, label: DO output sign, table: holding, address: 4105, type: u16, note: Digital output states; bit layout not given.}
+  - {key: x.ai1_voltage, label: AI1 voltage, table: holding, address: 4106, type: u16, verified: false, note: Unit and scale not stated.}
+  - {key: x.ai2_voltage, label: AI2 voltage, table: holding, address: 4107, type: u16, verified: false, note: Unit and scale not stated.}
+  - {key: x.ai3_voltage, label: AI3 voltage, table: holding, address: 4108, type: u16, verified: false, note: Unit and scale not stated.}
+  - {key: x.pid_setpoint, label: PID set, table: holding, address: 4112, type: u16, verified: false, note: Unit and scale not stated.}
+  - {key: x.pid_feedback, label: PID feedback, table: holding, address: 4113, type: u16, verified: false, note: Unit and scale not stated.}
+  - {key: x.pulse_input_frequency, label: Pulse input frequency, table: holding, address: 4124, type: u16, unit: Hz}
+  - {key: x.feedback_speed, label: Feedback speed, table: holding, address: 4116, type: u16, unit: Hz, scale: 0.1}
+  - {key: x.power_on_time, label: Current power on time, table: holding, address: 4122, type: u16, verified: false, poll: slow, note: Unit not stated.}
+  - {key: x.running_time, label: Current running time, table: holding, address: 4123, type: u16, verified: false, poll: slow, note: Unit not stated.}
+  - {key: state, label: Frequency converter operating status, table: holding, address: 12288, type: u16, enum: state}
+  - {key: error_code, label: Frequency converter fault description, table: holding, address: 32768, type: u16, enum: fault}
+
+  # Control (write only, function 06)
+  - {key: x.comm_setpoint, label: Communication setting value, table: holding, address: 4096, type: s16, unit: '%', scale: 0.01, writable: true, min: -100, max: 100, note: Relative to the maximum frequency (P0-10) for frequency sources. Used when a source is set to communication.}
+  - {key: x.command, label: Control command, table: holding, address: 8192, type: u16, enum: command, writable: true, write_only: true, note: Takes effect when the command source P0-02 is 2 (communication).}
+  - {key: x.do_control, label: Digital output terminal control, table: holding, address: 8193, type: u16, flags: do_control, writable: true, write_only: true, note: For outputs set to function 20 (communication control).}
+  - {key: x.ao1_control, label: Analog output AO1 control, table: holding, address: 8194, type: u16, writable: true, write_only: true, min: 0, max: 32767, note: 0 … 0x7FFF = 0 … 100 %.}
+  - {key: x.ao2_control, label: Analog output AO2 control, table: holding, address: 8195, type: u16, writable: true, write_only: true, min: 0, max: 32767, note: 0 … 0x7FFF = 0 … 100 %.}
+
+  # Communication settings, group Fd (address 0xFD00 + number; written to EEPROM)
+  - {key: x.baud_rate, label: Fd-00 Baud rate, table: holding, address: 64768, type: u16, writable: true, persistent: true, poll: slow, note: The decimal units digit selects the Modbus rate (see enum baud_rate_digit; factory value 6005 → 5 = 9600); the other digits aren't described.}
+  - {key: x.data_format, label: Fd-01 Data format, table: holding, address: 64769, type: u16, enum: data_format, writable: true, persistent: true, poll: slow}
+  - {key: x.local_address, label: Fd-02 Local address, table: holding, address: 64770, type: u16, writable: true, min: 1, max: 247, persistent: true, poll: slow}
+  - {key: x.response_delay, label: Fd-03 Response delay, table: holding, address: 64771, type: u16, unit: ms, writable: true, min: 0, max: 20, persistent: true, poll: slow, note: Factory 2 ms.}
+  - {key: x.comm_timeout, label: Fd-04 Communication timeout, table: holding, address: 64772, type: u16, unit: s, scale: 0.1, writable: true, min: 0, max: 60, persistent: true, poll: slow, verified: false, note: 0.0 = off; on timeout the converter faults (Err16). Raw scale assumed from the one-decimal range.}
+  - {key: x.protocol_select, label: Fd-05 Communication protocol selection, table: holding, address: 64773, type: u16, enum: protocol_select, writable: true, persistent: true, poll: slow}
+  - {key: x.current_resolution, label: Fd-06 Communication read current resolution, table: holding, address: 64774, type: u16, enum: current_resolution, writable: true, persistent: true, poll: slow}
+
+enums:
+  state: {'1': Forward running, '2': Reverse running, '3': Stopped}
+  command: {'1': Forward run, '2': Reverse run, '3': Forward jog, '4': Reverse jog, '5': Free stop (coast), '6': Deceleration stop, '7': Fault reset}
+  fault: {'0': No fault, '1': Reserved, '2': Overcurrent during acceleration, '3': Overcurrent during deceleration, '4': Overcurrent at constant speed, '5': Overvoltage during acceleration, '6': Overvoltage during deceleration, '7': Overvoltage at constant speed, '8': Buffer resistor overload, '9': Undervoltage, '10': Converter overload, '11': Motor overload, '12': Input phase loss, '13': Output phase loss, '14': Module overheating, '15': External fault, '16': Communication fault, '17': Contactor fault, '18': Current detection fault, '19': Motor tuning fault, '20': Encoder / PG card fault, '21': Parameter read/write fault, '22': Hardware fault, '23': Motor short circuit to ground, '24': Reserved, '25': Reserved, '26': Run time reached, '27': User-defined fault 1, '28': User-defined fault 2, '29': Power-on time reached, '30': Load lost, '31': PID feedback lost while running, '40': Fast current limit timeout, '41': Motor switched while running, '42': Speed deviation too large, '43': Motor overspeed, '45': Motor overtemperature, '90': Encoder line count setting wrong, '91': Encoder not connected, '92': Initial position error, '94': Speed feedback error}
+  baud_rate_digit: {'0': '300', '1': '600', '2': '1200', '3': '2400', '4': '4800', '5': '9600', '6': '19200', '7': '38400', '8': '57600', '9': '115200'}
+  data_format: {'0': 8N2, '1': 8E1, '2': 8O1, '3': 8N1}
+  protocol_select: {'0': Non-standard Modbus (one extra byte in read replies), '1': Standard Modbus}
+  current_resolution: {'0': 0.01 A, '1': 0.1 A}
+
+flags:
+  do_control: {'0': DO1, '1': DO2, '2': Relay 1, '3': Relay 2, '4': FMR, '5': VDO1, '6': VDO2, '7': VDO3, '8': VDO4, '9': VDO5}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Converter fault {value}: {text}'}
+
+notes:
+- The document names only the product SKI780 and no maker. It requires an RS485 extension card called MD38TX1, so the converter
+  is possibly an OEM product of another drive maker.
+- Factory setting Fd-05 = 0 is a non-standard Modbus variant whose read replies carry one extra byte; set Fd-05 = 1 (standard
+  Modbus) before using a normal Modbus master.
+- Only functions 03 (read) and 06 (write single) for 16-bit words. At most 12 registers per read, and a read must not run
+  past the last parameter of a group.
+- 'Parameter addresses: high byte = group (P0…PE → 0xF0…0xFE, A0…AC → 0xA0…0xAC, U0…UF → 0x70…0x7F), low byte = number in
+  the group (e.g. P3-12 → 0xF30C). Writing with the high nibble F → 0 (P groups) or A → 4 (A groups) changes RAM only, without
+  wearing the EEPROM; those RAM addresses can''t be read.'
+- 'Running values 0x1000–0x1020: the document gives names only, mostly without units or scaling; units marked unverified are
+  assumptions. Values 0x100D–0x100F, 0x1012–0x1013, 0x1015–0x1019, 0x101D–0x1020 (count, length, load speed, PLC step, remaining
+  time, pre-correction AI voltages, line speed, main/auxiliary frequency display) are left out.'
+- 0x1F00 takes the user password (reads back 0x8888 when accepted); 0x1F01 initialises parameters (1 factory reset, 2 clear
+  records, 4 restore user backup, 5 back up user parameters). Left out as points.
+- 'Factory serial settings: 9600 baud (Fd-00 = 6005, units digit 5), Fd-01 = 0 (8N2), address 1.'

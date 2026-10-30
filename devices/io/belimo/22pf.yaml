@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Belimo Modbus Interface Description Flow Sensor 22PF-.. (V4.3.0, edition 2026-05); the earlier
+# V4.2 (edition 2025-01) has the same register map.
+
+modbusspec: 0
+id: belimo-22pf
+manufacturer: Belimo
+name: 22PF flow sensor
+kind: io
+
+sources:
+- title: Modbus Interface Description Flow Sensor 22PF-.. / V4.3.0
+  version: V4.3.0 (edition 2026-05)
+  url: https://www.belimo.com/mam/general-documents/system_integration/Modbus/belimo_Modbus-Register_22PF_V4_3_0_en-gb.pdf
+  sha256: 9764adf7f808cf73e2e663b14ef13ad224d108731ddf3367c8e9b403d5e70975
+- title: Modbus Interface Description Flow Sensor 22PF-1U.. (V4.2)
+  version: V4.2 (edition 2025-01)
+  url: https://www.belimo.com/mam/general-documents/system_integration/Modbus/belimo_Modbus-Register_22PF_V4_2_en-gb.pdf
+  sha256: 68624ca30026700437560af12810fe73c9a1943f63989f748d2c32bfca07b3d8
+  archive_url: https://web.archive.org/web/20251008141742/https://www.belimo.com/mam/general-documents/system_integration/Modbus/belimo_Modbus-Register_22PF_V4_2_en-gb.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 38400
+    format: 8N2
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: little
+
+points:
+  # Operation
+  - {key: x.relative_flow, label: Relative volumetric flow, table: holding, address: 6, type: u16, unit: '%', scale: 0.01, note: Share of the full-scale flow (110–113).}
+  - {key: x.flow, label: Absolute volumetric flow, table: holding, address: 7, type: u16, unit: l/s, scale: 0.01, invalid: [65535]}
+  - {key: x.flow_gpm, label: Absolute volumetric flow, table: holding, address: 8, type: u16, unit: gpm, scale: 0.1, invalid: [65535]}
+  - {key: x.flow_selected_unit, label: Absolute volumetric flow in selected unit, table: holding, address: 9, type: u32, unit: l/h, scale: 0.001, verified: false, note: The unit follows the flow unit selection (147); l/h is the default. Not expressible here for other selections.}
+  - {key: x.sensor1_value, label: Sensor 1 value, table: holding, address: 12, type: u16, unit: mV, invalid: [65535], optional: true, note: 'Additional sensor input on Y3: mV for an active sensor, 0/1 for a switch, depending on the sensor type (120).'}
+  - {key: x.medium_temperature, label: Temperature (flow body), table: holding, address: 21, type: s16, unit: °C, scale: 0.01}
+  - {key: x.medium_temperature_f, label: Temperature (flow body), table: holding, address: 22, type: s16, unit: °F, scale: 0.01}
+  - {key: x.glycol_concentration, label: Glycol concentration, table: holding, address: 25, type: u16, unit: '%', scale: 0.01, invalid: [65535]}
+  - {key: x.accumulated_volume, label: Accumulated volume, table: holding, address: 59, type: u32, unit: m³, scale: 0.01, poll: slow, note: Cannot be reset.}
+  - {key: x.accumulated_volume_gal, label: Accumulated volume, table: holding, address: 61, type: u32, unit: gal, poll: slow}
+
+  # Configuration and identity
+  - {key: x.bus_termination, label: Bus termination, table: holding, address: 99, type: u16, enum: on_off, poll: slow}
+  - {key: x.serial_part1, label: Series number 1st part, table: holding, address: 100, type: u16, poll: slow, note: 'The printed series number has four parts (e.g. 00839-31324-064-008); parts 1, 2 and 4 are on Modbus (100, 101, 102).'}
+  - {key: x.serial_part2, label: Series number 2nd part, table: holding, address: 101, type: u16, poll: slow}
+  - {key: x.serial_part4, label: Series number 4th part, table: holding, address: 102, type: u16, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 103, type: u16, scale: 0.01, poll: slow, note: Communication module firmware; 400 = version 4.00.}
+  - {key: x.malfunction, label: Malfunction and service information, table: holding, address: 104, type: u16, flags: malfunction, note: Also readable bit by bit as discrete inputs 1664–1679 (address × 16 + bit).}
+  - {key: x.full_scale_flow, label: FS (full scale) nominal volumetric flow, table: holding, address: 110, type: u16, unit: l/s, scale: 0.01, poll: slow}
+  - {key: x.sensor1_type, label: Sensor 1 type, table: holding, address: 120, type: u16, enum: sensor1_type, writable: true, poll: slow, persistent: true}
+  - {key: x.unit_selection_flow, label: Unit selection flow, table: holding, address: 147, type: u16, enum: flow_unit, writable: true, poll: slow, persistent: true}
+  - {key: x.unit_selection_volume, label: Unit selection volume, table: holding, address: 149, type: u16, enum: volume_unit, writable: true, poll: slow, persistent: true}
+  - {key: x.flow_meter_order_number, label: Flow meter serial number first digits (production order number), table: holding, address: 200, type: u32, poll: slow}
+  - {key: x.flow_meter_sequence_number, label: Flow meter serial number last digits (production sequence number), table: holding, address: 202, type: u32, poll: slow}
+
+enums:
+  on_off: {'0': Disabled, '1': Enabled}
+  sensor1_type: {'0': None, '1': Active, '4': Switch}
+  flow_unit: {'0': m³/s, '1': m³/h, '2': l/s, '3': l/min, '4': l/h, '5': gpm, '6': cfm}
+  volume_unit: {'0': m³, '1': Litre, '2': Gallon, '3': cf}
+
+flags:
+  malfunction: {'3': Reverse flow, '6': Flow exceeds nominal flow, '7': Flow measurement error, '9': Flow body temperature sensor error, '11': Freeze warning, '12': Glycol detected}
+
+problems:
+  - {when: {key: x.malfunction, bit: 3}, kind: warning, text: Reverse flow detected (bit 3)}
+  - {when: {key: x.malfunction, bit: 6}, kind: warning, text: Flow exceeds the nominal flow (bit 6)}
+  - {when: {key: x.malfunction, bit: 7}, kind: fault, text: 'Flow measurement error, e.g. air in the system (bit 7)'}
+  - {when: {key: x.malfunction, bit: 9}, kind: fault, text: Flow body temperature sensor error (bit 9)}
+  - {when: {key: x.malfunction, bit: 11}, kind: warning, text: Freeze warning (bit 11)}
+  - {when: {key: x.malfunction, bit: 12}, kind: warning, text: Glycol detected in the medium (bit 12)}
+
+notes:
+- 'Addresses are the document''s 0-based addresses (register number − 1). The device makes no difference between the tables:
+  functions 03 and 04 read the same registers.'
+- Values are unsigned unless marked signed (the temperatures). 32-bit values are two registers, low word first; write both
+  at once with function 16.
+- A register the device or its configuration doesn't support reads 65535.
+- 'Modbus RTU only: 9600…115200 Bd (default 38400), 8N2 default (8N1, 8E1, 8O1 possible), address 1–247 (default 1). Settings
+  are made with Belimo Assistant 2. Port 502 is for a Modbus TCP gateway in front of it.'
+- 'Left out: full-scale flow in gpm (111) and in the selected unit (112), accumulated volume in the selected unit (63). The
+  selected-unit flow (9) is given in the default unit l/h.'

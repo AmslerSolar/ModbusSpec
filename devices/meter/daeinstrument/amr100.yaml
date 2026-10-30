@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DAE Instrument AMR100 Modbus Reference (revision 1.1e, 2012-10-19).
+
+modbusspec: 0
+id: daeinstrument-amr100
+manufacturer: DAE Instrument
+name: AMR100 auto meter reading module
+kind: meter
+
+sources:
+- title: AMR100 Auto Meter Reading Module Modbus Reference
+  version: 1.1e (2012-10-19)
+  url: http://www.daeinstrument.com/downloads/AMR100+AMR130%20Modbus%20Reference-1.1e.pdf
+  sha256: 484dbe761a6d191543bc009c7f969cc03183b2e31dc9bbada7f6bf45c66bebb6
+  archive_url: https://web.archive.org/web/20240629073322/http://www.daeinstrument.com/downloads/AMR100+AMR130%20Modbus%20Reference-1.1e.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: little
+
+points:
+  - {key: x.total_pulses, label: Total pulses, table: holding, address: 0, type: u32, writable: true, min: 0, max: 999999999, poll: slow, note: 'Counts, low word first. Writing sets the counter to a new value.'}
+  - {key: x.pulse_divider, label: Pulse divider, table: holding, address: 208, type: u16, byte_order: little, enum: pulse_rate, poll: slow, note: 'Low byte first, unlike the other registers. Read only here; it is written as an index (0 … 14 into 1, 4, 8, 10, 16, 32, 64, 100, 160, 320, 640, 1000, 2000, 10000, 20000) in the low byte of register 214.'}
+  - {key: x.device_address, label: Device address, table: holding, address: 210, type: u16, bits: [8, 15], writable: true, min: 0, max: 255, poll: slow, note: In the high byte. After a write the device only answers at the new address.}
+  - {key: x.decimal_place, label: Decimal place, table: holding, address: 215, type: u16, bits: [8, 15], enum: decimal_place, writable: true, poll: slow, note: Display only. In the high byte.}
+  - {key: x.displayed_digits, label: Number of displayed digits, table: holding, address: 220, type: u16, bits: [8, 15], writable: true, min: 6, max: 9, poll: slow, note: The 6-digit display scrolls for more. In the high byte.}
+
+enums:
+  pulse_rate: {'1': '1', '4': '4', '8': '8', '10': '10', '16': '16', '32': '32', '64': '64', '100': '100', '160': '160', '320': '320', '640': '640', '1000': '1000', '2000': '2000', '10000': '10000', '20000': '20000'}
+  decimal_place: {'0': X, '1': X.X, '2': X.XX}
+
+notes:
+- Addresses are the document's register addresses, which are already 0-based (its Modscan column "03:0001" = address 0; it
+  gives 03:0215 for register 215, which looks like a typo). Reads use function 03.
+- 'RS485, Modbus RTU only; 1200, 2400, 4800 or 9600 baud set on the front panel, 8N1. The baud rate default is not stated
+  (9600 assumed), nor is the default device address (0 … 255, set on the front panel or by Modbus): `default_unit: 1` is assumed.'
+- 'Malformed or unsupported requests and bad CRCs get no answer at all (no exception response): a reader sees a timeout. The
+  device answers within 300 ms.'
+- The document's file name names the AMR100 and AMR130, but the document itself only describes the AMR100 (firmware c11 and
+  later).
+- The pulse divider table in the register list starts at 4, the write index table at 1; both are in the enum.
+- The module has no identity or serial number register, so the file has no `identify`.

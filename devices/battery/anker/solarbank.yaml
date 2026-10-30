@@ -1,0 +1,153 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: anker-solarbank
+manufacturer: Anker SOLIX
+name: Solarbank / XE AC-coupled batteries
+kind: battery
+
+sources:
+- id: anker-solix-official
+  title: ha-anker-solix-official (Home Assistant integration)
+  url: https://github.com/anker-charging/ha-anker-solix-official
+  license: MIT
+  commit: 21c94833993cc14dbb03fd1a945106f7b1afaafe
+  path: custom_components/anker_solix_official/config/3c176e100f3c1d7a36ef64571e6aacd16b539f3657c11745f7bd969ccaf8b213.yaml,
+    custom_components/anker_solix_official/translations/en.json, custom_components/anker_solix_official/config/482b2e95c3aaf78b871f463a71ba7f4fc87f9181872ac6168a90ad198fa3853a.yaml,
+    custom_components/anker_solix_official/config/58f0132b5f7979b2cfa43a0eb1fca770053288032386ff6a4da5ed2d72d4ea35.yaml, custom_components/anker_solix_official/config/8fcbb87c685781b1d70d784a79eb923098955df2aaf199095ce7767bb70b913d.yaml
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/anker-solix-solarbank-max-ac.yaml
+- id: openhab
+  title: openHAB add-ons (Modbus bindings)
+  url: https://github.com/openhab/openhab-addons
+  license: EPL-2.0
+  commit: 391d63d8597d9b5b535ee83c85f557cad4fba2c7
+  path: bundles/org.openhab.binding.modbus.ankersolix/src/main/java/org/openhab/binding/modbus/ankersolix/internal/AnkerSolixSolarbankHandler.java
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/anker/solarbank
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 100
+
+encoding:
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 10100
+    type: str
+    length: 12
+  any:
+  - table: input
+    address: 10100
+    type: str
+    length: 12
+    contains:
+    - A519
+    - DMWH
+    - DMXU
+    - DMY6
+    - DN7M
+    - DN9U
+    - DNMS
+    - DNMT
+    - DNN3
+    - DNN4
+    - DNSL
+    - DNSM
+    - DPM4
+    - DPP4
+    - DPP5
+    - DPTK
+    - E25H
+    - QNA
+
+defaults:
+  verified: false
+  sources:
+  - anker-solix-official
+  - openhab
+
+models:
+  - {id: ae113, name: XE, match: {table: input, address: 32768, type: str, length: 5, prefix: AE113}}
+  - {id: ae111, name: Solarbank Max / XE, match: {table: input, address: 32768, type: str, length: 5, prefix: AE111}}
+  - {id: ae103, name: Solarbank 4 E5000 Pro, match: {table: input, address: 32768, type: str, length: 5, prefix: AE103}}
+  - {id: a17e2, name: Solarbank Max AC / XE AC, match: {table: input, address: 32768, type: str, length: 5, prefix: A17E2}}
+
+points:
+  - {key: x.operating_mode, label: Operating Mode (Device runs by command in Third-Party Controlled), table: holding, address: 10064, type: u16, enum: operating_mode, writable: true, sources: [anker-solix-official, evcc, openhab, openwb]}
+  - {key: x.battery_power_setpoint, label: Power Control, table: holding, address: 10071, type: s32, unit: W, writable: true, note: 'Battery power setpoint in third-party control mode (operating mode 3): negative = charge, positive = discharge. Write-only: the project never reads it back.', sources: [anker-solix-official, evcc, openhab, openwb]}
+  - {key: x.charging_limit_soc, label: Charging Limit, table: holding, address: 60000, type: u16, unit: '%', writable: true}
+  - {key: x.discharge_limit_soc, label: Discharge Limit, table: holding, address: 60001, type: u16, unit: '%', writable: true}
+  - {key: x.backup_reserve_soc, label: Backup Reserve, table: holding, address: 60002, type: u16, unit: '%', writable: true}
+  - {key: x.backup_soc_enable, label: Backup SOC Enable, table: holding, address: 60003, type: u16, enum: backup_soc_enable, writable: true}
+  - {key: state, label: Device Status, table: input, address: 10001, type: u16, enum: battery_status, sources: [anker-solix-official]}
+  - {key: pv_power, label: Solar Power, table: input, address: 10002, type: s32, unit: W, sources: [anker-solix-official, evcc, openhab, openwb]}
+  - {key: x.third_party_pv_power, label: third party pv power, table: input, address: 10004, type: s32, unit: W, sources: [anker-solix-official, evcc, openhab]}
+  - {key: battery_power, label: Battery power, table: input, address: 10008, type: s32, unit: W, positive: discharge, sources: [anker-solix-official, evcc, openhab, openwb]}
+  - {key: load_power, label: Home Load, table: input, address: 10010, type: s32, unit: W}
+  - {key: grid_power, label: Grid power, table: input, address: 10012, type: s32, unit: W, positive: import, sources: [anker-solix-official, evcc, openhab]}
+  - {key: battery_soc, label: SOC, table: input, address: 10014, type: u16, unit: '%', sources: [anker-solix-official, evcc, openhab, openwb]}
+  - {key: pv_energy, label: Total Solar Generation, table: input, address: 10018, type: u32, unit: kWh, scale: 0.1, sources: [anker-solix-official, evcc, openhab]}
+  - {key: x.max_charge_power, label: max charge power, table: input, address: 10036, type: s32, unit: W, sources: [anker-solix-official]}
+  - {key: x.max_discharge_power, label: max discharge power, table: input, address: 10038, type: s32, unit: W, sources: [anker-solix-official]}
+  - {key: serial, label: Device Serial Number, table: input, address: 10100, type: str, length: 12}
+  - {key: firmware, label: Firmware Version, table: input, address: 10112, type: str, length: 6}
+  - {key: x.ac_grid_output_power, label: AC Output, table: input, address: 10208, type: s32, unit: W}
+  - {key: x.rated_energy, label: Battery Capacity, table: input, address: 10250, type: u32, unit: kWh, scale: 0.1, sources: [anker-solix-official]}
+  - {key: x.cumulative_charge_energy, label: Battery Charging Energy, table: input, address: 10262, type: u32, unit: kWh, scale: 0.1, sources: [anker-solix-official, evcc, openhab]}
+  - {key: x.cumulative_discharge_energy, label: Battery Discharge Energy, table: input, address: 10264, type: u32, unit: kWh, scale: 0.1, sources: [anker-solix-official, evcc, openhab]}
+  - {key: x.device_model, label: Device Model, table: input, address: 32768, type: str, length: 5}
+  - {key: x.ems_mode_mask, label: ems mode mask, table: input, address: 32774, type: u16, flags: ems_mode_mask}
+  - {key: x.parallel_capability_mask, label: parallel capability mask, table: input, address: 32775, type: u16, flags: parallel_capability_mask}
+
+derived:
+  - {key: x.pv_power, label: PV power, unit: W, sum: [{key: pv_power}, {key: x.third_party_pv_power}], sources: [evcc]}
+
+enums:
+  battery_status: {'0': Idle, '1': Charging, '2': Discharging, '3': Sleep}
+  backup_soc_enable: {'0': Disabled, '1': Enabled}
+  operating_mode: {'0': Self-Consumption Mode, '1': Time Of Use Mode, '3': Third-Party Controlled, '4': Custom Mode, '5': Socket Overlay Mode, '6': Smart Mode, '7': Dynamic Tariff Mode}
+
+flags:
+  ems_mode_mask: {'0': Self-Consumption Mode available, '1': Time Of Use Mode available, '2': Custom Mode available, '3': Smart Mode available, '4': Socket Overlay Mode available, '5': Third-Party Controlled available, '6': Dynamic Tariff Mode available}
+  parallel_capability_mask: {'0': Charging Limit supported, '1': Discharge Limit supported, '2': Backup Reserve supported, '3': Backup SOC Enable supported}
+
+notes:
+- Modbus TCP must first be switched on in the Anker app (communication settings).
+- The product number (5 registers from input 0x8000, spaces and NULs removed) tells the products apart.
+- 'AE113: the serial number''s product code (characters 4-6 of a 16-character serial, 4-7 of a 17-character one) names the
+  product: DRE4 = Anker SOLIX XE, E3DS = Anker SOLIX XE.'
+- 'AE111: the serial number''s product code (characters 4-6 of a 16-character serial, 4-7 of a 17-character one) names the
+  product: DMY6 = Anker SOLIX Solarbank Max, DN9U = Anker SOLIX Solarbank Max, DPTK = Anker SOLIX Solarbank Max, DNMT = Anker
+  SOLIX XE, DPP5 = Anker SOLIX XE, DNN4 = Anker SOLIX XE.'
+- 'AE103: the serial number''s product code (characters 4-6 of a 16-character serial, 4-7 of a 17-character one) names the
+  product: DN7M = Anker SOLIX Solarbank 4 E5000 Pro, DPM4 = Anker SOLIX Solarbank 4 E5000 Pro.'
+- 'A17E2: the serial number''s product code (characters 4-6 of a 16-character serial, 4-7 of a 17-character one) names the
+  product: DMWH = Anker SOLIX Solarbank Max AC, DMXU = Anker SOLIX Solarbank Max AC, E25H = Anker SOLIX Solarbank Max AC,
+  DNMS = Anker SOLIX XE AC, DPP4 = Anker SOLIX XE AC, DNN3 = Anker SOLIX XE AC.'
+- 'evcc template `anker-solix-solarbank-max-ac` (grid, pv, battery) lists: Anker SOLIX Solarbank Max AC.'
+- 'The binding splits battery power by sign: negative = charging, positive = discharging; grid power: positive = import, negative
+  = export.'
+- Settings are only written when the capability bit in input 32775 is set; operating modes only when their bit in input 32774
+  is set.
+- Taken from the openHAB binding (see sources); not checked against manufacturer documents.
+- The sources don't state the default unit id; 1 is a guess.
+- Identification as openhab recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

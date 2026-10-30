@@ -1,0 +1,93 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Conotec Modbus RTU composition (protocol) document (undated, 2026).
+
+modbusspec: 0
+id: conotec-dsfox-xr10
+manufacturer: Conotec
+name: DSFOX-XR10 temperature controller
+kind: other
+
+sources:
+- title: Modbus RTU composition (protocol)
+  version: undated (PDF of 2026-01)
+  url: https://www.conotec.co.kr/data/products/1679383394/ModbusRTUcomposition.pdf
+  sha256: 1b4325f4bf45f7309251f734349914ad63dc56d9c6d92b523247148295a52551
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: input
+    address: 0
+    type: str
+    length: 10
+    prefix: DSFOX
+
+points:
+  # Identity (input registers, function 04)
+  - {key: x.model_name, label: Product model name, table: input, address: 0, type: str, length: 10, poll: slow, note: 'Two ASCII characters per register: "DSFOX-XR10", then blanks.'}
+  - {key: x.firmware_major, label: Firmware version (integer part), table: input, address: 10, type: u16, poll: slow}
+  - {key: x.firmware_minor, label: Firmware version (decimal part), table: input, address: 11, type: u16, poll: slow}
+
+  # Live values (input registers)
+  - {key: temperature, label: Present temperature, table: input, address: 100, type: s16, unit: °C, scale: 0.1, poll: fast, note: 'Measured temperature (−55.0 … 99.9 °C as −550 … 999). With the unit setting on °F the value is whole °F (−60 … 200), which this file can''t express; it assumes °C.'}
+  - {key: x.status, label: Status, table: input, address: 101, type: u16, poll: fast}
+  - {key: x.temperature_unit_flag, label: Temperature unit, table: input, address: 101, type: u16, bits: [0, 0], enum: temperature_unit, poll: fast}
+  - {key: x.control_output_off, label: Temperature control output, table: input, address: 101, type: u16, bits: [1, 1], enum: on_off_inverted, poll: fast}
+  - {key: x.sensor_open_ok, label: Sensor open error, table: input, address: 101, type: u16, bits: [2, 2], enum: error_inverted, poll: fast}
+  - {key: x.sensor_short_ok, label: Sensor short error, table: input, address: 101, type: u16, bits: [3, 3], enum: error_inverted, poll: fast}
+  - {key: x.system_off, label: System status, table: input, address: 101, type: u16, bits: [4, 4], enum: on_off_inverted, poll: fast}
+  - {key: x.control_output, label: Temperature control output, table: discrete, address: 0, type: bool, enum: on_off_inverted, poll: fast, note: 'Discrete input 20001 in the document (address 0000): 0 = on, 1 = off.'}
+
+  # Settings (holding registers, function 03 / 06 / 16)
+  - {key: x.data_format, label: Communication data format, table: holding, address: 0, type: u16, enum: data_format, writable: true, poll: slow, note: 'Must stay 1 (Int) for this file: in Float mode the device sends four bytes per value.'}
+  - {key: x.temperature_unit, label: Temperature unit setting, table: holding, address: 1, type: u16, enum: temperature_unit, writable: true, poll: slow}
+  - {key: x.set_temperature, label: Set temperature, table: holding, address: 2, type: s16, unit: °C, scale: 0.1, writable: true, min: -55, max: 99.9, poll: slow, note: Whole °F (−60 … 200) when the unit is °F.}
+  - {key: x.output_function, label: Output function selection, table: holding, address: 3, type: u16, enum: output_function, writable: true, poll: slow}
+  - {key: x.temperature_deviation, label: Temperature deviation setting, table: holding, address: 4, type: u16, unit: K, scale: 0.1, writable: true, min: 0.1, max: 25, poll: slow, note: Switching differential; whole °F (−1 … 100) when the unit is °F.}
+  - {key: x.output_delay_min, label: Output delay time setting (minutes), table: holding, address: 5, type: u16, unit: min, writable: true, min: 0, max: 60, poll: slow}
+  - {key: x.output_delay_s, label: Output delay time setting (seconds), table: holding, address: 6, type: u16, unit: s, writable: true, min: 0, max: 59, poll: slow}
+  - {key: x.temperature_correction, label: Temperature correction setting, table: holding, address: 7, type: s16, unit: K, scale: 0.1, writable: true, min: -10, max: 10, poll: slow, note: Whole °F (−20 … 20) when the unit is °F.}
+  - {key: x.modbus_address, label: Communication address setting, table: holding, address: 8, type: u16, writable: true, min: 1, max: 99, poll: slow}
+  - {key: x.baud_rate, label: Communication rate setting, table: holding, address: 9, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.lock, label: Lock setting, table: holding, address: 10, type: u16, enum: lock, writable: true, poll: slow}
+  - {key: x.system_setting, label: System setting, table: holding, address: 11, type: u16, enum: operation_stop, writable: true, poll: slow}
+
+enums:
+  temperature_unit: {'0': °C, '1': °F}
+  on_off_inverted: {'0': 'On', '1': 'Off'}
+  error_inverted: {'0': Error, '1': Normal}
+  data_format: {'0': Float, '1': Int}
+  output_function: {'0': Cool, '1': Heat}
+  baud_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200'}
+  lock: {'0': Locked, '1': Not used}
+  operation_stop: {'0': Operation, '1': Stop}
+
+problems:
+  - {when: {key: x.sensor_open_ok, equals: 0}, kind: fault, text: Temperature sensor open (status bit 2)}
+  - {when: {key: x.sensor_short_ok, equals: 0}, kind: fault, text: Temperature sensor short circuit (status bit 3)}
+
+notes:
+- Addresses are the document's Address column (0-based, hex); its NO column numbers them 20001 (discrete inputs), 30001 (input)
+  and 40001 (holding).
+- The data format register (holding 0) switches between Int and Float; the default is Int, which this file describes. Coils
+  and discrete inputs and the identity registers are always Int.
+- 'Temperatures follow the unit setting (holding 1): tenths of a °C, or whole °F. This file assumes °C (the setting can''t
+  switch units here); check x.temperature_unit.'
+- 'Status bits 1 and 4 and discrete input 0 are inverted: 0 = on, 1 = off. The sensor error bits are 0 = error, 1 = normal.'
+- Default unit address, baud rate and frame format are not stated in the document; 1, 9600 baud and 8N1 are assumed. The device
+  is RS485 only; the TCP port is the usual default for a gateway.
+- The register map names one model, DSFOX-XR10; the identify check takes the "DSFOX" prefix of the model name.

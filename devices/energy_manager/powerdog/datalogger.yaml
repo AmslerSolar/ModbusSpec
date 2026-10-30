@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: powerdog-datalogger
+manufacturer: Powerdog
+name: Powerdog data logger
+kind: energy_manager
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/powerdog.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/powerdog/powerdog
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - openwb
+
+points:
+  - {key: x.grid_power_2, label: Grid power (part 2), table: holding, address: 40002, type: s32, unit: W, note: 'evcc reads it for the usages grid, pv. evcc negates it for the grid power.', sources: [evcc]}
+  - {key: x.grid_power_1, label: Grid power (part 1), table: holding, address: 40026, type: s32, unit: W, sources: [evcc]}
+  - {key: x.counter_export_power, label: Counter power (part), table: input, address: 40000, type: s32, unit: W, note: Raw > 0 = export (openWB's sign handling).}
+  - {key: pv_power, label: Inverter power, table: input, address: 40002, type: s32, unit: W, note: Raw > 0 = generation (openWB's sign handling).}
+  - {key: x.counter_import_power, label: Counter power (part), table: input, address: 40024, type: s32, unit: W, note: Raw > 0 = import (openWB's sign handling).}
+  - {key: x.counter_home_consumption, label: Counter power (part), table: input, address: 40026, type: s32, note: openWB computes the counter power from this register with further arithmetic (sign from status bits or similar).}
+
+derived:
+  - {key: grid_power, label: Grid power, unit: W, positive: import, sum: [{key: x.grid_power_1}, {key: x.grid_power_2, factor: -1}], sources: [evcc]}
+  - {key: x.counter_power, label: Counter power, unit: W, sum: [{key: x.counter_export_power, factor: -1}, {key: x.counter_import_power}]}
+
+notes:
+- 'evcc template `powerdog` (grid, pv) lists: Powerdog.'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

@@ -1,0 +1,150 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SMA Modbus register lists per device family (3.1), sheet "SB 3600-5000SE-10, PKG 2.4"
+# (Sunny Boy Smart Energy), with the general SMA Modbus technical information for encoding and
+# not-available values and the Storage X technical information for the BMS operating mode values.
+
+modbusspec: 0
+id: sma-hybrid
+manufacturer: SMA
+name: Smart Energy Hybrid Inverter
+kind: inverter
+
+sources:
+- title: SMA Modbus register lists per device family (SMA_Modbus-TI-en-31.xlsx in SMA_Modbus-de-en_V25.zip)
+  version: '3.1'
+  url: https://files.sma.de/downloads/SMA_Modbus-de-en_V25.zip
+  sha256: a8c84a2be947aad4b4bf5fedc8f840d5ba62344ef271e651b25f442010f9475b
+  archive_url: https://web.archive.org/web/20241125210856/http://files.sma.de/downloads/SMA_Modbus-de-en_V25.zip
+- title: SMA and SunSpec Modbus Interface (technical information)
+  version: SMA-Modbus-general-TI-en-10 (1.0)
+  url: https://files.sma.de/downloads/SMA-Modbus-general-TI-en-10.pdf
+  sha256: 1cda68d8bcfd39c4a8694e8d9b7e7159d16425c92014f4f13c45addce903cd58
+  archive_url: https://web.archive.org/web/20260826022008/https://files.sma.de/downloads/SMA-Modbus-general-TI-en-10.pdf
+- title: Remote control of Sunny Tripower Storage X / Sunny Island X via Modbus (technical information)
+  version: SMAModbus-STPS-X-SI-X-TI-en-11 (1.1)
+  url: https://files.sma.de/downloads/SMAModbus-STPS-X-SI-X-TI-en-11.pdf
+  sha256: 48dd7a6f418bdf7f85486b204cfb986b2e6c8f53d185b973703a277c881d5e27
+  archive_url: https://web.archive.org/web/20260428082242/https://files.sma.de/downloads/SMAModbus-STPS-X-SI-X-TI-en-11.pdf
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/sma-hybrid.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.sma
+
+connection:
+  default_port: 502
+  default_unit: 3
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 30057
+    type: u32
+
+points:
+  - {key: x.device_class, label: Device class, table: holding, address: 30051, type: u32, bits: [0, 23], enum: device_class, invalid: [16777213, 16777215, 4294967295], poll: slow}
+  - {key: x.device_type, label: Device type, table: holding, address: 30053, type: u32, bits: [0, 23], enum: device_type, invalid: [16777213, 16777215, 4294967295], poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 30057, type: u32, invalid: [4294967295], poll: slow}
+  - {key: firmware, label: Software package, table: holding, address: 30059, type: u32, invalid: [4294967295], poll: slow, note: 'SMA FW format: bytes major (BCD), minor (BCD), build, release type (0 N, 1 E, 2 A, 3 B, 4 R, 5 S).'}
+  - {key: x.condition, label: Condition, table: holding, address: 30201, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.total_yield, label: Total yield, table: holding, address: 30513, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], poll: slow}
+  - {key: grid_import_energy, label: Grid reference counter reading, table: holding, address: 30581, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow, conflicts: [{sources: [evcc], type: s32, label: Grid energy}]}
+  - {key: grid_export_energy, label: Grid feed-in counter reading, table: holding, address: 30583, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow}
+  - {key: x.dc1_current, label: 'DC current input [1]', table: holding, address: 30769, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: x.dc1_voltage, label: 'DC voltage input [1]', table: holding, address: 30771, type: s32, unit: V, scale: 0.01, invalid: [-2147483648]}
+  - {key: x.dc1_power, label: 'DC power input [1]', table: holding, address: 30773, type: s32, unit: W, invalid: [-2147483648], note: 'Solar power: see derived.'}
+  - {key: x.ac_power, label: Power, table: holding, address: 30775, type: s32, unit: W, positive: generation, invalid: [-2147483648], note: The sheet gives no sign; + = AC output assumed., verified: false}
+  - {key: l1_voltage, label: Grid voltage phase L1, table: holding, address: 30783, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: frequency, label: Grid frequency, table: holding, address: 30803, type: u32, unit: Hz, scale: 0.01, invalid: [4294967295]}
+  - {key: battery_current, label: Battery current, table: holding, address: 30843, type: s32, unit: A, scale: 0.001, positive: charge, invalid: [-2147483648], note: No direction in the sheet; + = charging assumed. 30955 gives the direction., verified: false}
+  - {key: battery_soc, label: Current battery state of charge, table: holding, address: 30845, type: u32, unit: '%', invalid: [4294967295]}
+  - {key: battery_soh, label: Current battery capacity, table: holding, address: 30847, type: u32, unit: '%', invalid: [4294967295], note: 'SMA: current battery capacity in %; taken here as state of health.', verified: false}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 30851, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: x.grid_import_power, label: Power grid reference, table: holding, address: 30865, type: s32, unit: W, positive: import, invalid: [-2147483648], note: 'Power drawn from the grid (≥ 0), from the energy meter. Grid power: see derived.'}
+  - {key: x.grid_export_power, label: Power grid feed-in, table: holding, address: 30867, type: s32, unit: W, positive: export, invalid: [-2147483648], note: 'Power fed into the grid (≥ 0), from the energy meter.'}
+  - {key: x.battery_status, label: Battery oper. status, table: holding, address: 30955, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295], note: 2292 charging / 2293 discharging gives the battery power's direction.}
+  - {key: x.dc2_current, label: 'DC current input [2]', table: holding, address: 30957, type: s32, unit: A, scale: 0.001, invalid: [-2147483648]}
+  - {key: x.dc2_voltage, label: 'DC voltage input [2]', table: holding, address: 30959, type: s32, unit: V, scale: 0.01, invalid: [-2147483648]}
+  - {key: x.dc2_power, label: 'DC power input [2]', table: holding, address: 30961, type: s32, unit: W, invalid: [-2147483648]}
+  - {key: x.battery_nominal_capacity, label: Battery nominal capacity, table: holding, address: 40187, type: u32, unit: kWh, scale: 0.001, invalid: [4294967295], poll: slow}
+  - {key: x.battery_max_charge_power, label: Batt. manuf's max. charge capac., table: holding, address: 40189, type: u32, unit: W, invalid: [4294967295], poll: slow}
+  - {key: x.battery_max_discharge_power, label: Batt. manuf's max. disch. capac., table: holding, address: 40191, type: u32, unit: W, invalid: [4294967295], poll: slow}
+  - {key: x.bms_mode, label: BMS operating mode, table: holding, address: 40236, type: u32, enum: bms_mode, writable: true, write_only: true, note: Values from the Storage X document; the Smart Energy sheet lists the register without values.}
+  - {key: x.battery_min_charge, label: Min. battery charge capac., table: holding, address: 40793, type: u32, unit: W, writable: true, write_only: true, conflicts: [{sources: [evcc], label: Battery mode control (write)}]}
+  - {key: x.battery_max_charge, label: Max. battery charge capac., table: holding, address: 40795, type: u32, unit: W, writable: true, write_only: true, conflicts: [{sources: [evcc], label: Battery mode control (write)}]}
+  - {key: x.battery_min_discharge, label: Min. battery discharge capac., table: holding, address: 40797, type: u32, unit: W, writable: true, write_only: true, conflicts: [{sources: [evcc], label: Battery mode control (write)}]}
+  - {key: x.battery_max_discharge, label: Max. battery discharge capac., table: holding, address: 40799, type: u32, unit: W, writable: true, write_only: true, conflicts: [{sources: [evcc], label: Battery mode control (write)}]}
+  - {key: x.grid_exchange_target, label: Mains exch. capac. target value, table: holding, address: 40801, type: s32, unit: W, writable: true, write_only: true, note: The sheet gives no sign., conflicts: [{sources: [evcc], type: u32, label: Battery mode control (write)}]}
+  - {key: x.bat_status, label: Bat status, table: holding, address: 30955, type: u32, enum: battery_state, verified: false, sources: [openems]}
+  - {key: x.pv_power_3, label: PV power (part 3), table: holding, address: 30967, type: s32, unit: W, invalid: [-2147483648, 2147483647], verified: false, sources: [evcc]}
+  - {key: x.cur_bat_cha, label: Cur bat cha, table: holding, address: 31393, type: u32, unit: W, verified: false, sources: [openems]}
+  - {key: x.cur_bat_dsch, label: Cur bat dsch, table: holding, address: 31395, type: u32, unit: W, verified: false, sources: [openems]}
+  - {key: x.bat_chrg, label: Bat chrg, table: holding, address: 31397, type: u64, unit: kWh, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.battery_energy, label: Battery energy, table: holding, address: 31401, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], verified: false, sources: [evcc, openems]}
+  - {key: x.charge_max_current, label: Charge max current, table: holding, address: 32251, type: u32, unit: A, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.discharge_max_current, label: Discharge max current, table: holding, address: 32257, type: u32, unit: A, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.act_bat_chrg, label: Act bat chrg, table: holding, address: 34661, type: u64, unit: kWh, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.act_bat_dsch, label: Act bat dsch, table: holding, address: 34665, type: u64, unit: kWh, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.set_active_power, label: Set active power, table: holding, address: 40149, type: s32, unit: W, writable: true, verified: false, sources: [openems]}
+  - {key: x.set_control_mode, label: Set control mode, table: holding, address: 40151, type: u32, enum: set_control_mode, writable: true, verified: false, sources: [openems]}
+  - {key: x.set_reactive_power, label: Set reactive power, table: holding, address: 40153, type: s32, unit: var, writable: true, verified: false, sources: [openems]}
+  - {key: x.grid_l1_power_2, label: Grid L1 power (part 2), table: input, address: 31259, type: u32, unit: W, invalid: [4294967295], note: evcc negates it for the grid L1 power., verified: false, sources: [evcc]}
+  - {key: x.grid_l2_power_2, label: Grid L2 power (part 2), table: input, address: 31261, type: u32, unit: W, invalid: [4294967295], note: evcc negates it for the grid L2 power., verified: false, sources: [evcc]}
+  - {key: x.grid_l3_power_2, label: Grid L3 power (part 2), table: input, address: 31263, type: u32, unit: W, invalid: [4294967295], note: evcc negates it for the grid L3 power., verified: false, sources: [evcc]}
+  - {key: x.grid_l1_power_1, label: Grid L1 power (part 1), table: input, address: 31265, type: u32, unit: W, invalid: [4294967295], verified: false, sources: [evcc]}
+  - {key: x.grid_l2_power_1, label: Grid L2 power (part 1), table: input, address: 31267, type: u32, unit: W, invalid: [4294967295], verified: false, sources: [evcc]}
+  - {key: x.grid_l3_power_1, label: Grid L3 power (part 1), table: input, address: 31269, type: u32, unit: W, invalid: [4294967295], verified: false, sources: [evcc]}
+  - {key: x.battery_power_2, label: Battery power (part 2), table: input, address: 31393, type: u32, unit: W, invalid: [4294967295], note: evcc negates it for the battery power., verified: false, sources: [evcc]}
+  - {key: x.battery_power_1, label: Battery power (part 1), table: input, address: 31395, type: u32, unit: W, invalid: [4294967295], verified: false, sources: [evcc]}
+  - {key: l1_current, label: Grid L1 current, table: input, address: 31435, type: s32, unit: A, scale: 0.001, invalid: [-2147483648, 2147483647], verified: false, sources: [evcc]}
+  - {key: l2_current, label: Grid L2 current, table: input, address: 31437, type: s32, unit: A, scale: 0.001, invalid: [-2147483648, 2147483647], verified: false, sources: [evcc]}
+  - {key: l3_current, label: Grid L3 current, table: input, address: 31439, type: s32, unit: A, scale: 0.001, invalid: [-2147483648, 2147483647], verified: false, sources: [evcc]}
+
+derived:
+  - {key: pv_power, label: Solar power (DC power input 1 + 2), unit: W, sum: [{key: x.dc1_power}, {key: x.dc2_power}]}
+  - {key: grid_power, label: Grid power (feed-in − reference), unit: W, positive: export, sum: [{key: x.grid_export_power}, {key: x.grid_import_power, factor: -1}]}
+  - {key: l1_power, label: Grid L1 power, unit: W, positive: import, sum: [{key: x.grid_l1_power_1}, {key: x.grid_l1_power_2, factor: -1}], verified: false, sources: [evcc]}
+  - {key: l2_power, label: Grid L2 power, unit: W, positive: import, sum: [{key: x.grid_l2_power_1}, {key: x.grid_l2_power_2, factor: -1}], verified: false, sources: [evcc]}
+  - {key: l3_power, label: Grid L3 power, unit: W, positive: import, sum: [{key: x.grid_l3_power_1}, {key: x.grid_l3_power_2, factor: -1}], verified: false, sources: [evcc]}
+  - {key: battery_power, label: Battery power, unit: W, positive: discharge, sum: [{key: x.battery_power_1}, {key: x.battery_power_2, factor: -1}], verified: false, sources: [evcc]}
+
+enums:
+  status: {'35': Fault, '303': 'Off', '307': Ok, '308': 'On', '455': Warning, '2291': Battery standby, '2292': Battery charging, '2293': Battery discharging}
+  device_class: {'8001': Solar inverter, '8009': Hybrid inverter}
+  device_type: {'9225': SB 5000SE-10, '9226': SB 3600SE-10}
+  bms_mode: {'303': 'Off', '308': 'On', '2289': Battery charging, '2290': Battery discharging, '2424': Default setting}
+  battery_state: {'303': 'Off', '2291': Standby, '2292': Charge, '2293': Discharge, '3664': Emergency Charge}
+  set_control_mode: {'802': START, '803': STOP}
+
+notes:
+- SMA profile on unit id 3. SMA answers function codes 03 and 04 alike; listed as holding registers.
+- 'Big-endian; 32- and 64-bit values high word first. Status (ENUM) values use the low 24 bits. Not available: U32 0xFFFFFFFF,
+  S32 0x80000000, U64 0xFFFFFFFFFFFFFFFF.'
+- FIXn = n decimals (scale 10^-n). Energies are in Wh on the wire.
+- The register list covers the Sunny Boy Smart Energy (SB 3600SE-10 / 5000SE-10) with two DC inputs. Newer Smart Energy models
+  have no register list in these documents.
+- A block read is answered if it holds at least one defined register; a block without any defined register gives an exception.
+- 'No identify checks: the device class (30051, 8000–8999) and serial are the same on every SMA inverter, so they don''t tell
+  this map apart from sma-inverter.'
+- 'evcc template `sma-hybrid` (grid, pv, battery) lists: SMA Smart Energy Hybrid Inverter.'
+- OpenEMS reads the battery of the Sunny Tripower Smart Energy (STP xx-3SE) here; its inverter part goes through SunSpec.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

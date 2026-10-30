@@ -1,0 +1,202 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Mitsubishi Electric Procon MelcoBEMS MINI (A1M+ / A1M R5) Modbus Register Tables (1.0.2).
+
+modbusspec: 0
+id: mitsubishi-melcobems-atw
+manufacturer: Mitsubishi Electric
+name: Procon MelcoBEMS MINI (A1M / A1M+ / A1M R5) interface, air-to-water heat pumps
+kind: heat_pump
+
+sources:
+- title: Procon MelcoBEMS MINI (A1M+) / MelcoBEMS MINI (A1M R5) Modbus Register Tables (A1M+ firmware 4.1.2, A1M R5 firmware
+    3.1.05)
+  version: 1.0.2 (13/05/26)
+  url: https://www.nukumi.cz/data/files/67/procon-a1m-modbus-bacnet-adapter-1790325742.pdf?v=31f986df
+  sha256: 312bb6ff9e0bb082fd3a3c3eaf7fccbaede4a4bcce034ff1662ff2be8bea59ca
+- title: Procon MelcoBEMS MINI (A1M) ATW Modbus Register Tables (firmware 3.0.25)
+  version: 1.0.4 (30/11/20)
+  url: https://www.nukumi.cz/data/files/51/procon-a1m-modbus-bacnet-adapter-1790327447.pdf?v=31f986df
+  sha256: 9b699b1670fa1c020b393617a9d836c6409fa921701307e51385402f19167a77
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Interface (holding registers, function 03, write 06 / 16)
+  - {key: x.modbus_slave_id, label: Modbus Slave ID, table: holding, address: 4, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Modbus RS-485 Baud Rate, table: holding, address: 5, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.parity, label: RS-485 Parity Type, table: holding, address: 6, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: x.fault_code_hex, label: Fault/Error Code (hex), table: holding, address: 9, type: u16, poll: slow, note: '0x8000 = no error, 0x6999 = no communication with the unit. Also input register 1.'}
+  - {key: firmware, label: A1M+ Firmware Version, table: holding, address: 10, type: u16, poll: slow, note: Coding not stated.}
+  - {key: x.comms_counter, label: Modbus Comms Counter, table: holding, address: 11, type: u16, note: +1 per valid Modbus command; wraps after 65535.}
+  - {key: error_code, label: Fault Code (decimal), table: holding, address: 12, type: u16, enum: fault_code, note: 8000 = no error. Also input register 8.}
+  - {key: x.system_type, label: System Type Detected, table: holding, address: 13, type: u16, enum: system_type, poll: slow}
+
+  # Control and settings
+  - {key: x.system_on_off, label: System On/Off, table: holding, address: 25, type: u16, enum: system_on_off, writable: true, note: Only 0 and 1 can be written. Also coil 1.}
+  - {key: state, label: Operating Mode, table: holding, address: 26, type: u16, enum: operating_mode, note: Read only.}
+  - {key: x.dhw_mode, label: Operating Mode (DHW), table: holding, address: 27, type: u16, enum: dhw_mode, writable: true}
+  - {key: x.zone1_mode, label: A/C Mode – Zone 1, table: holding, address: 28, type: u16, enum: zone_mode, writable: true}
+  - {key: x.zone2_mode, label: A/C Mode – Zone 2, table: holding, address: 29, type: u16, enum: zone_mode, writable: true}
+  - {key: x.tank_setpoint, label: Set Tank Water Temperature (signed), table: holding, address: 30, type: s16, unit: °C, scale: 0.01, writable: true, note: On some outdoor unit models this is the thermo-off temperature. Register 31 holds it without sign.}
+  - {key: x.zone1_hc_target, label: H/C Thermostat Target Temperature – Zone 1 (signed), table: holding, address: 32, type: s16, unit: °C, scale: 0.01, writable: true}
+  - {key: x.zone2_hc_target, label: H/C Thermostat Target Temperature – Zone 2 (signed), table: holding, address: 34, type: s16, unit: °C, scale: 0.01, writable: true}
+  - {key: x.force_dhw, label: Force DHW, table: holding, address: 37, type: u16, enum: force_dhw, writable: true}
+  - {key: x.holiday, label: Holiday, table: holding, address: 38, type: u16, enum: holiday, writable: true}
+  - {key: x.capacity_mode, label: Capacity Mode, table: holding, address: 45, type: u16, enum: capacity_mode, writable: true, poll: slow}
+  - {key: x.capacity_ratio, label: Capacity Control Ratio, table: holding, address: 46, type: u16, unit: '%', writable: true, min: 0, max: 100}
+  - {key: x.water_setpoint, label: Setting Water Temperature (signed), table: holding, address: 52, type: s16, unit: °C, scale: 0.01, writable: true, note: Used by the CAHV / CRHV / EAHV / QAHV outdoor units; the range depends on the model.}
+  - {key: x.zone1_thermostat_target, label: Thermostat Target Temperature – Zone 1 (signed), table: holding, address: 54, type: s16, unit: °C, scale: 0.01, writable: true}
+  - {key: x.zone2_thermostat_target, label: Thermostat Target Temperature – Zone 2 (signed), table: holding, address: 56, type: s16, unit: °C, scale: 0.01, writable: true}
+
+  # Status (read only)
+  - {key: x.defrost, label: Defrost, table: holding, address: 67, type: u16, enum: defrost}
+  - {key: x.refrigerant_error, label: Refrigerant Error Info, table: holding, address: 69, type: u16, enum: refrigerant_error}
+  - {key: x.error_digit1, label: 7-Segment Display Error Code Digit 1, table: holding, address: 70, type: u16, enum: error_digit1}
+  - {key: x.error_digit2, label: 7-Segment Display Error Code Digit 2, table: holding, address: 71, type: u16, enum: error_digit2}
+  - {key: x.compressor_frequency, label: Heat Pump Frequency – Master, table: holding, address: 73, type: u16, unit: Hz}
+  - {key: x.heat_source, label: Heat Source Status, table: holding, address: 80, type: u16, enum: heat_source}
+  - {key: x.zone1_setpoint, label: Temperature Setpoint – Zone 1 (signed), table: holding, address: 81, type: s16, unit: °C, scale: 0.01}
+  - {key: x.zone2_setpoint, label: Temperature Setpoint – Zone 2 (signed), table: holding, address: 83, type: s16, unit: °C, scale: 0.01}
+  - {key: x.zone1_flow_setpoint, label: Flow Temperature Setpoint – Zone 1 (signed), table: holding, address: 85, type: s16, unit: °C, scale: 0.01}
+  - {key: x.zone2_flow_setpoint, label: Flow Temperature Setpoint – Zone 2 (signed), table: holding, address: 87, type: s16, unit: °C, scale: 0.01}
+  - {key: x.legionella_setpoint, label: Legionella Temperature Setpoint (signed), table: holding, address: 89, type: s16, unit: °C, scale: 0.01, poll: slow}
+  - {key: x.dhw_temperature_drop, label: DHW Temperature Drop (signed), table: holding, address: 91, type: s16, unit: °C, scale: 0.1, poll: slow}
+  - {key: x.zone1_room_temperature, label: Room Temperature – Zone 1 (signed), table: holding, address: 93, type: s16, unit: °C, scale: 0.01}
+  - {key: x.zone2_room_temperature, label: Room Temperature – Zone 2 (signed), table: holding, address: 95, type: s16, unit: °C, scale: 0.01}
+  - {key: x.refrigerant_liquid_temperature, label: Refrigerant Liquid Temperature (signed), table: holding, address: 97, type: s16, unit: °C, scale: 0.01}
+  - {key: x.outdoor_temperature, label: Outdoor Ambient Temperature (signed), table: holding, address: 99, type: s16, unit: °C, scale: 0.1, note: −40 … 87.5 °C.}
+  - {key: x.flow_temperature, label: Flow Temperature / Water Outlet Temperature (signed), table: holding, address: 101, type: s16, unit: °C, scale: 0.01, note: 'Flow temperature with an FTC controller, water outlet temperature with CAHV / CRHV / EAHV / QAHV units.'}
+  - {key: x.return_temperature, label: Return Temperature / Water Inlet Temperature (signed), table: holding, address: 103, type: s16, unit: °C, scale: 0.01, note: 'Return temperature with an FTC controller, water inlet temperature with CAHV / CRHV / EAHV / QAHV units.'}
+  - {key: x.tank_temperature, label: Tank Water Temperature (signed), table: holding, address: 105, type: s16, unit: °C, scale: 0.01}
+  - {key: x.zone1_flow_temperature, label: Flow Temperature – Zone 1 / External Water Temperature 1 (signed), table: holding, address: 107, type: s16, unit: °C, scale: 0.01}
+  - {key: x.zone1_return_temperature, label: Return Temperature – Zone 1 / External Water Temperature 3 (signed), table: holding, address: 109, type: s16, unit: °C, scale: 0.01}
+  - {key: x.zone2_flow_temperature, label: Flow Temperature – Zone 2 / External Water Temperature 2 (signed), table: holding, address: 111, type: s16, unit: °C, scale: 0.01}
+  - {key: x.zone2_return_temperature, label: Return Temperature – Zone 2 / External Water Temperature 6 (signed), table: holding, address: 113, type: s16, unit: °C, scale: 0.01}
+  - {key: x.boiler_flow_temperature, label: Boiler Flow Temperature (signed), table: holding, address: 115, type: s16, unit: °C, scale: 0.01, optional: true}
+  - {key: x.boiler_return_temperature, label: Boiler Return Temperature (signed), table: holding, address: 117, type: s16, unit: °C, scale: 0.01, optional: true}
+  - {key: x.heat_pump_running, label: Heat Pump Master ON/OFF, table: holding, address: 127, type: u16, enum: stop_run}
+  - {key: x.run_time_hours, label: Heat Pump Run Time (hours), table: holding, address: 136, type: u16, unit: h, poll: slow, note: 0 … 99; the hours below a hundred.}
+  - {key: x.run_time_hundreds, label: Heat Pump Run Time (hours x100), table: holding, address: 137, type: u16, unit: h, scale: 100, poll: slow}
+  - {key: x.boiler_running, label: Boiler ON/OFF, table: holding, address: 144, type: u16, enum: stop_run, note: External heater operation 1 on some outdoor unit models.}
+  - {key: x.booster_heater1, label: Booster Heater 1 ON/OFF, table: holding, address: 145, type: u16, enum: stop_run}
+  - {key: x.booster_heater2, label: Booster Heater 2 ON/OFF, table: holding, address: 146, type: u16, enum: stop_run}
+  - {key: x.booster_heater2_plus, label: Booster Heater 2+ ON/OFF, table: holding, address: 147, type: u16, enum: stop_run}
+  - {key: x.immersion_heater, label: Immersion Heater ON/OFF, table: holding, address: 148, type: u16, enum: stop_run}
+  - {key: x.water_pump1, label: Water Pump 1 ON/OFF, table: holding, address: 149, type: u16, enum: stop_run}
+  - {key: x.water_pump2, label: Water Pump 2 ON/OFF, table: holding, address: 150, type: u16, enum: stop_run}
+  - {key: x.water_pump3, label: Water Pump 3 ON/OFF, table: holding, address: 151, type: u16, enum: stop_run}
+  - {key: x.three_way_valve, label: 3-Way Valve ON/OFF, table: holding, address: 152, type: u16, enum: stop_run}
+  - {key: x.evaporating_temperature, label: Evaporating Temperature (signed), table: holding, address: 230, type: s16, unit: °C, scale: 0.01}
+  - {key: x.condensing_temperature, label: Condensing Temperature (signed), table: holding, address: 232, type: s16, unit: °C, scale: 0.01}
+  - {key: x.water_pump1_duty, label: Water Pump 1 – PWM Duty, table: holding, address: 262, type: u16, unit: '%'}
+  - {key: x.model_profile, label: Model Profile 1, table: holding, address: 270, type: u16, enum: model_profile, poll: slow}
+
+  # Energy of the last measured day (read only)
+  - {key: x.consumed_date_year, label: Energy Consumption Measured Date – Year, table: holding, address: 279, type: u16, poll: slow, note: Coding not stated.}
+  - {key: x.consumed_date_month, label: Energy Consumption Measured Date – Month, table: holding, address: 280, type: u16, poll: slow}
+  - {key: x.consumed_date_day, label: Energy Consumption Measured Date – Day, table: holding, address: 281, type: u16, poll: slow}
+  - {key: x.heating_consumed_kwh, label: Last Measured Heating Energy Consumption – kWh part, table: holding, address: 282, type: u16, unit: kWh, poll: slow}
+  - {key: x.heating_consumed_wh, label: Last Measured Heating Energy Consumption – Wh part, table: holding, address: 283, type: u16, unit: kWh, scale: 0.01, poll: slow, note: Wh × 10 (0 … 990 Wh).}
+  - {key: x.cooling_consumed_kwh, label: Last Measured Cooling Energy Consumption – kWh part, table: holding, address: 284, type: u16, unit: kWh, poll: slow}
+  - {key: x.cooling_consumed_wh, label: Last Measured Cooling Energy Consumption – Wh part, table: holding, address: 285, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.dhw_consumed_kwh, label: Last Measured DHW Energy Consumption – kWh part, table: holding, address: 286, type: u16, unit: kWh, poll: slow}
+  - {key: x.dhw_consumed_wh, label: Last Measured DHW Energy Consumption – Wh part, table: holding, address: 287, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.total_consumed, label: Last Measured Total Energy Consumption, table: holding, address: 288, type: u16, unit: kWh, poll: slow}
+  - {key: x.produced_date_year, label: Energy Produced Measured Date – Year, table: holding, address: 289, type: u16, poll: slow}
+  - {key: x.produced_date_month, label: Energy Produced Measured Date – Month, table: holding, address: 290, type: u16, poll: slow}
+  - {key: x.produced_date_day, label: Energy Produced Measured Date – Day, table: holding, address: 291, type: u16, poll: slow}
+  - {key: x.heating_produced_kwh, label: Last Measured Heating Energy Produced – kWh part, table: holding, address: 292, type: u16, unit: kWh, poll: slow}
+  - {key: x.heating_produced_wh, label: Last Measured Heating Energy Produced – Wh part, table: holding, address: 293, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.cooling_produced_kwh, label: Last Measured Cooling Energy Produced – kWh part, table: holding, address: 294, type: u16, unit: kWh, poll: slow}
+  - {key: x.cooling_produced_wh, label: Last Measured Cooling Energy Produced – Wh part, table: holding, address: 295, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.dhw_produced_kwh, label: Last Measured DHW Energy Produced – kWh part, table: holding, address: 296, type: u16, unit: kWh, poll: slow}
+  - {key: x.dhw_produced_wh, label: Last Measured DHW Energy Produced – Wh part, table: holding, address: 297, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.total_produced, label: Last Measured Total Energy Produced, table: holding, address: 298, type: u16, unit: kWh, poll: slow}
+  - {key: x.flow_rate, label: Flow Rate, table: holding, address: 299, type: u16, unit: l/min}
+
+  # Controller clock and software (read only)
+  - {key: x.clock, label: Date and time, table: holding, address: 342, type: datetime, length: 6, datetime: {year: {register: 0, offset: 2000}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, poll: slow}
+  - {key: x.controller_software, label: Version of main software, table: holding, address: 348, type: u16, poll: slow, note: 'Decimal digits: version 01.23 reads 123.'}
+  - {key: x.legionella_prevention, label: Legionella Prevention, table: holding, address: 350, type: u16, enum: legionella_prevention}
+  - {key: x.emergency_operation, label: Emergency Operation Type, table: holding, address: 351, type: u16, enum: emergency_operation}
+
+derived:
+  - {key: x.run_time, label: Heat pump run time, unit: h, sum: [{key: x.run_time_hundreds}, {key: x.run_time_hours}]}
+  - {key: x.heating_consumed, label: Last measured heating energy consumption, unit: kWh, sum: [{key: x.heating_consumed_kwh}, {key: x.heating_consumed_wh}]}
+  - {key: x.cooling_consumed, label: Last measured cooling energy consumption, unit: kWh, sum: [{key: x.cooling_consumed_kwh}, {key: x.cooling_consumed_wh}]}
+  - {key: x.dhw_consumed, label: Last measured DHW energy consumption, unit: kWh, sum: [{key: x.dhw_consumed_kwh}, {key: x.dhw_consumed_wh}]}
+  - {key: x.heating_produced, label: Last measured heating energy produced, unit: kWh, sum: [{key: x.heating_produced_kwh}, {key: x.heating_produced_wh}]}
+  - {key: x.cooling_produced, label: Last measured cooling energy produced, unit: kWh, sum: [{key: x.cooling_produced_kwh}, {key: x.cooling_produced_wh}]}
+  - {key: x.dhw_produced, label: Last measured DHW energy produced, unit: kWh, sum: [{key: x.dhw_produced_kwh}, {key: x.dhw_produced_wh}]}
+
+enums:
+  baud_rate: {'0': '9600', '1': '1200', '2': '2400', '3': '4800', '4': '9600', '5': '14400', '6': '19200', '7': '28800', '8': '38400', '9': '56000', '10': '57600', '11': '115200'}
+  parity: {'0': None, '1': Even, '2': Odd}
+  fault_code: {'8000': No error, '6999': No communication with the unit}
+  system_type: {'0': Air-to-air unit, '1': Air-to-water system, '2': Lossnay, '255': Not detected yet}
+  system_on_off: {'0': System off, '1': System on, '2': Emergency run, '3': Test run}
+  operating_mode: {'0': Stop, '1': Hot water, '2': Heating, '3': Cooling, '4': No-voltage contact input (hot water storage), '5': Freeze stat, '6': Legionella, '7': Heating eco, '8': Mode 1, '9': Mode 2, '10': Mode 3, '11': No-voltage contact input (heating up)}
+  dhw_mode: {'0': Normal, '1': Eco}
+  zone_mode: {'0': Heating room temperature, '1': Heating flow temperature, '2': Heating heat curve, '4': Cooling flow temperature, '5': Floor dry-up, '6': Cooling compensation curve}
+  force_dhw: {'0': Normal, '1': Force DHW}
+  holiday: {'0': Normal, '1': Holiday}
+  capacity_mode: {'0': COP priority, '1': Capacity priority}
+  defrost: {'0': Normal, '1': Standby, '2': Defrost, '3': Waiting restart}
+  refrigerant_error: {'0': Normal, '1': Error (system), '2': Error (startup), '3': Maintenance error}
+  error_digit1: {'0': A, '1': b, '2': E, '3': F, '4': J, '5': L, '6': P, '7': U}
+  error_digit2: {'0': '0', '1': '1', '2': '2', '3': '3', '4': '4', '5': '5', '6': '6', '7': '7', '8': '8', '9': '9', '10': A, '11': b, '12': c, '13': d, '14': E, '15': F, '16': O, '17': H, '18': J, '19': L, '20': P, '21': U}
+  heat_source: {'0': Heat pump, '1': Immersion heater, '2': Booster heater, '3': Immersion + booster heater, '4': Boiler}
+  stop_run: {'0': Stop, '1': Run}
+  model_profile: {'0': FTC2B, '1': FTC4, '2': FTC5, '3': FTC6, '5': FTC7, '128': CAHV1A, '129': CAHV1B, '130': CRHV1A, '131': CRHV1B, '132': EAHV1A, '133': EAHV1B, '134': QAHV1A, '135': QAHV1B, '144': PWFY1}
+  legionella_prevention: {'0': Normal, '1': Legionella prevention}
+  emergency_operation: {'0': Normal, '1': Standby, '2': Backup}
+
+problems:
+  - {when: {key: error_code, equals: 6999}, kind: fault, text: No communication between the interface and the heat pump}
+  - {when: {key: error_code, not_in: [8000, 6999]}, kind: fault, text: 'Heat pump fault code {value}'}
+  - {when: {key: x.refrigerant_error, in: [1, 2]}, kind: fault, text: 'Refrigerant system error ({text})'}
+  - {when: {key: x.refrigerant_error, equals: 3}, kind: warning, text: Refrigerant system maintenance error}
+  - {when: {key: x.system_on_off, equals: 2}, kind: warning, text: Running in emergency mode}
+
+notes:
+- 'The MelcoBEMS MINI is an RS-485 Modbus RTU (or BACnet MS/TP) interface for Mitsubishi Electric units; this is its register
+  map with an air-to-water system connected: Ecodan FTC4 … FTC7 controllers or CAHV / CRHV / EAHV / EACV / QAHV / PWFY outdoor
+  units.'
+- Addresses are the 0-based addresses the document lists; its Modicon references (00001, 10001, 30001, 40001) are these +
+  1.
+- Every input register, coil and discrete input is mirrored in a holding register, so only holding registers are listed here.
+  Signed temperatures have an unsigned twin in the next register (for controllers that can't read negative values); the signed
+  ones are used.
+- Which registers a unit fills depends on the controller or outdoor unit type (the document has a column per type); unsupported
+  values read 0. Several registers change meaning by unit type (e.g. 101 / 103 are flow / return with FTC and water outlet
+  / inlet with CAHV-type units). The type is in Model Profile 1 (holding 270).
+- Temperatures in °C × 100 cover −327.68 … 327.67 °C (signed) or 0 … 327.67 °C (unsigned twin); outdoor temperature and DHW
+  temperature drop are × 10.
+- The energy registers 279 … 298 hold the last measured day's values with its date; each consumed / produced energy is a kWh
+  part plus a part in 10 Wh steps, added here as derived values. The year's coding (e.g. 0 … 99) is not stated.
+- 'The operating mode values 4 and 7 … 11 appear only in the 2020 A1M document; the 2026 A1M+ document lists 0 … 3, 5 and
+  6. Digit 2 of the 7-segment error code: 1 … 15 stand for the hex digits 1 … F; 0 is taken as the digit 0 (not stated).'
+- Serial settings and unit id are set in registers 4 … 6; the document doesn't give the factory values. 9600 baud, no parity
+  and unit 1 are assumed.
+- The document gives no registers that single the interface out (no serial number or fixed identifier); `identify` is left
+  out. The system type (holding 13) reads 1 with an air-to-water system.
+- 'Left out: the unsigned temperature twins, MRC prohibit (36, must not be written to some models), DHW / heating / cooling
+  prohibit flags (39 … 43), clock setting (48, 49), BMS outdoor temperature (50), H/C control type (58), refrigerant addresses,
+  slave unit frequencies, run times and error digits (74 … 79, 128 … 143, 155 … 229, 271), room thermostat and flow switch
+  inputs (119 … 126), DIP switches (126, 389 … 393), electric energy 1 … 16 (234 … 249, 0.01 kWh each; meaning not stated),
+  brine and second-circuit temperatures (250 … 261), protocol / model versions (265 … 268), the boiler hybrid cost / CO2 settings
+  (367 … 376), the consumed / produced power registers (379, 380; unit kW or Wh not resolved) and the error status table (398
+  … 429).'

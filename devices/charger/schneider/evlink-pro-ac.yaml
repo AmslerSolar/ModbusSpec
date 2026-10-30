@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Schneider Electric's EVlink Pro AC Modbus Connectivity Guide (below); not yet checked on a device.
+
+modbusspec: 0
+id: schneider-evlink-pro-ac
+manufacturer: Schneider Electric
+name: EVlink Pro AC charging station (T2S socket, attached cable, T2S + domestic socket)
+kind: charger
+
+sources:
+- title: EVlink Pro AC Modbus Connectivity Guide (GEX1969300)
+  version: GEX1969300-06 (03/2026; software 1.4.0 and later)
+  url: https://download.se.com/files?p_Doc_Ref=GEX1969300
+  sha256: b3ac752d8ce23821cf5109bcdc4c1a8ad345af1925ce446876d8b6c2825afc34
+
+connection:
+  default_port: 502
+  default_unit: 255
+  transports:
+  - tcp
+  limits:
+    max_gap: 0
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 150
+    type: u16
+    range:
+    - 0
+    - 9
+  - table: holding
+    address: 1
+    type: u16
+    range:
+    - 0
+    - 11
+  # EVSE model; a device answering 0 or FFFFh everywhere is not this one
+  - table: holding
+    address: 4040
+    type: str
+    length: 10
+    printable: true
+
+points:
+  # Status
+  - {key: x.ev_state, label: EV state, table: holding, address: 1, type: u16, enum: ev_state}
+  - {key: state, label: OCPP status, table: holding, address: 150, type: u16, enum: ocpp_status}
+  - {key: x.ev_presence, label: EV presence, table: holding, address: 1150, type: u16, enum: ev_presence, note: Updated only while not charging.}
+  - {key: x.firmware_major, label: Major version digit, table: holding, address: 1212, type: u16, poll: slow}
+  - {key: x.firmware_minor, label: Minor version digit, table: holding, address: 1213, type: u16, poll: slow}
+  - {key: x.firmware_build, label: Build version digit, table: holding, address: 1214, type: u16, poll: slow}
+
+  # Metering
+  - {key: l1_current, label: Current Phase 1, table: holding, address: 2999, type: f32, unit: A}
+  - {key: l2_current, label: Current Phase 2, table: holding, address: 3001, type: f32, unit: A}
+  - {key: l3_current, label: Current Phase 3, table: holding, address: 3003, type: f32, unit: A}
+  - {key: x.current_avg, label: Current Phase AVG, table: holding, address: 3009, type: f32, unit: A}
+  - {key: l1_voltage, label: Voltage Phase 1, table: holding, address: 3027, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage Phase 2, table: holding, address: 3029, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage Phase 3, table: holding, address: 3031, type: f32, unit: V}
+  - {key: x.voltage_avg, label: Voltage Phase AVG, table: holding, address: 3035, type: f32, unit: V}
+  - {key: x.l1_power, label: Power Active Phase 1, table: holding, address: 3053, type: f32, unit: W, scale: 1000, verified: false, note: 'kW in the guide, which doesn''t say which sign charging has; hence no l1_power key (presumably positive while charging).'}
+  - {key: x.l2_power, label: Power Active Phase 2, table: holding, address: 3055, type: f32, unit: W, scale: 1000, verified: false, note: kW in the guide; sign not stated (presumably positive while charging).}
+  - {key: x.l3_power, label: Power Active Phase 3, table: holding, address: 3057, type: f32, unit: W, scale: 1000, verified: false, note: kW in the guide; sign not stated (presumably positive while charging).}
+  - {key: x.active_power_total, label: Power Active Phase TOT, table: holding, address: 3059, type: f32, unit: W, scale: 1000, verified: false, note: 'kW in the guide, range [Min; Max]; the guide doesn''t say which sign charging has, hence not consumer_power (presumably positive while charging).'}
+  - {key: reactive_power, label: Power Reactive TOT, table: holding, address: 3067, type: f32, unit: var, scale: 1000}
+  - {key: apparent_power, label: Power Apparent TOT, table: holding, address: 3075, type: f32, unit: VA, scale: 1000}
+  - {key: power_factor, label: Power factor, table: holding, address: 3083, type: f32, unit: ''}
+  - {key: frequency, label: Frequence, table: holding, address: 3109, type: f32, unit: Hz}
+  - {key: consumer_energy, label: Energy Active TOT, table: holding, address: 3203, type: s64, unit: kWh, scale: 0.001, poll: slow, note: Wh in the guide (int64).}
+  - {key: x.reactive_energy, label: Energy Reactive TOT, table: holding, address: 3219, type: s64, unit: kvarh, poll: slow}
+
+  # Remote control and session
+  - {key: x.lifebit, label: Lifebit, table: holding, address: 4000, type: u16, enum: lifebit, writable: true, poll: slow, note: Write 1 to start the watchdog; the station resets it to 0 and expects 1 again within the configured timeout. Write 2 to switch it off.}
+  - {key: x.command, label: Set command, table: holding, address: 4001, type: u16, enum: command, writable: true, poll: slow, note: After a command the station writes back the command number (success) or an error code.}
+  - {key: x.command_status, label: Command status, table: holding, address: 4002, type: u32, poll: slow, note: Status of the previous remote command.}
+  - {key: x.current_setpoint, label: Set Point, table: holding, address: 4004, type: u16, unit: A, writable: true, min: 0, max: 32, note: Modbus charging current limit; applied within 15 s. 99 = no setpoint from Modbus (only after a restart).}
+  - {key: x.fallback_current_1ph, label: Degraded Set Point Mono, table: holding, address: 4005, type: u16, unit: A, poll: slow, note: Limit used when Modbus communication is lost (single-phase charging); set in eSetup. Read-only in revision 06 although the guide's text speaks of writing it.}
+  - {key: x.fallback_current_3ph, label: Degraded Set Point Tri, table: holding, address: 4006, type: u16, unit: A, poll: slow, note: 'As 4005, for three-phase charging.'}
+  - {key: x.contactor_time, label: Contactor charging time, table: holding, address: 4007, type: u32, unit: s, note: Time since the contactor closed.}
+  - {key: x.session_time, label: Session charging time, table: holding, address: 4009, type: u32, unit: s, note: Time since the transaction started.}
+  - {key: x.last_stop_cause, label: Last stop cause, table: holding, address: 4011, type: u16, enum: stop_cause, poll: slow}
+  - {key: session_energy, label: Session energy, table: holding, address: 4012, type: u32, unit: kWh, scale: 0.001, note: Wh in the guide.}
+  - {key: x.error_groups, label: Error group bitfield, table: holding, address: 4020, type: u32, note: One bit per raised error group; the guide doesn't say which bit is which group.}
+  - {key: error_code, label: Error code bitfield, table: holding, address: 4022, type: u32, note: 'One bit per raised error; the guide lists the vendor error codes (1.1–19.0, see notes) but not their bit positions.'}
+
+  # Identity
+  - {key: x.model, label: EVSE Model, table: holding, address: 4040, type: str, length: 10, poll: slow}
+  - {key: x.commercial_reference, label: EVSE Commercial Reference, table: holding, address: 4060, type: str, length: 10, poll: slow}
+
+enums:
+  ev_state: {'0': State E (0 V), '1': 'State F, not available (−12 V)', '2': 'A1: available, not ready to charge', '3': 'B1: EV connected, not ready to charge', '4': 'C1: charging, station asks to stop', '5': 'D1: charging with ventilation, station asks to stop', '6': 'A2: available, ready to charge', '7': 'B2: EV connected, ready to charge', '8': 'C2: charging', '9': 'D2: charging with ventilation', '10': Control pilot invalid, '11': Control pilot symmetric – control circuit fault}
+  ocpp_status: {'0': Init, '1': Available, '2': Preparing, '3': Charging, '4': SuspendedEV, '5': SuspendedEVSE, '6': Finishing, '7': Reserved, '8': Unavailable, '9': Faulted}
+  ev_presence: {'0': No EV, '1': EV present}
+  lifebit: {'0': Reset by station, '1': Set by external system, '2': Watchdog off}
+  command: {'3': Stop charge, '7': Suspend charge, '8': Restart charge, '9': Reboot, '40': Set available, '41': Set unavailable}
+  stop_cause: {'0': None, '1': Emergency stop, '2': EV disconnected, '3': Hard reset, '4': Local, '5': Other, '6': Power loss, '7': Reboot, '8': Remote, '9': Soft reset, '10': Unlock command, '11': Deauthorized}
+
+problems:
+  - {when: {key: state, equals: 9}, kind: fault, text: Charging station faulted (OCPP status 9)}
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charging station error (error bits 0x{value:X})'}
+  - {when: {key: x.ev_state, equals: 11}, kind: fault, text: Control pilot fault (EV state 11)}
+
+notes:
+- Switch Modbus on in the eSetup app. Modbus TCP only (no RS485). The guide gives server ID 255; it doesn't state the port
+  (502 assumed).
+- 'Addresses are the guide''s own, given as base 0; used as they are. The guide doesn''t name the function code: holding registers
+  (03) assumed, unverified.'
+- Reading an address that isn't in the guide's table returns an Illegal data address exception, so requests must not span
+  gaps. 4000–4079 not listed return 0xFFFF.
+- Values are refreshed once per second. float32 and the 32/64-bit integers are taken as high word first (the guide's F32-4321
+  / U32-4321 / S64-87-21), but the register table only says "float32" / "int64".
+- Revision 02 (03/2023) moved 1211–1213 → 1212–1214 and 4003–4011 → 4004–4012; older firmware (< 1.2.1) uses the old addresses.
+- 'Vendor error codes (no bit positions given): 1.1 software downgrade; 2.0 mother board; 2.1 physical derating config; 2.2
+  6 mA plug missing; 2.3 15118 plug missing; 2.4 temperature sensor; 3.0 MNX trip / contactor discordance; 4.0 6 mA RDC-DD
+  board; 5.0 DC leakage > 6 mA; 6.0 input voltage/frequency; 6.1 metering card; 7.0 power meter communication lost; 7.1 metering
+  dataset; 8.0 Bluetooth; 9.0 badge reader; 10.0 control pilot; 10.1 plug presence (PP) resistor; 10.2 CP short circuit; 11.0
+  cable lock/unlock; 12.0 contactor discordance; 13.0 three-phase not allowed; 14.0 EV overconsumption; 15.0 ventilation not
+  allowed; 16.0 EVCE communication lost; 17.0 OCPP supervision; 18.0 energy-management link (TIC / Modbus) lost; 19.0 temperature
+  out of range.'
+- Left out the last-event log (4024–4035, four events of code / start / end).

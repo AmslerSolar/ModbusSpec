@@ -1,0 +1,75 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Yosemitech Y532-pH-ORP-v1.7 ModbusInstructions (pH / ORP sensor Modbus RTU programmer manual, no version).
+
+modbusspec: 0
+id: yosemitech-y532
+manufacturer: Yosemitech
+name: Y532 pH / ORP sensor
+kind: io
+
+sources:
+- title: Yosemitech pH (or ORP) Sensor Modbus RTU Programmer Manual (Y532-pH-ORP-v1.7 ModbusInstructions)
+  version: '-'
+  url: https://github.com/EnviroDIY/YosemitechModbus/blob/0d300ac8fad83a24e979ee278fd00111ca6c8943/doc/Y532-pH-ORP-v1.7_ModbusInstructions.pdf
+  sha256: 64ccf4c9705200d200774e9f4108f122a0eeafca9649b0356276f638a8828d36
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  write_multiple: true
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: little
+  word_order: little
+
+identify:
+  serial:
+    table: holding
+    address: 2304
+    type: str
+    length: 7
+    byte_order: big
+
+points:
+  # Measurements
+  - {key: x.orp, label: Potential value, table: holding, address: 9728, type: f32, unit: mV, note: Oxidation-reduction potential; can be negative.}
+  - {key: x.ph, label: pH value, table: holding, address: 9730, type: f32, unit: pH, note: Temperature compensated.}
+  - {key: x.water_temperature, label: Temperature, table: holding, address: 9216, type: f32, unit: °C}
+  - {key: x.calibration_status, label: Calibration status, table: holding, address: 3584, type: u16, bits: [0, 7], enum: calibration_status, poll: slow, verified: false, note: 'Result of the last pH calibration. The document shows the status as one byte; taken as the first byte (little-endian, like the slave address). Not stated in the document; assumed.'}
+  # Calibration and settings
+  - {key: x.ph_calibration_k, label: pH customer calibration coefficient K, table: holding, address: 4352, type: f32, writable: true, poll: slow, note: Final pH = K × pH + B; default K = 1.}
+  - {key: x.ph_calibration_b, label: pH customer calibration coefficient B, table: holding, address: 4354, type: f32, writable: true, poll: slow, note: Default B = 0.}
+  - {key: x.orp_calibration_k, label: ORP calibration coefficient K, table: holding, address: 13312, type: f32, writable: true, poll: slow, note: 'Default K = 1. The read command''s table gives 0x1100 as start address, but its text and example frame use 0x3400; 0x3400 taken.'}
+  - {key: x.orp_calibration_b, label: ORP calibration coefficient B, table: holding, address: 13314, type: f32, writable: true, poll: slow, note: Default B = 0.}
+  - {key: x.modbus_address, label: Slave address, table: holding, address: 12288, type: u16, bits: [0, 7], writable: true, min: 1, max: 247, poll: slow, note: 'First byte of the register, the second is reserved. The document reads it with unit id 0xFF.'}
+  # Identity
+  - {key: serial, label: SN, table: holding, address: 2304, type: str, length: 7, byte_order: big, poll: slow, note: '14 bytes: one reserved byte, 12 ASCII characters (e.g. YL4314010022), one reserved byte.'}
+  - {key: x.hardware_version, label: HW Rev, table: holding, address: 1792, type: u16, byte_order: big, poll: slow, note: 'High byte major, low byte minor: 0x0101 = 1.1.'}
+  - {key: firmware, label: SW Rev, table: holding, address: 1793, type: u16, byte_order: big, poll: slow, note: 'High byte major, low byte minor: 0x0101 = 1.1.'}
+
+enums:
+  calibration_status: {'0': Success, '1': Does not match a standard solution, '2': Fewer than three calibration points, '4': Calibration coefficients out of range}
+
+notes:
+- For probes with hardware Rev 1.2 and software Rev 1.7 or later.
+- Addresses are the start addresses in the document's request frames (0-based protocol addresses, as written). The document's
+  remark that addresses start at 1 is general Modbus text and doesn't apply to them.
+- Read with function 03 only.
+- 'Floats are IEEE 754 single precision stored fully little-endian (pH 7.6 comes as bytes 33 33 F3 40): low word first, low
+  byte first. Serial and revision bytes are in transmission order.'
+- 'The same values can also be read singly: pH at 0x2800 (2 registers) and ORP at 0x1200 (2 registers). Left out here in favour
+  of the 0x2600 block the document''s procedure uses (read at least 1 s apart).'
+- 'Left out: the pH electrode coefficients K1–K6 (6 floats from 0x2900, factory defaults 6.86, -6.72, 0.04, 6.86, -6.56, -1.04)
+  and the pH calibration command (write the standard solution''s pH as a float to 0x2300; three-point calibration with 4.00,
+  6.86 and 9.18 at 25 °C).'
+- 'No problems listed: the document gives no fault or alarm register; the calibration status only describes the last calibration.'
+- 'Not stated in the document: a default unit id; 1 (the address used in the examples) is assumed.'

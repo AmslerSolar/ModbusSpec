@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DK Infusetek SPM/SPC Series Modbus Communication Protocol (undated).
+
+modbusspec: 0
+id: infusetek-spm-spc
+manufacturer: DK Infusetek
+name: SPM / SPC series syringe pumps
+kind: other
+
+sources:
+- title: DK Infusetek SPM/SPC Series Modbus Communication Protocol
+  version: undated
+  url: https://darwin-microfluidics.com/content/pdfs/SPM%20SPC%20Modbus%20communication%20protocol.pdf
+  sha256: 65bf192fd1a9138a5d1df277e3381bdaf1feab112501a64a41edd034f6b44351
+  archive_url: https://web.archive.org/web/20250321170503/https://darwin-microfluidics.com/content/pdfs/SPM%20SPC%20Modbus%20communication%20protocol.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  limits:
+    max_registers: 2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.all_start, label: All start, table: holding, address: 10, type: u16, enum: run_command, writable: true, note: Starts or stops all independent pump units of the controller.}
+  # Pump unit 1 (n = 1); units 2–8 at +1000 each
+  - {key: x.syringe_manufacturer, label: Syringe manufacturer, table: holding, address: 1000, type: u16, enum: syringe_manufacturer, writable: true, poll: slow}
+  - {key: x.syringe_size, label: Syringe size, table: holding, address: 1001, type: u16, writable: true, poll: slow, note: Size code per manufacturer (chart 1 of the document).}
+  - {key: x.custom_switch, label: Custom switch, table: holding, address: 1002, type: u16, enum: custom_switch, writable: true, poll: slow}
+  - {key: state, label: Start/stop control, table: holding, address: 1003, type: u16, enum: run_command, writable: true, poll: fast, note: The SPC has no pause.}
+  - {key: x.working_mode, label: Working mode, table: holding, address: 1004, type: u16, enum: working_mode, writable: true, poll: slow}
+  - {key: x.repeat_count, label: Repeat numbers, table: holding, address: 1005, type: u16, writable: true, min: 0, max: 9999, poll: slow, note: 0 = unlimited.}
+  - {key: x.fast_forward, label: Fast forward, table: holding, address: 1006, type: u16, writable: true, poll: slow, note: '1 start, 0 stop; only while the unit is stopped.'}
+  - {key: x.fast_backward, label: Fast backward, table: holding, address: 1007, type: u16, writable: true, poll: slow, note: '1 start, 0 stop; only while the unit is stopped.'}
+  - {key: x.delay_start, label: Delay start time, table: holding, address: 1008, type: f32, unit: min, writable: true, min: 0, max: 9999, poll: slow, optional: true, note: SPM only.}
+  - {key: x.group1_volume, label: First group volume, table: holding, address: 1010, type: f32, unit: µL, writable: true, poll: slow}
+  - {key: x.group1_time, label: First group run time, table: holding, address: 1012, type: f32, unit: s, writable: true, poll: slow}
+  - {key: x.pause_time, label: Pause time, table: holding, address: 1014, type: f32, unit: s, writable: true, poll: slow}
+  - {key: x.group2_volume, label: Second group volume, table: holding, address: 1016, type: f32, unit: µL, writable: true, poll: slow}
+  - {key: x.group2_time, label: Second group run time, table: holding, address: 1018, type: f32, unit: s, writable: true, poll: slow}
+  - {key: x.cycle_pause_time, label: Cycle pause time, table: holding, address: 1020, type: f32, unit: s, writable: true, poll: slow}
+  - {key: x.back_distance, label: Back distance, table: holding, address: 1022, type: f32, unit: mm, writable: true, poll: slow}
+  - {key: x.custom_group, label: Choose custom group, table: holding, address: 1024, type: u16, writable: true, poll: slow, note: '0–3 on the SPM, 0–2 on the SPC (first to fourth group).'}
+
+enums:
+  run_command: {'0': Stop, '1': Start, '2': Pause}
+  custom_switch: {'0': Built-in manufacturers, '1': Customize syringe}
+  working_mode: {'0': Withdraw, '1': Infuse, '2': Withdraw-infuse, '3': Infuse-withdraw}
+  syringe_manufacturer: {'0': Air-Tite, '1': Becton Dickinson Plastipak, '2': Becton Dickinson Glass, '3': Hamilton, '4': Popper & Sons, '5': Ranfac, '6': Scientific Glass Engineering, '7': Sherwood-Monojet plastic, '8': Terumo, '9': Unimetrics}
+
+notes:
+- 'Register addresses are the document''s decimal numbers, used as they are (0-based): its example writes unit 1''s start/stop
+  ("1003") to register 0x03EB. Each controller drives up to 8 pump units; unit n''s registers are at n × 1000 + offset; only
+  unit 1 is listed.'
+- Write each register on its own (function 06 for 16-bit values, 16 for floats); the document says several registers can't
+  be set in one command. Reading is with function 03.
+- 'Float word order: the document''s byte table says low word first, but its worked example sends 8.9 as 41 0E 66 66 (high
+  word first). The example is followed here; not verified.'
+- The pump takes Modbus commands only while its controller shows the main screen, and only for independent (not logic) pump
+  units.
+- Baud rate 1200–9600 selectable, 8 data bits, a parity bit and 1 stop bit; the default baud rate and the parity type are
+  not stated (9600, even assumed). Addresses 1–32.
+- No register identifies the pump; there is no identification check. Calibration registers (n100–n105) are left out.

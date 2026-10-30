@@ -1,0 +1,73 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: sinapsi-alfa
+manufacturer: Sinapsi
+name: Alfa energy monitor
+kind: meter
+
+sources:
+- id: sinapsi-alfa
+  title: ha-sinapsi-alfa (Home Assistant integration)
+  url: https://github.com/alexdelprete/ha-sinapsi-alfa
+  license: MIT
+  commit: 5d88f9993626940f880f6dc1a5ac0ed5ae71d087
+  path: custom_components/sinapsi_alfa/const.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - sinapsi-alfa
+
+points:
+  - {key: x.potenza_prelevata, label: Potenza Prelevata, table: holding, address: 2, type: u16, unit: W}
+  - {key: grid_import_energy, label: Energia Prelevata, table: holding, address: 5, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.potenza_prelevata_media_15m, label: Potenza Prelevata Media 15m, table: holding, address: 9, type: u16, unit: W}
+  - {key: x.potenza_immessa, label: Potenza Immessa, table: holding, address: 12, type: u16, unit: W}
+  - {key: grid_export_energy, label: Energia Immessa, table: holding, address: 15, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.potenza_immessa_media_15m, label: Potenza Immessa Media 15m, table: holding, address: 19, type: u16, unit: W}
+  - {key: x.energia_prelevata_giornaliera_f1, label: Energia Prelevata Giornaliera F1, table: holding, address: 30, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_prelevata_giornaliera_f2, label: Energia Prelevata Giornaliera F2, table: holding, address: 32, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_prelevata_giornaliera_f3, label: Energia Prelevata Giornaliera F3, table: holding, address: 34, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_prelevata_giornaliera_f4, label: Energia Prelevata Giornaliera F4, table: holding, address: 36, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_prelevata_giornaliera_f5, label: Energia Prelevata Giornaliera F5, table: holding, address: 38, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_prelevata_giornaliera_f6, label: Energia Prelevata Giornaliera F6, table: holding, address: 40, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_immessa_giornaliera_f1, label: Energia Immessa Giornaliera F1, table: holding, address: 54, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_immessa_giornaliera_f2, label: Energia Immessa Giornaliera F2, table: holding, address: 56, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_immessa_giornaliera_f3, label: Energia Immessa Giornaliera F3, table: holding, address: 58, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_immessa_giornaliera_f4, label: Energia Immessa Giornaliera F4, table: holding, address: 60, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_immessa_giornaliera_f5, label: Energia Immessa Giornaliera F5, table: holding, address: 62, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.energia_immessa_giornaliera_f6, label: Energia Immessa Giornaliera F6, table: holding, address: 64, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.fascia_oraria_attuale, label: Fascia Oraria Attuale, table: holding, address: 203, type: u16, enum: tariff_band, note: 0 only appears while the device is warming up after a restart.}
+  - {key: x.data_evento, label: Data Evento, table: holding, address: 780, type: u32, epoch: {start: '1970-01-01', unit: s}, invalid: [4294967295], note: Time of the latest disconnection notice from the grid operator.}
+  - {key: x.tempo_residuo_distacco, label: Tempo Residuo Distacco, table: holding, address: 782, type: u16, unit: s, invalid: [65535], note: Seconds until the announced disconnection; added to the event time (780) it gives the disconnection time.}
+  - {key: pv_power, label: Potenza Prodotta, table: holding, address: 921, type: u16, unit: W}
+  - {key: pv_energy, label: Energia Prodotta, table: holding, address: 924, type: u32, unit: kWh, scale: 0.001}
+
+derived:
+  - {key: grid_power, label: Grid power, unit: W, positive: import, sum: [{key: x.potenza_prelevata}, {key: x.potenza_immessa, factor: -1}]}
+  - {key: x.potenza_auto_consumata, label: Potenza Auto Consumata, unit: W, sum: [{key: pv_power}, {key: x.potenza_immessa, factor: -1}]}
+  - {key: load_power, label: Potenza Consumata, unit: W, sum: [{key: pv_power}, {key: x.potenza_immessa, factor: -1}, {key: x.potenza_prelevata}]}
+
+enums:
+  tariff_band: {'1': F1, '2': F2, '3': F3, '4': F4, '5': F5, '6': F6}
+
+notes:
+- Alfa reads the grid operator's smart meter (Open Meter 2.0, over Chain2); it is a monitor, not a meter itself.
+- 'Grid power is given as two unsigned values: power drawn from the grid (2) and power fed in (12); grid power is their difference
+  (derived).'
+- After a restart the device can return zeros for a few minutes; the integration treats tariff band 0 as that warm-up state
+  and ignores lifetime energy totals that go down.
+- Bands F1…F6 are the Italian time-of-use tariff bands.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

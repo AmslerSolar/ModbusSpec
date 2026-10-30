@@ -1,0 +1,49 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: obo-ion
+manufacturer: OBO Bettermann
+name: Ion wallbox
+kind: charger
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: charger/obo.go
+
+connection:
+  default_port: 502
+  default_unit: 101
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - evcc
+
+points:
+  - {key: x.enable, label: Charging enabled, table: holding, address: 5, type: u16, writable: true, note: '1 = enabled, 0 = disabled.'}
+  - {key: x.max_current, label: Charging current limit, table: holding, address: 6, type: u16, unit: A, writable: true, note: 'evcc only writes it, in whole amps.'}
+  - {key: state, label: Vehicle state, table: holding, address: 11, type: u16, enum: cp_state, note: 'evcc treats other values (states D, F) as errors.'}
+  - {key: x.failsafe_timeout, label: Failsafe timeout, table: holding, address: 28, type: u16, unit: s, scale: 0.001, note: 0 = no timeout.}
+
+enums:
+  cp_state: {'0': A (no vehicle), '1': B (vehicle connected), '2': C (charging)}
+
+notes:
+- evcc's template lists the same driver for the EcoHarmony and Viridian EV EVSE EPC 2.0 Plus.
+- If the failsafe timeout is set, evcc keeps the connection alive by reading a register at half the timeout.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

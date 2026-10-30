@@ -1,0 +1,156 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SMA Modbus Interface SMA Data Manager technical information (EDMx-Modbus-TI-en-16, 1.6).
+
+modbusspec: 0
+id: sma-data-manager
+manufacturer: SMA
+name: Data Manager (EDML-10, EDMM-10, EDMM-US-10, EDMM-10.A)
+kind: energy_manager
+
+sources:
+- title: SMA Modbus Interface – SMA Data Manager (technical information)
+  version: EDMx-Modbus-TI-en-16 (1.6, 2022-03-09)
+  url: https://files.sma.de/downloads/EDMx-Modbus-TI-en-16.pdf
+  sha256: 9d5fab866d1b06cf10a9d4dfa90ea469e2130092cbfd69c31c81d15a857b27f5
+  archive_url: https://web.archive.org/web/20230523205613/https://files.sma.de/downloads/EDMx-Modbus-TI-en-16.pdf
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/sma-datamanager.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/sma/sma_sunny_boy
+
+connection:
+  default_port: 502
+  default_unit: 2
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    min_interval_ms: 1000
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 30005
+    type: u32
+    unit_id: 1
+  checks:
+  # device class: communication product
+  - table: holding
+    address: 30051
+    type: u32
+    unit_id: 1
+    equals: 8128
+  # system power at the grid connection point (unit 2)
+  - table: holding
+    address: 31249
+    type: s32
+    answers: true
+
+points:
+  # Unit id 1: the Data Manager itself
+  - {key: x.profile_version, label: Version number of the SMA profile, table: holding, address: 30001, type: u32, unit_id: 1, poll: slow, invalid: [4294967295]}
+  - {key: x.susy_id, label: SUSyID (Device ID), table: holding, address: 30003, type: u32, unit_id: 1, poll: slow, invalid: [4294967295]}
+  - {key: serial, label: Serial number, table: holding, address: 30005, type: u32, unit_id: 1, poll: slow, invalid: [4294967295]}
+  - {key: x.data_change_counter, label: Modbus data change counter, table: holding, address: 30007, type: u32, unit_id: 1, poll: slow, invalid: [4294967295], note: Counts up (and wraps) whenever data in the profile changed.}
+  - {key: x.device_class, label: Device class, table: holding, address: 30051, type: u32, unit_id: 1, bits: [0, 23], enum: device_class, invalid: [16777213, 16777215, 4294967295], poll: slow}
+
+  # Unit id 2: the whole system
+  - {key: x.system_time, label: UTC system time, table: holding, address: 30193, type: u32, epoch: {start: '1970-01-01', unit: s}, invalid: [4294967295], poll: slow}
+  - {key: x.health, label: Current state of health (5-minute value), table: holding, address: 30201, type: u32, bits: [0, 23], enum: status, invalid: [16777213, 16777215, 4294967295]}
+  - {key: x.connected_pv_power, label: Accumulated connected power of the PV inverters, table: holding, address: 30233, type: u32, unit: W, invalid: [4294967295], poll: slow}
+  - {key: pv_energy, label: Total energy fed in on all line conductors, table: holding, address: 30513, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], poll: slow}
+  - {key: pv_energy_today, label: Energy fed in on the current day on all line conductors, table: holding, address: 30517, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], poll: slow}
+  - {key: pv_power, label: Current PV feed-in active power on all line conductors, table: holding, address: 30775, type: s32, unit: W, invalid: [-2147483648]}
+  - {key: x.pv_reactive_power, label: Reactive power on all line conductors, table: holding, address: 30805, type: s32, unit: var, invalid: [-2147483648]}
+  - {key: battery_soc, label: Current battery state of charge, table: holding, address: 30845, type: u32, unit: '%', invalid: [4294967295], optional: true}
+  - {key: x.limit_digital_input, label: Power limitation via digital input, table: holding, address: 31235, type: u32, unit: '%', scale: 0.01, invalid: [4294967295]}
+  - {key: x.limit_analog_input, label: Setpoint of active power limitation P via analog input, table: holding, address: 31237, type: u32, unit: '%', scale: 0.01, invalid: [4294967295]}
+  - {key: x.limit_communication, label: PV power limitation via communication, table: holding, address: 31239, type: u32, unit: '%', scale: 0.01, invalid: [4294967295]}
+  - {key: x.limit_direct_marketing, label: PV power limitation via communication for direct marketing, table: holding, address: 31241, type: u32, unit: '%', scale: 0.01, invalid: [4294967295]}
+  - {key: x.limit_max_setpoint, label: Maximum active power setpoint, table: holding, address: 31243, type: u32, unit: '%', scale: 0.01, invalid: [4294967295]}
+  - {key: x.limit_internal, label: Internal PV power limitation, table: holding, address: 31245, type: u32, unit: '%', scale: 0.01, invalid: [4294967295]}
+  - {key: grid_power, label: Active power of system at PCC, table: holding, address: 31249, type: s32, unit: W, positive: export, invalid: [-2147483648], verified: false, note: 'The document gives no sign for this register; assumed positive = feed-in, as the per-phase registers 31503-31507 are named "feed-in of power into grid".'}
+  - {key: reactive_power, label: Reactive power of system at PCC, table: holding, address: 31251, type: s32, unit: var, invalid: [-2147483648]}
+  - {key: x.battery_charge_power, label: Current battery charge, table: holding, address: 31393, type: u32, unit: W, invalid: [4294967295], optional: true, note: Not available without a battery inverter.}
+  - {key: x.battery_discharge_power, label: Current battery discharge, table: holding, address: 31395, type: u32, unit: W, invalid: [4294967295], optional: true, note: Not available without a battery inverter.}
+  - {key: x.battery_charge_energy, label: Battery charge, table: holding, address: 31397, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], optional: true, poll: slow}
+  - {key: x.battery_discharge_energy, label: Battery discharge, table: holding, address: 31401, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615], optional: true, poll: slow}
+  - {key: x.grid_l1_power, label: 'Feed-in of power into grid: L1 at PCC', table: holding, address: 31503, type: s32, unit: W, invalid: [-2147483648], note: Positive = feed-in into the grid (from the name).}
+  - {key: x.grid_l2_power, label: 'Feed-in of power into grid: L2 at PCC', table: holding, address: 31505, type: s32, unit: W, invalid: [-2147483648], note: Positive = feed-in into the grid (from the name).}
+  - {key: x.grid_l3_power, label: 'Feed-in of power into grid: L3 at PCC', table: holding, address: 31507, type: s32, unit: W, invalid: [-2147483648], note: Positive = feed-in into the grid (from the name).}
+  - {key: x.l1_reactive_power, label: 'Feed-in of reactive power into grid: L1 at PCC', table: holding, address: 31509, type: s32, unit: var, invalid: [-2147483648]}
+  - {key: x.l2_reactive_power, label: 'Feed-in of reactive power into grid: L2 at PCC', table: holding, address: 31511, type: s32, unit: var, invalid: [-2147483648]}
+  - {key: x.l3_reactive_power, label: 'Feed-in of reactive power into grid: L3 at PCC', table: holding, address: 31513, type: s32, unit: var, invalid: [-2147483648]}
+  - {key: x.l1_l2_voltage, label: 'System voltage: L1 - L2 at PCC', table: holding, address: 31515, type: u32, unit: V, scale: 0.01, invalid: [4294967295], optional: true, note: Only with a power analyzer.}
+  - {key: x.l2_l3_voltage, label: 'System voltage: L2 - L3 at PCC', table: holding, address: 31517, type: u32, unit: V, scale: 0.01, invalid: [4294967295], optional: true, note: Only with a power analyzer.}
+  - {key: x.l3_l1_voltage, label: 'System voltage: L3 - L1 at PCC', table: holding, address: 31519, type: u32, unit: V, scale: 0.01, invalid: [4294967295], optional: true, note: Only with a power analyzer.}
+  - {key: x.mean_voltage_ln, label: Mean value of grid voltage L-N at PCC, table: holding, address: 31521, type: u32, unit: V, scale: 0.01, invalid: [4294967295], optional: true, note: Only with a power analyzer.}
+  - {key: x.mean_voltage_ll, label: Mean value of grid voltage L-L at PCC, table: holding, address: 31523, type: u32, unit: V, scale: 0.01, invalid: [4294967295], optional: true, note: Only with a power analyzer.}
+  - {key: power_factor, label: Displacement power factor at PCC, table: holding, address: 31525, type: s32, scale: 0.01, invalid: [-2147483648], optional: true, note: Only with a power analyzer.}
+  - {key: frequency, label: Grid frequency at PCC, table: holding, address: 31527, type: u32, unit: Hz, scale: 0.01, invalid: [4294967295], optional: true, note: Only with a power analyzer.}
+  - {key: l1_voltage, label: 'System voltage: L1 at PCC', table: holding, address: 31529, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l2_voltage, label: 'System voltage: L2 at PCC', table: holding, address: 31531, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l3_voltage, label: 'System voltage: L3 at PCC', table: holding, address: 31533, type: u32, unit: V, scale: 0.01, invalid: [4294967295]}
+  - {key: l1_current, label: 'System current: L1 at PCC', table: holding, address: 31535, type: s32, unit: A, scale: 0.001, invalid: [-2147483648], note: Signed; the document doesn't say which direction is positive.}
+  - {key: l2_current, label: 'System current: L2 at PCC', table: holding, address: 31537, type: s32, unit: A, scale: 0.001, invalid: [-2147483648], note: Signed; the document doesn't say which direction is positive.}
+  - {key: l3_current, label: 'System current: L3 at PCC', table: holding, address: 31539, type: s32, unit: A, scale: 0.001, invalid: [-2147483648], note: Signed; the document doesn't say which direction is positive.}
+  - {key: x.power_all_units_operating, label: Power value of the generating system when all generating units are in operation, table: holding, address: 31545, type: u32, unit: W, invalid: [4294967295]}
+  - {key: x.available_active_power, label: Available active power of all inverters, table: holding, address: 31547, type: u32, unit: W, invalid: [4294967295]}
+  - {key: x.theoretical_power, label: Theoretically available power output, table: holding, address: 32191, type: u32, unit: W, scale: 0.01, invalid: [4294967295], optional: true, note: Only with irradiation / temperature sensors configured and enabled for Modbus.}
+  - {key: x.availability, label: Availability of generating system, table: holding, address: 32193, type: u32, unit: '%', invalid: [4294967295]}
+  - {key: x.external_limit, label: External active power limitation, table: holding, address: 32195, type: u32, unit: '%', scale: 0.01, invalid: [4294967295], note: Not available while the function is disabled.}
+  - {key: x.ambient_temperature, label: Ambient temperature, table: holding, address: 34609, type: s32, unit: °C, scale: 0.1, invalid: [-2147483648], optional: true, note: Only with a sensor configured and enabled for Modbus.}
+  - {key: x.wind_speed, label: Global wind speed, table: holding, address: 34615, type: u32, unit: m/s, scale: 0.01, invalid: [4294967295], optional: true, note: Only with a sensor configured and enabled for Modbus.}
+  - {key: x.module_temperature, label: PV module temperature, table: holding, address: 34621, type: s32, unit: °C, scale: 0.1, invalid: [-2147483648], optional: true, note: Only with a sensor configured and enabled for Modbus.}
+  - {key: x.irradiation, label: Total irradiation on the external sensor, table: holding, address: 34623, type: u32, unit: W/m², invalid: [4294967295], optional: true, note: Only with a sensor configured and enabled for Modbus.}
+  - {key: x.digital_inputs, label: Digital input group 1, table: holding, address: 34653, type: u32, bits: [0, 23], enum: digital_inputs, invalid: [16777213, 16777215, 4294967295]}
+
+  # Writable setpoints
+  - {key: x.quick_shutdown, label: Quick shut-down of the inverters, table: holding, address: 40018, type: u32, enum: quick_shutdown, writable: true, invalid: [4294967295]}
+  - {key: x.direct_marketer_setpoint, label: 'Direct marketer: active power setpoint P (% of PMAX)', table: holding, address: 40493, type: s16, unit: '%', scale: 0.01, writable: true, min: -100, max: 100, invalid: [-32768], note: '-100 to -1 % = load, 0 = no active power, above 0 up to 100 % = generator.'}
+  - {key: x.manual_power_limit, label: Manually set active power limit for the entire system, table: holding, address: 41167, type: u32, unit: '%', scale: 0.01, writable: true, invalid: [4294967295]}
+
+derived:
+  - {key: battery_power, label: Battery power, unit: W, positive: discharge, sum: [{key: x.battery_discharge_power}, {key: x.battery_charge_power, factor: -1}]}
+
+enums:
+  device_class: {'8128': Communication product}
+  status: {'51': Closed, '276': Instantaneous value, '295': MPP, '303': 'Off', '308': 'On', '309': Operation, '311': Open, '336': Contact the manufacturer, '337': Contact the installer, '338': Invalid, '381': Stop, '455': Warning, '1392': Errors, '1393': Wait for PV voltage, '1394': Wait for valid AC grid, '1455': Emergency stop, '1466': Waiting, '1467': Starting, '1468': MPP search, '1469': Shutdown, '1479': Wait after grid interruption, '1480': Wait for electric utility company}
+  digital_inputs: {'311': Open, '2055': DI1, '2056': DI1 DI2, '2057': DI1 DI2 DI3, '2058': DI1 DI2 DI3 DI4, '2059': DI1 DI2 DI4, '2060': DI1 DI3, '2061': DI1 DI3 DI4, '2062': DI1 DI4, '2063': DI2, '2064': DI2 DI3, '2065': DI2 DI3 DI4, '2066': DI2 DI4, '2067': DI3, '2068': DI3 DI4, '2069': DI4}
+  quick_shutdown: {'311': Standby, '1467': Start, '1749': Full stop (AC and DC sides)}
+
+problems:
+  - {when: {key: x.health, equals: 455}, kind: warning, text: System warning (state of health 455)}
+  - {when: {key: x.health, equals: 1392}, kind: fault, text: System error (state of health 1392)}
+
+notes:
+- Unit id 1 holds the Data Manager's own data (profile version, SUSyID, serial number, device class 8128 = communication product);
+  unit id 2 the values of the whole system (inverters, batteries, meter at the grid connection point). Modbus TCP only, port
+  502 by default.
+- Addresses are the document's decimal register numbers, used as they are on the wire, as in SMA's other Modbus documents.
+  Function codes 03 and 04 both read up to 125 registers; listed as holding registers.
+- 'Big-endian; 32- and 64-bit values high word first. Not available: U16 0xFFFF, U32 0xFFFFFFFF, S16 0x8000, S32 0x80000000,
+  U64 all ones; status values use the low 24 bits (0xFFFFFD = not available). FIXn = n decimals, TEMP = one decimal.'
+- The document asks for at least 1 s between transfers and no more than five values at a time; typical answer time 150 ms.
+  Writable parameters (except the grid management setpoints) are stored in flash and must not be written cyclically.
+- The EDMM-10.A (Data Manager M Lite) doesn't provide all system values; missing ones read as not available.
+- 'State of health (30201): the document gives only SMA''s general number codes, not the values used here; the problems for
+  455 (warning) and 1392 (errors) are taken from those codes and not verified.'
+- 'Left out: the °F / K and km/h / mph duplicates of the sensor values (34625-34635) and the reactive power availability /
+  limitation registers (32185-32189, 32197, 32199).'
+- 'evcc template `sma-data-manager` (grid, pv, battery) lists: SMA Data Manager.'

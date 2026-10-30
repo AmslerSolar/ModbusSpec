@@ -1,0 +1,53 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: sma-sbs
+manufacturer: SMA
+name: Sunny Boy Storage 3.7/5.0/6.0 (Modbus)
+kind: battery
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/sma-sbs-modbus.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.sma
+
+connection:
+  default_port: 502
+  default_unit: 3
+  transports:
+  - tcp
+
+defaults:
+  verified: false
+  sources:
+  - evcc
+  - openems
+
+points:
+  - {key: x.battery_energy, label: Battery energy, table: holding, address: 30513, type: u64, unit: kWh, scale: 0.001, invalid: [18446744073709551615]}
+  - {key: battery_power, label: Active power, table: holding, address: 30775, type: s32, unit: W, positive: discharge, sources: [openems]}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 30845, type: u32, unit: '%', invalid: [4294967295]}
+  - {key: x.allowed_charge_power, label: Allowed charge power, table: holding, address: 40189, type: u32, unit: W, note: OpenEMS negates this register for its channel., sources: [openems]}
+  - {key: x.allowed_discharge_power, label: Allowed discharge power, table: holding, address: 40191, type: u32, unit: W, sources: [openems]}
+  - {key: x.batterymode_40236, label: Battery mode control (write), table: holding, address: 40236, type: u32, writable: true, note: 'evcc writes battery mode normal: 2424; battery mode hold: 2424; battery mode charge: 2289.'}
+  - {key: x.batterymode_40793, label: Battery mode control (write), table: holding, address: 40793, type: u32, unit: W, writable: true, note: 'evcc writes battery mode normal: 0; battery mode hold: 0; battery mode charge: 4200.'}
+  - {key: x.batterymode_40795, label: Battery mode control (write), table: holding, address: 40795, type: u32, unit: W, writable: true, note: 'evcc writes battery mode normal: 4200; battery mode hold: 4200; battery mode charge: 4200.'}
+  - {key: x.batterymode_40797, label: Battery mode control (write), table: holding, address: 40797, type: u32, unit: W, writable: true, note: 'evcc writes battery mode normal: 0; battery mode hold: 0; battery mode charge: 0.'}
+  - {key: x.batterymode_40799, label: Battery mode control (write), table: holding, address: 40799, type: u32, unit: W, writable: true, note: 'evcc writes battery mode normal: 4200; battery mode hold: 0; battery mode charge: 0.'}
+  - {key: x.batterymode_40801, label: Battery mode control (write), table: holding, address: 40801, type: u32, unit: W, writable: true, note: 'evcc writes battery mode normal: 0; battery mode hold: 0; battery mode charge: 0.', sources: [evcc], conflicts: [{sources: [openems], type: s32, label: Grid power setpoint}]}
+  - {key: x.battery_power, label: Battery power, table: input, address: 30775, type: s32, unit: W, invalid: [-2147483648, 2147483647], sources: [evcc]}
+
+notes:
+- 'evcc template `sma-sbs-modbus` (battery) lists: SMA Sunny Boy Storage 3.7/5.0/6.0 (Modbus).'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

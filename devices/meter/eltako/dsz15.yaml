@@ -1,0 +1,96 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Eltako Modbus-RTU protocol specification for DSZ15DZMOD (V1.6, 06/2023).
+
+modbusspec: 0
+id: eltako-dsz15
+manufacturer: Eltako
+name: DSZ15DZMOD three-phase energy meter
+kind: meter
+
+sources:
+- title: Modbus-RTU protocol specification for DSZ15DZMOD
+  version: V1.6 (06/2023)
+  url: https://www.eltako.com/fileadmin/downloads/de/_bedienung/Modbus-RTU_protocol_specification_for_DSZ15DZMOD_V1.6_English_version.pdf
+  sha256: 7ec844afca60951388e8785b1c100d29cba4e469a12715600668e3cd6e7a87e4
+  archive_url: https://web.archive.org/web/20250826222517/https://www.eltako.com/fileadmin/downloads/de/_bedienung/Modbus-RTU_protocol_specification_for_DSZ15DZMOD_V1.6_English_version.pdf
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/eltako.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 64512
+    type: bcd32
+  checks:
+  # meter code
+  - table: holding
+    address: 64514
+    type: u32
+    equals: 13
+
+points:
+  # Measurements (input registers, function 04)
+  - {key: l1_voltage, label: Voltage of L1 to N, table: input, address: 0, type: u32, unit: V, scale: 0.01}
+  - {key: l2_voltage, label: Voltage of L2 to N, table: input, address: 2, type: u32, unit: V, scale: 0.01}
+  - {key: l3_voltage, label: Voltage of L3 to N, table: input, address: 4, type: u32, unit: V, scale: 0.01}
+  - {key: l1_current, label: L1 current, table: input, address: 6, type: u32, unit: A, scale: 0.01}
+  - {key: l2_current, label: L2 current, table: input, address: 8, type: u32, unit: A, scale: 0.01}
+  - {key: l3_current, label: L3 current, table: input, address: 10, type: u32, unit: A, scale: 0.01}
+  - {key: l1_power, label: L1 active power, table: input, address: 12, type: s32, unit: W, positive: import, verified: false, note: See the note on total active power.}
+  - {key: l2_power, label: L2 active power, table: input, address: 14, type: s32, unit: W, positive: import, verified: false, note: See the note on total active power.}
+  - {key: l3_power, label: L3 active power, table: input, address: 16, type: s32, unit: W, positive: import, verified: false, note: See the note on total active power.}
+  - {key: x.l1_power_factor, label: L1 power factor, table: input, address: 30, type: s32, scale: 0.001}
+  - {key: x.l2_power_factor, label: L2 power factor, table: input, address: 32, type: s32, scale: 0.001}
+  - {key: x.l3_power_factor, label: L3 power factor, table: input, address: 34, type: s32, scale: 0.001}
+  - {key: grid_power, label: Total active power, table: input, address: 52, type: s32, unit: W, positive: import, verified: false, note: 'The table gives kW as unit, but the remarks say power is a signed whole number without decimals; read as W (assumed). The document doesn''t say which direction is positive; import assumed.'}
+  - {key: power_factor, label: Total power factor, table: input, address: 62, type: s32, scale: 0.001}
+  - {key: grid_import_energy, label: Total import active energy, table: input, address: 72, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_export_energy, label: Total export active energy, table: input, address: 74, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.part_import_energy, label: Part import active energy, table: input, address: 96, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.part_export_energy, label: Part export active energy, table: input, address: 98, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  # Parameters (holding registers, function 03; written with function 10)
+  - {key: x.parity_stop, label: Communication check and stop bit, table: holding, address: 18, type: u32, enum: parity_stop, poll: slow}
+  - {key: x.node_address, label: Communication address, table: holding, address: 20, type: u32, writable: true, min: 1, max: 250, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 28, type: u32, enum: baud_rate, poll: slow, note: 'An index into the table, not the rate itself; default 2 (9600).'}
+  - {key: x.pulse_mode, label: Pulse mode, table: holding, address: 86, type: u32, enum: pulse_mode, poll: slow, note: 'Default 2. The document''s option list is garbled after 2 (it also names positive active energy, probably as 4); only 1 and 2 are taken.'}
+  - {key: serial, label: Serial number, table: holding, address: 64512, type: bcd32, poll: slow}
+  - {key: x.meter_code, label: Meter code, table: holding, address: 64514, type: u32, poll: slow}
+
+enums:
+  parity_stop: {'0': 8N1}
+  baud_rate: {'0': '2400', '1': '4800', '2': '9600', '3': '19200', '5': '1200'}
+  pulse_mode: {'1': Reverse active energy, '2': Total active energy}
+
+notes:
+- Addresses are the document's hex start addresses (its 30001 / 40001-style numbers minus 30001 / 40001; the 464513 serial
+  number is holding FC00h).
+- Every value is 32 bits in two registers, high word first. Voltages, currents and energies are unsigned with two decimals;
+  power is signed without decimals; power factor is signed with three decimals.
+- The meter code's format column shows 0000000D; the identify check takes it as the fixed value 13 (not checked on a device).
+  In that column the document writes values that vary as X or N (measurements, serial number, address) and fixed or default
+  values as digits (e.g. 00000002 for the default baud rate), which supports reading 0x0D as the meter's own code.
+- The default unit id isn't stated (the examples use 0xCC); 1 is assumed. Only 8N1 is listed for the line settings.
+- Which parameters are writable is unclear in the document's layout; only the communication address is shown changed (function
+  10).
+- mbmd (type code ELTAKODSZ15/ELTAKODSZ16) detects the meter by reading L1 Voltage (input register 0, u32, scale 0.01); its
+  bus scan accepts a value within 10% of 110 or 230 V.
+- Identification as mbmd recognises the device (not checked against a document).

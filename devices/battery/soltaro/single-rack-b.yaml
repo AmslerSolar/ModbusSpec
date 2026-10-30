@@ -1,0 +1,280 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Soltaro Single Rack MOD-BUS protocol (V3.6). The document gives register offsets only; the base
+# address 0x2000 is assumed (see notes), so every point is `verified: false`.
+
+modbusspec: 0
+id: soltaro-single-rack-b
+manufacturer: Soltaro
+name: Single rack battery, version B
+kind: battery
+
+sources:
+- title: Single Rack MOD-BUS protocol
+  version: V3.6
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.battery.soltaro/doc/Single%20Rack%20MOD-BUS%20protocol%20V3.6.doc
+  sha256: c32382b2ec02f80a11693e9076dab28cce623f6dccecf8313384d0d58c4dba36
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.battery.soltaro
+
+connection:
+  default_port: 502
+  default_unit: 0
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+defaults:
+  verified: false
+
+points:
+  # Control registers (offset 0x0000 ff.)
+  - {key: x.fan_status, label: Fan status, table: holding, address: 8192, type: u16, enum: open_close}
+  - {key: x.main_contactor_state, label: Main contactor state, table: holding, address: 8193, type: u16, enum: start_stop}
+  - {key: x.dry_contact_1, label: Dry contact 1 output, table: holding, address: 8194, type: u16, enum: high_low}
+  - {key: x.dry_contact_2, label: Dry contact 2 output, table: holding, address: 8195, type: u16, enum: high_low}
+  - {key: x.system_reset, label: System reset, table: holding, address: 8196, type: u16, writable: true, poll: slow, note: Write 1 to reset.}
+  - {key: x.run_mode, label: System run mode, table: holding, address: 8197, type: u16, enum: run_mode}
+  - {key: x.pre_contactor_state, label: Pre-charge contactor state, table: holding, address: 8198, type: u16, enum: start_stop}
+  - {key: x.alarm_flags, label: Alarm flag status, table: holding, address: 8199, type: u16, flags: alarm_bits}
+  - {key: x.protect_flags, label: Protection flag status, table: holding, address: 8200, type: u16, flags: alarm_bits}
+  - {key: x.short_circuit_function, label: Short circuit function, table: holding, address: 8205, type: u16, enum: enable_disable, writable: true, poll: slow}
+  - {key: x.soft_shutdown, label: Soft shutdown, table: holding, address: 8207, type: u16, writable: true, poll: slow, note: Write 1 to shut down.}
+  - {key: x.pre_charge_status, label: Pre-charge status, table: holding, address: 8208, type: u16, note: Values not stated in the document.}
+  - {key: x.pcs_alarm_reset, label: PCS alarm reset, table: holding, address: 8210, type: u16, writable: true, poll: slow, note: Write 1 to clear a PCS standby alarm by hand.}
+  - {key: x.auto_set_slave_ids, label: Auto set slave IDs, table: holding, address: 8212, type: u16, enum: auto_set, writable: true, poll: slow}
+  - {key: x.auto_set_slave_temperature_ids, label: Auto set slave temperature IDs, table: holding, address: 8217, type: u16, enum: auto_set, writable: true, poll: slow}
+  - {key: x.ems_address, label: EMS address, table: holding, address: 8219, type: u16, writable: true, poll: slow, note: Default 0.}
+  - {key: x.ems_timeout, label: EMS communication timeout protection, table: holding, address: 8220, type: u16, unit: s, writable: true, poll: slow, note: Default 90 s.}
+  - {key: x.sleep, label: Sleep, table: holding, address: 8221, type: u16, writable: true, poll: slow, note: 'Write 1 to sleep (ACC not connected to power +). To wake up: connect ACC to power + and reset the system.'}
+  - {key: x.voltage_low_protection, label: Voltage low protection, table: holding, address: 8222, type: u16, unit: V, scale: 0.001, writable: true, poll: slow, note: Default 2.650 V.}
+
+  # Protection (stop) thresholds (offset 0x0040 ff.), a selection
+  - {key: x.cell_over_voltage_protection, label: Cell over voltage protection, table: holding, address: 8256, type: u16, unit: V, scale: 0.001, writable: true, poll: slow}
+  - {key: x.system_over_voltage_protection, label: System over voltage protection, table: holding, address: 8258, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.charge_over_current_protection, label: Charge over current protection, table: holding, address: 8260, type: u16, unit: A, scale: 0.1, writable: true, poll: slow}
+  - {key: x.cell_under_voltage_protection, label: Cell under voltage protection, table: holding, address: 8262, type: u16, unit: V, scale: 0.001, writable: true, poll: slow}
+  - {key: x.system_under_voltage_protection, label: System under voltage protection, table: holding, address: 8264, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.discharge_over_current_protection, label: Discharge over current protection, table: holding, address: 8266, type: u16, unit: A, scale: 0.1, writable: true, poll: slow}
+
+  # Work parameters (offset 0x00C0 ff.), a selection
+  - {key: x.rtc_time, label: System RTC time, table: holding, address: 8389, type: u32, epoch: {start: '1970-01-01', unit: s}, poll: slow}
+  - {key: x.cell_float_charge_voltage, label: Cell float charging threshold, table: holding, address: 8391, type: u16, unit: V, scale: 0.001, poll: slow, note: Charging starts below this.}
+  - {key: x.cell_full_voltage, label: Cell full charge threshold, table: holding, address: 8392, type: u16, unit: V, scale: 0.001, poll: slow, note: The cell counts as full above this.}
+  - {key: x.cell_stop_discharge_voltage, label: Cell end-of-discharge threshold, table: holding, address: 8393, type: u16, unit: V, scale: 0.001, poll: slow, note: Discharging stops below this.}
+  - {key: x.system_capacity, label: System capacity, table: holding, address: 8396, type: u16, poll: slow, note: Unit not stated in the document.}
+  - {key: x.system_soc_setting, label: System SOC (work parameter), table: holding, address: 8415, type: u16, poll: slow, note: In the work-parameter group; unit and use not stated., conflicts: [{sources: [openems], unit: '%', label: Set soc}]}
+  - {key: x.system_soh_default, label: System SOH default value, table: holding, address: 8416, type: u16, poll: slow}
+
+  # Rack summary (offset 0x0100 ff.)
+  - {key: battery_voltage, label: Total voltage, table: holding, address: 8448, type: u16, unit: V, scale: 0.1}
+  - {key: battery_current, label: Main circuit current, table: holding, address: 8449, type: s16, unit: A, scale: 0.1, positive: discharge, note: −500…500 A.}
+  - {key: x.charge_state, label: Charge / discharge indication, table: holding, address: 8450, type: u16, enum: charge_state}
+  - {key: battery_soc, label: SOC, table: holding, address: 8451, type: u16, unit: '%'}
+  - {key: battery_soh, label: SOH, table: holding, address: 8452, type: u16, unit: '%', scale: 0.1}
+  - {key: x.max_cell_voltage_id, label: Number of the highest cell, table: holding, address: 8453, type: u16, note: 1…196.}
+  - {key: x.max_cell_voltage, label: Highest cell voltage, table: holding, address: 8454, type: u16, unit: V, scale: 0.001, conflicts: [{sources: [openems], type: s16, label: Cluster 1 max cell voltage}]}
+  - {key: x.min_cell_voltage_id, label: Number of the lowest cell, table: holding, address: 8455, type: u16}
+  - {key: x.min_cell_voltage, label: Lowest cell voltage, table: holding, address: 8456, type: u16, unit: V, scale: 0.001}
+  - {key: x.max_cell_temperature_id, label: Number of the hottest sensor, table: holding, address: 8457, type: u16, note: 1…60.}
+  - {key: battery_temperature, label: Highest cell temperature, table: holding, address: 8458, type: s16, unit: °C, scale: 0.1}
+  - {key: x.min_cell_temperature_id, label: Number of the coldest sensor, table: holding, address: 8459, type: u16}
+  - {key: x.min_cell_temperature, label: Lowest cell temperature, table: holding, address: 8460, type: s16, unit: °C, scale: 0.1}
+  - {key: x.max_cell_resistance_id, label: Number of the cell with the highest resistance, table: holding, address: 8461, type: u16, poll: slow}
+  - {key: x.max_cell_resistance, label: Highest cell resistance, table: holding, address: 8462, type: u16, unit: mΩ, scale: 0.01, poll: slow, conflicts: [{sources: [openems], unit: Ω, scale: 1.0e-05, label: Max cell resistance}]}
+  - {key: x.min_cell_resistance_id, label: Number of the cell with the lowest resistance, table: holding, address: 8463, type: u16, poll: slow}
+  - {key: x.min_cell_resistance, label: Lowest cell resistance, table: holding, address: 8464, type: u16, unit: mΩ, scale: 0.01, poll: slow, conflicts: [{sources: [openems], unit: Ω, scale: 1.0e-05, label: Min cell resistance}]}
+  - {key: x.insulation_positive, label: Positive insulation, table: holding, address: 8465, type: u16, note: Unit not stated in the document., conflicts: [{sources: [openems], unit: Ω, scale: 1000}]}
+  - {key: x.insulation_negative, label: Negative insulation, table: holding, address: 8466, type: u16, note: Unit not stated in the document., conflicts: [{sources: [openems], unit: Ω, scale: 1000}]}
+  - {key: x.main_contactor_flag, label: Main contactor (breaker) feedback, table: holding, address: 8467, type: u16, note: Values not stated in the document.}
+  - {key: x.environment_temperature, label: Environment temperature, table: holding, address: 8469, type: s16, unit: °C, scale: 0.1, conflicts: [{sources: [openems], type: u16}]}
+  - {key: x.system_insulation, label: System insulation, table: holding, address: 8470, type: u16, unit: kΩ, conflicts: [{sources: [openems], unit: Ω, scale: 1000}]}
+  - {key: x.cell_voltage_difference, label: Cell voltage difference (highest − lowest), table: holding, address: 8471, type: u16, unit: V, scale: 0.001}
+  - {key: x.total_voltage_difference, label: Total voltage difference (measured − sum of cells), table: holding, address: 8472, type: u16, unit: V, scale: 0.1}
+
+  # Alarm and stop information (offset 0x0140 ff.)
+  - {key: x.alarm_level_2, label: Level 2 alarms (stop), table: holding, address: 8512, type: u16, flags: alarm_bits}
+  - {key: x.alarm_level_1, label: Level 1 alarms, table: holding, address: 8513, type: u16, flags: alarm_bits}
+  - {key: state, label: Rack run state, table: holding, address: 8514, type: u16, enum: run_state}
+  - {key: x.other_alarm_info, label: Other (device fault) alarm info, table: holding, address: 8539, type: u16, note: Bit meanings not stated in the document.}
+  - {key: x.max_charge_current, label: Maximum charge current the system accepts, table: holding, address: 8544, type: u16, unit: A, scale: 0.1}
+  - {key: x.max_discharge_current, label: Maximum discharge current the system accepts, table: holding, address: 8545, type: u16, unit: A, scale: 0.1}
+
+  # Rack information (offset 0x0180 ff.)
+  - {key: x.cycles, label: Battery cycle count, table: holding, address: 8576, type: u16, poll: slow}
+  - {key: x.total_capacity, label: Battery total capacity, table: holding, address: 8577, type: u32, unit: Ah, scale: 0.01, poll: slow, conflicts: [{sources: [openems], type: u16, scale: 1, label: Total capacity high bits}]}
+  - {key: x.slave_comm_alarm_1, label: Slave communication alarm 1 (slaves 17…20), table: holding, address: 8579, type: u16, flags: slave_comm_17_20}
+  - {key: x.slave_comm_alarm_2, label: Slave communication alarm 2 (slaves 1…16), table: holding, address: 8580, type: u16, note: Bit 0 … bit 15 = slave 1 … 16 communication fault.}
+  - {key: x.slave_fault, label: Slave running status error code, table: holding, address: 8581, type: u16, flags: slave_fault}
+  - {key: x.run_time, label: System running time, table: holding, address: 8582, type: u32, poll: slow, note: Unit not stated in the document., conflicts: [{sources: [openems], type: u16, label: System time high}]}
+  - {key: x.alarm_flag_register_1, label: Alarm flag register 1, table: holding, address: 8201, type: u16, sources: [openems]}
+  - {key: x.alarm_flag_register_2, label: Alarm flag register 2, table: holding, address: 8202, type: u16, sources: [openems]}
+  - {key: x.protect_flag_register_1, label: Protect flag register 1, table: holding, address: 8203, type: u16, sources: [openems]}
+  - {key: x.protect_flag_register_2, label: Protect flag register 2, table: holding, address: 8204, type: u16, sources: [openems]}
+  - {key: x.testing_io, label: Testing io, table: holding, address: 8206, type: u16, sources: [openems]}
+  - {key: x.current_box_self_calibration, label: Current box self calibration, table: holding, address: 8209, type: u16, sources: [openems]}
+  - {key: x.insulation_sensor_function, label: Insulation sensor function, table: holding, address: 8211, type: u16, sources: [openems]}
+  - {key: x.transparent_master, label: Transparent master, table: holding, address: 8218, type: u16, sources: [openems]}
+  - {key: x.stop_parameter_cell_over_voltage_recover, label: Stop parameter cell over voltage recover, table: holding, address: 8257, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_system_over_voltage_recover, label: Stop parameter system over voltage recover, table: holding, address: 8259, type: u16, unit: V, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_system_charge_over_current_recover, label: Stop parameter system charge over current recover, table: holding, address: 8261, type: u16, unit: A, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_cell_under_voltage_recover, label: Stop parameter cell under voltage recover, table: holding, address: 8263, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_system_under_voltage_recover, label: Stop parameter system under voltage recover, table: holding, address: 8265, type: u16, unit: V, scale: 100, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_system_discharge_over_current_recover, label: Stop parameter system discharge over current recover, table: holding, address: 8267, type: u16, unit: A, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_cell_over_temperature_protection, label: Stop parameter cell over temperature protection, table: holding, address: 8268, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_cell_over_temperature_recover, label: Stop parameter cell over temperature recover, table: holding, address: 8269, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_cell_under_temperature_protection, label: Stop parameter cell under temperature protection, table: holding, address: 8270, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_cell_under_temperature_recover, label: Stop parameter cell under temperature recover, table: holding, address: 8271, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_soc_low_protection, label: Stop parameter soc low protection, table: holding, address: 8272, type: u16, unit: '%', writable: true, sources: [openems]}
+  - {key: x.stop_parameter_soc_low_protection_recover, label: Stop parameter soc low protection recover, table: holding, address: 8273, type: u16, unit: '%', writable: true, sources: [openems]}
+  - {key: x.stop_parameter_soc_high_protection, label: Stop parameter soc high protection, table: holding, address: 8274, type: u16, unit: '%', writable: true, sources: [openems]}
+  - {key: x.stop_parameter_soc_high_protection_recover, label: Stop parameter soc high protection recover, table: holding, address: 8275, type: u16, unit: '%', writable: true, sources: [openems]}
+  - {key: x.stop_parameter_connector_temperature_high_protection, label: Stop parameter connector temperature high protection, table: holding, address: 8276, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_connector_temperature_high_protection_recover, label: Stop parameter connector temperature high protection recover, table: holding, address: 8277, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_insulation_protection, label: Stop parameter insulation protection, table: holding, address: 8278, type: u16, unit: Ω, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_insulation_protection_recover, label: Stop parameter insulation protection recover, table: holding, address: 8279, type: u16, unit: Ω, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_cell_voltage_difference_protection, label: Stop parameter cell voltage difference protection, table: holding, address: 8280, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_cell_voltage_difference_protection_recover, label: Stop parameter cell voltage difference protection recover, table: holding, address: 8281, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_total_voltage_difference_protection, label: Stop parameter total voltage difference protection, table: holding, address: 8282, type: u16, unit: V, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_total_voltage_difference_protection_recover, label: Stop parameter total voltage difference protection recover, table: holding, address: 8283, type: u16, unit: V, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_discharge_temperature_high_protection, label: Stop parameter discharge temperature high protection, table: holding, address: 8284, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_discharge_temperature_high_protection_recover, label: Stop parameter discharge temperature high protection recover, table: holding, address: 8285, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_discharge_temperature_low_protection, label: Stop parameter discharge temperature low protection, table: holding, address: 8286, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_discharge_temperature_low_protection_recover, label: Stop parameter discharge temperature low protection recover, table: holding, address: 8287, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_temperature_difference_protection, label: Stop parameter temperature difference protection, table: holding, address: 8288, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.stop_parameter_temperature_difference_protection_recover, label: Stop parameter temperature difference protection recover, table: holding, address: 8289, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_over_voltage_alarm, label: Warn parameter cell over voltage alarm, table: holding, address: 8320, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_over_voltage_recover, label: Warn parameter cell over voltage recover, table: holding, address: 8321, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_system_over_voltage_alarm, label: Warn parameter system over voltage alarm, table: holding, address: 8322, type: u16, unit: V, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_system_over_voltage_recover, label: Warn parameter system over voltage recover, table: holding, address: 8323, type: u16, unit: V, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_system_charge_over_current_alarm, label: Warn parameter system charge over current alarm, table: holding, address: 8324, type: u16, unit: A, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_system_charge_over_current_recover, label: Warn parameter system charge over current recover, table: holding, address: 8325, type: u16, unit: A, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_under_voltage_alarm, label: Warn parameter cell under voltage alarm, table: holding, address: 8326, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_under_voltage_recover, label: Warn parameter cell under voltage recover, table: holding, address: 8327, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_system_under_voltage_alarm, label: Warn parameter system under voltage alarm, table: holding, address: 8328, type: u16, unit: V, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_system_under_voltage_recover, label: Warn parameter system under voltage recover, table: holding, address: 8329, type: u16, unit: V, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_system_discharge_over_current_alarm, label: Warn parameter system discharge over current alarm, table: holding, address: 8330, type: u16, unit: A, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_system_discharge_over_current_recover, label: Warn parameter system discharge over current recover, table: holding, address: 8331, type: u16, unit: A, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_over_temperature_alarm, label: Warn parameter cell over temperature alarm, table: holding, address: 8332, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_over_temperature_recover, label: Warn parameter cell over temperature recover, table: holding, address: 8333, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_under_temperature_alarm, label: Warn parameter cell under temperature alarm, table: holding, address: 8334, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_under_temperature_recover, label: Warn parameter cell under temperature recover, table: holding, address: 8335, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_soc_low_alarm, label: Warn parameter soc low alarm, table: holding, address: 8336, type: u16, unit: '%', writable: true, sources: [openems]}
+  - {key: x.warn_parameter_soc_low_alarm_recover, label: Warn parameter soc low alarm recover, table: holding, address: 8337, type: u16, unit: '%', writable: true, sources: [openems]}
+  - {key: x.warn_parameter_soc_high_alarm, label: Warn parameter soc high alarm, table: holding, address: 8338, type: u16, unit: '%', writable: true, sources: [openems]}
+  - {key: x.warn_parameter_soc_high_alarm_recover, label: Warn parameter soc high alarm recover, table: holding, address: 8339, type: u16, unit: '%', writable: true, sources: [openems]}
+  - {key: x.warn_parameter_connector_temperature_high_alarm, label: Warn parameter connector temperature high alarm, table: holding, address: 8340, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_connector_temperature_high_alarm_recover, label: Warn parameter connector temperature high alarm recover, table: holding, address: 8341, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_insulation_alarm, label: Warn parameter insulation alarm, table: holding, address: 8342, type: u16, unit: Ω, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_insulation_alarm_recover, label: Warn parameter insulation alarm recover, table: holding, address: 8343, type: u16, unit: Ω, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_voltage_difference_alarm, label: Warn parameter cell voltage difference alarm, table: holding, address: 8344, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_cell_voltage_difference_alarm_recover, label: Warn parameter cell voltage difference alarm recover, table: holding, address: 8345, type: u16, unit: V, scale: 0.001, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_total_voltage_difference_alarm, label: Warn parameter total voltage difference alarm, table: holding, address: 8346, type: u16, unit: V, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_total_voltage_difference_alarm_recover, label: Warn parameter total voltage difference alarm recover, table: holding, address: 8347, type: u16, unit: V, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_discharge_temperature_high_alarm, label: Warn parameter discharge temperature high alarm, table: holding, address: 8348, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_discharge_temperature_high_alarm_recover, label: Warn parameter discharge temperature high alarm recover, table: holding, address: 8349, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_discharge_temperature_low_alarm, label: Warn parameter discharge temperature low alarm, table: holding, address: 8351, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_discharge_temperature_low_alarm_recover, label: Warn parameter discharge temperature low alarm recover, table: holding, address: 8352, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_temperature_difference_alarm, label: Warn parameter temperature difference alarm, table: holding, address: 8353, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.warn_parameter_temperature_difference_alarm_recover, label: Warn parameter temperature difference alarm recover, table: holding, address: 8354, type: s16, unit: °C, scale: 0.1, writable: true, sources: [openems]}
+  - {key: x.work_parameter_number_of_modules, label: Work parameter number of modules, table: holding, address: 8385, type: u16, writable: true, sources: [openems]}
+  - {key: x.power_temperature, label: Power temperature, table: holding, address: 8473, type: u16, unit: °C, sources: [openems]}
+  - {key: x.power_supply_voltage, label: Power supply voltage, table: holding, address: 8474, type: u16, sources: [openems]}
+  - {key: x.maximum_cell_voltage_number_when_alarm, label: Maximum cell voltage number when alarm, table: holding, address: 8515, type: u16, sources: [openems]}
+  - {key: x.maximum_cell_voltage_when_alarm, label: Maximum cell voltage when alarm, table: holding, address: 8516, type: u16, unit: V, scale: 0.001, sources: [openems]}
+  - {key: x.maximum_cell_voltage_number_when_stopped, label: Maximum cell voltage number when stopped, table: holding, address: 8517, type: u16, sources: [openems]}
+  - {key: x.maximum_cell_voltage_when_stopped, label: Maximum cell voltage when stopped, table: holding, address: 8518, type: u16, unit: V, scale: 0.001, sources: [openems]}
+  - {key: x.minimum_cell_voltage_number_when_alarm, label: Minimum cell voltage number when alarm, table: holding, address: 8519, type: u16, sources: [openems]}
+  - {key: x.minimum_cell_voltage_when_alarm, label: Minimum cell voltage when alarm, table: holding, address: 8520, type: u16, unit: V, scale: 0.001, sources: [openems]}
+  - {key: x.minimum_cell_voltage_number_when_stopped, label: Minimum cell voltage number when stopped, table: holding, address: 8521, type: u16, sources: [openems]}
+  - {key: x.minimum_cell_voltage_when_stopped, label: Minimum cell voltage when stopped, table: holding, address: 8522, type: u16, unit: V, scale: 0.001, sources: [openems]}
+  - {key: x.over_voltage_value_when_alarm, label: Over voltage value when alarm, table: holding, address: 8523, type: u16, unit: V, scale: 0.001, sources: [openems]}
+  - {key: x.over_voltage_value_when_stopped, label: Over voltage value when stopped, table: holding, address: 8524, type: u16, unit: V, scale: 0.001, sources: [openems]}
+  - {key: x.under_voltage_value_when_alarm, label: Under voltage value when alarm, table: holding, address: 8525, type: u16, unit: V, scale: 0.001, sources: [openems]}
+  - {key: x.under_voltage_value_when_stopped, label: Under voltage value when stopped, table: holding, address: 8526, type: u16, unit: V, scale: 0.001, sources: [openems]}
+  - {key: x.over_charge_current_when_alarm, label: Over charge current when alarm, table: holding, address: 8527, type: u16, unit: A, scale: 0.001, sources: [openems]}
+  - {key: x.over_charge_current_when_stopped, label: Over charge current when stopped, table: holding, address: 8528, type: u16, unit: A, scale: 0.001, sources: [openems]}
+  - {key: x.over_discharge_current_when_alarm, label: Over discharge current when alarm, table: holding, address: 8529, type: u16, unit: A, scale: 0.001, sources: [openems]}
+  - {key: x.over_discharge_current_when_stopped, label: Over discharge current when stopped, table: holding, address: 8530, type: u16, unit: A, scale: 0.001, sources: [openems]}
+  - {key: x.number_of_temperature_when_alarm, label: Number of temperature when alarm, table: holding, address: 8531, type: u16, sources: [openems]}
+  - {key: x.last_time_charge_capacity_low_bits, label: Last time charge capacity low bits, table: holding, address: 8591, type: u16, unit: Ah, scale: 0.01, sources: [openems]}
+  - {key: x.last_time_charge_end_time_high_bits, label: Last time charge end time high bits, table: holding, address: 8592, type: u16, sources: [openems]}
+  - {key: x.last_time_charge_end_time_low_bits, label: Last time charge end time low bits, table: holding, address: 8593, type: u16, sources: [openems]}
+  - {key: x.last_time_discharge_capacity_low_bits, label: Last time discharge capacity low bits, table: holding, address: 8595, type: u16, unit: Ah, scale: 0.01, sources: [openems]}
+  - {key: x.last_time_discharge_end_time_high_bits, label: Last time discharge end time high bits, table: holding, address: 8596, type: u16, sources: [openems]}
+  - {key: x.last_time_discharge_end_time_low_bits, label: Last time discharge end time low bits, table: holding, address: 8597, type: u16, sources: [openems]}
+  - {key: x.cell_over_voltage_stop_times, label: Cell over voltage stop times, table: holding, address: 8598, type: u16, sources: [openems]}
+  - {key: x.battery_over_voltage_stop_times, label: Battery over voltage stop times, table: holding, address: 8599, type: u16, sources: [openems]}
+  - {key: x.battery_charge_over_current_stop_times, label: Battery charge over current stop times, table: holding, address: 8600, type: u16, sources: [openems]}
+  - {key: x.cell_voltage_low_stop_times, label: Cell voltage low stop times, table: holding, address: 8601, type: u16, sources: [openems]}
+  - {key: x.battery_voltage_low_stop_times, label: Battery voltage low stop times, table: holding, address: 8602, type: u16, sources: [openems]}
+  - {key: x.battery_discharge_over_current_stop_times, label: Battery discharge over current stop times, table: holding, address: 8603, type: u16, sources: [openems]}
+  - {key: x.battery_over_temperature_stop_times, label: Battery over temperature stop times, table: holding, address: 8604, type: u16, sources: [openems]}
+  - {key: x.battery_temperature_low_stop_times, label: Battery temperature low stop times, table: holding, address: 8605, type: u16, sources: [openems]}
+  - {key: x.cell_over_voltage_alarm_times, label: Cell over voltage alarm times, table: holding, address: 8606, type: u16, sources: [openems]}
+  - {key: x.battery_over_voltage_alarm_times, label: Battery over voltage alarm times, table: holding, address: 8607, type: u16, sources: [openems]}
+  - {key: x.battery_charge_over_current_alarm_times, label: Battery charge over current alarm times, table: holding, address: 8608, type: u16, sources: [openems]}
+  - {key: x.cell_voltage_low_alarm_times, label: Cell voltage low alarm times, table: holding, address: 8609, type: u16, sources: [openems]}
+  - {key: x.battery_voltage_low_alarm_times, label: Battery voltage low alarm times, table: holding, address: 8610, type: u16, sources: [openems]}
+  - {key: x.battery_discharge_over_current_alarm_times, label: Battery discharge over current alarm times, table: holding, address: 8611, type: u16, sources: [openems]}
+  - {key: x.battery_over_temperature_alarm_times, label: Battery over temperature alarm times, table: holding, address: 8612, type: u16, sources: [openems]}
+  - {key: x.battery_temperature_low_alarm_times, label: Battery temperature low alarm times, table: holding, address: 8613, type: u16, sources: [openems]}
+  - {key: x.system_short_circuit_protection_times, label: System short circuit protection times, table: holding, address: 8614, type: u16, sources: [openems]}
+  - {key: x.system_gr_over_temperature_stop_times, label: System gr over temperature stop times, table: holding, address: 8615, type: u16, sources: [openems]}
+  - {key: x.system_gr_over_temperature_alarm_times, label: System gr over temperature alarm times, table: holding, address: 8617, type: u16, sources: [openems]}
+  - {key: x.battery_voltage_difference_alarm_times, label: Battery voltage difference alarm times, table: holding, address: 8619, type: u16, sources: [openems]}
+  - {key: x.battery_voltage_difference_stop_times, label: Battery voltage difference stop times, table: holding, address: 8620, type: u16, sources: [openems]}
+  - {key: x.slave_temperature_communication_error_high, label: Slave temperature communication error high, table: holding, address: 8628, type: u16, sources: [openems]}
+  - {key: x.slave_temperature_communication_error_low, label: Slave temperature communication error low, table: holding, address: 8629, type: u16, sources: [openems]}
+
+enums:
+  open_close: {'1': Open, '2': Closed}
+  start_stop: {'1': Closed (start), '2': Open (stop)}
+  high_low: {'1': High, '2': Low}
+  run_mode: {'1': Normal, '2': Debug}
+  enable_disable: {'1': Enabled, '2': Disabled}
+  auto_set: {'0': Initial, '1': Start automatic setting, '2': Success, '3': Failure}
+  charge_state: {'0': Idle, '1': Discharging, '2': Charging}
+  run_state: {'0': Normal, '1': Full, '2': Empty, '3': Standby, '4': Stopped}
+
+flags:
+  alarm_bits: {'0': Cell over voltage, '1': System over voltage, '2': Charge over current, '3': Cell under voltage, '4': System under voltage, '5': Discharge over current, '6': Charge over temperature, '7': Charge under temperature, '8': SOC low, '9': Temperature difference too big, '10': Pole (terminal) over temperature, '11': Cell voltage difference too big, '12': Insulation failure, '13': Total voltage difference too big (measured vs. sum of cells), '14': Discharge over temperature, '15': Discharge under temperature}
+  slave_comm_17_20: {'0': Slave 17 communication fault, '1': Slave 18 communication fault, '2': Slave 19 communication fault, '3': Slave 20 communication fault}
+  slave_fault: {'0': Voltage sense wire fault, '1': Connection cable fault, '2': LTC6803 fault, '3': Voltage measurement fault, '4': Temperature measurement fault, '5': Temperature sensor fault, '6': Cell tab temperature fault, '7': Temperature board fault, '8': Balancing module fault, '9': Temperature sense wire fault, '10': Internal communication fault, '11': EEPROM fault, '12': Slave initialisation failed}
+
+problems:
+  - {when: {key: x.alarm_level_2, not: 0}, kind: fault, text: 'Battery stopped by a level 2 alarm (0x{value:X})'}
+  - {when: {key: x.alarm_level_1, not: 0}, kind: warning, text: 'Battery level 1 alarm (0x{value:X})'}
+  - {when: {key: x.slave_fault, not: 0}, kind: fault, text: 'Slave BMS fault (0x{value:X})'}
+  - {when: {key: x.slave_comm_alarm_1, not: 0}, kind: warning, text: 'Slave communication fault, slaves 17…20 (0x{value:X})'}
+  - {when: {key: x.slave_comm_alarm_2, not: 0}, kind: warning, text: 'Slave communication fault, slaves 1…16 (0x{value:X})'}
+  - {when: {key: state, equals: 4}, kind: warning, text: Battery rack stopped}
+
+notes:
+- The document lists offsets within the rack only and states neither a base address nor the serial settings. The base 0x2000
+  is assumed (the rack base of the related multi-rack protocols); addresses here are 0x2000 + the document's offset. Modbus
+  RTU and holding registers (function 03) are assumed as in those protocols. Default EMS address 0 (register 0x201B).
+- 'All registers are unsigned unless marked signed. Current sign as stated: positive = discharging.'
+- Bit names of the alarm words follow the Chinese labels; several English labels of 0x2007 / 0x2008 are swapped or wrong (e.g.
+  bits 6, 7, 3, 1 and 0). 0x2007 / 0x2008 hold the same bits as alarm flags and protection flags; problems are raised from
+  the level 1 / level 2 words (0x2141 / 0x2140) only.
+- Cell voltages start at 0x2800 (u16, mV; cell 1 … up to 240), cell temperatures at 0x2C00 (s16, 0.1 °C; up to 240 sensors).
+- 'Left out: alarm and protection enable masks (0x2009…0x200C: low byte selects, high byte switches on/off), testing IO (0x200E),
+  the remaining protection thresholds (0x2040…0x2061) and alarm thresholds (0x2080…0x20A2, each with a recovery value; mV,
+  0.1 V, 0.1 A, 0.1 °C, %, Ω/V), PCS address and baud rate (0x20C0, 0x20C1), current calibration (0x20C2, 0x20C3), charger
+  current (0x20C4), the values at the last alarm / stop (0x2143…0x2153), last charge / discharge records (0x218F…0x2195) and
+  the event counters (0x2196…0x21AC, 0x21B4, 0x21B5).'
+- 'Left out: Total capacity low bits (holding 8578, u16) from openems overlaps x.total_capacity from the documents.'
+- 'Left out: System time low (holding 8583, u16) from openems overlaps x.run_time from the documents.'
+- Cell voltages start at 0x2800 (u16, mV) and cell temperatures at 0x2C00 (s16, 0.1 °C), 12 per module, one after the other
+  for all modules.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

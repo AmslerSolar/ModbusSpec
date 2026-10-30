@@ -1,0 +1,613 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Growatt VPP communication protocol (V2.03, 2025-09-01); V2.01 also listed.
+# Only the VPP register map (holding 30000+, input 31000+); the older 0–124 / 3000+ maps of these inverters stay
+# with the projects.
+
+modbusspec: 0
+id: growatt-wit
+manufacturer: Growatt
+name: WIT / WIS hybrid inverters, VPP protocol
+kind: inverter
+
+sources:
+- title: GROWATT VPP Communication Protocol of Inverter (GI-BK-E060)
+  version: V2.03 (2025-09-01)
+  url: https://github.com/0xAHA/Growatt_ModbusTCP/blob/42f01bc346245197787b2976f6a9d2f4558bc503/Protocols/VPP_Protocol_V2.03.pdf
+  sha256: 928f398c0889b7afa58763acf849a35f329645a725f1e6cd4ce2afb4284218b3
+- title: GROWATT VPP Communication Protocol of Inverter (GI-BK-E060, spreadsheet)
+  version: V2.03
+  url: https://github.com/0xAHA/Growatt_ModbusTCP/blob/42f01bc346245197787b2976f6a9d2f4558bc503/Protocols/GI-BK-E060_GROWATT.VPP.COMMUNICATION.PROTOCOL.OF.INVERTER_V2.03.xlsx
+  sha256: 891d8ebead7822559d2ecbb73b6aa69ada727e607247125995bf4926cc18ad04
+- title: GROWATT VPP Communication Protocol of Inverter
+  version: V2.01 (2024-09-20)
+  url: https://en.growatt.com/upload/file/Growatt_VPP_Protocol_V2.01.pdf
+  sha256: 658ad46263038be1fa881f87249bf122af60d8c76ac15ccbdd48187819b81c9c
+- id: growatt-modbustcp
+  title: Growatt_ModbusTCP (Home Assistant integration)
+  url: https://github.com/0xAHA/Growatt_ModbusTCP
+  license: MIT
+  commit: 42f01bc346245197787b2976f6a9d2f4558bc503
+  path: custom_components/growatt_modbus/profiles
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 50
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 30001
+    type: str
+    length: 15
+  checks:
+  - table: holding
+    address: 30000
+    type: u16
+    in:
+    - 5600
+    - 5601
+    - 5800
+    - 5801
+
+models:
+  - {id: wit_29900_50000tl3_xhu, name: WIT 29.9-50K-XHU (DTC 5601), match: {table: holding, address: 30000, type: u16, equals: 5601}}
+  - {id: wit_50000_100000, name: WIT 50-100K / WIT 28-55K US / WIS 100K-AM (DTC 5600), match: {table: holding, address: 30000, type: u16, equals: 5600}}
+  - {id: wis_210000_215000, name: WIS 210K / WIS 215K-AM (DTC 5800 / 5801), match: {table: holding, address: 30000, type: u16, in: [5800, 5801]}}
+  - {id: wit_4000_15000tl3, name: WIT 4-15kW (VPP V2.01; DTC not in the document)}
+
+points:
+  # Basic parameters (holding 30000–30099)
+  - {key: x.dtc_code, label: Equipment type (DTC), table: holding, address: 30000, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: serial, label: SN, table: holding, address: 30001, type: str, length: 15, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: 'The table gives 15 UINT16 registers and no encoding. Taken as ASCII, two characters per register; readers may also accept one character per register (all high bytes 0).', verified: false}
+  - {key: x.rated_power, label: Rated power (Pn), table: holding, address: 30016, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.max_active_power, label: Maximum active power (Pmax), table: holding, address: 30018, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.max_reactive_power_fed_in, label: Maximum reactive power (Qmax fed into the grid), table: holding, address: 30020, type: u32, unit: var, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.max_reactive_power_absorbed, label: Maximum reactive power (Qmax absorption grid), table: holding, address: 30022, type: u32, unit: var, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.max_apparent_power, label: Maximum apparent power (Smax), table: holding, address: 30024, type: u32, unit: VA, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.bdc_rated_power, label: Rated charging and discharging power of BDC, table: holding, address: 30026, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.pv_max_power, label: PV input maximum power, table: holding, address: 30028, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_type, label: Battery type, table: holding, address: 30030, type: u16, enum: battery_type, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: UINT8 in the low byte.}
+
+  # Version information (30060–30082): two ASCII registers (name), then version digits
+  - {key: firmware, label: Machine model (inverter version name), table: holding, address: 30060, type: str, length: 2, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: 'Two characters per register assumed (e.g. TL, AA); the version digits follow in 30062–30064.', verified: false}
+  - {key: x.firmware_num1, label: Inverter version num 1, table: holding, address: 30062, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.firmware_num2, label: Inverter version num 2, table: holding, address: 30063, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.firmware_num3, label: Inverter version num 3, table: holding, address: 30064, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.m3_version_name, label: M3 version name, table: holding, address: 30065, type: str, length: 2, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Two characters per register assumed., verified: false}
+  - {key: x.m3_version_num, label: M3 version num 1, table: holding, address: 30067, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_version_name, label: Energy storage battery machine model, table: holding, address: 30068, type: str, length: 2, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Two characters per register assumed., verified: false}
+  - {key: x.battery_version_num, label: Energy storage battery version num 1, table: holding, address: 30070, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.dsp2_version_name, label: DSP2 software version name, table: holding, address: 30071, type: str, length: 2, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Two characters per register assumed., verified: false}
+  - {key: x.dsp2_version_num, label: DSP2 version num 1, table: holding, address: 30073, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.bcu_version_name, label: BCU software version name, table: holding, address: 30074, type: str, length: 2, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Two characters per register assumed., verified: false}
+  - {key: x.bcu_version_num, label: BCU version num 1, table: holding, address: 30076, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_m3_version_name, label: Battery M3 software version name, table: holding, address: 30077, type: str, length: 2, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Two characters per register assumed., verified: false}
+  - {key: x.battery_m3_version_num, label: Battery M3 version num 1, table: holding, address: 30079, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.meter_version_name, label: Meter machine model, table: holding, address: 30080, type: str, length: 2, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Two characters per register assumed., verified: false}
+  - {key: x.meter_version_num, label: Meter version num 1, table: holding, address: 30082, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.protocol_version, label: VPP protocol version, table: holding, address: 30099, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: '200 = V2.00, 201 = V2.01 and so on. The table gives 15 registers here; only the first carries the version.'}
+
+  # System order control (30100–30149)
+  - {key: x.control_authority, label: Control authority, table: holding, address: 30100, type: u16, enum: enable, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], writable: true, poll: slow}
+  - {key: x.remote_onoff, label: On off command, table: holding, address: 30101, type: u16, enum: on_off, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], writable: true, poll: slow}
+  - {key: x.country, label: Country / region number, table: holding, address: 30102, type: u16, enum: country, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.modbus_address, label: Mailing address, table: holding, address: 30112, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: 'The unit id, 1–255; read-only over Modbus.'}
+  - {key: x.baud_rate, label: Communication baud rate, table: holding, address: 30113, type: u16, enum: baud_rate, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+
+  # Working status (input 31000–31009)
+  - {key: state, label: Working state of energy storage machine, table: input, address: 31000, type: u16, enum: work_state, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery_state, label: Battery working status, table: input, address: 31001, type: u16, enum: battery_state, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.priority, label: Priority of work, table: input, address: 31002, type: u16, enum: priority, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: error_code, label: Fault code, table: input, address: 31005, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: 'Table 3-3 is empty in V2.01 and V2.03 ("reference product fault list"), so codes have no text here.'}
+  - {key: x.fault_subcode, label: Fault sub code, table: input, address: 31006, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.alarm_code, label: Alarm code, table: input, address: 31007, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: Table 3-4 is empty in V2.01 and V2.03.}
+  - {key: x.alarm_subcode, label: Alarm sub code, table: input, address: 31008, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+
+  # PV (31010–31099): voltage and current per input, 16 inputs, then the total
+  - {key: x.pv1_voltage, label: PV1 voltage, table: input, address: 31010, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv1_current, label: PV1 current, table: input, address: 31011, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv2_voltage, label: PV2 voltage, table: input, address: 31012, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv2_current, label: PV2 current, table: input, address: 31013, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv3_voltage, label: PV3 voltage, table: input, address: 31014, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: 'The table prints INT32 0.1W with one register, an evident slip; read as INT16 0.1 V like the other inputs.', verified: false}
+  - {key: x.pv3_current, label: PV3 current, table: input, address: 31015, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv4_voltage, label: PV4 voltage, table: input, address: 31016, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv4_current, label: PV4 current, table: input, address: 31017, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv5_voltage, label: PV5 voltage, table: input, address: 31018, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], conflicts: [{sources: [growatt-modbustcp], type: u16, models: [wit_29900_50000tl3_xhu], label: pv3_voltage_vpp}]}
+  - {key: x.pv5_current, label: PV5 current, table: input, address: 31019, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], conflicts: [{sources: [growatt-modbustcp], type: u16, models: [wit_29900_50000tl3_xhu], label: pv3_current_vpp}]}
+  - {key: x.pv6_voltage, label: PV6 voltage, table: input, address: 31020, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], conflicts: [{sources: [growatt-modbustcp], type: u32, unit: W, word_order: big, models: [wit_29900_50000tl3_xhu], label: pv3_power_vpp}]}
+  - {key: x.pv6_current, label: PV6 current, table: input, address: 31021, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv7_voltage, label: PV7 voltage, table: input, address: 31022, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], conflicts: [{sources: [growatt-modbustcp], type: u32, unit: W, word_order: big, models: [wit_29900_50000tl3_xhu], label: pv_total_power_vpp}]}
+  - {key: x.pv7_current, label: PV7 current, table: input, address: 31023, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv8_voltage, label: PV8 voltage, table: input, address: 31024, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv8_current, label: PV8 current, table: input, address: 31025, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv9_voltage, label: PV9 voltage, table: input, address: 31026, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv9_current, label: PV9 current, table: input, address: 31027, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv10_voltage, label: PV10 voltage, table: input, address: 31028, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv10_current, label: PV10 current, table: input, address: 31029, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv11_voltage, label: PV11 voltage, table: input, address: 31030, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv11_current, label: PV11 current, table: input, address: 31031, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv12_voltage, label: PV12 voltage, table: input, address: 31032, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv12_current, label: PV12 current, table: input, address: 31033, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv13_voltage, label: PV13 voltage, table: input, address: 31034, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv13_current, label: PV13 current, table: input, address: 31035, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv14_voltage, label: PV14 voltage, table: input, address: 31036, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv14_current, label: PV14 current, table: input, address: 31037, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv15_voltage, label: PV15 voltage, table: input, address: 31038, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv15_current, label: PV15 current, table: input, address: 31039, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv16_voltage, label: PV16 voltage, table: input, address: 31040, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.pv16_current, label: PV16 current, table: input, address: 31041, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: pv_power, label: PV input power, table: input, address: 31058, type: s32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+
+  # AC (31100–31199)
+  - {key: x.active_power, label: Active power, table: input, address: 31100, type: s32, unit: W, scale: 0.1, positive: export, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: 'The inverter''s AC active power: positive = export to grid, negative = import.'}
+  - {key: reactive_power, label: Reactive power, table: input, address: 31102, type: s32, unit: var, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: The table prints the unit as 0.1VA.}
+  - {key: frequency, label: Grid frequency, table: input, address: 31105, type: u16, unit: Hz, scale: 0.01, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.grid_voltage_ab, label: Grid voltage / line AB voltage, table: input, address: 31106, type: u16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: 'Phase voltage when the output is L/N (single phase), otherwise the AB line voltage.'}
+  - {key: x.line_voltage_bc, label: BC line voltage of power grid, table: input, address: 31107, type: u16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.line_voltage_ca, label: CA line voltage of power grid, table: input, address: 31108, type: u16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: l1_current, label: Grid current / A phase current of grid, table: input, address: 31109, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: l2_current, label: Phase B current of grid, table: input, address: 31110, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: l3_current, label: Phase C current of grid, table: input, address: 31111, type: s16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: grid_power, label: Meter power, table: input, address: 31112, type: s32, unit: W, scale: 0.1, positive: import, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: 'Positive = import from grid, negative = export. Needs Growatt''s meter; without one the value is presumably 0 (not stated).'}
+  - {key: temperature, label: Inverter temperature, table: input, address: 31114, type: s16, unit: °C, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.grid_import_energy_today, label: Power to user daily, table: input, address: 31118, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Taken as energy from the grid (Growatt's usual meaning of "to user"); the document doesn't explain it., verified: false}
+  - {key: grid_import_energy, label: Total power to user, table: input, address: 31120, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Taken as energy from the grid (Growatt's usual meaning of "to user"); the document doesn't explain it., verified: false}
+  - {key: x.grid_export_energy_today, label: Power to grid daily, table: input, address: 31122, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: grid_export_energy, label: Total power to grid, table: input, address: 31124, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+
+  # Battery information 1 (31200–31299; BDC and BMS). Not used by DTC 5200/5201.
+  - {key: battery_power, label: Charge/discharge power, table: input, address: 31200, type: s32, unit: W, scale: 0.1, positive: charge, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery_charge_energy_today, label: Daily charge of battery, table: input, address: 31202, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_charge_energy_total, label: Cumulative charge of battery, table: input, address: 31204, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_discharge_energy_today, label: Daily discharge capacity of battery, table: input, address: 31206, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_discharge_energy_total, label: Cumulative discharge of battery, table: input, address: 31208, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_max_charge_power, label: Maximum allowable charging power of battery, table: input, address: 31210, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery_max_discharge_power, label: Maximum allowable discharge power of battery, table: input, address: 31212, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: battery_voltage, label: Battery voltage, table: input, address: 31214, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: battery_current, label: Battery current, table: input, address: 31215, type: s32, unit: A, scale: 0.1, positive: charge, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], conflicts: [{sources: [growatt-modbustcp], type: s16, label: battery_current_vpp}]}
+  - {key: battery_soc, label: SOC, table: input, address: 31217, type: u16, unit: '%', models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: UINT8 in the low byte.}
+  - {key: battery_soh, label: SOH, table: input, address: 31218, type: u16, unit: '%', models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: UINT8 in the low byte.}
+  - {key: x.battery_fcc, label: Battery capacity rating (FCC), table: input, address: 31219, type: u32, unit: Ah, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Whole Ah (no 0.1 factor in the table). Occupies 31219–31220; 31221–31222 are reserved for the remaining capacity.}
+  - {key: x.battery_remaining_capacity, label: 'Reserved (battery remaining capacity, RM)', table: input, address: 31221, type: u32, unit: Ah, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow, note: Reserved in V2.01 for the remaining capacity.}
+  - {key: battery_temperature, label: Battery environmental temperature, table: input, address: 31223, type: s16, unit: °C, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery_cluster_sum, label: Cluster sum, table: input, address: 31225, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_module_number, label: Single cluster module number, table: input, address: 31226, type: u16, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_module_rated_voltage, label: Module rated voltage, table: input, address: 31227, type: u16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+  - {key: x.battery_module_rated_capacity, label: Module rated cap, table: input, address: 31228, type: u16, unit: Ah, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], poll: slow}
+
+  # Battery information 2 (31300–31399), same layout as battery 1
+  - {key: x.battery2_power, label: Battery 2 charge/discharge power, table: input, address: 31300, type: s32, unit: W, scale: 0.1, positive: charge, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_charge_energy_today, label: Battery 2 daily charge, table: input, address: 31302, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_charge_energy_total, label: Battery 2 cumulative charge, table: input, address: 31304, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_discharge_energy_today, label: Battery 2 daily discharge, table: input, address: 31306, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_discharge_energy_total, label: Battery 2 cumulative discharge, table: input, address: 31308, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_max_charge_power, label: Battery 2 maximum allowable charging power, table: input, address: 31310, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_max_discharge_power, label: Battery 2 maximum allowable discharge power, table: input, address: 31312, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_voltage, label: Battery 2 voltage, table: input, address: 31314, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_current, label: Battery 2 current, table: input, address: 31315, type: s32, unit: A, scale: 0.1, positive: charge, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_soc, label: Battery 2 SOC, table: input, address: 31317, type: u16, unit: '%', models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: UINT8 in the low byte.}
+  - {key: x.battery2_soh, label: Battery 2 SOH, table: input, address: 31318, type: u16, unit: '%', poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: UINT8 in the low byte.}
+  - {key: x.battery2_fcc, label: Battery 2 capacity rating (FCC), table: input, address: 31319, type: u32, unit: Ah, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_temp, label: Battery 2 environmental temperature, table: input, address: 31323, type: s16, unit: °C, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_cluster_sum, label: Battery 2 cluster sum, table: input, address: 31325, type: u16, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_module_number, label: Battery 2 modules per cluster, table: input, address: 31326, type: u16, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_module_rated_voltage, label: Battery 2 module rated voltage, table: input, address: 31327, type: u16, unit: V, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery2_module_rated_capacity, label: Battery 2 module rated capacity, table: input, address: 31328, type: u16, unit: Ah, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  # Battery information 3 (31400–31499), same layout as battery 1
+  - {key: x.battery3_power, label: Battery 3 charge/discharge power, table: input, address: 31400, type: s32, unit: W, scale: 0.1, positive: charge, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_charge_energy_today, label: Battery 3 daily charge, table: input, address: 31402, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_charge_energy_total, label: Battery 3 cumulative charge, table: input, address: 31404, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_discharge_energy_today, label: Battery 3 daily discharge, table: input, address: 31406, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_discharge_energy_total, label: Battery 3 cumulative discharge, table: input, address: 31408, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_max_charge_power, label: Battery 3 maximum allowable charging power, table: input, address: 31410, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_max_discharge_power, label: Battery 3 maximum allowable discharge power, table: input, address: 31412, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_voltage, label: Battery 3 voltage, table: input, address: 31414, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_current, label: Battery 3 current, table: input, address: 31415, type: s32, unit: A, scale: 0.1, positive: charge, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_soc, label: Battery 3 SOC, table: input, address: 31417, type: u16, unit: '%', models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: UINT8 in the low byte.}
+  - {key: x.battery3_soh, label: Battery 3 SOH, table: input, address: 31418, type: u16, unit: '%', poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: UINT8 in the low byte.}
+  - {key: x.battery3_fcc, label: Battery 3 capacity rating (FCC), table: input, address: 31419, type: u32, unit: Ah, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_temp, label: Battery 3 environmental temperature, table: input, address: 31423, type: s16, unit: °C, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_cluster_sum, label: Battery 3 cluster sum, table: input, address: 31425, type: u16, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_module_number, label: Battery 3 modules per cluster, table: input, address: 31426, type: u16, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_module_rated_voltage, label: Battery 3 module rated voltage, table: input, address: 31427, type: u16, unit: V, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery3_module_rated_capacity, label: Battery 3 module rated capacity, table: input, address: 31428, type: u16, unit: Ah, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  # Battery information 4 (31500–31599), same layout as battery 1
+  - {key: x.battery4_power, label: Battery 4 charge/discharge power, table: input, address: 31500, type: s32, unit: W, scale: 0.1, positive: charge, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_charge_energy_today, label: Battery 4 daily charge, table: input, address: 31502, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_charge_energy_total, label: Battery 4 cumulative charge, table: input, address: 31504, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_discharge_energy_today, label: Battery 4 daily discharge, table: input, address: 31506, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_discharge_energy_total, label: Battery 4 cumulative discharge, table: input, address: 31508, type: u32, unit: kWh, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_max_charge_power, label: Battery 4 maximum allowable charging power, table: input, address: 31510, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_max_discharge_power, label: Battery 4 maximum allowable discharge power, table: input, address: 31512, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_voltage, label: Battery 4 voltage, table: input, address: 31514, type: s16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_current, label: Battery 4 current, table: input, address: 31515, type: s32, unit: A, scale: 0.1, positive: charge, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_soc, label: Battery 4 SOC, table: input, address: 31517, type: u16, unit: '%', models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: UINT8 in the low byte.}
+  - {key: x.battery4_soh, label: Battery 4 SOH, table: input, address: 31518, type: u16, unit: '%', poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: UINT8 in the low byte.}
+  - {key: x.battery4_fcc, label: Battery 4 capacity rating (FCC), table: input, address: 31519, type: u32, unit: Ah, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_temp, label: Battery 4 environmental temperature, table: input, address: 31523, type: s16, unit: °C, scale: 0.1, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_cluster_sum, label: Battery 4 cluster sum, table: input, address: 31525, type: u16, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_module_number, label: Battery 4 modules per cluster, table: input, address: 31526, type: u16, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_module_rated_voltage, label: Battery 4 module rated voltage, table: input, address: 31527, type: u16, unit: V, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.battery4_module_rated_capacity, label: Battery 4 module rated capacity, table: input, address: 31528, type: u16, unit: Ah, scale: 0.1, poll: slow, models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3]}
+  - {key: x.on_off, label: on_off, table: holding, address: 0, type: u16, enum: growatt_modbustcp_on_off, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.max_output_power_rate, label: max_output_power_rate, table: holding, address: 3, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.reactive_power, label: reactive_power, table: holding, address: 137, type: u32, unit: var, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.reactive_priority_enable, label: reactive_priority_enable, table: holding, address: 139, type: u16, enum: reactive_priority_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.reactive_power_ratio, label: reactive_power_ratio, table: holding, address: 140, type: u16, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.svg_night_enable, label: svg_night_enable, table: holding, address: 141, type: u16, enum: svg_night_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.underfreq_upload_point, label: underfreq_upload_point, table: holding, address: 142, type: u16, unit: Hz, scale: 0.01, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overfreq_derate_recover, label: overfreq_derate_recover, table: holding, address: 143, type: u16, unit: Hz, scale: 0.01, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overfreq_derate_delay, label: overfreq_derate_delay, table: holding, address: 144, type: u16, unit: s, scale: 0.05, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.hvolt_derate_high, label: hvolt_derate_high, table: holding, address: 148, type: u16, unit: V, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.hvolt_derate_low, label: hvolt_derate_low, table: holding, address: 149, type: u16, unit: V, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.underfreq_load_start_set, label: underfreq_load_start_set, table: holding, address: 152, type: u16, unit: Hz, scale: 0.01, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.underfreq_load_end_set, label: underfreq_load_end_set, table: holding, address: 153, type: u16, unit: Hz, scale: 0.01, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overfreq_load_start_set, label: overfreq_load_start_set, table: holding, address: 154, type: u16, unit: Hz, scale: 0.01, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overfreq_load_end_set, label: overfreq_load_end_set, table: holding, address: 155, type: u16, unit: Hz, scale: 0.01, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.undervolt_load_start_set, label: undervolt_load_start_set, table: holding, address: 156, type: u16, unit: V, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.undervolt_load_end_set, label: undervolt_load_end_set, table: holding, address: 157, type: u16, unit: V, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overvolt_load_start_set, label: overvolt_load_start_set, table: holding, address: 158, type: u16, unit: V, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overvolt_load_end_set, label: overvolt_load_end_set, table: holding, address: 159, type: u16, unit: V, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.meter_link_set, label: meter_link_set, table: holding, address: 180, type: u16, enum: meter_link_set, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.optimizer_count_set, label: optimizer_count_set, table: holding, address: 181, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.active_power_rate, label: active_power_rate, table: holding, address: 201, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.work_mode, label: work_mode, table: holding, address: 202, type: u16, enum: work_mode, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.export_limit_w, label: export_limit_w, table: holding, address: 203, type: u16, unit: W, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_1_2, label: serial_1_2, table: holding, address: 209, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_3_4, label: serial_3_4, table: holding, address: 210, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_5_6, label: serial_5_6, table: holding, address: 211, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_7_8, label: serial_7_8, table: holding, address: 212, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_9_10, label: serial_9_10, table: holding, address: 213, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_11_12, label: serial_11_12, table: holding, address: 214, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_13_14, label: serial_13_14, table: holding, address: 215, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_15_16, label: serial_15_16, table: holding, address: 216, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_17_18, label: serial_17_18, table: holding, address: 217, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.serial_19_20, label: serial_19_20, table: holding, address: 218, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.energy_adjust, label: energy_adjust, table: holding, address: 229, type: u16, unit: '%', scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ntognd_detect, label: ntognd_detect, table: holding, address: 235, type: u16, enum: ntognd_detect, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.nonstd_vac_enable, label: nonstd_vac_enable, table: holding, address: 236, type: u16, enum: nonstd_vac_enable, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.enable_spec_set, label: enable_spec_set, table: holding, address: 237, type: u16, enum: enable_spec_set, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.fast_mppt_enable, label: fast_mppt_enable, table: holding, address: 238, type: u16, enum: fast_mppt_enable, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.grid_phase_sequence, label: grid_phase_sequence, table: holding, address: 871, type: u16, enum: grid_phase_sequence, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.parallel_enable, label: parallel_enable, table: holding, address: 874, type: u16, enum: parallel_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ats_fw_build_5, label: ats_fw_build_5, table: holding, address: 875, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ats_fw_build_4, label: ats_fw_build_4, table: holding, address: 876, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ats_dsp1_fw_build, label: ats_dsp1_fw_build, table: holding, address: 877, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ats_dsp2_fw_build, label: ats_dsp2_fw_build, table: holding, address: 878, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.product_set_enable, label: product_set_enable, table: holding, address: 879, type: u16, enum: product_set_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.grid_reconnect_wait_time, label: grid_reconnect_wait_time, table: holding, address: 897, type: u16, unit: s, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.sts_enable, label: sts_enable, table: holding, address: 900, type: u16, enum: sts_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.oil_engine_enable, label: oil_engine_enable, table: holding, address: 901, type: u16, enum: oil_engine_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.onoff_change_mode, label: onoff_change_mode, table: holding, address: 902, type: u16, enum: onoff_change_mode, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pcs_type, label: pcs_type, table: holding, address: 903, type: u16, enum: pcs_type, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_type_904, label: battery_type, table: holding, address: 904, type: u16, enum: growatt_modbustcp_battery_type, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_charge_power_rate, label: ac_charge_power_rate, table: holding, address: 905, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_max_charge_voltage, label: battery_max_charge_voltage, table: holding, address: 906, type: u16, unit: V, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_eod_voltage, label: battery_eod_voltage, table: holding, address: 907, type: u16, unit: V, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ongrid_phase_mode, label: ongrid_phase_mode, table: holding, address: 908, type: u16, enum: ongrid_phase_mode, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.offgrid_phase_mode, label: offgrid_phase_mode, table: holding, address: 909, type: u16, enum: offgrid_phase_mode, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_max_charge_current, label: battery_max_charge_current, table: holding, address: 910, type: u16, unit: A, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_max_discharge_current, label: battery_max_discharge_current, table: holding, address: 911, type: u16, unit: A, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ongrid_offgrid_mode, label: ongrid_offgrid_mode, table: holding, address: 912, type: u16, enum: ongrid_offgrid_mode, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ongrid_offgrid_set, label: ongrid_offgrid_set, table: holding, address: 913, type: u16, enum: ongrid_offgrid_set, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.offgrid_softstart_enable, label: offgrid_softstart_enable, table: holding, address: 914, type: u16, enum: offgrid_softstart_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.offgrid_softstart_time, label: offgrid_softstart_time, table: holding, address: 915, type: u16, unit: s, scale: 0.1, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_capacity, label: battery_capacity, table: holding, address: 917, type: u16, unit: Ah, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_enable, label: vpp_enable, table: holding, address: 918, type: u16, enum: vpp_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_active_power_set, label: vpp_active_power_set, table: holding, address: 919, type: u16, unit: W, scale: 100, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.offgrid_voltage, label: offgrid_voltage, table: holding, address: 936, type: u16, enum: offgrid_voltage, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.offgrid_frequency, label: offgrid_frequency, table: holding, address: 937, type: u16, enum: offgrid_frequency, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.load_pv_inverter, label: load_pv_inverter, table: holding, address: 938, type: u16, enum: load_pv_inverter, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.dg_start_soc, label: dg_start_soc, table: holding, address: 939, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.dg_stop_soc, label: dg_stop_soc, table: holding, address: 940, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.demand_discharge_limit, label: demand_discharge_limit, table: holding, address: 944, type: u16, unit: W, scale: 1000, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.demand_charge_limit, label: demand_charge_limit, table: holding, address: 945, type: u16, unit: W, scale: 1000, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.demand_manage_enable, label: demand_manage_enable, table: holding, address: 946, type: u16, enum: demand_manage_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.power_unbalance_ctrl_enable, label: power_unbalance_ctrl_enable, table: holding, address: 947, type: u16, enum: power_unbalance_ctrl_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pcs_parallel_num, label: pcs_parallel_num, table: holding, address: 948, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_charge_enable, label: ac_charge_enable, table: holding, address: 949, type: u16, enum: ac_charge_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.offgrid_enable, label: offgrid_enable, table: holding, address: 950, type: u16, enum: offgrid_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_charge_stop_soc, label: battery_charge_stop_soc, table: holding, address: 951, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_discharge_stop_soc, label: battery_discharge_stop_soc, table: holding, address: 952, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.single_phase_antibackflow, label: single_phase_antibackflow, table: holding, address: 953, type: u16, enum: single_phase_antibackflow, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time1_enable, label: time1_enable, table: holding, address: 954, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time1_start, label: time1_start, table: holding, address: 955, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time1_end, label: time1_end, table: holding, address: 956, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time2_enable, label: time2_enable, table: holding, address: 957, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time2_start, label: time2_start, table: holding, address: 958, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time2_end, label: time2_end, table: holding, address: 959, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time3_enable, label: time3_enable, table: holding, address: 960, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time3_start, label: time3_start, table: holding, address: 961, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time3_end, label: time3_end, table: holding, address: 962, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time4_enable, label: time4_enable, table: holding, address: 963, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time4_start, label: time4_start, table: holding, address: 964, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time4_end, label: time4_end, table: holding, address: 965, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time5_enable, label: time5_enable, table: holding, address: 966, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time5_start, label: time5_start, table: holding, address: 967, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time5_end, label: time5_end, table: holding, address: 968, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time6_enable, label: time6_enable, table: holding, address: 969, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time6_start, label: time6_start, table: holding, address: 970, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.time6_end, label: time6_end, table: holding, address: 971, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.bms_enable, label: bms_enable, table: holding, address: 972, type: u16, enum: bms_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.parallel_enable_973, label: parallel_enable, table: holding, address: 973, type: u16, enum: parallel_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_charge_power_limit, label: battery_charge_power_limit, table: holding, address: 974, type: u16, unit: W, scale: 100, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_discharge_power_limit, label: battery_discharge_power_limit, table: holding, address: 975, type: u16, unit: W, scale: 100, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ats_spec_power, label: ats_spec_power, table: holding, address: 976, type: u16, unit: W, scale: 0.01, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.esp_const_nc_enable, label: esp_const_nc_enable, table: holding, address: 987, type: u16, enum: esp_const_nc_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.machine_type, label: machine_type, table: holding, address: 988, type: u16, enum: machine_type, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.force_power_slow_change, label: force_power_slow_change, table: holding, address: 989, type: u16, enum: force_power_slow_change, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.force_power_time1, label: force_power_time1, table: holding, address: 990, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.force_power_time2, label: force_power_time2, table: holding, address: 991, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.force_power_time3, label: force_power_time3, table: holding, address: 992, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.force_power_time4, label: force_power_time4, table: holding, address: 993, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.force_power_time5, label: force_power_time5, table: holding, address: 994, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.force_power_time6, label: force_power_time6, table: holding, address: 995, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.backup_soc, label: backup_soc, table: holding, address: 996, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.backup_soc_enable, label: backup_soc_enable, table: holding, address: 997, type: u16, enum: backup_soc_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.offgrid_discharge_stop_soc, label: offgrid_discharge_stop_soc, table: holding, address: 998, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.system_time_year, label: system_time_year, table: holding, address: 30104, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.system_time_month, label: system_time_month, table: holding, address: 30105, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.system_time_day, label: system_time_day, table: holding, address: 30106, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.system_time_hour, label: system_time_hour, table: holding, address: 30107, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.system_time_minute, label: system_time_minute, table: holding, address: 30108, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.system_time_second, label: system_time_second, table: holding, address: 30109, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_export_limit_enable, label: vpp_export_limit_enable, table: holding, address: 30200, type: u16, enum: vpp_export_limit_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_export_limit_power_rate, label: vpp_export_limit_power_rate, table: holding, address: 30201, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_charge_cutoff_soc, label: vpp_charge_cutoff_soc, table: holding, address: 30404, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_discharge_cutoff_soc, label: vpp_discharge_cutoff_soc, table: holding, address: 30405, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.remote_power_control_enable, label: remote_power_control_enable, table: holding, address: 30407, type: u16, enum: remote_power_control_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.remote_power_control_charging_time, label: remote_power_control_charging_time, table: holding, address: 30408, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.remote_charge_and_discharge_power, label: remote_charge_and_discharge_power, table: holding, address: 30409, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_ac_charge_enable, label: vpp_ac_charge_enable, table: holding, address: 30410, type: u16, enum: vpp_ac_charge_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_num_periods, label: vpp_tou_num_periods, table: holding, address: 30411, type: u16, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period1_start, label: vpp_tou_period1_start, table: holding, address: 30412, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period1_end, label: vpp_tou_period1_end, table: holding, address: 30413, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period1_power, label: vpp_tou_period1_power, table: holding, address: 30414, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period2_start, label: vpp_tou_period2_start, table: holding, address: 30415, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period2_end, label: vpp_tou_period2_end, table: holding, address: 30416, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period2_power, label: vpp_tou_period2_power, table: holding, address: 30417, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period3_start, label: vpp_tou_period3_start, table: holding, address: 30418, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period3_end, label: vpp_tou_period3_end, table: holding, address: 30419, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period3_power, label: vpp_tou_period3_power, table: holding, address: 30420, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period4_start, label: vpp_tou_period4_start, table: holding, address: 30421, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period4_end, label: vpp_tou_period4_end, table: holding, address: 30422, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period4_power, label: vpp_tou_period4_power, table: holding, address: 30423, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period5_start, label: vpp_tou_period5_start, table: holding, address: 30424, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period5_end, label: vpp_tou_period5_end, table: holding, address: 30425, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period5_power, label: vpp_tou_period5_power, table: holding, address: 30426, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period6_start, label: vpp_tou_period6_start, table: holding, address: 30427, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period6_end, label: vpp_tou_period6_end, table: holding, address: 30428, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period6_power, label: vpp_tou_period6_power, table: holding, address: 30429, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period7_start, label: vpp_tou_period7_start, table: holding, address: 30430, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period7_end, label: vpp_tou_period7_end, table: holding, address: 30431, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period7_power, label: vpp_tou_period7_power, table: holding, address: 30432, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period8_start, label: vpp_tou_period8_start, table: holding, address: 30433, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period8_end, label: vpp_tou_period8_end, table: holding, address: 30434, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period8_power, label: vpp_tou_period8_power, table: holding, address: 30435, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period9_start, label: vpp_tou_period9_start, table: holding, address: 30436, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period9_end, label: vpp_tou_period9_end, table: holding, address: 30437, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period9_power, label: vpp_tou_period9_power, table: holding, address: 30438, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period10_start, label: vpp_tou_period10_start, table: holding, address: 30439, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period10_end, label: vpp_tou_period10_end, table: holding, address: 30440, type: u16, unit: min, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_period10_power, label: vpp_tou_period10_power, table: holding, address: 30441, type: s16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_actual_control_value, label: vpp_actual_control_value, table: holding, address: 30474, type: s16, unit: '%', verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_offgrid_discharge_soc, label: vpp_offgrid_discharge_soc, table: holding, address: 30475, type: u16, unit: '%', writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.priority_mode, label: priority_mode, table: holding, address: 30476, type: u16, enum: priority_mode, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_tou_reset_enable, label: vpp_tou_reset_enable, table: holding, address: 30477, type: u16, enum: vpp_tou_reset_enable, writable: true, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.inverter_status_0, label: inverter_status, table: input, address: 0, type: u16, enum: inverter_status, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv_total_power_1, label: pv_total_power, table: input, address: 1, type: s32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv1_voltage_3, label: pv1_voltage, table: input, address: 3, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv1_current_4, label: pv1_current, table: input, address: 4, type: u16, unit: A, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv1_power, label: pv1_power, table: input, address: 5, type: u32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv2_voltage_7, label: pv2_voltage, table: input, address: 7, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv2_current_8, label: pv2_current, table: input, address: 8, type: u16, unit: A, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv2_power, label: pv2_power, table: input, address: 9, type: u32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv3_voltage_11, label: pv3_voltage, table: input, address: 11, type: u16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv3_current_12, label: pv3_current, table: input, address: 12, type: u16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv3_power, label: pv3_power, table: input, address: 13, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv4_voltage_15, label: pv4_voltage, table: input, address: 15, type: u16, unit: V, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv4_current_16, label: pv4_current, table: input, address: 16, type: u16, unit: A, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv4_power, label: pv4_power, table: input, address: 17, type: u32, unit: W, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_power, label: ac_power, table: input, address: 35, type: s32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_frequency_37, label: ac_frequency, table: input, address: 37, type: u16, unit: Hz, scale: 0.01, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_voltage_r, label: ac_voltage_r, table: input, address: 38, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_current_r, label: ac_current_r, table: input, address: 39, type: u16, unit: A, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_power_r, label: ac_power_r, table: input, address: 40, type: s32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_voltage_s, label: ac_voltage_s, table: input, address: 42, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_current_s, label: ac_current_s, table: input, address: 43, type: u16, unit: A, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_power_s, label: ac_power_s, table: input, address: 44, type: s32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_voltage_t, label: ac_voltage_t, table: input, address: 46, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_current_t, label: ac_current_t, table: input, address: 47, type: u16, unit: A, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_power_t, label: ac_power_t, table: input, address: 48, type: s32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.line_voltage_rs, label: line_voltage_rs, table: input, address: 50, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.line_voltage_st, label: line_voltage_st, table: input, address: 51, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.line_voltage_tr, label: line_voltage_tr, table: input, address: 52, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.energy_today, label: energy_today, table: input, address: 53, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.energy_total, label: energy_total, table: input, address: 55, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv1_energy_today, label: pv1_energy_today, table: input, address: 59, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv1_energy_total, label: pv1_energy_total, table: input, address: 61, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv2_energy_today, label: pv2_energy_today, table: input, address: 63, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv2_energy_total, label: pv2_energy_total, table: input, address: 65, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv3_energy_today, label: pv3_energy_today, table: input, address: 67, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv3_energy_total, label: pv3_energy_total, table: input, address: 69, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv4_energy_today, label: pv4_energy_today, table: input, address: 71, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv4_energy_total, label: pv4_energy_total, table: input, address: 73, type: u32, unit: kWh, scale: 0.1, models: [wit_29900_50000tl3_xhu], verified: false, sources: [growatt-modbustcp]}
+  - {key: pv_energy, label: pv_energy_total, table: input, address: 91, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.inverter_temp_93, label: inverter_temp, table: input, address: 93, type: s16, unit: °C, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ipm_temp, label: ipm_temp, table: input, address: 94, type: s16, unit: °C, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.boost_temp, label: boost_temp, table: input, address: 95, type: s16, unit: °C, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.power_factor, label: power_factor, table: input, address: 100, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.derating_mode, label: derating_mode, table: input, address: 104, type: u16, enum: derating_mode, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.fault_code_105, label: fault_code, table: input, address: 105, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.warning_code, label: warning_code, table: input, address: 112, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.inv_type_1, label: inv_type_1, table: input, address: 125, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.inv_type_2, label: inv_type_2, table: input, address: 126, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.inv_type_3, label: inv_type_3, table: input, address: 127, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.inv_type_4, label: inv_type_4, table: input, address: 128, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.reactive_power_137, label: reactive_power, table: input, address: 137, type: u32, unit: var, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.underfreq_load_start, label: underfreq_load_start, table: input, address: 152, type: u16, unit: Hz, scale: 0.01, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.underfreq_load_end, label: underfreq_load_end, table: input, address: 153, type: u16, unit: Hz, scale: 0.01, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overfreq_load_start, label: overfreq_load_start, table: input, address: 154, type: u16, unit: Hz, scale: 0.01, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overfreq_load_end, label: overfreq_load_end, table: input, address: 155, type: u16, unit: Hz, scale: 0.01, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.undervolt_load_start, label: undervolt_load_start, table: input, address: 156, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.undervolt_load_end, label: undervolt_load_end, table: input, address: 157, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overvolt_load_start, label: overvolt_load_start, table: input, address: 158, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.overvolt_load_end, label: overvolt_load_end, table: input, address: 159, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.meter_link, label: meter_link, table: input, address: 180, type: u16, enum: meter_link, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.optimizer_count, label: optimizer_count, table: input, address: 181, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.pv_string_scan, label: pv_string_scan, table: input, address: 183, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.bdc_parallel_num, label: bdc_parallel_num, table: input, address: 184, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_pack_count, label: battery_pack_count, table: input, address: 185, type: u16, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.vpp_function_status, label: vpp_function_status, table: input, address: 187, type: u16, enum: vpp_function_status, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.datalog_server_status, label: datalog_server_status, table: input, address: 188, type: u16, enum: datalog_server_status, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_voltage_3k, label: battery_voltage_3k, table: input, address: 3169, type: u16, unit: V, scale: 0.01, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_current_3k, label: battery_current_3k, table: input, address: 3170, type: s16, unit: A, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_soc_3k, label: battery_soc_3k, table: input, address: 3171, type: u16, unit: '%', verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_voltage_8034, label: battery_voltage, table: input, address: 8034, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_current, label: battery_current, table: input, address: 8035, type: s16, unit: A, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.self_consumption_power, label: self_consumption_power, table: input, address: 8045, type: u32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_charge_energy_today, label: ac_charge_energy_today, table: input, address: 8057, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.ac_charge_energy_total, label: ac_charge_energy_total, table: input, address: 8059, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.self_output_energy_today, label: self_output_energy_today, table: input, address: 8063, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.self_output_energy_total, label: self_output_energy_total, table: input, address: 8065, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.energy_to_user_today, label: energy_to_user_today, table: input, address: 8067, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.energy_to_user_total, label: energy_to_user_total, table: input, address: 8069, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.energy_to_grid_today, label: energy_to_grid_today, table: input, address: 8071, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.energy_to_grid_total, label: energy_to_grid_total, table: input, address: 8073, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.load_energy_today, label: load_energy_today, table: input, address: 8075, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.load_energy_total, label: load_energy_total, table: input, address: 8077, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.power_to_load, label: power_to_load, table: input, address: 8079, type: u32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.power_to_user, label: power_to_user, table: input, address: 8081, type: u32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.power_to_grid, label: power_to_grid, table: input, address: 8083, type: u32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.system_output_power, label: system_output_power, table: input, address: 8085, type: u32, unit: W, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_soc_8093, label: battery_soc, table: input, address: 8093, type: u16, unit: '%', verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_soh_8094, label: battery_soh, table: input, address: 8094, type: u16, unit: '%', verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_voltage_bms, label: battery_voltage_bms, table: input, address: 8095, type: u16, unit: V, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.extra_power_to_grid, label: extra_power_to_grid, table: input, address: 8102, type: u32, unit: W, scale: 100, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.extra_energy_today, label: extra_energy_today, table: input, address: 8104, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.extra_energy_total, label: extra_energy_total, table: input, address: 8106, type: u32, unit: kWh, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+  - {key: x.battery_temp_max, label: battery_temp_max, table: input, address: 31224, type: s16, unit: °C, scale: 0.1, verified: false, sources: [growatt-modbustcp]}
+
+derived:
+  - {key: load_power, label: Home consumption (active power + meter import), unit: W, sum: [{key: x.active_power}, {key: grid_power, factor: -1}], models: [wit_29900_50000tl3_xhu, wit_50000_100000, wis_210000_215000, wit_4000_15000tl3], note: Power balance (31100 + 31112 as sent); needs Growatt's meter.}
+
+enums:
+  work_state: {'0': Standby, '1': Self-test, '2': Reserved, '3': Fault, '4': Upgrading, '5': 'PV online, battery offline, on-grid', '6': 'Battery online, PV online or offline, on-grid', '7': 'PV and battery online, off-grid', '8': 'Battery online, PV offline, off-grid', '9': Bypass}
+  battery_state: {'0': Standby, '1': Disconnected, '2': Charging, '3': Discharging, '4': Fault, '5': Upgrading}
+  priority: {'0': Load first, '1': Battery first, '2': Grid first}
+  battery_type: {'0': Lead-acid, '1': Lithium}
+  enable: {'0': Not enabled, '1': Enabled}
+  on_off: {'0': Power off, '1': Power on, '9': Bypass}
+  baud_rate: {'0': 9600 bps, '1': 38400 bps}
+  country: {'0': SA_NULL, '1': SA_VDE0126, '2': SA_G99, '3': SA_AS4777, '4': SA_CEI0_21, '5': SA_SPAIN, '6': SA_GREECE_CONTINENT, '7': SA_N4105, '8': SA_G98, '9': SA_IRELAND, '10': SA_CQC_2013, '11': SA_EN50438, '12': SA_IEC62116&61727, '13': SA_BELGIUM, '14': SA_MEA, '15': SA_PEA, '16': SA_NEWZWALAND, '17': SA_CQC_PLANT, '18': SA_INDIA, '19': SA_DEMARK_DK1, '20': SA_SWEDEN, '21': SA_NORWAY, '22': SA_QUEENSLAND, '23': SA_FRANCE, '24': SA_KOREA_60HZ, '25': SA_BRAZIL, '26': SA_CEI0_16, '27': SA_DEWA, '28': SA_CHILE, '29': SA_ARGENTINA, '30': SA_N4110_BDEW, '31': SA_TAIWAN_VPC, '32': SA_DEMARK_DK2, '33': SA_CQC_2018, '34': SA_DEMARK_TR3_3_1, '35': SA_POLAND, '36': SA_TAIWAN_TPC, '37': SA_IEEE1547_1, '38': SA_BRAZIL_240V, '39': SA_EN50549, '40': SA_AU_VICTORIA, '41': SA_AU_WESTERN, '42': SA_AU_HORIZON, '43': SA_AU_AUSGRID, '44': SA_AU_ENDEAVOUR, '45': SA_AU_ERGONENERGY, '46': SA_AU_ENERGEX, '47': SA_AU_SANETWORK, '48': SA_US_UL1741, '49': SA_US_RULE21, '50': SA_US_RULE14_HECO, '51': SA_NRS097, '52': SA_TUNISIA, '53': SA_PRC_EAST, '54': SA_PRC_WEST, '55': SA_PRC_QUEBEC, '56': SA_AUSTRIA, '57': SA_ESTONIA, '58': SA_NI_G98, '59': SA_NI_G99, '60': SA_INDIA_KERALA, '61': SA_EN50549_2, '62': SA_NETHER_LAND, '63': SA_CZECH, '64': SA_VIETNAM_EVN, '65': SA_GREECE_ISLAND, '66': SA_DEMARK_TR331_DK2, '67': SA_LIETUANIA, '68': SA_LATVIJA, '69': SA_SPAIN_NTS, '70': SA_ISRAEL, '71': SA_PAKISTAN, '73': SA_US_NEWYORK, '74': SA_US_ISONE, '75': SA_US_LUMA, '76': SA_JP_JET, '77': SA_MALAYSIA, '78': SA_US_PHI, '79': SA_US_SMECO, '80': SA_US_PE, '81': SA_US_BGE, '82': SA_SAUDI, '83': SA_URUGUAY, '84': SA_DEMARK_DK1_TYPEB, '85': SA_DEMARK_DK2_TYPEB, '86': SA_DEMARK_TR331_DK1_TYPEB, '87': SA_DEMARK_TR331_DK2_TYPEB, '88': SA_CROATIA, '89': SA_ROMANIA, '90': SA_SWITZERLAND, '91': SA_GBT34120-2023, '92': SA_HUNGARY}
+  inverter_status: {'0': Waiting, '1': Normal, '3': Fault, '5': Standby}
+  derating_mode: {'0': No derating, '1': Bus voltage high derating, '2': Aging fixed power derating, '3': Grid voltage high derating, '4': Over-frequency reduce derating, '5': Single DC source mode derating, '6': Inverter module over-temperature derating, '7': User activated setting to limit output derating, '8': Load speed process derating, '9': Over back by time derating, '10': Internal environment over-temperature derating, '11': External environment over-temperature derating, '12': Wire impedance derating, '13': Parallel inverter export limit derating, '14': Single inverter export limit derating, '15': Load first mode derating, '16': CT installation issue derating, '17': Zero current mode derating, '18': Boost module over-temperature derating, '19': Zero power mode derating, '20': Under-frequency increase derating, '21': Bus bar current limit derating}
+  meter_link: {'0': Missed, '1': Received}
+  vpp_function_status: {'0': Disabled, '1': Enabled}
+  datalog_server_status: {'0': Connected, '1': Failed}
+  growatt_modbustcp_on_off: {'0': 'Off', '1': 'On'}
+  reactive_priority_enable: {'0': Disable, '1': Enable}
+  svg_night_enable: {'0': Disable, '1': Enable}
+  meter_link_set: {'0': Missed, '1': Received}
+  work_mode: {'0': Standby, '1': Charge, '2': Discharge}
+  ntognd_detect: {'0': Disable, '1': Enable}
+  nonstd_vac_enable: {'0': Disable, '1': Grade1, '2': Grade2}
+  enable_spec_set: {'0': Disable, '1': Enable}
+  fast_mppt_enable: {'0': Disable, '1': Enable}
+  grid_phase_sequence: {'0': Positive, '1': Reverse}
+  parallel_enable: {'0': Disable, '1': Enable}
+  product_set_enable: {'0': Disable, '1': Enable}
+  sts_enable: {'0': Disable, '1': Enable}
+  oil_engine_enable: {'0': Disable, '1': Enable}
+  onoff_change_mode: {'0': Hybrid (-H), '1': Economy (-EP), '2': UPS (-UP)}
+  pcs_type: {'0': All-in-one storage, '1': Energy storage machine}
+  growatt_modbustcp_battery_type: {'0': Direct attach, '1': DC-DC}
+  ongrid_phase_mode: {'0': 3P3W (3-phase 3-wire), '1': 3P4W (3-phase 4-wire)}
+  offgrid_phase_mode: {'0': 3P3W (3-phase 3-wire), '1': 3P4W (3-phase 4-wire)}
+  ongrid_offgrid_mode: {'0': Auto, '1': Manual}
+  ongrid_offgrid_set: {'0': On-grid, '1': Off-grid}
+  offgrid_softstart_enable: {'0': Disable, '1': Enable}
+  vpp_enable: {'0': Disable, '1': Enable}
+  offgrid_voltage: {'0': 220V, '1': 230V, '2': 240V, '3': 277V, '4': 127V}
+  offgrid_frequency: {'0': 50Hz, '1': 60Hz}
+  load_pv_inverter: {'0': 'No', '1': 'Yes'}
+  demand_manage_enable: {'0': Disable, '1': Enable}
+  power_unbalance_ctrl_enable: {'0': Disable, '1': Enable}
+  ac_charge_enable: {'0': Disable, '1': Enable}
+  offgrid_enable: {'0': Disable, '1': Enable}
+  single_phase_antibackflow: {'0': Disable, '1': Enable}
+  bms_enable: {'0': Disable, '1': Enable}
+  esp_const_nc_enable: {'0': Valid low, '1': Valid high}
+  machine_type: {'0': WIT, '1': WIS}
+  force_power_slow_change: {'0': Disable, '1': Enable}
+  backup_soc_enable: {'0': Disable, '1': Enable}
+  vpp_export_limit_enable: {'0': Disabled, '1': Enabled}
+  remote_power_control_enable: {'0': Disabled, '1': Enabled}
+  vpp_ac_charge_enable: {'0': Disabled, '1': PV priority, '2': AC priority}
+  priority_mode: {'0': Load First, '1': Battery First, '2': Grid First}
+  vpp_tou_reset_enable: {'0': Normal, '1': Clear all periods}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Fault code {value}'}
+  - {when: {key: state, equals: 3}, kind: fault, text: Fault (state 3)}
+  - {when: {key: x.alarm_code, not: 0}, kind: warning, text: 'Alarm code {value}'}
+  - {when: {key: x.battery_state, equals: 4}, kind: fault, text: Battery fault (battery state 4)}
+  - {when: {key: state, in: [7, 8]}, kind: backup_mode, text: 'Off-grid operation (state {value})'}
+
+notes:
+- 'The VPP map is the same for every family in its DTC table (V2.03: SPH/SPA 3501–3504, 3601, 3701, 3715, 3716, 3725, 3735;
+  MIN-XH 5100; MOD/MID-XH 5400, MOD/MID-HU 5401; WIT/WIS 5600, 5601, 5800, 5801; MIC/MIN-X 5200, 5201; MOD/MID/MAC-X 5001–5003;
+  MAX 5000, 5500–5502). MIN-X, MOD/MID/MAC-X and MAX use no battery or storage registers. The projects split these families
+  over growatt-tl-x, growatt-sph, growatt-wit and growatt-legacy; this file covers only the VPP models kept in growatt-wit,
+  under the projects'' model ids. The same map is in growatt-tl-x (and the other growatt files) unchanged.'
+- 'Models: V2.03''s DTC table gives 5600 (WIT 50-100K-H/HE/HU/A/AE/AU and -US, WIT 28-55K-…-US L2, WIS 100K-AM), 5601 (WIT29.9-50K-XHU),
+  5800 (WIS 210K) and 5801 (WIS 215K-AM). Older editions (V2.01) listed only 5601 as WIT 100KTL3-H and 5800 as WIS 215KTL3.
+  The project''s other DTCs (5603, 5604, 5605) are not in the document; its WIT 4-15 kW profile has no DTC there and gets
+  the same registers.'
+- 'Protocol: Modbus RTU on the inverter''s RS485 port, 9600 bps by default (38400 selectable, see 30113), 1 start, 8 data
+  and 1 stop bit; the unit id is the mailing address 30112 (default 1). It can be reached through an RS485-to-TCP gateway
+  (port 502 there); local Modbus TCP on dongles is not covered by the document.'
+- Identification and ratings are holding registers (FC 03), live values input registers (FC 04). Register numbers are sent
+  as they are (no offset; the document shows none, not checked on a device).
+- 'A request must stay inside one of the document''s register groups (30000–30099, 30100–30149, 31000–31009, 31010–31099,
+  31100–31199, one block per battery 31200/31300/31400/31500, …): reading across a group boundary answers exception 2. Whether
+  the reserved registers inside a group (e.g. 31042–31057) may be read together with their neighbours on every family is not
+  stated.'
+- 'Signs as the device sends them: 31100 active power positive = export to grid; 31112 meter power positive = import from
+  grid; 31200 battery power and 31215 battery current positive = charging. All from the document.'
+- 32-bit values are high word first; 31058, 31100, 31102, 31112, 31200 and 31215 are signed (INT32), the energies, ratings
+  and FCC unsigned.
+- 'Batteries: up to four blocks (31200, 31300, 31400, 31500) with the same layout; a block that answers exception 2 or holds
+  only zeros is an empty slot. MIC/MIN TL-X (DTC 5200/5201) use no battery registers at all (30300–30499, 31200–31599). For
+  totals, sum the blocks'' power and weight their SOC by FCC.'
+- 'Version differences: V2.03 adds bypass (9) to the on/off command 30101, describes working states 5–8 as on-grid (5, 6)
+  and off-grid (7, 8), renames country 12 (SA_IEC62116&61727, Hungary) and adds countries 61–92. Older editions (V2.01) call
+  12 SA_HUNGARY and end the country table at 60.'
+- 'Left out: the other control settings in 30100–30499 (clock, power and reactive power, export limitation, EPS, battery charge
+  / discharge and time-of-use; V2.03 changes some ranges there: 30160 up to 70 %, 30162 default 20000, stop SOCs 30404–30406
+  and 30475 10–100 %, 30410 adds AC-only charging), the areas V2.03 adds (on/off-grid switching and per-phase power 30209–30215,
+  diesel generator 30250–30255, peak shaving 30301–30305, time-of-use default mode and reset 30476–30477) and the safety parameters
+  30500–30999.'
+- No register gives home consumption or PV yield; home consumption is derived from the power balance.
+- 'Left out: battery_temp_vpp_alt (input 31222, s16) from growatt-modbustcp overlaps x.battery_remaining_capacity from the
+  documents.'
+- Protocol II inverter range plus the WIT range from 8000 and the VPP protocol ranges at 30000 / 31000.
+- Models are matched by the device type code in holding 30000 as the project assigns them; the project marks many of these
+  assignments as not yet confirmed on a device.
+- Identification as growatt-modbustcp recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

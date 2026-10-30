@@ -1,0 +1,187 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Gossen Metrawatt ENERGYMID|EM Modbus RTU-Schnittstellenbeschreibung for the U228X-W7 / U238X-W7
+# energy meters (3-349-910-01, 4/10.20).
+
+modbusspec: 0
+id: gossenmetrawatt-energymid
+manufacturer: Gossen Metrawatt
+name: ENERGYMID EM2281 / EM2289 / EM2381 / EM2387 / EM2389
+kind: meter
+
+sources:
+- title: ENERGYMID|EM – Modbus RTU-Schnittstelle der Energiezähler U228X-W7, U238X-W7
+  version: 3-349-910-01, 4/10.20
+  url: http://datenblatt.stark-elektronik.de/em2281-em2389-modbus-rtu.pdf
+  sha256: 26e68a87557a9dd6976b30d293956e43cf8aac44541885aba30c21b3bad0ea4a
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/energymid.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    format: 8E1
+  write_multiple: true
+  blocks:
+  - table: input
+    address: 3000
+    count: 36
+  - table: input
+    address: 3700
+    count: 2
+  - table: holding
+    address: 10000
+    count: 1
+  - table: holding
+    address: 10100
+    count: 1
+  - table: holding
+    address: 10200
+    count: 1
+  - table: holding
+    address: 10300
+    count: 1
+  - table: holding
+    address: 10400
+    count: 1
+  - table: holding
+    address: 10500
+    count: 1
+  - table: holding
+    address: 10600
+    count: 4
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 3006
+    type: u64
+
+points:
+  # Voltage (0 ff.): mantissa × 10^exponent (register 12, signed low byte)
+  - {key: x.voltage_l1_l2, label: Primary voltage L1–L2, table: input, address: 0, type: s16, unit: V, scale_exponent_from: {table: input, address: 12, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.voltage_l2_l3, label: Primary voltage L2–L3, table: input, address: 1, type: s16, unit: V, scale_exponent_from: {table: input, address: 12, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.voltage_l3_l1, label: Primary voltage L3–L1, table: input, address: 2, type: s16, unit: V, scale_exponent_from: {table: input, address: 12, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.voltage_ll_average, label: Average of the primary line-to-line voltages, table: input, address: 3, type: s16, unit: V, scale_exponent_from: {table: input, address: 12, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: l1_voltage, label: Primary phase voltage L1–N, table: input, address: 4, type: s16, unit: V, scale_exponent_from: {table: input, address: 12, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: l2_voltage, label: Primary phase voltage L2–N, table: input, address: 5, type: s16, unit: V, scale_exponent_from: {table: input, address: 12, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: l3_voltage, label: Primary phase voltage L3–N, table: input, address: 6, type: s16, unit: V, scale_exponent_from: {table: input, address: 12, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.voltage_ln_average, label: Average of the primary phase voltages, table: input, address: 7, type: s16, unit: V, scale_exponent_from: {table: input, address: 12, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.thd_voltage_l1, label: THD of phase voltage L1, table: input, address: 8, type: u16, unit: '', scale: 0.001}
+  - {key: x.thd_voltage_l2, label: THD of phase voltage L2, table: input, address: 9, type: u16, unit: '', scale: 0.001}
+  - {key: x.thd_voltage_l3, label: THD of phase voltage L3, table: input, address: 10, type: u16, unit: '', scale: 0.001}
+  - {key: frequency, label: Frequency, table: input, address: 11, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.voltage_exponent, label: Voltage exponent, table: input, address: 12, type: u16, bits: [0, 7], signed: true, poll: slow}
+  - {key: x.error_flags1, label: Error status flags 1, table: input, address: 13, type: u16, flags: error_flags1, note: 'Repeated at 109, 215, 312, 413 and in every tariff block.'}
+  - {key: x.error_flags2, label: Error status flags 2, table: input, address: 14, type: u16, flags: error_flags2, note: 'Repeated at 110, 216, 313, 414 and in every tariff block.'}
+  # Current (100 ff.): exponent at 108
+  - {key: l1_current, label: Primary current L1, table: input, address: 100, type: s16, unit: A, scale_exponent_from: {table: input, address: 108, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: l2_current, label: Primary current L2, table: input, address: 101, type: s16, unit: A, scale_exponent_from: {table: input, address: 108, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: l3_current, label: Primary current L3, table: input, address: 102, type: s16, unit: A, scale_exponent_from: {table: input, address: 108, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.current_average, label: Average of the primary phase currents, table: input, address: 103, type: s16, unit: A, scale_exponent_from: {table: input, address: 108, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.current_n, label: Primary neutral current, table: input, address: 104, type: s16, unit: A, scale_exponent_from: {table: input, address: 108, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.thd_current_l1, label: THD of current L1, table: input, address: 105, type: u16, unit: '', scale: 0.001}
+  - {key: x.thd_current_l2, label: THD of current L2, table: input, address: 106, type: u16, unit: '', scale: 0.001}
+  - {key: x.thd_current_l3, label: THD of current L3, table: input, address: 107, type: u16, unit: '', scale: 0.001}
+  - {key: x.current_exponent, label: Current exponent, table: input, address: 108, type: u16, bits: [0, 7], signed: true, poll: slow}
+  # Power (200 ff.): exponent at 212
+  - {key: l1_power, label: Primary active power P1, table: input, address: 200, type: s16, unit: W, positive: import, verified: false, scale_exponent_from: {table: input, address: 212, type: u16, bits: [0, 7], signed: true}, invalid: [-32768], note: Sign not stated; assumed positive = import.}
+  - {key: l2_power, label: Primary active power P2, table: input, address: 201, type: s16, unit: W, positive: import, verified: false, scale_exponent_from: {table: input, address: 212, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: l3_power, label: Primary active power P3, table: input, address: 202, type: s16, unit: W, positive: import, verified: false, scale_exponent_from: {table: input, address: 212, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: grid_power, label: Primary active power Ptot, table: input, address: 203, type: s16, unit: W, positive: import, verified: false, scale_exponent_from: {table: input, address: 212, type: u16, bits: [0, 7], signed: true}, invalid: [-32768], note: The document doesn't state the sign; assumed positive = import (the meter counts import and export separately).}
+  - {key: x.reactive_power_l1, label: Primary reactive power Q1, table: input, address: 204, type: s16, unit: var, scale_exponent_from: {table: input, address: 212, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.reactive_power_l2, label: Primary reactive power Q2, table: input, address: 205, type: s16, unit: var, scale_exponent_from: {table: input, address: 212, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.reactive_power_l3, label: Primary reactive power Q3, table: input, address: 206, type: s16, unit: var, scale_exponent_from: {table: input, address: 212, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: reactive_power, label: Primary reactive power Qtot, table: input, address: 207, type: s16, unit: var, scale_exponent_from: {table: input, address: 212, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  - {key: x.power_factor_l1, label: Power factor phase 1, table: input, address: 208, type: s16, unit: '', scale: 0.001}
+  - {key: x.power_factor_l2, label: Power factor phase 2, table: input, address: 209, type: s16, unit: '', scale: 0.001}
+  - {key: x.power_factor_l3, label: Power factor phase 3, table: input, address: 210, type: s16, unit: '', scale: 0.001}
+  - {key: power_factor, label: Total power factor, table: input, address: 211, type: s16, unit: '', scale: 0.001}
+  - {key: x.power_exponent, label: Primary power exponent, table: input, address: 212, type: u16, bits: [0, 7], signed: true, poll: slow}
+  - {key: x.secondary_power, label: Secondary active power of all phases, table: input, address: 213, type: s16, unit: W, scale_exponent_from: {table: input, address: 214, type: u16, bits: [0, 7], signed: true}, invalid: [-32768]}
+  # Energy, all tariffs (300 ff.): mantissa × 10^exponent (310) Wh / varh
+  - {key: grid_import_energy, label: Active energy import total (all tariffs), table: input, address: 300, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: input, address: 310, type: u16, bits: [0, 7], signed: true}, poll: slow, note: 'OBIS 1.8.0. Equally: mantissa × primary energy factor (308) = Wh.', conflicts: [{sources: [mbmd], label: Total Import}]}
+  - {key: grid_export_energy, label: Active energy export total (all tariffs), table: input, address: 302, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: input, address: 310, type: u16, bits: [0, 7], signed: true}, poll: slow, note: OBIS 2.8.0., conflicts: [{sources: [mbmd], label: Total Export}]}
+  - {key: x.reactive_import_energy, label: Reactive energy import total (all tariffs), table: input, address: 304, type: u32, unit: kvarh, scale: 0.001, scale_exponent_from: {table: input, address: 310, type: u16, bits: [0, 7], signed: true}, poll: slow, note: OBIS 3.8.0., conflicts: [{sources: [mbmd], unit: varh, scale: 1, label: Reactive Import}]}
+  - {key: x.reactive_export_energy, label: Reactive energy export total (all tariffs), table: input, address: 306, type: u32, unit: kvarh, scale: 0.001, scale_exponent_from: {table: input, address: 310, type: u16, bits: [0, 7], signed: true}, poll: slow, note: OBIS 4.8.0., conflicts: [{sources: [mbmd], unit: varh, scale: 1, label: Reactive Export}]}
+  - {key: x.primary_energy_factor, label: Primary energy factor, table: input, address: 308, type: u32, poll: slow, note: Primary energy (Wh / varh) = mantissa × factor.}
+  - {key: x.energy_exponent, label: Energy exponent, table: input, address: 310, type: u16, bits: [0, 7], signed: true, poll: slow}
+  - {key: x.energy_type, label: Energy type, table: input, address: 311, type: u16, enum: energy_type, poll: slow}
+  # Active tariff (400 ff.)
+  - {key: x.tariff_import_energy, label: Active energy import of the active tariff, table: input, address: 400, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: input, address: 410, type: u16, bits: [0, 7], signed: true}, poll: slow}
+  - {key: x.tariff_export_energy, label: Active energy export of the active tariff, table: input, address: 402, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: input, address: 410, type: u16, bits: [0, 7], signed: true}, poll: slow}
+  - {key: x.active_tariff, label: Active tariff, table: input, address: 412, type: u16, poll: slow, note: '1–8. The commissioning notes name register 414 for the active tariff, which the table lists as status flags 2.'}
+  # Operating hours (500 ff.)
+  - {key: x.operating_hours, label: Operating hours, table: input, address: 500, type: u32, unit: h, poll: slow}
+  - {key: x.hours_since_reset, label: Operating hours since last reset, table: input, address: 502, type: u16, unit: h, poll: slow}
+  # Device information (block 3000, 36 registers, read as a whole)
+  - {key: x.voltage_option, label: Operating voltage (feature U), table: input, address: 3003, type: u16, bits: [8, 15], enum: voltage_option, poll: slow}
+  - {key: x.bus_interface, label: Bus interface (feature W), table: input, address: 3004, type: u16, bits: [8, 15], enum: bus_interface, poll: slow}
+  - {key: serial, label: Serial number (part), table: input, address: 3006, type: u64, poll: slow, verified: false, note: 'The serial is two letters and ten BCD digits at bytes 11–18 of the block, not register-aligned. This reads bytes 12–19 (second letter, the ten digits, a reserve byte and the calibration day): unique, but not the printed form.'}
+  - {key: x.product_info, label: Product information, table: input, address: 3016, type: str, length: 16, poll: slow}
+  # Interface version (block 3700)
+  - {key: x.interface_hardware, label: Interface hardware version, table: input, address: 3700, type: u16, poll: slow, note: High byte and low byte are the two digits (0x0103 = 13).}
+  - {key: x.interface_firmware_major, label: Interface firmware version (first digit), table: input, address: 3701, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.interface_firmware_minor, label: Interface firmware version (second digit), table: input, address: 3701, type: u16, bits: [0, 7], poll: slow}
+  # Settings (holding, function 03 / 16, single-register blocks)
+  - {key: x.ct_ratio, label: Current transformer ratio (CT), table: holding, address: 10000, type: u16, writable: true, poll: slow}
+  - {key: x.vt_ratio, label: Voltage transformer ratio (VT), table: holding, address: 10100, type: u16, writable: true, poll: slow}
+  - {key: x.modbus_address, label: Device address, table: holding, address: 10200, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 10300, type: u16, writable: true, poll: slow, verified: false, note: Listed as 300 … 115200; how 57600 and 115200 fit a 16-bit register is not stated.}
+  - {key: x.load_profile_period, label: Load profile registration period, table: holding, address: 10400, type: u16, unit: min, writable: true, poll: slow, note: '1, 2, 3, 4, 5, 10, 15, 30 or 60.'}
+  - {key: x.tariff_selection, label: Tariff selection, table: holding, address: 10500, type: u16, writable: true, min: 0, max: 8, poll: slow, note: 0 = the hardware tariff input selects (default); 1–8 = fixed tariff. The first switch from 0 to a fixed tariff needs the enable key on the meter pressed beforehand.}
+  - {key: x.clock, label: Device clock, table: holding, address: 10600, type: datetime, length: 4, datetime: {second: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}, hour: {register: 1, bits: [8, 15]}, day: {register: 1, bits: [0, 7]}, month: {register: 2, bits: [8, 15]}, year: {register: 2, bits: [0, 7], offset: 1792}}, writable: true, poll: slow, verified: false, note: 'Bytes: seconds, minutes, hours, day, month, year (16 bit, low byte first), 0. The year''s low byte is in register 2 and its high byte in register 3; taken here as low byte + 1792, right for 2000–2047 only.'}
+
+enums:
+  energy_type: {'0': Secondary, '1': Primary}
+  voltage_option: {'3': 100 V / 110 V, '5': 2-wire 230 V, '6': 400 V, '7': 500 V}
+  bus_interface: {'0': None, '1': LON, '2': M-Bus, '4': Modbus TCP, '5': BACnet, '6': KNX, '7': Modbus RTU}
+
+flags:
+  error_flags1: {'0': U1 below 75 % Un, '1': U2 below 75 % Un, '2': U3 below 75 % Un, '3': I1 below starting current, '4': I2 below starting current, '5': I3 below starting current, '6': DC offset too high, '8': U1 above 120 % Un, '9': U2 above 120 % Un, '10': U3 above 120 % Un, '11': I1 maximum exceeded, '12': I2 maximum exceeded, '13': I3 maximum exceeded, '15': Meter not calibrated}
+  error_flags2: {'0': No frequency synchronisation, '1': Frequency below 40 Hz, '2': Frequency above 70 Hz, '3': Frequency error (summary), '5': Wrong phase rotation, '6': No phase rotation found}
+
+problems:
+  - {when: {key: x.error_flags1, bit: 6}, kind: fault, text: DC offset too high (bit 6)}
+  - {when: {key: x.error_flags1, bit: 8}, kind: warning, text: U1 above 120 % Un (bit 8)}
+  - {when: {key: x.error_flags1, bit: 9}, kind: warning, text: U2 above 120 % Un (bit 9)}
+  - {when: {key: x.error_flags1, bit: 10}, kind: warning, text: U3 above 120 % Un (bit 10)}
+  - {when: {key: x.error_flags1, bit: 11}, kind: warning, text: I1 maximum exceeded (bit 11)}
+  - {when: {key: x.error_flags1, bit: 12}, kind: warning, text: I2 maximum exceeded (bit 12)}
+  - {when: {key: x.error_flags1, bit: 13}, kind: warning, text: I3 maximum exceeded (bit 13)}
+  - {when: {key: x.error_flags1, bit: 15}, kind: fault, text: Meter not calibrated (bit 15)}
+  - {when: {key: x.error_flags2, bit: 0}, kind: warning, text: No frequency synchronisation (bit 0)}
+  - {when: {key: x.error_flags2, bit: 1}, kind: warning, text: Frequency below 40 Hz (bit 1)}
+  - {when: {key: x.error_flags2, bit: 2}, kind: warning, text: Frequency above 70 Hz (bit 2)}
+  - {when: {key: x.error_flags2, bit: 5}, kind: warning, text: Wrong phase rotation (bit 5)}
+
+notes:
+- Addresses in the document are 0-based protocol addresses, used as given. Measurements are input registers (function 04);
+  settings are holding registers (03 / 16).
+- Registers 3000 … 10800 can only be read and written as whole blocks of the listed length; all others may be read in part.
+- Voltages, currents and powers are a signed 16-bit mantissa × 10^exponent, the exponent being a signed byte in the low byte
+  of its register; mantissa 0x8000 = not defined.
+- 'Energies: Wh (varh) = mantissa × primary energy factor, or mantissa × 10^exponent. Depending on the energy type (311) the
+  value is primary or secondary; with feature Q1 (adjustable CT / VT, secondary energy calibrated) multiply by CT × VT.'
+- 'The low-voltage flags (U < 75 % Un, I below starting current) are left out of the problems: they also show an unused phase
+  or no load.'
+- 'Not stated: the default unit id (1 is a placeholder) and default baud rate (300 … 115200 selectable). 8E1 is the default
+  frame; 8O1, 8N2 and 8N1 can be set on the meter. Unit load 1/8 (up to 256 meters per segment).'
+- 'Left out: per-tariff energies (600–1313), frozen-date energies (1400–2111), resettable energies (2200–2911), the operating
+  log and load profile (3100–3631), reset / freeze date registers (503–510, 10700, 10800).'
+- 'Modbus RTU defaults to 8E1. The meter applies the CT/VT ratios itself: voltages, currents and powers come with exponent
+  registers, energies with the primary energy factor.'
+- mbmd (type code ENERGYMID) detects the meter by reading L1 Voltage (input register 4, s16); its bus scan accepts a value
+  within 10% of 110 or 230 V.

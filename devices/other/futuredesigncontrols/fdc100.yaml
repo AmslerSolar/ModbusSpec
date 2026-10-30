@@ -1,0 +1,146 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Future Design Controls FDC Series 100 Temperature & Process Controls 9100/8100/4100 Modbus
+# Protocol Parameters (UM91001, 01.01.25).
+
+modbusspec: 0
+id: futuredesigncontrols-fdc100
+manufacturer: Future Design Controls
+name: FDC 100 series temperature and process controller (9100 / 8100 / 4100)
+kind: other
+
+sources:
+- title: FDC Series 100 Temperature & Process Controls 9100/8100/4100 Modbus Protocol Parameters
+  version: UM91001, 01.01.25
+  url: https://futuredesigncontrols.com/wp-content/uploads/2026/06/FDC-100-Series-Modbus-Parameters-01.01.25.pdf
+  sha256: 298f77a5c8d8089b589c7113ffb05d15963f8bc8d6ea97c282dc21c49dfd1dcf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  limits:
+    max_registers: 79
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 59
+    type: u16
+  any:
+  - table: holding
+    address: 71
+    type: u16
+    range:
+    - 600
+    - 699
+  - table: holding
+    address: 71
+    type: u16
+    range:
+    - 1100
+    - 1199
+  - table: holding
+    address: 71
+    type: u16
+    range:
+    - 1200
+    - 1299
+  - table: holding
+    address: 71
+    type: u16
+    range:
+    - 1300
+    - 1399
+  - table: holding
+    address: 71
+    type: u16
+    range:
+    - 3300
+    - 3399
+  - table: holding
+    address: 71
+    type: u16
+    range:
+    - 3400
+    - 3499
+
+models:
+  - {id: btc9100, name: BTC-9100, match: {table: holding, address: 71, type: u16, range: [600, 699]}}
+  - {id: btc8100, name: BTC-8100, match: {table: holding, address: 71, type: u16, range: [1100, 1199]}}
+  - {id: btc4100, name: BTC-4100, match: {table: holding, address: 71, type: u16, range: [1200, 1299]}}
+  - {id: btc7100, name: BTC-7100, match: {table: holding, address: 71, type: u16, range: [1300, 1399]}}
+  - {id: c21, name: C21, match: {table: holding, address: 71, type: u16, range: [3300, 3399]}}
+  - {id: c91, name: C91, match: {table: holding, address: 71, type: u16, range: [3400, 3499]}}
+
+points:
+  # Live values
+  - {key: x.process_value, label: PV process value, table: holding, address: 64, type: u16, scale: 0.1, offset: -1999.9, poll: fast, verified: false, note: Scaling for a non-linear (thermocouple / RTD) input; see notes. Also readable at address 128.}
+  - {key: x.setpoint_current, label: SV current set point value, table: holding, address: 65, type: u16, scale: 0.1, offset: -1999.9, poll: fast, verified: false, note: Scaling as x.process_value. Also at address 129.}
+  - {key: x.output1, label: MV1 OP1 control output value, table: holding, address: 66, type: u16, scale: 0.01, unit: '%', poll: fast, note: Writable only in manual control. Also at address 130.}
+  - {key: x.output2, label: MV2 OP2 control output value, table: holding, address: 67, type: u16, scale: 0.01, unit: '%', poll: fast, note: Writable only in manual control. Also at address 131. On the C21 and C91 this register carries the alarm status instead of MODE.}
+  - {key: x.dwell_timer_remaining, label: TIMER remaining time of dwell timer, table: holding, address: 68, type: u16, scale: 0.1, offset: -1999.9, poll: fast, note: The document gives no unit.}
+  - {key: error_code, label: EROR error code, table: holding, address: 69, type: u16, enum: error_code, poll: fast, verified: false, note: 0 = no error is not stated in the document; assumed.}
+  - {key: state, label: MODE operation mode, table: holding, address: 70, type: u16, bits: [8, 15], enum: mode, poll: fast}
+  - {key: x.alarm, label: MODE alarm status, table: holding, address: 70, type: u16, bits: [0, 7], enum: off_on, poll: fast, models: [btc9100, btc8100, btc4100, btc7100]}
+  - {key: x.cold_junction_temperature, label: CJCT cold junction temperature, table: holding, address: 76, type: u16, scale: 0.01, offset: -199.99, poll: slow, note: The document gives no unit.}
+
+  # Identity
+  - {key: firmware, label: PROG program code, table: holding, address: 71, type: u16, scale: 0.01, poll: slow, note: 'Integer part = model code, two decimals = software version (e.g. 34.18 = C91, version 18). Also at address 140.'}
+  - {key: x.date_code, label: DATE date code, table: holding, address: 58, type: u16, poll: slow}
+  - {key: serial, label: SRNO serial number, table: holding, address: 59, type: u16, poll: slow}
+  - {key: x.working_hours, label: HOUR working hours of the controller, table: holding, address: 60, type: u16, unit: h, poll: slow, verified: false, note: The document doesn't state the unit; hours assumed from the name.}
+
+  # Settings (writable)
+  - {key: x.setpoint1, label: SP1 set point 1, table: holding, address: 0, type: u16, scale: 0.1, offset: -1999.9, writable: true, poll: slow, verified: false, note: Scaling as x.process_value.}
+  - {key: x.setpoint2, label: SP2 set point 2, table: holding, address: 1, type: u16, scale: 0.1, offset: -1999.9, writable: true, poll: slow, verified: false, note: Scaling as x.process_value (also when OUT2 is the dwell timer).}
+  - {key: x.setpoint3, label: SP3 set point 3, table: holding, address: 2, type: u16, scale: 0.1, offset: -1999.9, writable: true, poll: slow, verified: false, note: Scaling as x.process_value (also when ALFN is the dwell timer).}
+  - {key: x.lock, label: LOCK lock code, table: holding, address: 3, type: u16, writable: true, poll: slow}
+  - {key: x.input_type, label: INPT input sensor selection, table: holding, address: 4, type: u16, writable: true, poll: slow, note: The document doesn't list the values.}
+  - {key: x.unit, label: UNIT measuring unit, table: holding, address: 5, type: u16, writable: true, poll: slow, note: The document doesn't list the values.}
+  - {key: x.decimal_point, label: DP decimal point position, table: holding, address: 6, type: u16, writable: true, min: 0, max: 3, poll: slow, note: For linear inputs.}
+  - {key: x.proportional_band, label: PB proportional band, table: holding, address: 14, type: u16, scale: 0.1, writable: true, poll: slow, verified: false, note: 'Scaling for a non-linear input (linear input: by DP).'}
+  - {key: x.integral_time, label: TI integral time, table: holding, address: 15, type: u16, writable: true, poll: slow}
+  - {key: x.derivative_time, label: TD derivative time, table: holding, address: 16, type: u16, scale: 0.1, writable: true, poll: slow}
+  - {key: x.modbus_address, label: ADDR address, table: holding, address: 39, type: u16, writable: true, poll: slow}
+  - {key: x.baud, label: BAUD baud rate, table: holding, address: 40, type: u16, writable: true, poll: slow, note: The document doesn't list the values (its example writes 2 for the default).}
+  - {key: x.command, label: CMND command code, table: holding, address: 72, type: u16, writable: true, poll: slow, note: 'Write 0x6825 = reset (as the R key), 0x6828 = start auto-tuning, 0x6827 = manual control, 0x682D = before changing calibration coefficients.'}
+
+enums:
+  error_code: {'0': No error, '4': Illegal setup values (OUT2 cooling with OUT1 not in reverse PID mode), '10': 'Communication error, bad function code', '11': 'Communication error, register address out of range', '14': 'Communication error, write to read-only or protected data', '15': 'Communication error, value out of range', '26': Auto-tuning failed, '29': EEPROM can't be written, '30': Cold junction compensation malfunction, '39': Input sensor break or input signal too low, '40': A/D converter malfunction}
+  mode: {'0': Normal, '1': Calibration, '2': Auto-tuning, '3': Manual control, '4': Failure}
+  off_on: {'0': 'off', '1': 'on'}
+
+problems:
+  - {when: {key: error_code, in: [4, 26]}, kind: warning, text: '{text} (error {value})'}
+  - {when: {key: error_code, in: [10, 11, 14, 15]}, kind: warning, text: '{text} (error {value})'}
+  - {when: {key: error_code, in: [29, 30, 39, 40]}, kind: fault, text: '{text} (error {value})'}
+  - {when: {key: state, equals: 4}, kind: fault, text: Controller in failure mode}
+  - {when: {key: x.alarm, equals: 1}, kind: warning, text: Alarm on}
+
+notes:
+- Register addresses are protocol addresses as the document numbers them (0…79 and 128…131; its examples send them unchanged).
+  Functions 03, 06 and 16 only. Process value, set point and outputs are also mirrored at 128…131; PROG is listed at 71 and
+  140, though the function description only names 0…79 and 128…131.
+- RS-232 or RS-485 module, RTU only, 2400…38400 bit/s, 8 data bits, 1 stop bit, no / even / odd parity. The default settings
+  of the COMM port are not stated; 9600 8E1 and address 1 are what the programming port always uses, and are assumed here.
+  Port 502 is for a Modbus TCP gateway in front of it. Up to 79 registers per request (the document's own example reads 80).
+- 'Every register is an unsigned word; the value is scale low + raw × (scale high − scale low) / 65535, with scale low / high
+  per parameter. For PV, SV, SP1…SP3 and similar values these depend on the input: −1999.9…4553.6 for a non-linear (thermocouple
+  / RTD) input, else by the decimal point setting DP (DP 0: −19999…45536, DP 1: as non-linear, DP 2: −199.99…455.36, DP 3:
+  −19.999…45.536). The non-linear case is taken here; for a linear input with DP ≠ 1 the scale and offset must be adapted.
+  The unit (°C / °F or a process unit) follows the UNIT setting, whose values the document doesn''t give, so no unit is set.'
+- 'Model from PROG: 6.xx BTC-9100, 11.xx BTC-8100, 12.xx BTC-4100, 13.xx BTC-7100, 33.xx C21, 34.xx C91 (the document''s table
+  uses the BTC- names; possibly an OEM product). On the C21 and C91 the alarm status is in MV2 instead of MODE.'
+- 'Left out: output, alarm, retransmission, ramp and communication configuration, selection parameters SEL1…SEL8, calibration
+  coefficients and job codes.'
+- 'Identification: one of the model matches must hold.'

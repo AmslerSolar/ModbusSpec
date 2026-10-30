@@ -1,0 +1,148 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Afore MODBUS RTU for 3-phase inverters (T4 protocol) (no version).
+
+modbusspec: 0
+id: afore-bntxxxktl-2mppt
+manufacturer: Afore
+name: Afore three-phase grid-tied inverters, BNTxxxKTL (T4 Modbus protocol)
+kind: inverter
+
+sources:
+- title: MODBUS RTU for 3 phase inverters, AFORE T4 protocol
+  version: no version or date given
+  url: https://github.com/user-attachments/files/17586963/MODBUS.RTU.for.3.phase.inverters.AFORE.T4.protcol.pdf
+  sha256: bac71df1b6352ef3789137a228b17eabcb00d423523d8eba9f44201c4176e278
+- id: solarman
+  title: ha-solarman (Home Assistant integration)
+  url: https://github.com/davidrapan/ha-solarman
+  license: MIT
+  commit: ac1d88b83268beeb0511b8a1b7fc8e17deddc044
+  path: custom_components/solarman/inverter_definitions/afore_BNTxxxKTL-2mppt.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    min_interval_ms: 1000
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 2
+    type: bcd64
+  checks:
+  # grid regulation
+  - table: holding
+    address: 6
+    type: u16
+    range:
+    - 0
+    - 49
+  # Modbus address
+  - table: holding
+    address: 10
+    type: u16
+    range:
+    - 1
+    - 32
+  # language
+  - table: holding
+    address: 11
+    type: u16
+    in:
+    - 0
+    - 1
+
+points:
+  # Input registers (function 04)
+  - {key: x.state_bits, label: State, table: input, address: 0, type: u16, flags: state_bits}
+  - {key: x.voltage_ab, label: Uab (ab line voltage), table: input, address: 1, type: u16, unit: V, scale: 0.1}
+  - {key: x.voltage_bc, label: Ubc (bc line voltage), table: input, address: 2, type: u16, unit: V, scale: 0.1}
+  - {key: x.voltage_ca, label: Uca (ca line voltage), table: input, address: 3, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Ia (a phase current), table: input, address: 4, type: u16, unit: A, scale: 0.1}
+  - {key: l2_current, label: Ib (b phase current), table: input, address: 5, type: u16, unit: A, scale: 0.1}
+  - {key: l3_current, label: Ic (c phase current), table: input, address: 6, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv1_voltage, label: Upv1 (PV1 voltage), table: input, address: 7, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: Ipv1 (PV1 current), table: input, address: 8, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv2_voltage, label: Upv2 (PV2 voltage), table: input, address: 9, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: Ipv2 (PV2 current), table: input, address: 10, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv3_voltage, label: Upv3 (PV3 voltage), table: input, address: 11, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv3_current, label: Ipv3 (PV3 current), table: input, address: 12, type: u16, unit: A, scale: 0.1}
+  - {key: frequency, label: Fgrid (grid frequency), table: input, address: 13, type: u16, unit: Hz, scale: 0.1}
+  - {key: temperature, label: ModuleT (module temperature), table: input, address: 14, type: u16, unit: °C, scale: 0.1, note: Range given as 0–65535 (unsigned); temperatures below 0 °C may not read correctly.}
+  - {key: x.housing_temperature, label: CassT (inverter housing temperature), table: input, address: 15, type: u16, unit: °C, scale: 0.1}
+  - {key: pv_energy_today, label: EnergyToday (day generation), table: input, address: 16, type: u32, unit: kWh, scale: 0.001, poll: slow, note: 'Wh in the document, high word at 16.'}
+  - {key: pv_power, label: PowerCurrent (current generation power), table: input, address: 18, type: u32, unit: W, note: AC output power of the inverter.}
+  - {key: x.runtime_today, label: RunTime (generation time of the day), table: input, address: 20, type: u32, unit: s, poll: slow}
+  - {key: pv_energy, label: EnergySum (cumulative generation), table: input, address: 22, type: u32, unit: kWh, scale: 0.001, poll: slow, note: 'Wh in the document, high word at 22.'}
+  - {key: x.e01, label: E01, table: input, address: 24, type: u16, flags: e01}
+  - {key: x.e02, label: E02, table: input, address: 25, type: u16, flags: e02}
+  - {key: x.e03, label: E03, table: input, address: 26, type: u16, flags: e03}
+  - {key: x.e04, label: E04, table: input, address: 27, type: u16, flags: e04}
+  - {key: x.e05, label: E05, table: input, address: 28, type: u16, flags: e05}
+
+  # Holding registers (read 03, write 06)
+  - {key: firmware, label: DSP Version, table: holding, address: 0, type: u16, scale: 0.01, poll: slow, note: 0x00C9 = 2.01.}
+  - {key: x.hmi_version, label: HMI Version, table: holding, address: 1, type: u16, scale: 0.01, poll: slow, note: 0x0065 = 1.01.}
+  - {key: serial, label: Serial Number, table: holding, address: 2, type: bcd64, poll: slow, verified: false, note: 'Registers 2–5 hold serial digits Sn[0]–Sn[14], four per register, the last digit unused. Read here as one digit per 4 bits (assumed); digits above 9 would not show.'}
+  - {key: x.grid_regulation, label: Safty (grid regulation), table: holding, address: 6, type: u16, enum: grid_regulation, writable: true, poll: slow}
+  - {key: x.clock, label: 'Time (Time_Year / Month, Day / Hour, Minute / Second)', table: holding, address: 7, type: datetime, length: 3, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}, writable: true, poll: slow, verified: false, note: 'Year (17 = 2017) and month, day and hour, minute and second share a register each. The document''s read table mixes up the ranges; the byte order (first-named part in the high byte) is assumed from the write table.'}
+  - {key: x.modbus_address, label: Com Addr, table: holding, address: 10, type: u16, writable: true, min: 1, max: 32, poll: slow}
+  - {key: x.language, label: Language, table: holding, address: 11, type: u16, enum: language, writable: true, poll: slow}
+  - {key: x.grid_voltage_connect_low, label: GridVoltConnLow, table: holding, address: 12, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.grid_voltage_connect_high, label: GridVoltConnHigh, table: holding, address: 13, type: u16, unit: V, scale: 0.1, writable: true, poll: slow}
+  - {key: x.grid_frequency_connect_low, label: GridFreqConnLow, table: holding, address: 14, type: u16, unit: Hz, scale: 0.01, writable: true, poll: slow}
+  - {key: x.grid_frequency_connect_high, label: GridFreqConnHigh, table: holding, address: 15, type: u16, unit: Hz, scale: 0.01, writable: true, poll: slow}
+  - {key: x.grid, label: Grid, table: input, address: 0, type: u16, bits: [9, 9], verified: false, sources: [solarman]}
+  - {key: x.grid_state, label: Grid State, table: input, address: 0, type: u16, bits: [10, 10], verified: false, sources: [solarman]}
+  - {key: x.running, label: Running, table: input, address: 0, type: u16, bits: [13, 13], verified: false, sources: [solarman]}
+
+enums:
+  language: {'0': English, '1': Chinese}
+  grid_regulation: {'0': China, '1': UK G83, '2': UK G59, '3': Australia, '4': CEI 0-21, '5': VDE 0126, '6': VDE-AR-N 4105, '7': Thailand ME, '8': Thailand PE, '9': Netherlands, '10': France, '11': French islands 50 Hz, '12': French islands 60 Hz, '13': Spain, '14': Greece mainland, '15': Portugal, '16': Belgium, '17': Germany BDEW, '18': Denmark, '19': Greek islands, '20': Czech Republic, '21': Slovakia, '22': Sweden, '23': Bulgaria, '24': Brazil, '25': Netherlands 16 A, '26': South Africa, '27': Denmark 16 A, '28': Israel, '29': Austria, '31': Mauritius, '32': Mexico, '33': Romania, '34': Philippines, '35': Sri Lanka, '36': VFJiaDa, '37': CONNERA, '38': Japan 50 Hz, '39': Japan 60 Hz, '40': VFJiaJia, '41': Poland, '42': North Korea, '49': India}
+
+flags:
+  state_bits: {'1': Power down, '8': Inverter working, '9': Feeding the grid, '10': Grid normal, '13': Inverter running}
+  e01: {'0': IntFaultE, '1': IntFaultD, '2': IntFaultC, '3': IntFaultB, '4': IntFaultA, '5': IntFaultN, '8': IntFaultM, '9': IntFaultL, '10': IntFaultK, '11': IntFaultJ, '14': IntFaultG}
+  e02: {'8': IntProtectT, '9': IntProtectU}
+  e03: {'0': IntProtectN, '1': Grid voltage out of range (GridV.OutLim), '2': Emergency stop, '3': IntProtectM, '4': IntProtectL, '5': AC connection error, '6': IntProtectK, '7': IntProtectJ, '8': IntProtectS, '9': IntProtectR, '10': IntProtectQ, '11': Insulation error, '12': Residual current (GFCI) error, '13': IntProtectP, '14': PV reverse polarity, '15': IntProtectO}
+  e04: {'0': Grid voltage out of range (GridV.OutLim), '1': IntProtectC, '2': Grid frequency out of range (GridF.OutLim), '3': Grid frequency out of range (GridF.OutLim), '4': Grid voltage out of range (GridV.OutLim), '5': IntProtectB, '6': Over temperature, '7': IntProtectA, '8': IntProtectI, '9': IntProtectH, '10': IntProtectG, '11': IntProtectF, '12': IntProtectE, '13': PV over voltage, '14': IntProtectD, '15': Grid voltage out of range (GridV.OutLim)}
+  e05: {'8': External fan error, '9': Internal fan error, '10': SPI communication error, '11': EEPROM error, '12': PV breaker open, '13': Temperature sensor error}
+
+problems:
+  - {when: {key: x.e01, not: 0}, kind: fault, text: 'Internal fault (E01 0x{value:X})'}
+  - {when: {key: x.e02, not: 0}, kind: fault, text: 'Internal protection (E02 0x{value:X})'}
+  - {when: {key: x.e03, not: 0}, kind: fault, text: 'Protection (E03 0x{value:X})'}
+  - {when: {key: x.e04, not: 0}, kind: fault, text: 'Protection (E04 0x{value:X})'}
+  - {when: {key: x.e05, not: 0}, kind: fault, text: 'Device error (E05 0x{value:X})'}
+
+notes:
+- Modbus RTU over RS485, 9600 baud 8N1, at most one query per second. Port 502 only applies behind a serial gateway; unit
+  id 1 is assumed (settable 1–32 in holding 10).
+- 'Addresses are the document''s numbers, used as 0-based protocol addresses. 32-bit values: high register first (the document
+  names them _H / _L).'
+- The line voltages (input 1–3) are phase-to-phase, not phase-to-neutral; there is no per-phase power, only the total output
+  power (input 18).
+- The document lists the holding settings a second time under 'writing single register', numbered 1–10; it is not clear whether
+  those are separate write addresses. Here the read addresses (6–15) are marked writable, since the document says holding
+  registers are written with function 06.
+- Grid regulation code 0x1D is given twice (Austria and Malaysia); 0x1E is missing. Austria kept.
+- E04 bit 15 is in the document's text layer but not visible in its table image.
+- The fault words E01–E05 are bit fields; the many internal codes (IntFaultX, IntProtectX) have no further explanation in
+  the document.
+- The project reaches the device through a Solarman Wi-Fi / LAN data logger (its own V5 protocol on TCP 8899) or over plain
+  Modbus TCP / RTU; the register map is the same.
+- 'Left out: today_production_time (input 19, u32) from solarman overlaps power (input 18, u32); check a document.'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,148 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Carlo Gavazzi EM100 Series and ET100 Series Modbus communication protocol (Version 4.0, 2025-06-20).
+
+modbusspec: 0
+id: carlogavazzi-em111
+manufacturer: Carlo Gavazzi
+name: EM110 / EM111 / EM112 / ET112 energy meters
+kind: meter
+
+sources:
+- title: Carlo Gavazzi EM100 Series and ET100 Series Modbus Communication Protocol (public version)
+  version: Version 4.0 (2025-06-20)
+  url: https://www.gavazziautomation.com/fileadmin/images/PIM/OTHERSTUFF/COMPRO/EM100_ET100_Series_CPP.pdf
+  sha256: 8d165e1bb81f1f4f673cc94dacdcabe4e819ef0e88cc29640ad9e1f74c0f6c28
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/cg-emt1xx.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.carlo.gavazzi/src/io/openems/edge/meter/carlo/gavazzi/em100/MeterCarloGavazziEm100Impl.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  input_equals_holding: true
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 50
+    max_gap: 32
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 20480
+    type: str
+    length: 7
+    chars: low
+  checks:
+  - table: input
+    address: 11
+    type: u16
+    in:
+    - 100
+    - 101
+    - 102
+    - 103
+    - 104
+    - 110
+    - 114
+    - 120
+    - 121
+
+models:
+  - {id: em110, name: EM110, match: {table: input, address: 11, type: u16, in: [100, 110]}}
+  - {id: em111, name: EM111, match: {table: input, address: 11, type: u16, in: [101, 103, 114]}}
+  - {id: em112, name: EM112, match: {table: input, address: 11, type: u16, in: [102, 104]}}
+  - {id: et112, name: ET112, match: {table: input, address: 11, type: u16, in: [120, 121]}}
+
+points:
+  # Instantaneous variables and meters (table 4.1)
+  - {key: l1_voltage, label: V L-N, table: input, address: 0, type: s32, unit: V, scale: 0.1}
+  - {key: l1_current, label: A, table: input, address: 2, type: s32, unit: A, scale: 0.001, note: Negative with export in bidirectional mode., conflicts: [{sources: [openems], scale: 0.1, label: Current}]}
+  - {key: grid_power, label: W, table: input, address: 4, type: s32, unit: W, scale: 0.1, positive: import, note: The sign table gives −W for quadrants II and III (exported active power) in bidirectional mode (B / PFB). In easy connection mode (A / PFA) the power is always positive and export can't be seen., conflicts: [{sources: [evcc], word_order: big, label: PV power}]}
+  - {key: apparent_power, label: VA, table: input, address: 6, type: s32, unit: VA, scale: 0.1}
+  - {key: reactive_power, label: var, table: input, address: 8, type: s32, unit: var, scale: 0.1}
+  - {key: x.power_demand, label: W dmd, table: input, address: 10, type: s32, unit: W, scale: 0.1}
+  - {key: x.power_demand_peak, label: W dmd peak, table: input, address: 12, type: s32, unit: W, scale: 0.1}
+  - {key: power_factor, label: PF, table: input, address: 14, type: s16, unit: '', scale: 0.001, note: 'Over the serial port the sign follows the quadrant (see the sign table), not lead / lag alone.'}
+  - {key: frequency, label: Hz, table: input, address: 15, type: s16, unit: Hz, scale: 0.1, conflicts: [{sources: [openems], type: u16, label: Frequency}]}
+  - {key: grid_import_energy, label: kWh (+) TOT, table: input, address: 16, type: s32, unit: kWh, scale: 0.1, conflicts: [{sources: [evcc], word_order: big, label: Charger meter energy}]}
+  - {key: x.import_reactive_energy, label: kvarh (+) TOT, table: input, address: 18, type: s32, unit: kvarh, scale: 0.1}
+  - {key: x.import_energy_partial, label: kWh (+) PARTIAL, table: input, address: 20, type: s32, unit: kWh, scale: 0.1}
+  - {key: x.import_reactive_energy_partial, label: kvarh (+) PARTIAL, table: input, address: 22, type: s32, unit: kvarh, scale: 0.1}
+  - {key: x.import_energy_t1, label: kWh (+) t1, table: input, address: 24, type: s32, unit: kWh, scale: 0.1}
+  - {key: x.import_energy_t2, label: kWh (+) t2, table: input, address: 26, type: s32, unit: kWh, scale: 0.1}
+  - {key: grid_export_energy, label: kWh (-) TOT, table: input, address: 32, type: s32, unit: kWh, scale: 0.1, note: Counts only in bidirectional mode., conflicts: [{sources: [evcc], word_order: big, label: PV energy}]}
+  - {key: x.export_reactive_energy, label: kvarh (-) TOT, table: input, address: 34, type: s32, unit: kvarh, scale: 0.1}
+  - {key: x.run_hours, label: Hour counter, table: input, address: 44, type: s32, unit: h, scale: 0.01, poll: slow, models: [et112], note: Only ET112.}
+
+  # High-resolution totals (table 4.5): EM112 from firmware b.25 (made from 2025-05-30)
+  - {key: x.import_energy_high_res, label: kWh (+) TOT (high resolution), table: input, address: 1536, type: s64, unit: kWh, scale: 0.0001, models: [em112], optional: true, poll: slow, note: Raw value is Wh × 10.}
+  - {key: x.export_energy_high_res, label: kWh (-) TOT (high resolution), table: input, address: 1540, type: s64, unit: kWh, scale: 0.0001, models: [em112], optional: true, poll: slow, note: Raw value is Wh × 10.}
+
+  # Identification
+  - {key: serial, label: Serial number (letters 1–7), table: input, address: 20480, type: str, length: 7, chars: low, poll: slow, note: The high byte of each register is not used; letter 7 is the production year letter on meters made from October 2018.}
+  - {key: x.production_year, label: Production year, table: input, address: 20496, type: u16, poll: slow, models: [em111], optional: true, note: Only EM111 made from October 2018.}
+  - {key: firmware, label: Version code, table: input, address: 770, type: u16, poll: slow, note: '0 = version A, 1 = B, …'}
+  - {key: x.revision_code, label: Revision code, table: input, address: 771, type: u16, poll: slow}
+
+  # Settings
+  - {key: x.measuring_system, label: Measuring system, table: input, address: 4098, type: u16, enum: measuring_system, poll: slow}
+  - {key: x.ct_ratio, label: Current transformer ratio, table: input, address: 4099, type: u32, scale: 0.1, poll: slow, writable: true, min: 1, max: 60, models: [em111], note: Only EM111 AV5.}
+  - {key: x.demand_interval, label: Integration time for dmd power calculation, table: input, address: 4112, type: u32, unit: min, poll: slow, writable: true, min: 1, max: 30, verified: false, note: 'The unit is not stated in the document, minutes assumed.'}
+  - {key: x.tariff_enabled, label: Tariff management enabling, table: input, address: 4353, type: u16, enum: off_on, poll: slow, writable: true}
+  - {key: x.measurement_mode, label: Measurement mode selection, table: input, address: 4355, type: u16, enum: measurement_mode, poll: slow, writable: true, note: Writable only on non-MID (X) versions; the mode changes after writing 1 twice or more.}
+  - {key: x.tariff_mode, label: Tariff mode selection, table: input, address: 4608, type: u16, enum: tariff_mode, poll: slow, writable: true, note: Not available in EM111.}
+  - {key: x.current_tariff, label: Tariff number selection via serial communication, table: input, address: 4609, type: u16, enum: tariff, poll: slow, writable: true, note: Not available in EM111. Read-only while the tariff comes from the digital input (1200h = 0).}
+  - {key: x.rs485_address, label: RS485 instrument address, table: input, address: 8192, type: u16, poll: slow, writable: true}
+  - {key: x.rs485_baud, label: RS485 baud rate, table: input, address: 8193, type: u16, enum: baud, poll: slow, writable: true}
+  - {key: x.rs485_parity, label: RS485 parity, table: input, address: 8194, type: u16, enum: parity, poll: slow, writable: true}
+  - {key: x.rs485_stop_bits, label: Stop bit, table: input, address: 8195, type: u16, enum: stop_bits, poll: slow, writable: true}
+  - {key: x.max_words, label: Max number of words readable with a single Modbus request, table: input, address: 8196, type: u16, poll: slow, note: '125 on EM112 / ET112, 50 on EM111.'}
+
+enums:
+  measuring_system: {'0': 1P}
+  measurement_mode: {'0': A (easy connection), '1': B (bidirectional)}
+  off_on: {'0': 'Off', '1': 'On'}
+  tariff_mode: {'0': Via digital inputs, '1': Via serial communication}
+  tariff: {'1': Tariff 1, '2': Tariff 2}
+  baud: {'1': '9600', '2': '19200', '3': '38400', '4': '57600', '5': '115200'}
+  parity: {'1': None, '2': Even}
+  stop_bits: {'1': '1', '2': '2'}
+
+notes:
+- Single-phase meters. The addresses are the document's "physical address" (its 3xxxxx numbers minus 300001).
+- 32- and 64-bit integers are least significant word first; bytes within a register most significant first.
+- 'Overflow (display "EEE"): the variable reads 7FFFFFFFh; treat such values as not available.'
+- At most 50 registers per request on EM111, 125 on EM112 / ET112 (also readable at 2004h); 50 is used here.
+- The identification code 000Bh overlaps W dmd (000Ah–000Bh). Other Carlo Gavazzi documents say it must be read alone with
+  length 1; this one doesn't say (assumed the same).
+- 'Left out: the copy of the same values at 0100h–0184h (table 4.2), the integer / decimal energy totals at 0400h–040Fh and
+  the 64-bit totals at 0500h–0533h (EM111 / EM112 from firmware b.10, made from 2020; the document gives no weight for the
+  64-bit ones), registers the document marks "not available, value = 0", and the password, display, home page, pulse output
+  and reset registers.'
+- Measurement mode A (easy connection, PFA models) reports power and current always positive and kWh always increasing, so
+  export can't be seen. Use mode B (bidirectional, PFB models) at the grid connection.
+- 'RS485 defaults: address 1, 9600 baud, no parity, 1 stop bit; with even parity the stop bits are fixed to 1.'
+- 'evcc template `cg-emt1xx` (pv, charge) lists: Carlo Gavazzi EM110/111/112; Carlo Gavazzi ET112.'
+- The driver's default meter type is PRODUCTION; OpenEMS doesn't say which way the device's own power value is positive, so
+  no direction is given.
+- OpenEMS has an 'Invert' option that negates the power values and swaps the two energy counters; the points here are the
+  reading with it off.

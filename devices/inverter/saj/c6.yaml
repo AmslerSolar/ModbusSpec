@@ -1,0 +1,186 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SAJ Modbus Communication Protocol (edition 7.2, for PLUS / R5 / R6 / C6), its R6 17–50K and C6
+# part (see sources).
+
+modbusspec: 0
+id: saj-c6
+manufacturer: SAJ
+name: R6 17–50K / C6 inverter
+kind: inverter
+
+sources:
+- title: SAJ Modbus Communication Protocol (PLUS, R5, R6, C6)
+  version: A, edition 7.2 (November 2022)
+  url: https://github.com/wimb0/home-assistant-saj-r5-modbus/blob/1ae7a190ea922961c64a016a561c4267ab211c49/map-modbus-communication-protocol-saj-r5-r6-c6.pdf
+  sha256: c68abd532800795f4945d5497a57ea1a94cc99a88d063bf11d1d6920aa75aa81
+- title: SAJ Modbus Communication Protocol (PLUS, R5, R6, C6)
+  version: A, edition 7.1 (November 2022)
+  url: https://github.com/wimb0/home-assistant-saj-r5-modbus/blob/1ae7a190ea922961c64a016a561c4267ab211c49/saj-modbus-communicationprotocol.pdf
+  sha256: 666e31484b5b44db27ed4ff8128820b34eaac1329bc5058c505909f4e8052deb
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 36611
+    type: str
+    length: 10
+
+points:
+  # Information (0x8F00 …)
+  - {key: x.device_type, label: Type, table: holding, address: 36608, type: u16, poll: slow, note: The document gives no type table for the R6 or C6.}
+  - {key: x.sub_type, label: SubType, table: holding, address: 36609, type: u16, poll: slow, note: Machine power class (no table given).}
+  - {key: x.protocol_version, label: CommProVersion, table: holding, address: 36610, type: u16, scale: 0.001, poll: slow}
+  - {key: serial, label: SN, table: holding, address: 36611, type: str, length: 10, poll: slow}
+  - {key: x.product_code, label: PC, table: holding, address: 36621, type: str, length: 10, poll: slow}
+  - {key: x.display_sw_version, label: DV, table: holding, address: 36631, type: u16, scale: 0.001, invalid: [65535], poll: slow}
+  - {key: firmware, label: MCV (master control software version), table: holding, address: 36632, type: u16, scale: 0.001, invalid: [65535], poll: slow}
+  - {key: x.slave_sw_version, label: SCV, table: holding, address: 36633, type: u16, scale: 0.001, invalid: [65535], poll: slow}
+  - {key: x.display_hw_version, label: DispHWVersion, table: holding, address: 36634, type: u16, scale: 0.001, invalid: [65535], poll: slow}
+  - {key: x.control_hw_version, label: CtrlHWVersion, table: holding, address: 36635, type: u16, scale: 0.001, invalid: [65535], poll: slow}
+  - {key: x.power_hw_version, label: PowerHWVersion, table: holding, address: 36636, type: u16, scale: 0.001, invalid: [65535], poll: slow}
+
+  # Real-time data (0x6000 …)
+  - {key: x.clock, label: Time, table: holding, address: 24576, type: datetime, length: 4, poll: slow, datetime: {year: {register: 0}, month: {register: 1, bits: [8, 15]}, day: {register: 1, bits: [0, 7]}, hour: {register: 2, bits: [8, 15]}, minute: {register: 2, bits: [0, 7]}, second: {register: 3, bits: [8, 15]}}, note: 'Year as a number, then one byte each for month, day, hour, minute, second; the last byte is reserved.'}
+  - {key: pv_energy, label: TotalEnergy, table: holding, address: 24580, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.energy_year, label: YearEnergy, table: holding, address: 24582, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.energy_month, label: MonthEnergy, table: holding, address: 24584, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: pv_energy_today, label: TodayEnergy, table: holding, address: 24586, type: u32, unit: kWh, scale: 0.01}
+  - {key: x.hours_total, label: TotalHour, table: holding, address: 24588, type: u32, unit: h, scale: 0.1, poll: slow}
+  - {key: x.hours_today, label: TodayHour, table: holding, address: 24590, type: u16, unit: h, scale: 0.1, poll: slow}
+  - {key: x.error_count, label: ErrorCount, table: holding, address: 24591, type: u16, poll: slow}
+  - {key: state, label: MPVMode, table: holding, address: 24595, type: u16, enum: state}
+  - {key: x.fault_word0, label: FaultMSG ErrorData0, table: holding, address: 24596, type: u32, flags: fault_word0}
+  - {key: x.fault_word1, label: FaultMSG ErrorData1, table: holding, address: 24598, type: u32, flags: fault_word1}
+  - {key: x.fault_word2, label: FaultMSG ErrorData2, table: holding, address: 24600, type: u32, flags: fault_word2}
+  - {key: x.connect_countdown, label: ConnTime (grid connection countdown), table: holding, address: 24602, type: u16, unit: s}
+  - {key: x.energy_cumulative, label: Energy (cumulative generation), table: holding, address: 24603, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: pv_power, label: Power (active output power), table: holding, address: 24605, type: u32, unit: W, note: AC output of the inverter.}
+  - {key: reactive_power, label: QPower, table: holding, address: 24607, type: s32, unit: var}
+  - {key: power_factor, label: PF, table: holding, address: 24609, type: s16, scale: 0.001}
+  - {key: l1_voltage, label: L1Volt, table: holding, address: 24610, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: L1Curr, table: holding, address: 24611, type: u16, unit: A, scale: 0.01}
+  - {key: frequency, label: L1Freq, table: holding, address: 24612, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.l1_dci, label: L1DCI, table: holding, address: 24613, type: s16, unit: A, scale: 0.001, note: Given in mA.}
+  - {key: l1_power, label: L1Power, table: holding, address: 24614, type: u16, unit: W, positive: export, note: 'Unsigned output power, so positive = feed-in.'}
+  - {key: x.l1_pf, label: L1PF, table: holding, address: 24615, type: s16, scale: 0.001}
+  - {key: l2_voltage, label: L2Volt, table: holding, address: 24616, type: u16, unit: V, scale: 0.1}
+  - {key: l2_current, label: L2Curr, table: holding, address: 24617, type: u16, unit: A, scale: 0.01}
+  - {key: x.l2_frequency, label: L2Freq, table: holding, address: 24618, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.l2_dci, label: L2DCI, table: holding, address: 24619, type: s16, unit: A, scale: 0.001}
+  - {key: l2_power, label: L2Power, table: holding, address: 24620, type: u16, unit: W, positive: export}
+  - {key: x.l2_pf, label: L2PF, table: holding, address: 24621, type: s16, scale: 0.001}
+  - {key: l3_voltage, label: L3Volt, table: holding, address: 24622, type: u16, unit: V, scale: 0.1}
+  - {key: l3_current, label: L3Curr, table: holding, address: 24623, type: u16, unit: A, scale: 0.01}
+  - {key: x.l3_frequency, label: L3Freq, table: holding, address: 24624, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.l3_dci, label: L3DCI, table: holding, address: 24625, type: s16, unit: A, scale: 0.001}
+  - {key: l3_power, label: L3Power, table: holding, address: 24626, type: u16, unit: W, positive: export}
+  - {key: x.l3_pf, label: L3PF, table: holding, address: 24627, type: s16, scale: 0.001}
+  - {key: x.neutral_earth_voltage, label: NE_Volt, table: holding, address: 24628, type: u16, unit: V, scale: 0.1}
+  - {key: x.gfci, label: GFCI (leakage current), table: holding, address: 24629, type: s16, unit: A, scale: 0.001, note: Given in mA.}
+  - {key: x.bus_voltage, label: BusVolt, table: holding, address: 24630, type: u16, unit: V, scale: 0.1}
+  - {key: x.bus_midpoint_voltage, label: BusVolt_M, table: holding, address: 24631, type: u16, unit: V, scale: 0.1}
+  - {key: temperature, label: InvTempC_1 (heat sink), table: holding, address: 24632, type: s16, unit: °C, scale: 0.1}
+  - {key: x.l1_temperature, label: InvTempC_L1, table: holding, address: 24633, type: s16, unit: °C, scale: 0.1}
+  - {key: x.l2_temperature, label: InvTempC_L2, table: holding, address: 24634, type: s16, unit: °C, scale: 0.1}
+  - {key: x.l3_temperature, label: InvTempC_L3, table: holding, address: 24635, type: s16, unit: °C, scale: 0.1}
+  - {key: x.cavity_temperature, label: InvTempC_Cavity, table: holding, address: 24636, type: s16, unit: °C, scale: 0.1}
+  - {key: x.iso_pv1, label: ISO1 (PV1+ insulation), table: holding, address: 24641, type: u16, unit: kΩ, poll: slow}
+  - {key: x.iso_pv2, label: ISO2 (PV2+ insulation), table: holding, address: 24642, type: u16, unit: kΩ, poll: slow}
+  - {key: x.iso_pv3, label: ISO3 (PV3+ insulation), table: holding, address: 24643, type: u16, unit: kΩ, poll: slow}
+  - {key: x.iso_pv_minus, label: ISO4 (PV− insulation), table: holding, address: 24644, type: u16, unit: kΩ, poll: slow}
+  - {key: x.pv1_voltage, label: PV1Volt, table: holding, address: 24645, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: PV1Curr, table: holding, address: 24646, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv1_power, label: PV1Power, table: holding, address: 24647, type: u16, unit: W}
+  - {key: x.pv2_voltage, label: PV2Volt, table: holding, address: 24648, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: PV2Curr, table: holding, address: 24649, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv2_power, label: PV2Power, table: holding, address: 24650, type: u16, unit: W}
+  - {key: x.pv3_voltage, label: PV3Volt, table: holding, address: 24651, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv3_current, label: PV3Curr, table: holding, address: 24652, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv3_power, label: PV3Power, table: holding, address: 24653, type: u16, unit: W}
+  - {key: x.pv4_voltage, label: PV4Volt, table: holding, address: 24654, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv4_current, label: PV4Curr, table: holding, address: 24655, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv4_power, label: PV4Power, table: holding, address: 24656, type: u16, unit: W}
+  - {key: x.pv5_voltage, label: PV5Volt, table: holding, address: 24657, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv5_current, label: PV5Curr, table: holding, address: 24658, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv5_power, label: PV5Power, table: holding, address: 24659, type: u16, unit: W}
+  - {key: x.pv6_voltage, label: PV6Volt, table: holding, address: 24660, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv6_current, label: PV6Curr, table: holding, address: 24661, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv6_power, label: PV6Power, table: holding, address: 24662, type: u16, unit: W}
+  - {key: x.pv7_voltage, label: PV7Volt, table: holding, address: 24675, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv7_current, label: PV7Curr, table: holding, address: 24676, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv7_power, label: PV7Power, table: holding, address: 24677, type: u16, unit: W}
+  - {key: x.pv8_voltage, label: PV8Volt, table: holding, address: 24678, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv8_current, label: PV8Curr, table: holding, address: 24679, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv8_power, label: PV8Power, table: holding, address: 24680, type: u16, unit: W}
+  - {key: x.pv9_voltage, label: PV9Volt, table: holding, address: 24681, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv9_current, label: PV9Curr, table: holding, address: 24682, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv9_power, label: PV9Power, table: holding, address: 24683, type: u16, unit: W}
+  - {key: x.pv10_voltage, label: PV10Volt, table: holding, address: 24684, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv10_current, label: PV10Curr, table: holding, address: 24685, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv10_power, label: PV10Power, table: holding, address: 24686, type: u16, unit: W}
+  - {key: x.pv11_voltage, label: PV11Volt, table: holding, address: 24687, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv11_current, label: PV11Curr, table: holding, address: 24688, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv11_power, label: PV11Power, table: holding, address: 24689, type: u16, unit: W}
+  - {key: x.pv12_voltage, label: PV12Volt, table: holding, address: 24690, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv12_current, label: PV12Curr, table: holding, address: 24691, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv12_power, label: PV12Power, table: holding, address: 24692, type: u16, unit: W}
+
+  # Settings (0x1000 …)
+  - {key: x.safety_type, label: SafetyType (grid code), table: holding, address: 4104, type: u16, writable: true, poll: slow, note: The country/grid-code table isn't part of the document.}
+  - {key: x.function_mask, label: FunMask, table: holding, address: 4105, type: u16, flags: function_mask, writable: true, poll: slow, note: Bit set = function enabled.}
+  - {key: x.iso_limit, label: ISOLimit, table: holding, address: 4121, type: u16, unit: kΩ, writable: true, poll: slow}
+  - {key: x.power_limit, label: PowerLimited, table: holding, address: 4124, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 110, poll: slow, note: Percent of rated power (multiplier −3 on a 0–1.1 ratio).}
+  - {key: x.reactive_mode, label: ReactiveMode, table: holding, address: 4125, type: u16, enum: reactive_mode, writable: true, poll: slow}
+  - {key: x.reactive_value, label: ReactiveValue (power factor), table: holding, address: 4126, type: u16, scale: 0.001, writable: true, min: 0.8, max: 1, poll: slow, note: Power factor.}
+  - {key: x.remote_on_off, label: PowerAdjCoff3 (remote on/off), table: holding, address: 4151, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.pv_input_mode, label: PVInputMode, table: holding, address: 4166, type: u16, enum: pv_input_mode, writable: true, poll: slow}
+
+  # Special registers (write only)
+  - {key: x.rs485_config, label: RS485_DATA_ATE, table: holding, address: 32788, type: u16, writable: true, write_only: true, poll: slow, note: 'Low byte = baud rate code (4 = 9600, 5 = 4800, 6 = 2400), high byte = RS485 address 1–32.'}
+  - {key: x.clear_fault_history, label: CleanHistoryRecord, table: holding, address: 32789, type: u16, writable: true, write_only: true, poll: slow, note: 1 clears the fault history.}
+  - {key: x.clear_energy, label: CleanPower, table: holding, address: 32795, type: u16, writable: true, write_only: true, poll: slow, note: 1 clears the energy counters.}
+  - {key: x.set_clock, label: Time (set), table: holding, address: 32800, type: datetime, length: 4, writable: true, write_only: true, poll: slow, datetime: {year: {register: 0}, month: {register: 1, bits: [8, 15]}, day: {register: 1, bits: [0, 7]}, hour: {register: 2, bits: [8, 15]}, minute: {register: 2, bits: [0, 7]}, second: {register: 3, bits: [8, 15]}}, note: Same layout as 0x6000.}
+
+enums:
+  state: {'1': Waiting, '2': Normal (grid-connected), '3': Fault}
+  reactive_mode: {'2': Capacitive power factor, '3': Inductive power factor, '5': No reactive power control}
+  on_off: {'0': 'Off', '1': 'On'}
+  pv_input_mode: {'0': PV inputs independent, '8': PV inputs parallel}
+
+flags:
+  fault_word0: {'0': 'Code 33: bus overvoltage (software)', '1': 'Code 34: bus undervoltage (software)', '2': 'Code 35: grid phase error', '3': 'Code 36: PV overvoltage', '4': 'Code 37: islanding', '5': 'Code 83: arc detection device fault', '6': 'Code 84: PV input error', '8': 'Code 38: bus overvoltage (hardware)', '9': 'Code 39: PV overcurrent (hardware)', '11': 'Code 41: overcurrent (hardware)', '12': 'Code 42: AC surge protection fault', '13': 'Code 43: DC surge protection fault', '14': 'Code 44: neutral-to-earth voltage fault', '15': 'Code 86: DRM0 fault', '16': 'Code 45: fan 1 fault', '17': 'Code 46: fan 2 fault', '18': 'Code 47: fan 3 fault', '19': 'Code 48: fan 4 fault', '20': 'Code 87: arc fault', '31': 'Code 81: lost communication between display and control board'}
+  fault_word1: {'0': 'Code 01: relay fault', '1': 'Code 02: EEPROM fault', '2': 'Code 03: temperature too high', '3': 'Code 04: temperature too low', '5': 'Code 06: leakage current sensor fault', '6': 'Code 07: DC injection sensor fault', '7': 'Code 08: current sensor fault', '8': 'Code 09: L1 grid voltage high', '9': 'Code 10: L1 grid voltage low', '10': 'Code 11: L2 grid voltage high', '11': 'Code 12: L2 grid voltage low', '12': 'Code 13: L3 grid voltage high', '13': 'Code 14: L3 grid voltage low', '14': 'Code 15: 10-minute average grid voltage high', '17': 'Code 18: grid frequency high', '18': 'Code 19: grid frequency low', '23': 'Code 24: no grid', '26': 'Code 27: leakage current (GFCI) fault', '27': 'Code 28: L1 DC injection high', '28': 'Code 29: L2 DC injection high', '29': 'Code 30: L3 DC injection high', '30': 'Code 31: insulation fault', '31': 'Code 32: bus voltage imbalance'}
+  fault_word2: {'11': 'Code 61: L1 grid voltage high (slave)', '12': 'Code 62: L1 grid voltage low (slave)', '13': 'Code 63: L2 grid voltage high (slave)', '14': 'Code 64: L2 grid voltage low (slave)', '15': 'Code 65: L3 grid voltage high (slave)', '16': 'Code 66: L3 grid voltage low (slave)', '17': 'Code 67: grid frequency high (slave)', '18': 'Code 68: grid frequency low (slave)', '23': 'Code 73: no grid (slave)', '24': 'Code 74: PV input mode error', '25': 'Code 75: PV overcurrent (hardware)', '26': 'Code 76: PV overvoltage (slave)'}
+  function_mask: {'0': Relay check, '1': Insulation check, '2': Leakage current device check, '3': Leakage current check, '4': DC injection check, '5': DC injection adjustment, '6': Anti-islanding, '7': Fan check, '8': Over-frequency derating, '9': Reactive power control, '10': Global MPPT scan, '11': Reconnection delay countdown, '12': PV ATE test mode, '13': Neutral-earth voltage check, '14': Over-voltage derating, '15': Pre-inverter}
+
+problems:
+  - {when: {key: state, equals: 3}, kind: fault, text: Inverter fault (mode 3)}
+  - {when: {key: x.fault_word1, bit: 23}, kind: mains_lost, text: No grid (code 24)}
+  - {when: {key: x.fault_word2, bit: 23}, kind: mains_lost, text: 'No grid, slave controller (code 73)'}
+
+notes:
+- Register map of the R6 17–50K and the C6 from the SAJ protocol edition 7.2 (section 4.2.3); the information block 0x8F00,
+  the settings 0x1000 … and the fault bits are shared with PLUS/R5 (see saj-r5). The R6 3–15K uses another map (see saj-r6).
+- The document gives hex register addresses; they are used as they are (0-based). Reads use function 03.
+- RS485 runs at 9600 baud by default, the RS232/USB port at 115200 baud; 8N1. The RS485 address is 1–32 (set through 0x8014);
+  the document gives no default, so unit 1 is an assumption, and port 502 only applies behind a TCP gateway.
+- 32-bit values (energies, power, fault words) are most significant register first, as in the document's fault example.
+- Which PV inputs are fitted depends on the model; unused inputs read 0.
+- 'Left out: the fault and settings log serial numbers (0x6010, 0x6011), the booster temperatures 0x603D–0x6040 (reserved),
+  and the per-string PV currents (0x6057–0x6062, 0x6075–0x6080).'

@@ -1,0 +1,54 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Wildeboer modbus-schnittstellenbeschreibung-or4pro (or4pro_modbus_spec_de_00-01).
+
+modbusspec: 0
+id: wildeboer-or4pro
+manufacturer: Wildeboer
+name: OR4 pro smoke release device
+kind: other
+
+sources:
+- title: Modbus-Schnittstellenbeschreibung OR4 pro
+  version: or4pro_modbus_spec_de_00-01
+  url: https://www.wildeboer.de/dokumente/produkte/brandschutz-entrauchung/or4/sprachuebergreifend/modbus-schnittstellenbeschreibung-or4pro.pdf
+  sha256: b14228bb6b767bd18bdda97c96e55db3c580d7bdb827cb82c1e18c83d5a0311f
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.alarm, label: 'Alarm (smoke detected, alarm latched, test alarm)', table: discrete, address: 0, type: bool, poll: fast}
+  - {key: x.smoke_switch_dirty_100, label: Smoke switch 100 % dirty, table: discrete, address: 1, type: bool}
+  - {key: x.smoke_switch_dirty_70, label: Smoke switch 70–99 % dirty, table: discrete, address: 2, type: bool}
+  - {key: x.fault, label: 'Fault (smoke switch communication, smoke switch defective or wrong type, fault latched)', table: discrete, address: 3, type: bool, poll: fast}
+  - {key: x.airflow_present, label: Airflow present, table: discrete, address: 4, type: bool, poll: fast}
+  - {key: x.airflow, label: Flow value, table: input, address: 0, type: u16, unit: '%', poll: fast}
+  - {key: x.smoke_switch_soiling, label: Smoke switch soiling, table: input, address: 1, type: u16, unit: '%'}
+  - {key: x.device_operating_minutes, label: Operating minutes of the smoke release device, table: input, address: 2, type: u32, unit: min, poll: slow, verified: false, note: 'The document lists 0x0002 as the high part and 0x0003 as the low part (it calls them bytes); read here as one 32-bit value, high register first. Assumed.'}
+  - {key: x.smoke_switch_operating_minutes, label: Operating minutes of the smoke switch, table: input, address: 4, type: u32, unit: min, poll: slow, verified: false, note: '0x0004 high part, 0x0005 low part; read as one 32-bit value. Assumed.'}
+
+problems:
+  - {when: {key: x.alarm, equals: 1}, kind: fault, text: 'Smoke alarm (detection, latched or test alarm)'}
+  - {when: {key: x.fault, equals: 1}, kind: fault, text: Smoke release device fault}
+  - {when: {key: x.smoke_switch_dirty_100, equals: 1}, kind: warning, text: Smoke switch 100 % dirty}
+  - {when: {key: x.smoke_switch_dirty_70, equals: 1}, kind: warning, text: Smoke switch 70–99 % dirty}
+
+notes:
+- 'Supported functions: 02 (discrete inputs), 04 (input registers) and 08 (diagnostics, whose register always reads 0). Read
+  only; no settings over Modbus.'
+- Addresses are the document's hexadecimal protocol addresses (0-based), used as given.
+- 'Discrete inputs 0x0000 and 0x0003 each combine several conditions the document lists under one address (alarm: smoke detected,
+  latched, test alarm; fault: smoke switch communication, defective, wrong type, latched).'
+- Modbus settings (address, serial format) are set in the device's COM-Port menu; the document gives no defaults. Unit 1 is
+  assumed; the device is RS485 only (port 502 only applies behind a gateway).
+- The units of the input registers are as named in the document (flow and soiling in %, operating time in minutes); no scaling
+  is stated, scale 1 is assumed.

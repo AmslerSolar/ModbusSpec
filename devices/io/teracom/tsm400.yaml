@@ -1,0 +1,79 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Teracom TSM400-4-TH Modbus humidity and temperature sensor user manual (Version 1.8, November 2023).
+
+modbusspec: 0
+id: teracom-tsm400
+manufacturer: Teracom
+name: TSM400-4-TH humidity and temperature sensor, Modbus RTU
+kind: io
+
+sources:
+- title: Teracom TSM400-4-TH Modbus humidity and temperature sensor, user manual
+  version: 1.8 (November 2023)
+  url: https://www.omniinstruments.co.uk/wp-content/uploads/2025/05/TSM400-4-TH-Modbus-Temperature-and-Humidity-Sensor.pdf
+  sha256: cc1347f9d701733439ed06691747b53b1b866e3eb81b564bd0ad95eb3c48ee2c
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: detect
+  # Data order
+  detect:
+    table: holding
+    address: 13
+    type: u16
+    word_orders:
+      '1': big
+      '2': little
+
+identify:
+  checks:
+  - table: holding
+    address: 14
+    type: u16
+    equals: 194
+  - table: holding
+    address: 91
+    type: u16
+    equals: 999
+
+points:
+  - {key: x.air_temperature, label: Temperature °C, table: holding, address: 100, type: f32, unit: °C, note: NaN on a measurement error.}
+  - {key: x.humidity, label: Humidity %RH, table: holding, address: 102, type: f32, unit: '%', note: Relative humidity; NaN on a measurement error.}
+  - {key: x.dew_point, label: Dew point °C, table: holding, address: 104, type: f32, unit: °C, note: NaN on a measurement error.}
+  # Correction (corrected = measured × multiplier + offset, in °C)
+  - {key: x.temperature_multiplier, label: Temperature multiplier, table: holding, address: 2101, type: f32, writable: true, poll: slow, note: Default 1.000.}
+  - {key: x.temperature_offset, label: Temperature offset °C, table: holding, address: 2103, type: f32, unit: °C, writable: true, poll: slow, note: Default 0.000.}
+  - {key: x.humidity_multiplier, label: Humidity multiplier, table: holding, address: 2111, type: f32, writable: true, poll: slow, note: Default 1.000.}
+  - {key: x.humidity_offset, label: Humidity offset, table: holding, address: 2113, type: f32, unit: '%', writable: true, poll: slow, note: Default 0.000.}
+  # Module settings and identity
+  - {key: x.modbus_address, label: RS-485 address, table: holding, address: 10, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 11, type: u16, unit: bps, writable: true, poll: slow, note: '2400, 4800, 9600, 19200, 38400 or 57600; takes effect after a power cycle.'}
+  - {key: x.serial_format, label: 'Parity, data, stop bits', table: holding, address: 12, type: u16, enum: serial_format, writable: true, poll: slow, note: Takes effect after a power cycle.}
+  - {key: x.data_order, label: Data order, table: holding, address: 13, type: u16, enum: data_order, writable: true, poll: slow}
+  - {key: x.device_code, label: Device code, table: holding, address: 14, type: u16, poll: slow, note: 0x00C2 for the TSM400-4-TH.}
+  - {key: firmware, label: FW version, table: holding, address: 15, type: u16, poll: slow, verified: false, note: Encoding of the version number not stated in the document.}
+  - {key: x.vendor_url, label: Vendor URL, table: holding, address: 18, type: str, length: 32, poll: slow, note: '64 bytes UTF-8, "teracomsystems.com".'}
+
+enums:
+  serial_format: {'1': 8E1, '2': 8O1, '3': 8N1}
+  data_order: {'1': Most significant word first, '2': Least significant word first}
+
+notes:
+- Addresses are the document's PDU addresses (0-based); its logical column adds 40001. All registers are holding registers
+  (function 03; writes 06 / 16).
+- The word order of 32-bit values is set by register 13 (1 = most significant word first, the default). Test registers 82
+  (float, MSW first) and 84 (float, LSW first) both read -9.9, 91 reads 999.
+- 'Left out: the same values in °F (floats at 400–404), as integers × 100 (600–602 in °C, 1000–1002 in °F; -32768 = not available)
+  and the remaining test registers.'
+- The document gives no request size limit and no fault or alarm registers.

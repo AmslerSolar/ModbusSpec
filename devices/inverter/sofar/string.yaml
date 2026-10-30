@@ -1,0 +1,231 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SofarSolar 1-40kW G1 PV inverter ModBus-RTU protocol, Chinese / English (V1.12); the English
+# 1-70KTL G1-G2 edition (V1.01) also listed. Real-time area 0x0000…0x002F, the production information and the
+# active power limit; the built-in combiner area, grid-code settings and the vendor function codes are left out.
+
+modbusspec: 0
+id: sofar-string
+manufacturer: SofarSolar
+name: String inverters G1 / G2 (1–70 kW KTL)
+kind: inverter
+
+sources:
+- title: 1-40kw-g1 SofarSolar PV inverter ModBus-RTU communication protocol (Chinese / English)
+  version: V1.12 (2022-07-13)
+  url: https://github.com/SeByDocKy/pvbrain2/blob/39e895fe7c6597ed51515ce7e8c1effa19a69054/pvbrain2/inverter/sofar/1-40kw-g1%20Sofar%20PV%20inverter%20modbus%20protocol%EF%BC%88chinese%20VS%20english%EF%BC%89V1.12.pdf
+  sha256: ca568122d5efcf0973fe469c6d7c71818f1bb94d3d069399a2cd3960b0575f30
+- title: ModBus-RTU Protocol Specification, SOFAR PV Inverter (1-70KTL G1-G2, English)
+  version: V1.01 (2019-06-17)
+  url: https://github.com/SeByDocKy/pvbrain2/blob/39e895fe7c6597ed51515ce7e8c1effa19a69054/pvbrain2/inverter/sofar/SOFAR%201-70KTL%20G1-G2%20Modbus%20Protocol%20EN%202021-01-27.pdf
+  sha256: 79732f05bcc065c1619bce24ac9de7ae6c6aab63315aee4b8a5318d6dea00693
+- id: solarman
+  title: ha-solarman (Home Assistant integration)
+  url: https://github.com/davidrapan/ha-solarman
+  license: MIT
+  commit: ac1d88b83268beeb0511b8a1b7fc8e17deddc044
+  path: custom_components/solarman/inverter_definitions/sofar_string.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  sleeps: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 8193
+    type: str
+    length: 7
+  checks:
+  # Serial number: maker letter (S = SofarSolar, Z / T = OEM), then the product code. Read from 0x2001 over
+  # eight registers so that it also matches if the serial starts one register later (see notes).
+  - table: input
+    address: 8193
+    type: str
+    length: 8
+    contains:
+    - SA1
+    - SB1
+    - SC1
+    - SC2
+    - SC3
+    - SC4
+    - SD1
+    - SD3
+    - SD4
+    - SF1
+    - SF2
+    - SF3
+    - SF4
+    - SG1
+    - SG3
+    - SG4
+    - SH1
+    - SI1
+    - SJ1
+    - SJ2
+    - SK1
+    - SL1
+    - SN1
+    - SA3
+    - ZA1
+    - ZB1
+    - ZC1
+    - ZC2
+    - ZC3
+    - ZC4
+    - ZD1
+    - ZD3
+    - ZD4
+    - ZF1
+    - ZF2
+    - ZF3
+    - ZF4
+    - ZG1
+    - ZG3
+    - ZG4
+    - ZH1
+    - ZI1
+    - ZJ1
+    - ZJ2
+    - ZK1
+    - ZL1
+    - ZN1
+    - ZA3
+    - TA1
+    - TB1
+    - TC1
+    - TC2
+    - TC3
+    - TC4
+    - TD1
+    - TD3
+    - TD4
+    - TF1
+    - TF2
+    - TF3
+    - TF4
+    - TG1
+    - TG3
+    - TG4
+    - TH1
+    - TI1
+    - TJ1
+    - TJ2
+    - TK1
+    - TL1
+    - TN1
+    - TA3
+
+points:
+  # Inverter data (function 03)
+  - {key: state, label: Operating state, table: holding, address: 0, type: u16, bits: [0, 7], enum: operating_state, note: Only the low byte is valid.}
+  - {key: x.fault_1, label: 'Fault 1 (bytes 0, 1)', table: holding, address: 1, type: u16, flags: fault_1}
+  - {key: x.fault_2, label: 'Fault 2 (bytes 2, 3)', table: holding, address: 2, type: u16, flags: fault_2}
+  - {key: x.fault_3, label: 'Fault 3 (bytes 4, 5)', table: holding, address: 3, type: u16, note: All bits reserved.}
+  - {key: x.fault_4, label: 'Fault 4 (bytes 6, 7)', table: holding, address: 4, type: u16, flags: fault_4}
+  - {key: x.fault_5, label: 'Fault 5 (bytes 8, 9)', table: holding, address: 5, type: u16, flags: fault_5}
+  - {key: x.pv1_voltage, label: PV1 voltage, table: holding, address: 6, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_current, label: PV1 current, table: holding, address: 7, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv2_voltage, label: PV2 voltage, table: holding, address: 8, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_current, label: PV2 current, table: holding, address: 9, type: u16, unit: A, scale: 0.01}
+  - {key: x.pv1_power, label: PV1 power, table: holding, address: 10, type: u16, unit: W, scale: 10}
+  - {key: x.pv2_power, label: PV2 power, table: holding, address: 11, type: u16, unit: W, scale: 10}
+  - {key: pv_power, label: Active power (output), table: holding, address: 12, type: u16, unit: W, scale: 10}
+  - {key: reactive_power, label: Reactive power (output), table: holding, address: 13, type: s16, unit: var, scale: 10, note: Signed in V1.12; unsigned in the English V1.01., conflicts: [{sources: [solarman], type: u16, label: Output reactive power}]}
+  - {key: frequency, label: Grid frequency, table: holding, address: 14, type: u16, unit: Hz, scale: 0.01}
+  - {key: l1_voltage, label: A-phase voltage, table: holding, address: 15, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: A-phase current, table: holding, address: 16, type: u16, unit: A, scale: 0.01}
+  - {key: l2_voltage, label: B-phase voltage, table: holding, address: 17, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: l2_current, label: B-phase current, table: holding, address: 18, type: u16, unit: A, scale: 0.01, optional: true}
+  - {key: l3_voltage, label: C-phase voltage, table: holding, address: 19, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: l3_current, label: C-phase current, table: holding, address: 20, type: u16, unit: A, scale: 0.01, optional: true}
+  - {key: pv_energy, label: Total production, table: holding, address: 21, type: u32, unit: kWh, poll: slow}
+  - {key: x.generation_time_total, label: Total generation time, table: holding, address: 23, type: u32, unit: h, poll: slow}
+  - {key: pv_energy_today, label: Today's generation, table: holding, address: 25, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.generation_time_today, label: Today's generation time, table: holding, address: 26, type: u16, unit: min, poll: slow}
+  - {key: temperature, label: Inverter module temperature, table: holding, address: 27, type: s16, unit: °C, note: Signed since V1.03., conflicts: [{sources: [solarman], type: u16}]}
+  - {key: x.inner_temperature, label: Inverter inner temperature, table: holding, address: 28, type: s16, unit: °C, conflicts: [{sources: [solarman], type: u16}]}
+  - {key: x.bus_voltage, label: Inverter bus voltage, table: holding, address: 29, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv1_voltage_slave, label: PV1 voltage sampled by the slave CPU, table: holding, address: 30, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv2_voltage_slave, label: PV2 voltage sampled by the slave CPU, table: holding, address: 31, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [solarman], unit: A, label: PV1 current sample by slave CPU}]}
+  - {key: x.countdown, label: Count-down time, table: holding, address: 32, type: u16, verified: false, note: Unit not stated; seconds likely., conflicts: [{sources: [solarman], unit: s, label: Countdown time}]}
+  - {key: x.alert, label: Inverter alert message, table: holding, address: 33, type: u16, flags: alert}
+  - {key: x.input_mode, label: Input mode, table: holding, address: 34, type: u16, enum: input_mode, poll: slow}
+  - {key: x.comm_board_message, label: Communication board inner message, table: holding, address: 35, type: u16, flags: comm_board}
+  - {key: x.insulation_pv1, label: Insulation of PV1+ to ground, table: holding, address: 36, type: u16, poll: slow, note: Unit not stated.}
+  - {key: x.insulation_pv2, label: Insulation of PV2+ to ground, table: holding, address: 37, type: u16, poll: slow, note: Unit not stated.}
+  - {key: x.insulation_pv_minus, label: Insulation of PV- to ground, table: holding, address: 38, type: u16, poll: slow, note: Unit not stated.}
+  - {key: x.country_code, label: Country code, table: holding, address: 39, type: u16, poll: slow}
+  - {key: x.pcc_current, label: PCC current, table: holding, address: 40, type: s16, unit: A, scale: 0.01, optional: true, note: 'From the CT or the meter, whichever is enabled (0x002E); − = current flowing towards the inverter.'}
+  - {key: grid_power, label: PCC power, table: holding, address: 41, type: s16, unit: W, scale: 10, positive: export, optional: true, note: 'From the CT or the meter, whichever is enabled (0x002E); − = power flowing towards the inverter (import).'}
+  - {key: x.gfci_current, label: GFCI valid value, table: holding, address: 42, type: u16, unit: mA}
+  - {key: x.dci_r, label: DCI value phase R, table: holding, address: 43, type: s16, unit: mA}
+  - {key: x.dci_s, label: DCI value phase S, table: holding, address: 44, type: s16, unit: mA, optional: true}
+  - {key: x.dci_t, label: DCI value phase T, table: holding, address: 45, type: s16, unit: mA, optional: true}
+  - {key: x.output_type, label: 'Inverter function state, bit 0 (output type)', table: holding, address: 46, type: u16, bits: [0, 0], enum: output_type, poll: slow}
+  - {key: x.reflux_mode, label: 'Inverter function state, bits 1-2 (export limitation)', table: holding, address: 46, type: u16, bits: [1, 2], enum: reflux_mode, poll: slow}
+  - {key: load_power, label: Load power, table: holding, address: 47, type: u16, unit: W, scale: 10, optional: true, note: Output power minus PCC power; only meaningful with a CT or meter.}
+
+  # Settings and production information (function 04)
+  - {key: x.active_power_limit, label: Active power output percentage, table: input, address: 4161, type: u16, unit: '%', scale: 0.1, poll: slow, note: 'Read with function 04; the inverter is written with the vendor function 0x13, not with standard Modbus writes.'}
+  - {key: x.production_code, label: Production code, table: input, address: 8192, type: u16, poll: slow, note: 'Rated power index for some models (0 = 5 kW, 1 = 6 kW, 2 = 8 kW, 3 = 10 kW, 4 = 12 kW, 5 = 15 kW, 6 = 17 kW, 7 = 20 kW, 8 = 25 kW, 9 = 30 kW).'}
+  - {key: serial, label: Series number, table: input, address: 8193, type: str, length: 7, poll: slow}
+  - {key: firmware, label: Software version, table: input, address: 8200, type: str, length: 2, poll: slow, verified: false, note: Text assumed; the document gives no type.}
+  - {key: x.hardware_version, label: Hardware version, table: input, address: 8202, type: str, length: 2, poll: slow, verified: false, note: Text assumed; the document gives no type.}
+  - {key: x.device_state, label: Device State, table: holding, address: 0, type: u16, enum: device_state, verified: false, sources: [solarman]}
+
+enums:
+  operating_state: {'0': Waiting, '1': Checking, '2': Normal, '3': Fault, '4': Permanent fault}
+  input_mode: {'0': Parallel, '1': Independent}
+  output_type: {'0': Single-phase, '1': Three-phase}
+  reflux_mode: {'0': Disabled, '1': CT, '2': Meter, '3': ARPC}
+  device_state: {'0': Standby, '1': Self-test, '2': Normal, '3': Alarm, '4': Fault}
+
+flags:
+  fault_1: {'0': Grid overvoltage (ID01), '1': Grid undervoltage (ID02), '2': Grid overfrequency (ID03), '3': Grid underfrequency (ID04), '4': PV undervoltage (ID05), '5': Grid low-voltage ride-through (ID06), '6': Grid high-voltage ride-through (ID07), '8': PV overvoltage (ID09), '9': PV input current unbalance (ID10), '10': PV input mode set wrong (ID11), '11': Ground fault (GFCI) (ID12), '12': Phase sequence fault (ID13), '13': Boost hardware overcurrent (ID14), '14': AC hardware overcurrent (ID15), '15': Grid current RMS too high (ID16)}
+  fault_2: {'0': Grid current sampling fault (ID17), '1': DCI sampling fault (ID18), '2': Grid voltage sampling fault (ID19), '3': GFCI sampling fault (ID20), '4': Main chip fault (ID21), '5': Auxiliary power supply fault (ID22), '6': Bus voltage sampling fault (ID23), '7': Output current unbalance (ID24), '8': Bus undervoltage (ID25), '9': Bus overvoltage (ID26), '10': Bus voltage unbalance (ID27), '11': DCI overcurrent (ID28), '12': 'Grid current too high, software (ID29)', '13': 'Input current too high, software (ID30)'}
+  fault_4: {'0': 'Grid voltage consistency fault, master/slave DSP (ID49)', '1': Grid frequency consistency fault (ID50), '2': DCI consistency fault (ID51), '3': GFCI consistency fault (ID52), '4': Master/slave DSP communication fault (ID53), '5': Slave DSP / communication board communication fault (ID54), '6': Relay fault (ID55), '7': PV insulation resistance low (ID56), '8': Inverter overtemperature (ID57), '9': Boost overtemperature (ID58), '10': Ambient overtemperature (ID59), '11': PE not connected (ID60), '14': Export limitation overload (ID63), '15': Meter communication fault (ID64)}
+  fault_5: {'0': 'Permanent: AC hardware overcurrent (ID65)', '1': 'Permanent: bus overvoltage (ID66)', '2': 'Permanent: grid current unbalance (ID67)', '3': 'Permanent: input current unbalance (ID68)', '4': 'Permanent: bus voltage unbalance (ID69)', '5': 'Permanent: output overcurrent (ID70)', '6': 'Permanent: PV input mode set wrong (ID71)', '9': 'Permanent: input overcurrent (ID74)', '10': EEPROM write fault (ID75), '11': EEPROM read fault (ID76), '12': 'Permanent: relay fault (ID77)'}
+  alert: {'0': 'Derating: overtemperature (ID81)', '1': 'Derating: grid overfrequency (ID82)', '2': 'Derating: remote control (ID83)', '3': Shut down by remote control (ID84), '4': 'Derating: grid underfrequency (ID85)', '5': 'Power increase: grid underfrequency (ID89)', '6': Shut down by DRM0 (ID87), '7': Forced shutdown (ID88)}
+  comm_board: {'0': Fan 1 alarm (ID91), '1': Fan 2 alarm (ID92), '2': Lightning protection alarm (ID93), '3': Software versions inconsistent (ID94), '4': Communication board EEPROM fault (ID95), '5': RTC clock fault (ID96), '6': Invalid country code (ID97), '7': SD card fault (ID98), '8': Fan 3 alarm (ID90)}
+
+problems:
+  - {when: {key: state, equals: 3}, kind: fault, text: Fault (state 3)}
+  - {when: {key: state, equals: 4}, kind: fault, text: Permanent fault (state 4)}
+  - {when: {key: x.fault_1, not: 0}, kind: warning, text: 'Fault word 1 (grid / PV): 0x{value:X}'}
+  - {when: {key: x.fault_2, not: 0}, kind: warning, text: 'Fault word 2 (sampling / bus): 0x{value:X}'}
+  - {when: {key: x.fault_4, not: 0}, kind: warning, text: 'Fault word 4 (consistency / temperature): 0x{value:X}'}
+  - {when: {key: x.fault_5, not: 0}, kind: warning, text: 'Fault word 5 (permanent faults): 0x{value:X}'}
+  - {when: {key: x.alert, not: 0}, kind: warning, text: 'Inverter alert: 0x{value:X}'}
+  - {when: {key: x.comm_board_message, not: 0}, kind: warning, text: 'Communication board alarm: 0x{value:X}'}
+
+notes:
+- RS485, addresses 1…63, 9600 baud, 8 data bits, no parity, one stop bit. Live data is read with function 03, settings and
+  production information with function 04 (input registers 0x1000…, 0x2000…).
+- 'Fault words: the high byte holds the odd byte number (byte 1, 3, …), the low byte the even one (byte 0, 2, …).'
+- 'PV-powered: no answer at night.'
+- 'Serial number (14 characters): maker letter (S = SofarSolar; other letters for OEM products), two-character product code
+  (e.g. C1 = 10–20 kW three-phase, D1 = 30–40 kW, F1 = 4–12 kW, J2 = 50–70 kW G2, L1 = 20–33 kW G2, N1 = 10–15 kW G2), region
+  letter, configuration code, power, then year, month, day and a sequence number. Some readers take the serial from input
+  register 0x2002 instead of 0x2001; not checked on a device, so identification looks for the product code anywhere in 0x2001…0x2008.'
+- 'Left out: the built-in combiner area (0x0100…0x0114: combiner faults and string voltages / currents of the 20–33 kW, 30–40
+  kW and 50–70 kW models), grid-code settings (0x1000…), calibration data and the vendor function codes (history, events,
+  time, relay, broadcasts).'
+- The project reaches the device through a Solarman Wi-Fi / LAN data logger (its own V5 protocol on TCP 8899) or over plain
+  Modbus TCP / RTU; the register map is the same.
+- Also used for sofar_lsw3.
+- Also used for zcs_azzurro-1ph-tl-v3 (mppt=1, l=1).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

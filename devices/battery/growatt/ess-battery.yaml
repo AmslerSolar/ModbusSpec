@@ -1,0 +1,132 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Growatt xxSxxP ESS Protocol (1xSxxP_ESS_protocal rev 23, 2017-11-28).
+# The RS485 protocol between a Growatt SP / SPH storage inverter (master) and its battery pack or battery box
+# (slave); the inverter's own map (input 1082–1123) points to this document for the BMS values.
+
+modbusspec: 0
+id: growatt-ess-battery
+manufacturer: Growatt
+name: Battery packs for SP / SPH storage inverters (xxSxxP ESS protocol)
+kind: battery
+
+sources:
+- title: Growatt xxSxxP ESS Protocol
+  version: rev 23 (2017-11-28)
+  url: https://github.com/0xAHA/Growatt_ModbusTCP/blob/42f01bc346245197787b2976f6a9d2f4558bc503/Protocols/1xSxxP_ESS_Protocol_rev2.3_20171128.pdf
+  sha256: 633c1664f0623c9f7c26ddffd5f12564acfd604d2fa1537c40f037955955fcc5
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Spec query (holding 0x0001–0x000F)
+  - {key: firmware, label: MCU Software version, table: holding, address: 1, type: u16, poll: slow, note: 'High byte = MCU firmware version, low byte = sub version.'}
+  - {key: x.gauge_version, label: Gauge Version, table: holding, address: 2, type: u16, poll: slow, note: 'High byte = version, low byte = sub version.'}
+  - {key: x.gauge_fr_version, label: Gauge FR Version, table: holding, address: 3, type: u32, word_order: little, poll: slow, note: 'Low word in 0x0003, high word in 0x0004.'}
+  - {key: serial, label: Bar Code (bytes 1–8), table: holding, address: 9, type: str, length: 4, poll: slow, verified: false, note: 'The table spreads the eight bar-code bytes over 0x0009–0x000C without saying how they are coded; read as ASCII, two characters per register.'}
+  - {key: x.bms_company, label: Company Code (BMS company), table: holding, address: 13, type: u16, bits: [0, 7], enum: bms_company, poll: slow, verified: false, note: Bits 0–7 per the bit table; its labels mark this as the low byte.}
+  - {key: x.bms_generation, label: BMS Ver., table: holding, address: 13, type: u16, bits: [8, 15], poll: slow, note: '1 = first generation, 2 = second …'}
+  - {key: x.pack_company, label: Company Code (pack company), table: holding, address: 14, type: u16, bits: [0, 7], enum: pack_company, poll: slow}
+  - {key: x.pack_generation, label: PACK Ver, table: holding, address: 14, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.using_capacity, label: Using Cap, table: holding, address: 15, type: u16, poll: slow, note: 'Usable capacity; the document gives only examples (5 kW / 3700 Wh, 2.7 kW / 2000 Wh) and no unit.'}
+
+  # Status query (holding 0x0010–0x0024)
+  - {key: x.gauge_current, label: Gauge IC current, table: holding, address: 16, type: s16, unit: A, scale: 0.01, verified: false, note: Unit 10 mA; read as signed like the current in 0x0017 (not stated).}
+  - {key: x.status, label: Status, table: holding, address: 19, type: u16, flags: status_bits}
+  - {key: state, label: Status (bits 0–1), table: holding, address: 19, type: u16, bits: [0, 1], enum: state}
+  - {key: x.master_box_mode, label: 'Status (bits 8–9, master box operation mode)', table: holding, address: 19, type: u16, bits: [8, 9], enum: master_box_mode}
+  - {key: x.sp_status, label: 'Status (bits 10–11, SP status)', table: holding, address: 19, type: u16, bits: [10, 11], enum: sp_status}
+  - {key: x.protection, label: Error, table: holding, address: 20, type: u16, flags: error_bits, note: 'Valid when status bit 2 is set. Darfon packs use bits 0–10 only, other packs bits 0–14.'}
+  - {key: battery_soc, label: SOC, table: holding, address: 21, type: u16, unit: '%', note: 0–100; high byte 0.}
+  - {key: battery_voltage, label: Voltage (total), table: holding, address: 22, type: u16, unit: V, scale: 0.01}
+  - {key: battery_current, label: Current, table: holding, address: 23, type: s16, unit: A, scale: 0.01, positive: charge, verified: false, note: The document gives the value as signed (0x8000–0xFFFF negative) but not the direction; positive = charging assumed.}
+  - {key: battery_temperature, label: Temperature, table: holding, address: 24, type: s16, unit: °C, note: '−127…127 °C, whole degrees.'}
+  - {key: x.max_current, label: Max. charge/discharge current, table: holding, address: 25, type: u16, unit: A, scale: 0.01, verified: false, note: The charger must not exceed it. No unit in the first table; 10 mA as in the second battery's copy (0x0049).}
+  - {key: x.remaining_capacity, label: Gauge RM (remaining capacity), table: holding, address: 26, type: u16, unit: Ah, scale: 0.01}
+  - {key: x.full_capacity, label: Gauge FCC (full charge capacity), table: holding, address: 27, type: u16, unit: Ah, scale: 0.01}
+  - {key: x.pack_hw_version, label: YW / FW (hardware version), table: holding, address: 28, type: u16, bits: [8, 15], poll: slow, verified: false, note: BYTE1 = hardware version 1–9; taken as the high byte.}
+  - {key: x.pack_sw_version, label: YW / FW (software version), table: holding, address: 28, type: u16, bits: [0, 7], poll: slow, verified: false, note: BYTE2 = software version 1–9; taken as the low byte.}
+  - {key: x.cell_delta, label: Delta (cell voltage), table: holding, address: 29, type: u16, verified: false, note: 'Cell voltage spread; the document gives the unit as V without a resolution, so the raw value is given.'}
+  - {key: x.cycle_count, label: Cycle Count, table: holding, address: 30, type: u16, poll: slow}
+  - {key: x.box_connected, label: 'RSVD For Master Box (bit 0, box connected)', table: holding, address: 31, type: u16, bits: [0, 0], enum: box_connected}
+  - {key: x.battery_id, label: 'RSVD For Master Box (bits 8–13, battery ID)', table: holding, address: 31, type: u16, bits: [8, 13], note: '0 = default, 1–6 = battery 1#–6# (Alpha packs report parallel batteries one after the other under their id).'}
+  - {key: battery_soh, label: SOH (bits 0–6), table: holding, address: 32, type: u16, bits: [0, 6], unit: '%', poll: slow, verified: false, note: 'Bits 0–6 are the SOH counter, bit 7 a flag; percent assumed.'}
+  - {key: x.soh_flag, label: SOH Flag (bit 7), table: holding, address: 32, type: u16, bits: [7, 7], poll: slow}
+  - {key: x.cv_voltage, label: CV Voltage, table: holding, address: 33, type: u16, unit: V, scale: 0.01, poll: slow, note: Charge (constant-voltage) voltage; 57.6 V for LiFePO4 packs.}
+  - {key: x.warning, label: Warning (bits 0–13), table: holding, address: 34, type: u16, flags: warning_bits}
+  - {key: x.battery_chemistry, label: 'Warning (bits 14–15, battery type)', table: holding, address: 34, type: u16, bits: [14, 15], enum: chemistry, poll: slow}
+  - {key: x.max_discharge_current, label: Alpha / Max. discharge current, table: holding, address: 35, type: u16, unit: A, scale: 0.01, note: Alpha packs only.}
+  - {key: x.extended_error, label: Alpha / Extended Error, table: holding, address: 36, type: u16, flags: extended_error_bits, note: Alpha packs only.}
+
+  # Second battery behind a box in parallel (0x0031–0x0052, same layout as 0x0001–0x0022)
+  - {key: x.battery2_status, label: Battery 2 Status, table: holding, address: 67, type: u16, flags: status_bits}
+  - {key: x.battery2_state, label: Battery 2 Status (bits 0–1), table: holding, address: 67, type: u16, bits: [0, 1], enum: state}
+  - {key: x.battery2_protection, label: Battery 2 Error, table: holding, address: 68, type: u16, flags: error_bits}
+  - {key: x.battery2_soc, label: Battery 2 SOC, table: holding, address: 69, type: u16, unit: '%'}
+  - {key: x.battery2_voltage, label: Battery 2 Voltage, table: holding, address: 70, type: u16, unit: V, scale: 0.01}
+  - {key: x.battery2_current, label: Battery 2 Current, table: holding, address: 71, type: s16, unit: A, scale: 0.01, verified: false, note: Read as signed like 0x0017 (direction not stated).}
+  - {key: x.battery2_temperature, label: Battery 2 Temperature, table: holding, address: 72, type: s16, unit: °C}
+  - {key: x.alpha_pack_id, label: Alpha / battery group ID, table: holding, address: 112, type: u16, note: Alpha packs only; tells the battery groups under one BMS apart.}
+
+  # Cell voltages (0x0071–0x0080)
+  - {key: x.cell1_voltage, label: Cell 1 Voltage, table: holding, address: 113, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell2_voltage, label: Cell 2 Voltage, table: holding, address: 114, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell3_voltage, label: Cell 3 Voltage, table: holding, address: 115, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell4_voltage, label: Cell 4 Voltage, table: holding, address: 116, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell5_voltage, label: Cell 5 Voltage, table: holding, address: 117, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell6_voltage, label: Cell 6 Voltage, table: holding, address: 118, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell7_voltage, label: Cell 7 Voltage, table: holding, address: 119, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell8_voltage, label: Cell 8 Voltage, table: holding, address: 120, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell9_voltage, label: Cell 9 Voltage, table: holding, address: 121, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell10_voltage, label: Cell 10 Voltage, table: holding, address: 122, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell11_voltage, label: Cell 11 Voltage, table: holding, address: 123, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell12_voltage, label: Cell 12 Voltage, table: holding, address: 124, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell13_voltage, label: Cell 13 Voltage, table: holding, address: 125, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell14_voltage, label: Cell 14 Voltage, table: holding, address: 126, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell15_voltage, label: Cell 15 Voltage, table: holding, address: 127, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell16_voltage, label: Cell 16 Voltage, table: holding, address: 128, type: u16, unit: V, scale: 0.001}
+
+enums:
+  state: {'0': Soft start, '1': Standby, '2': Charging, '3': Discharging}
+  master_box_mode: {'0': Single, '1': Parallel, '2': Preparing parallel}
+  sp_status: {'0': None, '1': Standby, '2': Charging, '3': Discharging}
+  box_connected: {'0': No box, '1': Box connected}
+  chemistry: {'0': LiFePO4, '1': NMC (ternary lithium), '2': Lithium titanate, '3': Reserved}
+  bms_company: {'0': Darfon, '1': Peicheng, '2': Growatt 5 kWh (own make), '3': Alpha, '4': ATL}
+  pack_company: {'0': Darfon, '1': EVE, '2': Growatt 5 kWh (own make), '3': Alpha, '4': ATL}
+
+flags:
+  status_bits: {'2': Error register valid, '3': Cell balance OK, '4': Sleep enabled, '5': Discharge output enabled, '6': Charge output enabled, '7': Battery terminal open}
+  error_bits: {'0': Discharge overcurrent protection, '1': Discharge short-circuit protection, '2': Overvoltage protection, '3': Undervoltage protection, '4': Discharge over-temperature protection, '5': Charge over-temperature protection, '6': Discharge under-temperature protection, '7': Charge under-temperature protection, '8': Soft start failed, '9': Permanent fault, '10': Cell voltage difference fault, '11': Charge overcurrent protection, '12': MOS over-temperature protection, '13': Ambient over-temperature protection, '14': Ambient under-temperature protection}
+  warning_bits: {'0': Cell overvoltage warning, '1': Cell undervoltage warning, '2': Pack overvoltage warning, '3': Pack undervoltage warning, '4': Discharge overcurrent warning, '5': Charge overcurrent warning, '6': Discharge high-temperature warning, '7': Discharge low-temperature warning, '8': Charge high-temperature warning, '9': Charge low-temperature warning, '10': MOS high-temperature warning, '11': Ambient high-temperature warning, '12': Ambient low-temperature warning, '13': 'Low voltage, shutdown imminent'}
+  extended_error_bits: {'0': Parallel modules' DIP switch settings differ, '1': Module software versions differ, '2': No serial number, '3': LMU communication lost (master), '4': LMU communication lost (slave)}
+
+problems:
+  - {when: {key: x.protection, not: 0}, kind: fault, text: 'Battery protection active (error 0x{value:X})'}
+  - {when: {key: x.warning, not: 0}, kind: warning, text: 'Battery warning (0x{value:X})'}
+  - {when: {key: x.extended_error, not: 0}, kind: warning, text: 'Battery system error (extended error 0x{value:X})'}
+  - {when: {key: x.battery2_protection, not: 0}, kind: fault, text: 'Battery 2 protection active (error 0x{value:X})'}
+
+notes:
+- The battery is the Modbus slave of the storage inverter (Modbus RTU, function 03 to read, 0x10 to write), 8 data bits, no
+  parity, 1 stop bit; the baud rate is not stated. Unit id 1 is the box that reports single and parallel batteries. The addresses
+  are the register numbers of the tables, sent as they are (0-based).
+- Packs from several makers use this protocol (Darfon, Alpha, ATL, Peicheng / EVE cells, Growatt's own 5 kWh pack), told apart
+  by 0x000D / 0x000E. Some fields are only filled by Alpha packs (0x0023, 0x0024, 0x0070).
+- With a box and two batteries in parallel, 0x0013–0x0018 hold combined values (lowest SOC or average SOC depending on the
+  box mode, lowest voltage, summed current) and 0x0031–0x0052 / 0x0081–0x0090 repeat the spec, status and cell registers for
+  the second battery. Only the main values of the second battery are taken here.
+- 'Not taken: the spec-query date (0x0005–0x0008, one byte per register) and the status date and time (0x0011–0x0012, a 32-bit
+  packed field low word first: seconds bits 0–5, minutes 6–11, hours 12–16, day 17–21, month 22–25, year 26–31 from 2000),
+  which this format can''t split; and the second battery''s cell voltages (0x0081–0x0090).'

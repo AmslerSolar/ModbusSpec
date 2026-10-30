@@ -1,0 +1,105 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the N.E.T. (Nenvitech) CYBER Modbus Customer Manual MT3741 (Rev. 21, 2025-01-13).
+
+modbusspec: 0
+id: nenvitech-cyber
+manufacturer: N.E.T. (Nenvitech)
+name: CYBER gas detector (sensor module, 4–20 mA transmitter, head)
+kind: other
+
+sources:
+- title: CYBER Modbus Customer Manual MT3741
+  version: Rev. 21 (2025-01-13)
+  url: https://www.nenvitech.com/wp-content/uploads/2021/11/MT3741_CYBER_MODBUS_CUSTOMER_MANUAL_Rev.-21.pdf
+  sha256: 408a6d6e3cb95c44b613b823ff348c0c2e6e82666b0188614fcb2e74327f2009
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  blocks:
+  - table: input
+    address: 4096
+    count: 5
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 8201
+    type: u32
+
+points:
+  # Input registers 0x1000 ff. (read all five in one request)
+  - {key: x.raw_adc, label: Raw sensor reading, table: input, address: 4096, type: u16, note: ADC points 0–1024 over 0–5 V.}
+  - {key: x.supply_points, label: Voltage input reading, table: input, address: 4097, type: u16, note: Supply voltage in points; the document converts it as mV = points × 0.05337 + 0.74.}
+  - {key: x.reading_percent_fs, label: Sensor reading, table: input, address: 4098, type: u16, unit: '%', scale: 0.23923445, note: 'Gas reading in points, 418 points = 100 % of full scale; given here as percent of full scale. The concentration in the sensor''s unit (0x2019 low byte) is this × full scale (0x2000 / 0x201B, see notes).'}
+  - {key: x.status, label: Status (stsch1), table: input, address: 4099, type: u16, bits: [0, 7], flags: status}
+  - {key: error_code, label: Error (errsts), table: input, address: 4099, type: u16, bits: [8, 15], enum: error}
+  - {key: x.firmware_major, label: Firmware version major, table: input, address: 12288, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.firmware_minor, label: Firmware version minor and revision, table: input, address: 12288, type: u16, bits: [0, 7], poll: slow, note: 'Minor × 10 + revision (0 = A), e.g. 140 = .14A.'}
+  # Holding registers 0x2000 ff.
+  - {key: x.full_scale_points, label: Full scale (fsch1), table: holding, address: 8192, type: u16, poll: slow, note: Full scale = round(value × 418 / 4096) / 10^decimals; above 5000 use 0x201B instead.}
+  - {key: x.threshold_1, label: Threshold 1, table: holding, address: 8193, type: u16, unit: '%', scale: 0.23923445, poll: slow, note: In points (418 = 100 % of full scale). With a dropping threshold (0x2007 bit 9) the value is stored bit-inverted.}
+  - {key: x.threshold_2, label: Threshold 2, table: holding, address: 8194, type: u16, unit: '%', scale: 0.23923445, poll: slow}
+  - {key: x.threshold_3, label: Threshold 3, table: holding, address: 8195, type: u16, unit: '%', scale: 0.23923445, poll: slow}
+  - {key: x.hysteresis, label: Hysteresis, table: holding, address: 8196, type: u16, unit: '%', scale: 0.23923445, poll: slow}
+  - {key: x.threshold_limit_60, label: 60 % threshold limit, table: holding, address: 8199, type: u16, bits: [8, 8], enum: no_yes, poll: slow}
+  - {key: x.threshold_direction, label: Threshold direction, table: holding, address: 8199, type: u16, bits: [9, 9], enum: threshold_direction, poll: slow}
+  - {key: x.decimals, label: Number of decimals of the measurement, table: holding, address: 8199, type: u16, bits: [12, 13], poll: slow}
+  - {key: x.sensor_type, label: Sensor type (Numsens), table: holding, address: 8206, type: u16, bits: [0, 7], poll: slow, note: 'Codes 0x01–0x64; with the gas type (0x2014 high byte) it names the gas, see the document''s table.'}
+  - {key: x.gas_type, label: Gas type, table: holding, address: 8212, type: u16, bits: [8, 15], poll: slow, note: Meaning depends on the sensor type.}
+  - {key: x.overrange_latching, label: Overrange condition, table: holding, address: 8212, type: u16, bits: [4, 4], enum: overrange_latching, poll: slow}
+  - {key: x.rs485_address, label: RS485 address (netid), table: holding, address: 8215, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.sensor_technology, label: Sensor technology, table: holding, address: 8217, type: u16, bits: [8, 11], enum: sensor_technology, poll: slow}
+  - {key: x.unit, label: Readout unit of measure, table: holding, address: 8217, type: u16, bits: [0, 7], enum: unit, poll: slow}
+  - {key: x.full_scale_eng, label: Full scale engineering, table: holding, address: 8219, type: u16, poll: slow, note: Full scale × 10^decimals; used when the full scale exceeds 5000.}
+  - {key: serial, label: Serial number, table: holding, address: 8201, type: u32, poll: slow, note: 'Four bytes, not one number: 0x2009 high byte a number, low byte an ASCII letter; 0x200A high and low bytes numbers. The document''s example 0x074B 0x220C is K71234 (letter, then the bytes 7, 12, 34 as digits).'}
+
+enums:
+  error: {'0': No error, '1': Heating, '2': EEPROM error, '3': Flash error, '4': RAM error, '5': Supply voltage error, '8': VGND error, '10': EEPROM checksum error, '11': Change sensor, '12': 4–20 mA output error, '13': Heating VGND error, '14': ADC error}
+  no_yes: {'0': 'No', '1': 'Yes'}
+  threshold_direction: {'0': Rising, '1': Dropping}
+  overrange_latching: {'0': Latched, '1': Not latched}
+  sensor_technology: {'0': Not defined, '1': Electrochemical cell, '2': Pellistor, '3': Infrared, '4': Oxygen, '5': Semiconductor}
+  unit: {'0': '% LFL', '2': '% vol', '3': ppm, '4': '% vol O2'}
+
+flags:
+  status: {'0': Fault, '1': Threshold 1, '2': Threshold 2, '3': Threshold 3, '4': Overrange}
+
+problems:
+  - {when: {key: x.status, bit: 0}, kind: fault, text: Gas detector fault}
+  - {when: {key: x.status, bit: 1}, kind: warning, text: Gas alarm threshold 1}
+  - {when: {key: x.status, bit: 2}, kind: warning, text: Gas alarm threshold 2}
+  - {when: {key: x.status, bit: 3}, kind: warning, text: Gas alarm threshold 3}
+  - {when: {key: x.status, bit: 4}, kind: warning, text: Gas reading over range}
+  - {when: {key: error_code, equals: 1}, kind: warning, text: 'Detector error: heating (1)'}
+  - {when: {key: error_code, range: [2, 255]}, kind: fault, text: 'Detector error: {text} ({value})'}
+
+notes:
+- Modbus RTU, fixed at 9600 baud, 8N1 (RS485 on the transmitter and head, TTL serial on the bare sensor module). Only functions
+  03 and 04; writing (thresholds, calibration, address) needs functions the manufacturer supplies on request (manual MT3778),
+  so nothing is marked writable. Port 502 is only for a Modbus TCP gateway on the line; the document names none.
+- The sensor answers its own address and also address 0, which the document reserves for reaching a sensor whose address is
+  unknown (not a broadcast). Unit id 1 here is a placeholder; the factory address isn't stated.
+- The five input registers 0x1000–0x1004 must be read in one request; single input registers can't be read.
+- Readings and thresholds are in points, 418 points = 100 % of full scale; they are given here as percent of full scale. The
+  concentration in the sensor's unit is reading × real full scale / 418, where real full scale = round(0x2000 × 418 / 4096)
+  / 10^decimals (decimals in 0x2007 bits 12–13), or 0x201B / 10^decimals when the full scale exceeds 5000. That product isn't
+  expressible in this format.
+- Thresholds and hysteresis are percent of full scale here only when the threshold is rising; a dropping threshold is stored
+  bit-inverted.
+- Error 1 (heating) is listed among the errors without explanation; it is a warning here (assumed).
+- Sensor and gas type names (two-level table, about 100 sensor types) are left out; firmware 2.11 numbers them differently
+  (the document explains the offset).
+- There is no model register; the serial number is the only identification, so readers can't tell this detector apart from
+  other devices on a network search.

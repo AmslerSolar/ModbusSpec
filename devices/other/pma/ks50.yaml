@@ -1,0 +1,212 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the PMA KS 50-1 Interface description Modbus protocol 9499 040 63611 (valid from 02/2005).
+
+modbusspec: 0
+id: pma-ks50
+manufacturer: PMA
+name: KS 50-1 industrial controller
+kind: other
+
+sources:
+- title: KS 50-1 Interface description Modbus protocol 9499 040 63611
+  version: valid from 02/2005
+  url: https://www.west-cs.de/assets/Manuals/PMA-KS5x-1-InterfaceDescription-Modbus-English-9499-040-63611.pdf
+  sha256: 5bc4ddf23de7146b631ad8642ba00b869c1aeacb4b9f0917472dfb3d6d0616cd
+  archive_url: https://web.archive.org/web/20231031051818/https://www.west-cs.de/assets/Manuals/PMA-KS5x-1-InterfaceDescription-Modbus-English-9499-040-63611.pdf
+- title: KS 50-1 Schnittstellenbeschreibung Modbus-Protokoll 9499-040-63618
+  version: gültig ab 02/2005
+  url: https://www.west-cs.de/assets/DE-Interface-Descriptions/PMA_KS50-1_KS52-1_Schnittstellenbeschreibung-Modbus_Deutsch_9499-040-63618.pdf
+  sha256: f3a265bb5999c8f185e6532ddcfed34a2acbc04740df75e73d4e363bc0f10b28
+  archive_url: https://web.archive.org/web/20221130001034/https://www.west-cs.de/assets/DE-Interface-Descriptions/PMA_KS50-1_KS52-1_Schnittstellenbeschreibung-Modbus_Deutsch_9499-040-63618.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  input_equals_holding: true
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Controller (Cntr), float area
+  - {key: x.process_value, label: In.1 process value, table: holding, address: 42972, type: f32, poll: fast, verified: false, note: 'Process value after correction and scaling, in the configured engineering unit (see x.unit).'}
+  - {key: x.effective_setpoint, label: SP.EF effective setpoint, table: holding, address: 42970, type: f32, poll: fast, verified: false}
+  - {key: x.output, label: Ypid output value, table: holding, address: 42974, type: f32, unit: '%', poll: fast, verified: false, note: -120…120 %; negative values are the cooling side of a heating/cooling controller.}
+  - {key: x.control_deviation, label: diFF control deviation, table: holding, address: 42976, type: f32, poll: fast, verified: false, note: Process value minus setpoint.}
+  - {key: x.actuator_position, label: POS position feedback, table: holding, address: 42978, type: f32, unit: '%', poll: fast, verified: false, note: Only for 3-point stepping controllers.}
+  - {key: x.controller_status, label: St.Cntr controller status, table: holding, address: 5100, type: u16, flags: controller_status, poll: fast}
+  - {key: state, label: St.Cntr operating state, table: holding, address: 5100, type: u16, bits: [12, 15], enum: operating_state, poll: fast}
+  - {key: x.tuning_status, label: St.Tune self-tuning status, table: holding, address: 5140, type: u16, flags: tuning_status, poll: slow}
+  - {key: x.tuning_result_heating, label: Msg1 self-tuning result heating, table: holding, address: 5144, type: u16, enum: tuning_result, poll: slow}
+  - {key: x.tuning_result_cooling, label: Msg2 self-tuning result cooling, table: holding, address: 5148, type: u16, enum: tuning_result, poll: slow}
+
+  # Inputs
+  - {key: x.input1_fault, label: Fail input 1 circuit fault, table: holding, address: 1171, type: u16, enum: input_fault, poll: fast}
+  - {key: x.input2, label: In.2 input 2 value, table: holding, address: 35308, type: f32, poll: fast, optional: true, verified: false}
+  - {key: x.input2_fault, label: Fail input 2 circuit fault, table: holding, address: 1271, type: u16, enum: input_fault, poll: fast, optional: true}
+  - {key: x.heating_current, label: HC heating current, table: holding, address: 36910, type: f32, unit: A, poll: fast, optional: true, verified: false, note: Measured through a separate current transformer.}
+  - {key: x.ssr_current, label: SSr current with SSR off, table: holding, address: 36912, type: f32, unit: A, poll: fast, optional: true, verified: false}
+  - {key: x.heating_current_status, label: St.HC heating current alarm status, table: holding, address: 2070, type: u16, poll: fast, optional: true, note: 0…3; the document gives no table for the values.}
+
+  # Limits, alarms, inputs and outputs
+  - {key: x.limit1_status, label: St.Lim limit 1 status, table: holding, address: 2170, type: u16, enum: limit_status, poll: fast}
+  - {key: x.limit2_status, label: St.Lim limit 2 status, table: holding, address: 2270, type: u16, enum: limit_status, poll: fast}
+  - {key: x.limit3_status, label: St.Lim limit 3 status, table: holding, address: 2370, type: u16, enum: limit_status, poll: fast}
+  - {key: x.alarm_status, label: St.Ala alarm status, table: holding, address: 250, type: u16, flags: alarm_status, poll: fast}
+  - {key: x.digital_outputs, label: St.Do digital outputs, table: holding, address: 251, type: u16, flags: digital_outputs, poll: fast}
+  - {key: x.analog_input_status, label: St.Ain analog input status, table: holding, address: 252, type: u16, flags: analog_input_status, poll: fast}
+  - {key: x.digital_inputs, label: St.Di digital inputs and keys, table: holding, address: 253, type: u16, flags: digital_inputs, poll: fast}
+
+  # Error list (othr)
+  - {key: x.err_internal, label: E.1 internal error, table: holding, address: 210, type: u16, enum: defect, poll: slow}
+  - {key: x.err_internal_resettable, label: E.2 internal error (resettable), table: holding, address: 211, type: u16, enum: stored, poll: slow}
+  - {key: x.err_break_inp1, label: FbF.1 sensor break INP1, table: holding, address: 212, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_short_inp1, label: Sht.1 short circuit INP1, table: holding, address: 213, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_polarity_inp1, label: POL.1 incorrect polarity INP1, table: holding, address: 214, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_break_inp2, label: FbF.2 sensor break INP2, table: holding, address: 215, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_short_inp2, label: Sht.2 short circuit INP2, table: holding, address: 216, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_polarity_inp2, label: POL.2 incorrect polarity INP2, table: holding, address: 217, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_heating_current, label: HCA heating current alarm, table: holding, address: 218, type: u16, enum: stored, poll: fast}
+  - {key: x.err_ssr, label: SSr SSR alarm, table: holding, address: 219, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_loop, label: LooP loop alarm, table: holding, address: 220, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_tuning_heating, label: AdA.H self-tuning error heating, table: holding, address: 221, type: u16, enum: tuning_error, poll: slow}
+  - {key: x.err_tuning_cooling, label: AdA.C self-tuning error cooling, table: holding, address: 222, type: u16, enum: tuning_error, poll: slow}
+  - {key: x.err_limit1, label: Lim.1 limit 1 exceeded, table: holding, address: 223, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_limit2, label: Lim.2 limit 2 exceeded, table: holding, address: 224, type: u16, enum: fault_3, poll: fast}
+  - {key: x.err_limit3, label: Lim.3 limit 3 exceeded, table: holding, address: 225, type: u16, enum: fault_3, poll: fast}
+  - {key: x.msg_operating_hours, label: InF.1 operating hours limit reached, table: holding, address: 226, type: u16, enum: message, poll: slow}
+  - {key: x.msg_switching_cycles, label: InF.2 switching cycles limit reached, table: holding, address: 227, type: u16, enum: message, poll: slow}
+  - {key: x.err_hardware, label: E.4 hardware error, table: holding, address: 228, type: u16, enum: stored, poll: slow}
+
+  # Programmer
+  - {key: x.program_status, label: St.Prog programmer status, table: holding, address: 6170, type: u16, flags: program_status, poll: slow}
+  - {key: x.program_segment_type, label: St.Prog segment type, table: holding, address: 6170, type: u16, bits: [0, 2], enum: segment_type, poll: slow}
+  - {key: x.program_setpoint, label: SP.Pr programmer setpoint, table: holding, address: 45110, type: f32, poll: slow, verified: false}
+  - {key: x.program_segment, label: SG.Pr segment number, table: holding, address: 6176, type: u16, poll: slow}
+
+  # Identity
+  - {key: x.hardware_options, label: Hw.Opt hardware options, table: holding, address: 200, type: u16, poll: slow, note: Bit-coded; this document gives no table (the Digital 280-1 document of the same family does).}
+  - {key: firmware, label: Sw.Op software version, table: holding, address: 201, type: u16, scale: 0.1, poll: slow, note: 'Major and minor release as one number, e.g. 21 = version 2.1.'}
+  - {key: x.operating_version, label: Bed.V operating version, table: holding, address: 202, type: u16, poll: slow}
+  - {key: x.device_code, label: Unit device identification, table: holding, address: 203, type: u16, poll: slow, note: The document doesn't list the values.}
+  - {key: x.sub_version, label: S.Vers software sub-version, table: holding, address: 204, type: u16, poll: slow}
+  - {key: x.ident, label: Uident device identification, table: holding, address: 910, type: str, length: 14, poll: slow, verified: false, note: '28 bytes: order number (bytes 1–15), ident number 1 (16–19), ident number 2 (20–21), OEM number (22–25), software order number (26–28). Character order within a register assumed big-endian.'}
+
+  # Setpoints and operation (writable)
+  - {key: x.setpoint, label: SP setpoint via interface, table: holding, address: 39128, type: f32, writable: true, write_multiple: true, min: -1999, max: 9999, poll: slow, verified: false, note: Written to RAM at once; the device stores it to EEPROM at most about every half hour.}
+  - {key: x.setpoint_shift, label: SP.d setpoint shift, table: holding, address: 39130, type: f32, writable: true, min: -1999, max: 9999, poll: slow, verified: false}
+  - {key: x.setpoint2, label: SP.2 second (safety) setpoint, table: holding, address: 38972, type: f32, writable: true, min: -1999, max: 9999, poll: slow, verified: false}
+  - {key: x.setpoint_min, label: SP.LO lower setpoint limit, table: holding, address: 38968, type: f32, writable: true, min: -1999, max: 9999, poll: slow, verified: false}
+  - {key: x.setpoint_max, label: SP.Hi upper setpoint limit, table: holding, address: 38970, type: f32, writable: true, min: -1999, max: 9999, poll: slow, verified: false}
+  - {key: x.setpoint_ramp, label: r.SP setpoint gradient, table: holding, address: 38974, type: f32, unit: /min, writable: true, min: 0.01, max: 9999, poll: slow, verified: false}
+  - {key: x.manual_output, label: Yman manual output value, table: holding, address: 43070, type: f32, unit: '%', writable: true, min: -110, max: 110, poll: slow, verified: false}
+  - {key: x.remote, label: L-R remote operation, table: holding, address: 1080, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.setpoint2_active, label: W_W2 second setpoint active, table: holding, address: 1081, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.external_setpoint_active, label: Wi_We external setpoint active, table: holding, address: 1082, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.manual_mode, label: A-M manual operation, table: holding, address: 1085, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.controller_off, label: C.Off controller outputs off, table: holding, address: 1086, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.error_reset, label: Err.r reset error list, table: holding, address: 1088, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.parameter_set2, label: Set1.2 parameter set 2, table: holding, address: 1091, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.program_run, label: Prg.R.S programmer run, table: holding, address: 1092, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.tuning_start, label: Ada.St start self-tuning, table: holding, address: 5150, type: u16, enum: start_stop, writable: true, poll: slow}
+
+  # Configuration (writable)
+  - {key: x.unit, label: Unit physical unit, table: holding, address: 170, type: u16, enum: unit, writable: true, poll: slow}
+  - {key: x.decimals, label: dP display decimals, table: holding, address: 171, type: u16, writable: true, min: 0, max: 3, poll: slow, note: Number of decimals on the display.}
+  - {key: x.control_function, label: C.Fnc control behaviour, table: holding, address: 5050, type: u16, enum: control_function, writable: true, poll: slow}
+  - {key: x.control_action, label: C.Act operating sense, table: holding, address: 5052, type: u16, enum: control_action, writable: true, poll: slow}
+  - {key: x.modbus_address, label: Addr bus address, table: holding, address: 181, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: bAud bit rate, table: holding, address: 180, type: u16, enum: baud, writable: true, poll: slow}
+  - {key: x.parity, label: PrtY parity, table: holding, address: 182, type: u16, enum: parity, writable: true, poll: slow}
+
+enums:
+  operating_state: {'0': Automatic, '1': Self-tuning running, '2': Self-tuning faulty (waiting for operator), '3': Sensor error, '5': Manual, '8': Manual with external output value, '9': Outputs switched off (neutral), '10': Self-tuning aborted}
+  tuning_result: {'0': No message / attempt running, '1': Successful, '2': Successful with warning (setpoint overshoot risk), '3': Process reacts in the wrong direction, '4': No response from the process, '5': Turning point too low, '6': 'Aborted, setpoint overshoot risk, no parameters', '7': Output step too small, '8': Waiting for setpoint reserve, '9': Impulse tuning failed}
+  tuning_error: {'0': No error, '3': Process reacts in the wrong direction, '4': No response from the process, '5': Turning point too low, '6': 'Aborted, setpoint overshoot risk', '7': Output step too small, '8': Setpoint reserve missing, '9': Impulse tuning failed}
+  input_fault: {'0': No error, '1': Sensor break, '2': Incorrect polarity, '4': Short circuit}
+  limit_status: {'0': No alarm, '1': Alarm stored, '2': Limit exceeded}
+  defect: {'0': No fault, '2': Device defective}
+  stored: {'0': No fault, '1': Fault occurred and stored}
+  fault_3: {'0': No fault, '1': Fault occurred and stored, '2': Fault present}
+  message: {'0': No message, '1': 'Limit reached, please acknowledge'}
+  segment_type: {'0': Rising, '1': Falling, '2': Hold}
+  off_on: {'0': 'Off', '1': 'On'}
+  start_stop: {'0': Stop, '1': Start}
+  unit: {'0': No unit, '1': °C, '2': °F}
+  control_function: {'0': On/off controller or signaller, '1': 'PID, one output', '2': Delta / star / off, '3': 2 × PID (heating / cooling), '4': 3-point stepping controller}
+  control_action: {'0': Inverse (e.g. heating), '1': Direct (e.g. cooling)}
+  baud: {'0': '2400', '1': '4800', '2': '9600', '3': '19200'}
+  parity: {'0': 'No parity, 2 stop bits', '1': Even, '2': Odd, '3': 'No parity, 1 stop bit'}
+
+flags:
+  controller_status: {'0': Switching signal heating on, '1': Switching signal cooling on, '2': Sensor error, '3': Manual, '4': Y2 active, '5': External output value active, '6': Controller off, '7': Parameter set 2 active, '8': Loop alarm, '9': Soft start active, '10': Setpoint ramp active}
+  tuning_status: {'0': Process lined out, '1': Self-tuning on, '2': Self-tuning result faulty}
+  alarm_status: {'0': Limit 1 present or stored, '1': Limit 2 present or stored, '2': Limit 3 present or stored, '4': Loop alarm present or stored, '5': Heating current alarm present or stored, '6': SSR alarm present or stored, '8': Limit 1 present, '9': Limit 2 present, '10': Limit 3 present, '12': Loop alarm present, '13': Heating current alarm present, '14': SSR alarm present}
+  digital_outputs: {'0': Output 1, '1': Output 2, '2': Output 3, '3': Output 4, '4': Output 5, '5': Output 6}
+  analog_input_status: {'0': Input 1 break, '1': Input 1 reversed polarity, '2': Input 1 short circuit, '4': Input 2 break, '5': Input 2 reversed polarity, '6': Input 2 short circuit}
+  digital_inputs: {'0': Input 1, '1': Input 2, '2': Input 3, '8': F key, '9': A/M key, '10': Sel key, '11': Down key, '12': Up key, '13': Loc key}
+  program_status: {'3': Program run, '4': Program end, '5': Program reset, '6': Start edge missing, '7': Band hold / fail hold, '8': Program active}
+
+problems:
+  - {when: {key: x.err_internal, equals: 2}, kind: fault, text: Device defective (Err 1)}
+  - {when: {key: x.err_internal_resettable, equals: 1}, kind: warning, text: Internal error stored (Err 2)}
+  - {when: {key: x.err_hardware, equals: 1}, kind: fault, text: 'Hardware error: code number and hardware don''t match (E.4)'}
+  - {when: {key: x.err_break_inp1, equals: 2}, kind: fault, text: Sensor break at INP1}
+  - {when: {key: x.err_break_inp1, equals: 1}, kind: warning, text: 'Sensor break at INP1 (stored, gone)'}
+  - {when: {key: x.err_short_inp1, equals: 2}, kind: fault, text: Short circuit at INP1}
+  - {when: {key: x.err_short_inp1, equals: 1}, kind: warning, text: Short circuit at INP1 (stored)}
+  - {when: {key: x.err_polarity_inp1, equals: 2}, kind: fault, text: Incorrect polarity at INP1}
+  - {when: {key: x.err_polarity_inp1, equals: 1}, kind: warning, text: Incorrect polarity at INP1 (stored)}
+  - {when: {key: x.err_break_inp2, equals: 2}, kind: fault, text: Sensor break at INP2}
+  - {when: {key: x.err_break_inp2, equals: 1}, kind: warning, text: 'Sensor break at INP2 (stored, gone)'}
+  - {when: {key: x.err_short_inp2, equals: 2}, kind: fault, text: Short circuit at INP2}
+  - {when: {key: x.err_short_inp2, equals: 1}, kind: warning, text: Short circuit at INP2 (stored)}
+  - {when: {key: x.err_polarity_inp2, equals: 2}, kind: fault, text: Incorrect polarity at INP2}
+  - {when: {key: x.err_polarity_inp2, equals: 1}, kind: warning, text: Incorrect polarity at INP2 (stored)}
+  - {when: {key: x.err_heating_current, equals: 1}, kind: fault, text: Heating current alarm}
+  - {when: {key: x.err_ssr, equals: 2}, kind: fault, text: SSR short circuit (current while output off)}
+  - {when: {key: x.err_ssr, equals: 1}, kind: warning, text: SSR short circuit (stored)}
+  - {when: {key: x.err_loop, equals: 2}, kind: fault, text: Control loop alarm}
+  - {when: {key: x.err_loop, equals: 1}, kind: warning, text: Control loop alarm (stored)}
+  - {when: {key: x.err_tuning_heating, not: 0}, kind: warning, text: 'Self-tuning heating failed ({text})'}
+  - {when: {key: x.err_tuning_cooling, not: 0}, kind: warning, text: 'Self-tuning cooling failed ({text})'}
+  - {when: {key: x.err_limit1, in: [1, 2]}, kind: warning, text: 'Limit 1 exceeded ({text})'}
+  - {when: {key: x.err_limit2, in: [1, 2]}, kind: warning, text: 'Limit 2 exceeded ({text})'}
+  - {when: {key: x.err_limit3, in: [1, 2]}, kind: warning, text: 'Limit 3 exceeded ({text})'}
+  - {when: {key: x.msg_operating_hours, equals: 1}, kind: warning, text: 'Maintenance: operating hours limit reached'}
+  - {when: {key: x.msg_switching_cycles, equals: 1}, kind: warning, text: 'Maintenance: switching cycles limit reached'}
+
+notes:
+- PMA Prozeß- und Maschinen-Automation GmbH; the documents are now hosted by West Control Solutions. The German document's
+  title also names the KS 52-1, but both documents describe only the KS 50-1 (operating version 4); their register tables
+  are identical.
+- Addresses are protocol addresses as the document gives them (its examples send the listed number unchanged). Function codes
+  3 and 4 read the same data; writes use 6 (integers) or 16 (floats and several values). A read that starts at an undefined
+  address fails; undefined addresses inside a read return -32500 (integer) or -1.5E37 (float).
+- 'Every value exists at several addresses: as an integer (base address), as an integer with 1, 2 or 3 decimals (base + 8192,
+  + 16384, + 24576) and as an IEEE float (32768 + 2 × base). Measured values and settings are taken here as floats, status
+  and enum values as plain integers. Integer special values: -31000 sensor fault, -32000 switched off, -32500 undefined, -32768
+  out of range.'
+- Big-endian byte order is stated; the order of the two registers of a float is not stated and assumed most significant first,
+  so the float points are unverified.
+- 'The unit of the process value, setpoints and limits follows the configured physical unit (x.unit: none, °C or °F) and the
+  input scaling; no unit is given for them here.'
+- The interface is RS-485 / RS-422, 2400–38400 Bd, even, odd or no parity, address 1–247. Default bit rate, parity and address
+  are not stated in the document; 9600 8N1 and address 1 are assumed. Port 502 is for a Modbus TCP gateway in front of it.
+  A message may be at most 256 bytes, so max_registers 125 is derived from that.
+- The device identifies itself only through Uident (an order number) and the Unit code, whose values the document doesn't
+  give, so there is no identify.
+- 'Left out: PID parameters (Pb, ti, td, cycle times), self-tuning results (Tu, Vmax, Kp), input configuration and scaling,
+  limit settings, logic input sources, output function assignments, forcing, programmer segments and times, boost / start-up
+  settings, Modbus master settings and the per-module duplicates of the process values (In.1 is also at 1172 and 232 as integers,
+  35112 and 33232 as floats).'

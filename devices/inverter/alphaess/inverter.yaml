@@ -1,0 +1,432 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the AlphaESS Handbuch Modbus RTU - Storion SMILE + T30 (V1.23).
+
+modbusspec: 0
+id: alphaess-inverter
+manufacturer: AlphaESS
+name: SMILE5, SMILE-B3, SMILE-T10 and Storion T30 storage systems
+kind: inverter
+
+sources:
+- title: Handbuch Modbus RTU - Storion SMILE + T30 (German)
+  version: V1.23
+  url: https://github.com/dxoverdy/Alpha2MQTT/blob/febfd78da85256ba3dd33e3dff873bb295e57d52/Pics/AlphaESS-Handbuch_SMILET30_ModBus_RTU_V123-DE.pdf
+  sha256: 3911c2b307bc4f1e78c621e0e47966332e60aa3ba2712985ca928b1cb2caa2b8
+- id: alphaess-modbus
+  title: ha-alphaess-modbus (Home Assistant integration)
+  url: https://github.com/senalse/ha-alphaess-modbus
+  license: MIT
+  commit: 3b944d6bbba8cae6ccc6f58ca99f2ec8a6e46563
+  path: custom_components/alphaess_modbus/const.py, custom_components/alphaess_modbus/sensor.py, custom_components/alphaess_modbus/__init__.py,
+    custom_components/alphaess_modbus/coordinator.py
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/alpha-ess-smile.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/alpha_ess/alpha_ess
+- id: solax-modbus
+  title: homeassistant-solax-modbus (Home Assistant integration)
+  url: https://github.com/wills106/homeassistant-solax-modbus
+  license: Apache-2.0
+  commit: d644181940210c4a00a6b4637888495c7a7d6217
+  path: custom_components/solax_modbus/plugin_alphaess.py
+
+connection:
+  default_port: 502
+  default_unit: 85
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    min_interval_ms: 300
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 1859
+    type: str
+    length: 8
+  any:
+  - table: holding
+    address: 1610
+    type: str
+    length: 15
+    prefix: SMILE-T10
+  - table: holding
+    address: 1610
+    type: str
+    length: 15
+    prefix: SMILE-M5
+  - table: holding
+    address: 1610
+    type: str
+    length: 15
+    prefix: SMILE-B3
+  - table: holding
+    address: 1610
+    type: str
+    length: 15
+    prefix: SMILE-S5
+  - table: holding
+    address: 1610
+    type: str
+    length: 15
+    prefix: STORION
+  - table: holding
+    address: 1610
+    type: str
+    length: 15
+    prefix: SMILE5
+  - table: holding
+    address: 1610
+    type: str
+    length: 15
+    prefix: ALD
+
+models:
+  - {id: alphaess_modbus_smile_t10, name: SMILE-T10, match: {table: holding, address: 1610, type: str, length: 15, prefix: SMILE-T10}}
+  - {id: alphaess_modbus_smile_m5, name: SMILE-M5, match: {table: holding, address: 1610, type: str, length: 15, prefix: SMILE-M5}}
+  - {id: alphaess_modbus_smile_b3, name: SMILE-B3, match: {table: holding, address: 1610, type: str, length: 15, prefix: SMILE-B3}}
+  - {id: alphaess_modbus_smile_s5, name: SMILE-S5, match: {table: holding, address: 1610, type: str, length: 15, prefix: SMILE-S5}}
+  - {id: alphaess_modbus_storion, name: STORION, match: {table: holding, address: 1610, type: str, length: 15, prefix: STORION}}
+  - {id: alphaess_modbus_smile5, name: SMILE5, match: {table: holding, address: 1610, type: str, length: 15, prefix: SMILE5}}
+  - {id: alphaess_modbus_ald, name: Alphastore, match: {table: holding, address: 1610, type: str, length: 15, prefix: ALD}}
+  - {id: openwb_kit_before_v1_23, name: AlphaESS kit with firmware before V1.23}
+  - {id: openwb_other, name: Other setups}
+  - {id: solax_modbus_gen, name: GEN (prefix XYZ*), match: {table: holding, address: 1610, type: str, length: 10, prefix: XYZ}}
+  - {id: solax_modbus_gen2_max_mppt5, name: GEN2 | MAX | MPPT5 (prefix ZYX*), match: {table: holding, address: 1610, type: str, length: 10, prefix: ZYX}}
+
+points:
+  # Grid meter
+  - {key: x.grid_ct_enable, label: Grid meter CT enable, table: holding, address: 0, type: u16, writable: true, poll: slow, conflicts: [{sources: [openwb], type: s32, unit: W, word_order: big, models: [openwb_kit_before_v1_23], label: Counter power L1 (part)}]}
+  - {key: x.grid_ct_rate, label: Grid meter CT rate, table: holding, address: 1, type: u16, writable: true, poll: slow}
+  - {key: grid_export_energy, label: Total energy feed to grid (grid meter), table: holding, address: 16, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_import_energy, label: Total energy consumed from grid (grid meter), table: holding, address: 18, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: l1_voltage, label: Voltage of A phase (grid), table: holding, address: 20, type: u16, unit: V, conflicts: [{sources: [alphaess-modbus], type: s16, label: Grid Voltage Phase A}]}
+  - {key: l2_voltage, label: Voltage of B phase (grid), table: holding, address: 21, type: u16, unit: V, conflicts: [{sources: [alphaess-modbus], type: s16, label: Grid Voltage Phase B}]}
+  - {key: l3_voltage, label: Voltage of C phase (grid), table: holding, address: 22, type: u16, unit: V, conflicts: [{sources: [alphaess-modbus], type: s16, label: Grid Voltage Phase C}]}
+  - {key: l1_current, label: Current of A phase (grid), table: holding, address: 23, type: s16, unit: A, scale: 0.1}
+  - {key: l2_current, label: Current of B phase (grid), table: holding, address: 24, type: s16, unit: A, scale: 0.1}
+  - {key: l3_current, label: Current of C phase (grid), table: holding, address: 25, type: s16, unit: A, scale: 0.1}
+  - {key: frequency, label: Frequency (grid), table: holding, address: 26, type: u16, unit: Hz, scale: 0.01}
+  - {key: x.power_phase_a_grid, label: Active power of A phase (grid), table: holding, address: 27, type: s32, unit: W, note: Sign not stated.}
+  - {key: x.power_phase_b_grid, label: Active power of B phase (grid), table: holding, address: 29, type: s32, unit: W, note: Sign not stated.}
+  - {key: x.power_phase_c_grid, label: Active power of C phase (grid), table: holding, address: 31, type: s32, unit: W, note: Sign not stated.}
+  - {key: grid_power, label: Total active power (grid meter), table: holding, address: 33, type: s32, unit: W, positive: import, verified: false, note: Not stated in the document; assumed positive = import.}
+  - {key: reactive_power, label: Total reactive power (grid), table: holding, address: 41, type: s32, unit: var}
+  - {key: apparent_power, label: Total apparent power (grid), table: holding, address: 49, type: s32, unit: VA}
+  - {key: power_factor, label: Total power factor (grid), table: holding, address: 54, type: s16, scale: 0.01}
+  # PV meter (AC-coupled PV inverter)
+  - {key: x.pv_ct_enable, label: PV meter CT enable, table: holding, address: 128, type: u16, writable: true, poll: slow}
+  - {key: x.ct_rate_pv_meter, label: PV meter CT rate, table: holding, address: 129, type: u16, writable: true, poll: slow}
+  - {key: x.total_energy_feed_to_grid_pv, label: Total energy feed to grid (PV meter), table: holding, address: 144, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.total_energy_consumed_from_grid_pv, label: Total energy consumed from grid (PV meter), table: holding, address: 146, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.active_power_pv_meter, label: Total active power (PV meter), table: holding, address: 161, type: s32, unit: W, note: Sign not stated.}
+  # Battery (HOME series)
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 256, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [alphaess-modbus, solax-modbus], type: s16, label: Battery Voltage}]}
+  - {key: x.battery_current, label: Battery current, table: holding, address: 257, type: s16, unit: A, scale: 0.1, note: Sign not stated.}
+  - {key: battery_soc, label: Battery SOC, table: holding, address: 258, type: u16, unit: '%', scale: 0.1, conflicts: [{sources: [alphaess-modbus, openwb], type: s16, label: Battery State of Charge}]}
+  - {key: x.battery_charge_flag, label: Battery status (charge), table: holding, address: 259, type: u16, bits: [8, 15], note: '0, 1 or 2; the document doesn''t name the values.'}
+  - {key: x.battery_discharge_flag, label: Battery status (discharge), table: holding, address: 259, type: u16, bits: [0, 7], note: 0 or 1; the document doesn't name the values.}
+  - {key: x.battery_relay_status, label: Battery relay status, table: holding, address: 260, type: u16, enum: relay_status}
+  - {key: x.battery_min_cell_voltage, label: Min cell voltage, table: holding, address: 263, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_max_cell_voltage, label: Max cell voltage, table: holding, address: 266, type: u16, unit: V, scale: 0.001}
+  - {key: x.battery_min_cell_temp, label: Min cell temperature, table: holding, address: 269, type: s16, unit: °C, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: u16, label: Battery Min Cell Temp}]}
+  - {key: battery_temperature, label: Max cell temperature, table: holding, address: 272, type: s16, unit: °C, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: u16, label: Battery Max Cell Temp}]}
+  - {key: x.battery_max_charge_current, label: Battery max charge current, table: holding, address: 273, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery_max_discharge_current, label: Battery max discharge current, table: holding, address: 274, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery_charge_cutoff_voltage, label: Battery charge cut-off voltage, table: holding, address: 275, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.battery_discharge_cutoff_voltage, label: Battery discharge cut-off voltage, table: holding, address: 276, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.bms_version, label: BMU software version, table: holding, address: 277, type: u16, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: BMS Version}]}
+  - {key: x.lmu_version, label: LMU software version, table: holding, address: 278, type: u16, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: LMU Version}]}
+  - {key: x.iso_version, label: ISO software version, table: holding, address: 279, type: u16, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: ISO Version}]}
+  - {key: x.battery_module_count, label: Battery module number, table: holding, address: 280, type: u16, poll: slow}
+  - {key: x.battery_capacity_kwh, label: Battery capacity, table: holding, address: 281, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_type, label: Battery type, table: holding, address: 282, type: u16, enum: battery_type, poll: slow}
+  - {key: battery_soh, label: Battery SOH, table: holding, address: 283, type: u16, unit: '%', scale: 0.1, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Battery State of Health}]}
+  - {key: x.battery_warning, label: Battery warning, table: holding, address: 284, type: u32, note: Marked reserved; bits not listed.}
+  - {key: x.battery_fault, label: Battery fault, table: holding, address: 286, type: u32, flags: battery_fault}
+  - {key: x.total_energy_charge_battery, label: Battery charge energy, table: holding, address: 288, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.total_energy_discharge_battery, label: Battery discharge energy, table: holding, address: 290, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.total_energy_charge_battery_from_grid, label: Battery energy charged from grid, table: holding, address: 292, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: battery_power, label: Battery power, table: holding, address: 294, type: s16, unit: W, positive: discharge}
+  - {key: x.battery_remaining_time, label: Battery remaining time, table: holding, address: 295, type: u16, unit: min, conflicts: [{sources: [alphaess-modbus], type: s16, label: Battery Remaining Time (raw)}]}
+  - {key: x.battery_charge_soc_range, label: Battery implementation charge SOC, table: holding, address: 296, type: u16, unit: '%', scale: 0.1, note: Rated SOC minus UPS SOC.}
+  - {key: x.battery_discharge_soc_range, label: Battery implementation discharge SOC, table: holding, address: 297, type: u16, unit: '%', scale: 0.1, note: Rated SOC minus UPS SOC.}
+  - {key: x.battery_remaining_charge_soc, label: Battery remaining charge SOC, table: holding, address: 298, type: u16, unit: '%', scale: 0.1, note: Rated SOC minus remaining SOC.}
+  - {key: x.battery_remaining_discharge_soc, label: Battery remaining discharge SOC, table: holding, address: 299, type: u16, unit: '%', scale: 0.1, note: Remaining SOC minus UPS SOC.}
+  - {key: x.battery_max_charge_power, label: Battery max charge power, table: holding, address: 300, type: u16, unit: W}
+  - {key: x.battery_max_discharge_power, label: Battery max discharge power, table: holding, address: 301, type: u16, unit: W}
+  - {key: x.battery_mos_control, label: Battery MOS control, table: holding, address: 302, type: u16, enum: mos_control, writable: true, poll: slow}
+  - {key: x.battery_soc_calibration, label: Battery SOC calibration, table: holding, address: 303, type: u16, enum: disable_enable}
+  - {key: x.battery_single_cut_error, label: Battery single cut error code, table: holding, address: 304, type: u16}
+  - {key: x.battery_1_fault, label: Battery fault 1, table: holding, address: 305, type: u32, note: Per battery module 1–6; bits not listed.}
+  - {key: x.battery_2_fault, label: Battery fault 2, table: holding, address: 307, type: u32}
+  - {key: x.battery_3_fault, label: Battery fault 3, table: holding, address: 309, type: u32}
+  - {key: x.battery_4_fault, label: Battery fault 4, table: holding, address: 311, type: u32}
+  - {key: x.battery_5_fault, label: Battery fault 5, table: holding, address: 313, type: u32}
+  - {key: x.battery_6_fault, label: Battery fault 6, table: holding, address: 315, type: u32}
+  - {key: x.battery_1_warning, label: Battery warning 1, table: holding, address: 317, type: u32, note: Per battery module 1–6; bits not listed.}
+  - {key: x.battery_2_warning, label: Battery warning 2, table: holding, address: 319, type: u32}
+  - {key: x.battery_3_warning, label: Battery warning 3, table: holding, address: 321, type: u32}
+  - {key: x.battery_4_warning, label: Battery warning 4, table: holding, address: 323, type: u32}
+  - {key: x.battery_5_warning, label: Battery warning 5, table: holding, address: 325, type: u32}
+  - {key: x.battery_6_warning, label: Battery warning 6, table: holding, address: 327, type: u32}
+  # Inverter (HOME series)
+  - {key: x.inverter_voltage_l1, label: Inverter voltage L1, table: holding, address: 1024, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_voltage_l2, label: Inverter voltage L2, table: holding, address: 1025, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_voltage_l3, label: Inverter voltage L3, table: holding, address: 1026, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_current_l1, label: Inverter current L1, table: holding, address: 1027, type: s16, unit: A, scale: 0.1}
+  - {key: x.inverter_current_l2, label: Inverter current L2, table: holding, address: 1028, type: s16, unit: A, scale: 0.1}
+  - {key: x.inverter_current_l3, label: Inverter current L3, table: holding, address: 1029, type: s16, unit: A, scale: 0.1}
+  - {key: x.power_inverter_l1, label: Inverter power L1, table: holding, address: 1030, type: s32, unit: W, note: Sign not stated.}
+  - {key: x.power_inverter_l2, label: Inverter power L2, table: holding, address: 1032, type: s32, unit: W, note: Sign not stated.}
+  - {key: x.power_inverter_l3, label: Inverter power L3, table: holding, address: 1034, type: s32, unit: W, note: Sign not stated.}
+  - {key: x.power_inverter, label: Inverter power total, table: holding, address: 1036, type: s32, unit: W, note: Sign not stated.}
+  - {key: x.backup_voltage_l1, label: Inverter backup voltage L1, table: holding, address: 1038, type: u16, unit: V, scale: 0.1}
+  - {key: x.backup_voltage_l2, label: Inverter backup voltage L2, table: holding, address: 1039, type: u16, unit: V, scale: 0.1}
+  - {key: x.backup_voltage_l3, label: Inverter backup voltage L3, table: holding, address: 1040, type: u16, unit: V, scale: 0.1}
+  - {key: x.backup_current_l1, label: Inverter backup current L1, table: holding, address: 1041, type: u16, unit: A, scale: 0.1}
+  - {key: x.backup_current_l2, label: Inverter backup current L2, table: holding, address: 1042, type: u16, unit: A, scale: 0.1}
+  - {key: x.backup_current_l3, label: Inverter backup current L3, table: holding, address: 1043, type: u16, unit: A, scale: 0.1}
+  - {key: x.backup_power_inverter_l1, label: Inverter backup power L1, table: holding, address: 1044, type: u32, unit: W, conflicts: [{sources: [alphaess-modbus], type: s32, label: Backup Inverter Power L1}]}
+  - {key: x.backup_power_inverter_l2, label: Inverter backup power L2, table: holding, address: 1046, type: u32, unit: W, conflicts: [{sources: [alphaess-modbus], type: s32, label: Backup Inverter Power L2}]}
+  - {key: x.backup_power_inverter_l3, label: Inverter backup power L3, table: holding, address: 1048, type: u32, unit: W, conflicts: [{sources: [alphaess-modbus], type: s32, label: Backup Inverter Power L3}]}
+  - {key: x.backup_power_inverter, label: Inverter backup power total, table: holding, address: 1050, type: u32, unit: W, conflicts: [{sources: [alphaess-modbus, solax-modbus], type: s32, label: Backup Inverter Power}]}
+  - {key: x.inverter_grid_frequency, label: Inverter grid frequency, table: holding, address: 1052, type: u16, unit: Hz, scale: 0.01, conflicts: [{sources: [alphaess-modbus], type: s16, label: Grid Frequency}]}
+  - {key: x.pv1_voltage, label: PV1 voltage, table: holding, address: 1053, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: s16, label: PV String 1 Voltage}]}
+  - {key: x.pv1_current, label: PV1 current, table: holding, address: 1054, type: u16, unit: A, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: s16, label: PV String 1 Current}]}
+  - {key: x.pv1_power, label: PV1 power, table: holding, address: 1055, type: u32, unit: W}
+  - {key: x.pv2_voltage, label: PV2 voltage, table: holding, address: 1057, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: s16, label: PV String 2 Voltage}]}
+  - {key: x.pv2_current, label: PV2 current, table: holding, address: 1058, type: u16, unit: A, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: s16, label: PV String 2 Current}]}
+  - {key: x.pv2_power, label: PV2 power, table: holding, address: 1059, type: u32, unit: W}
+  - {key: x.pv3_voltage, label: PV3 voltage, table: holding, address: 1061, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: s16, label: PV String 3 Voltage}]}
+  - {key: x.pv3_current, label: PV3 current, table: holding, address: 1062, type: u16, unit: A, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: s16, label: PV String 3 Current}]}
+  - {key: x.pv3_power, label: PV3 power, table: holding, address: 1063, type: u32, unit: W}
+  - {key: x.pv4_voltage, label: PV4 voltage, table: holding, address: 1065, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: s16, label: PV String 4 Voltage}]}
+  - {key: x.pv4_current, label: PV4 current, table: holding, address: 1066, type: u16, unit: A, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: s16, label: PV String 4 Current}]}
+  - {key: x.pv4_power, label: PV4 power, table: holding, address: 1067, type: u32, unit: W}
+  - {key: x.pv5_voltage, label: PV5 voltage, table: holding, address: 1069, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv5_current, label: PV5 current, table: holding, address: 1070, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv5_power, label: PV5 power, table: holding, address: 1071, type: u32, unit: W}
+  - {key: x.pv6_voltage, label: PV6 voltage, table: holding, address: 1073, type: u16, unit: V, scale: 0.1}
+  - {key: x.pv6_current, label: PV6 current, table: holding, address: 1074, type: u16, unit: A, scale: 0.1}
+  - {key: x.pv6_power, label: PV6 power, table: holding, address: 1075, type: u32, unit: W}
+  - {key: temperature, label: Inverter temperature, table: holding, address: 1077, type: u16, unit: °C, scale: 0.1, conflicts: [{sources: [alphaess-modbus], type: s16, label: Inverter Temperature}]}
+  - {key: x.inverter_warning_1, label: Inverter warning 1, table: holding, address: 1078, type: u32, note: Marked reserved; bits not listed.}
+  - {key: x.inverter_warning_2, label: Inverter warning 2, table: holding, address: 1080, type: u32, note: Marked reserved; bits not listed.}
+  - {key: x.inverter_fault_1, label: Inverter fault 1, table: holding, address: 1082, type: u32, note: Marked reserved; bits not listed.}
+  - {key: x.inverter_fault_2, label: Inverter fault 2, table: holding, address: 1084, type: u32, note: Marked reserved; bits not listed.}
+  - {key: pv_energy, label: Inverter total PV energy, table: holding, address: 1086, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: state, label: Inverter work mode, table: holding, address: 1088, type: u16, enum: work_mode, conflicts: [{sources: [alphaess-modbus], type: s16, label: Inverter Work Mode}]}
+  # Inverter information
+  - {key: x.inverter_version, label: Inverter master software version, table: holding, address: 1600, type: str, length: 5, poll: slow}
+  - {key: x.inverter_slave_version, label: Inverter slave software version, table: holding, address: 1605, type: str, length: 5, poll: slow}
+  - {key: x.inverter_serial, label: Inverter SN, table: holding, address: 1610, type: str, length: 10, poll: slow, conflicts: [{sources: [alphaess-modbus], length: 15, label: Inverter Serial Number}]}
+  # System information
+  - {key: x.system_time, label: System time, table: holding, address: 1856, type: datetime, length: 3, datetime: {year: {register: 0, bits: [8, 15], offset: 2000}, month: {register: 0, bits: [0, 7]}, day: {register: 1, bits: [8, 15]}, hour: {register: 1, bits: [0, 7]}, minute: {register: 2, bits: [8, 15]}, second: {register: 2, bits: [0, 7]}}, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], label: System Time}]}
+  - {key: serial, label: EMS SN, table: holding, address: 1859, type: str, length: 8, poll: slow}
+  - {key: x.ems_version_high, label: EMS version high, table: holding, address: 1867, type: u16, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: EMS Version High}]}
+  - {key: x.ems_version_middle, label: EMS version middle, table: holding, address: 1868, type: u16, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: EMS Version Middle}]}
+  - {key: x.ems_version_low, label: EMS version low, table: holding, address: 1869, type: u16, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: EMS Version Low}]}
+  # System configuration
+  - {key: x.max_feed_to_grid, label: Max feed into grid percent, table: holding, address: 2048, type: u16, unit: '%', writable: true, poll: slow}
+  - {key: x.pv_capacity_storage, label: PV capacity storage, table: holding, address: 2049, type: u32, unit: W, writable: true, poll: slow}
+  - {key: x.pv_capacity_grid_inverter, label: PV capacity of grid inverter, table: holding, address: 2051, type: u32, unit: W, writable: true, poll: slow}
+  - {key: x.system_mode, label: System mode, table: holding, address: 2053, type: u16, enum: system_mode, writable: true, poll: slow}
+  - {key: x.meter_ct_select, label: Meter CT select, table: holding, address: 2054, type: u16, enum: meter_ct_select, writable: true, poll: slow}
+  - {key: x.battery_ready, label: Battery ready, table: holding, address: 2055, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.ip_method, label: IP method, table: holding, address: 2056, type: u16, enum: ip_method, writable: true, poll: slow}
+  - {key: x.modbus_address, label: Modbus address, table: holding, address: 2063, type: u16, writable: true, poll: slow}
+  - {key: x.modbus_baud_rate, label: Modbus baud rate, table: holding, address: 2064, type: u16, enum: baud_rate, writable: true, poll: slow}
+  # Time control
+  - {key: x.time_period_control, label: Time period control flag, table: holding, address: 2127, type: u16, enum: time_period_control, writable: true, poll: slow}
+  - {key: x.ups_reserve_soc, label: UPS reserve SOC, table: holding, address: 2128, type: u16, unit: '%', scale: 0.1, writable: true, poll: slow, verified: false, note: The document gives 0.1 per step; unusual for a SOC setting., conflicts: [{sources: [alphaess-modbus], type: s16, scale: 1, label: Discharging Cutoff SoC}]}
+  - {key: x.discharging_period_1_start_hour, label: Time discharge start time 1, table: holding, address: 2129, type: u16, unit: h, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Discharging Period 1 Start Hour}]}
+  - {key: x.discharging_period_1_stop_hour, label: Time discharge stop time 1, table: holding, address: 2130, type: u16, unit: h, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Discharging Period 1 Stop Hour}]}
+  - {key: x.discharging_period_2_start_hour, label: Time discharge start time 2, table: holding, address: 2131, type: u16, unit: h, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Discharging Period 2 Start Hour}]}
+  - {key: x.discharging_period_2_stop_hour, label: Time discharge stop time 2, table: holding, address: 2132, type: u16, unit: h, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Discharging Period 2 Stop Hour}]}
+  - {key: x.charge_cut_soc, label: Charge cut SOC, table: holding, address: 2133, type: u16, unit: '%', scale: 0.1, writable: true, poll: slow, verified: false, note: The document gives 0.1 per step; unusual for a SOC setting., conflicts: [{sources: [evcc, openwb, solax-modbus], scale: 1, label: Battery mode control (write)}]}
+  - {key: x.charging_period_1_start_hour, label: Time charge start time 1, table: holding, address: 2134, type: u16, unit: h, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Charging Period 1 Start Hour}]}
+  - {key: x.charging_period_1_stop_hour, label: Time charge stop time 1, table: holding, address: 2135, type: u16, unit: h, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Charging Period 1 Stop Hour}]}
+  - {key: x.charging_period_2_start_hour, label: Time charge start time 2, table: holding, address: 2136, type: u16, unit: h, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Charging Period 2 Start Hour}]}
+  - {key: x.charging_period_2_stop_hour, label: Time charge stop time 2, table: holding, address: 2137, type: u16, unit: h, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Charging Period 2 Stop Hour}]}
+  # Dispatch (remote control)
+  - {key: x.dispatch_start, label: Dispatch start, table: holding, address: 2176, type: u16, enum: dispatch_start, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Dispatch Start}]}
+  - {key: x.dispatch_active_power, label: Dispatch active power, table: holding, address: 2177, type: s32, unit: W, offset: -32000, writable: true, poll: slow, note: 'Raw value minus 32000: negative = charge, positive = discharge.'}
+  - {key: x.dispatch_reactive_power, label: Dispatch reactive power, table: holding, address: 2179, type: s32, unit: var, offset: -32000, writable: true, poll: slow, note: Raw value minus 32000.}
+  - {key: x.dispatch_mode, label: Dispatch mode, table: holding, address: 2181, type: u16, enum: dispatch_mode, writable: true, poll: slow, conflicts: [{sources: [alphaess-modbus], type: s16, label: Dispatch Mode}]}
+  - {key: x.dispatch_soc, label: Dispatch SOC, table: holding, address: 2182, type: u16, unit: '%', scale: 0.4, writable: true, poll: slow, note: 0.4 % per step (95 = 38 %)., conflicts: [{sources: [alphaess-modbus], type: s16, scale: 0.392, label: Dispatch SoC}]}
+  - {key: x.dispatch_time, label: Dispatch time, table: holding, address: 2183, type: u32, unit: s, writable: true, poll: slow}
+  # AUX
+  - {key: x.ems_di0, label: 'EMS DI0 (EPO, battery MOS cut-off)', table: holding, address: 2240, type: u16}
+  # System operating data
+  - {key: x.pv_inverter_energy, label: PV inverter energy, table: holding, address: 2256, type: u32, unit: kWh, scale: 0.1, poll: slow, note: Presumably the AC-coupled PV inverter; not explained in the document.}
+  - {key: x.system_pv_energy, label: System total PV energy, table: holding, address: 2258, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.system_fault, label: System fault, table: holding, address: 2260, type: u32, flags: system_fault_al, note: 'The bit meanings depend on the EMS serial number: AL… systems use the table here; AE… systems use another one (see notes).'}
+  # Safety settings
+  - {key: x.grid_regulation, label: Grid regulation, table: holding, address: 4096, type: u16, enum: grid_regulation, writable: true, poll: slow, note: Codes of the AL column; the AE column is empty in the document., conflicts: [{sources: [alphaess-modbus], type: s16, label: Grid Regulation}]}
+  - {key: x.set_battery_power, label: Set battery power, table: holding, address: 4105, type: s16, unit: W, writable: true, poll: slow, note: Sign not stated.}
+  - {key: x.set_pv_power, label: Set PV power, table: holding, address: 4106, type: u16, writable: true, poll: slow, note: Unit not stated.}
+  # Battery (INDUSTRY series, Storion T30)
+  - {key: x.topbmu_serial, label: Topbmu SN, table: holding, address: 40960, type: u32, poll: slow, optional: true}
+  - {key: x.topbmu_software_version, label: Topbmu soft version, table: holding, address: 40962, type: u16, scale: 0.01, poll: slow, optional: true}
+  - {key: x.topbmu_max_charge_current, label: Topbmu max charge current, table: holding, address: 40965, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.topbmu_max_discharge_current, label: Topbmu max discharge current, table: holding, address: 40966, type: u16, unit: A, scale: 0.1, optional: true}
+  - {key: x.topbmu_charge_flag, label: Topbmu charge flag, table: holding, address: 40967, type: u16, bits: [0, 1], enum: topbmu_charge_flag, optional: true}
+  - {key: x.topbmu_discharge_flag, label: Topbmu discharge flag, table: holding, address: 40967, type: u16, bits: [2, 2], enum: allow, optional: true}
+  - {key: x.topbmu_soc_calibration, label: Topbmu SOC calibration mode, table: holding, address: 40967, type: u16, bits: [3, 3], optional: true}
+  - {key: x.topbmu_max_pole_temperature, label: Topbmu max pole temperature, table: holding, address: 40968, type: s16, unit: °C, scale: 0.1, offset: -40, optional: true}
+  - {key: x.topbmu_voltage, label: Topbmu voltage, table: holding, address: 40969, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.topbmu_current, label: Topbmu current, table: holding, address: 40970, type: s16, unit: A, scale: 0.1, optional: true, note: Sign not stated.}
+  - {key: x.topbmu_insulation_resistance, label: Topbmu insulated resistance, table: holding, address: 40971, type: u16, unit: kΩ, optional: true}
+  - {key: x.topbmu_soc, label: Topbmu SOC, table: holding, address: 40972, type: u16, unit: '%', scale: 0.4, optional: true}
+  - {key: x.topbmu_soh, label: Topbmu SOH, table: holding, address: 40973, type: u16, unit: '%', scale: 0.4, optional: true}
+  - {key: x.topbmu_min_cell_voltage, label: Topbmu min cell voltage, table: holding, address: 40974, type: u16, unit: V, scale: 0.001, optional: true}
+  - {key: x.topbmu_max_cell_voltage, label: Topbmu max cell voltage, table: holding, address: 40976, type: u16, unit: V, scale: 0.001, optional: true}
+  - {key: x.topbmu_min_cell_temperature, label: Topbmu min cell temperature, table: holding, address: 40978, type: s16, unit: °C, scale: 0.1, offset: -40, optional: true}
+  - {key: x.topbmu_max_cell_temperature, label: Topbmu max cell temperature, table: holding, address: 40980, type: s16, unit: °C, scale: 0.1, offset: -40, optional: true}
+  - {key: x.topbmu_clusters, label: Topbmu clusters number, table: holding, address: 40989, type: u16, poll: slow, optional: true}
+  - {key: x.counter_currents_l2, label: Counter power L2 (part), table: holding, address: 2, type: s32, unit: W, models: [openwb_kit_before_v1_23], note: A phase power; openWB divides it by 230 V for the phase current. openWB adds this register to others (some negated) for the counter current l2., verified: false, sources: [openwb]}
+  - {key: x.counter_currents_l3, label: Counter power L3 (part), table: holding, address: 4, type: s32, unit: W, models: [openwb_kit_before_v1_23], note: A phase power; openWB divides it by 230 V for the phase current. openWB adds this register to others (some negated) for the counter current l3., verified: false, sources: [openwb]}
+  - {key: x.counter_power_6, label: Counter power, table: holding, address: 6, type: s32, unit: W, models: [openwb_kit_before_v1_23], verified: false, sources: [openwb]}
+  - {key: x.counter_exported_energy_8, label: Counter exported energy, table: holding, address: 8, type: s32, unit: kWh, scale: 0.01, models: [openwb_kit_before_v1_23], verified: false, sources: [openwb]}
+  - {key: x.counter_imported_energy_10, label: Counter imported energy, table: holding, address: 10, type: s32, unit: kWh, scale: 0.01, models: [openwb_kit_before_v1_23], verified: false, sources: [openwb]}
+  - {key: x.battery_status, label: Battery Status, table: holding, address: 259, type: s16, enum: battery_status, verified: false, sources: [alphaess-modbus]}
+  - {key: x.pv_total_power_inverter_1107, label: PV Total Power (Inverter), table: holding, address: 1107, type: u32, unit: W, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ems_version_low_suffix, label: EMS Version Low Suffix, table: holding, address: 1871, type: str, length: 3, verified: false, sources: [alphaess-modbus]}
+  - {key: x.local_ip, label: Local IP, table: holding, address: 2057, type: u32, note: 'IPv4 address, first octet in the high byte.', verified: false, sources: [alphaess-modbus]}
+  - {key: x.subnet_mask, label: Subnet Mask, table: holding, address: 2059, type: u32, note: 'IPv4 mask, first octet in the high byte.', verified: false, sources: [alphaess-modbus]}
+  - {key: x.gateway, label: Gateway, table: holding, address: 2061, type: u32, note: 'IPv4 address, first octet in the high byte.', verified: false, sources: [alphaess-modbus]}
+  - {key: x.discharging_period_1_start_minute, label: Discharging Period 1 Start Minute, table: holding, address: 2138, type: s16, unit: min, writable: true, verified: false, sources: [alphaess-modbus], conflicts: [{sources: [solax-modbus], type: u16, models: [solax_modbus_gen]}]}
+  - {key: x.discharging_period_1_stop_minute, label: Discharging Period 1 Stop Minute, table: holding, address: 2139, type: s16, unit: min, writable: true, verified: false, sources: [alphaess-modbus], conflicts: [{sources: [solax-modbus], type: u16, models: [solax_modbus_gen]}]}
+  - {key: x.discharging_period_2_start_minute, label: Discharging Period 2 Start Minute, table: holding, address: 2140, type: s16, unit: min, writable: true, verified: false, sources: [alphaess-modbus], conflicts: [{sources: [solax-modbus], type: u16, models: [solax_modbus_gen]}]}
+  - {key: x.discharging_period_2_stop_minute, label: Discharging Period 2 Stop Minute, table: holding, address: 2141, type: s16, unit: min, writable: true, verified: false, sources: [alphaess-modbus], conflicts: [{sources: [solax-modbus], type: u16, models: [solax_modbus_gen]}]}
+  - {key: x.charging_period_1_start_minute, label: Charging Period 1 Start Minute, table: holding, address: 2142, type: s16, unit: min, writable: true, verified: false, sources: [alphaess-modbus], conflicts: [{sources: [solax-modbus], type: u16, models: [solax_modbus_gen]}]}
+  - {key: x.charging_period_1_stop_minute, label: Charging Period 1 Stop Minute, table: holding, address: 2143, type: s16, unit: min, writable: true, verified: false, sources: [alphaess-modbus], conflicts: [{sources: [solax-modbus], type: u16, models: [solax_modbus_gen]}]}
+  - {key: x.charging_period_2_start_minute, label: Charging Period 2 Start Minute, table: holding, address: 2144, type: s16, unit: min, writable: true, verified: false, sources: [alphaess-modbus], conflicts: [{sources: [solax-modbus], type: u16, models: [solax_modbus_gen]}]}
+  - {key: x.charging_period_2_stop_minute, label: Charging Period 2 Stop Minute, table: holding, address: 2145, type: s16, unit: min, writable: true, verified: false, sources: [alphaess-modbus], conflicts: [{sources: [solax-modbus], type: u16, models: [solax_modbus_gen]}]}
+  - {key: x.dispatch_energy_flow_direction, label: Dispatch Energy Flow Direction, table: holding, address: 2185, type: u16, enum: dispatch_energy_flow_direction, writable: true, note: The project always writes 255 here., verified: false, sources: [alphaess-modbus]}
+  - {key: x.dispatch_pv_switch, label: Dispatch PV Switch, table: holding, address: 2186, type: u16, writable: true, note: '1 = PV on, 2 = PV off, 0 = unchanged; only takes effect while a dispatch runs.', verified: false, sources: [alphaess-modbus]}
+  - {key: x.freq_dispatch_flag, label: Freq Dispatch Flag, table: holding, address: 2191, type: u16, verified: false, sources: [alphaess-modbus]}
+  - {key: x.freq_dispatch_power, label: Freq Dispatch Power, table: holding, address: 2192, type: s16, unit: W, verified: false, sources: [alphaess-modbus]}
+  - {key: x.freq_dispatch_frequency, label: Freq Dispatch Frequency, table: holding, address: 2193, type: u16, unit: Hz, scale: 0.01, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ovp_l1, label: Overvoltage Protection L1, table: holding, address: 4107, type: s16, unit: V, scale: 0.1, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ovp_l1_time, label: Overvoltage Protection L1 Time, table: holding, address: 4108, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ovp10, label: Overvoltage Protection 10min, table: holding, address: 4109, type: s16, unit: V, scale: 0.1, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ovp10_time, label: Overvoltage Protection 10min Time, table: holding, address: 4110, type: s16, unit: s, verified: false, sources: [alphaess-modbus]}
+  - {key: x.uvp_l1, label: Undervoltage Protection L1, table: holding, address: 4111, type: s16, unit: V, scale: 0.1, verified: false, sources: [alphaess-modbus]}
+  - {key: x.uvp_l1_time, label: Undervoltage Protection L1 Time, table: holding, address: 4112, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.uvp_l2, label: Undervoltage Protection L2, table: holding, address: 4113, type: s16, unit: V, scale: 0.1, verified: false, sources: [alphaess-modbus]}
+  - {key: x.uvp_l2_time, label: Undervoltage Protection L2 Time, table: holding, address: 4114, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ofp_l1, label: Overfrequency Protection L1, table: holding, address: 4115, type: s16, unit: Hz, scale: 0.01, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ofp_l1_time, label: Overfrequency Protection L1 Time, table: holding, address: 4116, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ofp_l2, label: Overfrequency Protection L2, table: holding, address: 4117, type: s16, unit: Hz, scale: 0.01, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ofp_l2_time, label: Overfrequency Protection L2 Time, table: holding, address: 4118, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ufp_l1, label: Underfrequency Protection L1, table: holding, address: 4119, type: s16, unit: Hz, scale: 0.01, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ufp_l1_time, label: Underfrequency Protection L1 Time, table: holding, address: 4120, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ufp_l2, label: Underfrequency Protection L2, table: holding, address: 4121, type: s16, unit: Hz, scale: 0.01, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ufp_l2_time, label: Underfrequency Protection L2 Time, table: holding, address: 4122, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ovp_l2, label: Overvoltage Protection L2, table: holding, address: 4123, type: s16, unit: V, scale: 0.1, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ovp_l2_time, label: Overvoltage Protection L2 Time, table: holding, address: 4124, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ovp_l3, label: Overvoltage Protection L3, table: holding, address: 4125, type: s16, unit: V, scale: 0.1, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ovp_l3_time, label: Overvoltage Protection L3 Time, table: holding, address: 4126, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.uvp_l3, label: Undervoltage Protection L3, table: holding, address: 4127, type: s16, unit: V, scale: 0.1, verified: false, sources: [alphaess-modbus]}
+  - {key: x.uvp_l3_time, label: Undervoltage Protection L3 Time, table: holding, address: 4128, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ofp_l3, label: Overfrequency Protection L3, table: holding, address: 4129, type: s16, unit: Hz, scale: 0.01, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ofp_l3_time, label: Overfrequency Protection L3 Time, table: holding, address: 4130, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ufp_l3, label: Underfrequency Protection L3, table: holding, address: 4131, type: s16, unit: Hz, scale: 0.01, verified: false, sources: [alphaess-modbus]}
+  - {key: x.ufp_l3_time, label: Underfrequency Protection L3 Time, table: holding, address: 4132, type: s16, unit: ms, verified: false, sources: [alphaess-modbus]}
+  - {key: x.reset_mode, label: Reset / restart, table: holding, address: 4352, type: u16, enum: reset_mode, writable: true, note: Command register (write only). Resetting the energy totals can't be undone., verified: false, sources: [alphaess-modbus]}
+
+derived:
+  - {key: pv_power, label: PV power (PV1–PV6), unit: W, sum: [{key: x.pv1_power}, {key: x.pv2_power}, {key: x.pv3_power}, {key: x.pv4_power}, {key: x.pv5_power}, {key: x.pv6_power}]}
+  - {key: x.pv_power, label: PV power, unit: W, sum: [{key: x.active_power_pv_meter}, {key: x.pv1_power}, {key: x.pv2_power}, {key: x.pv3_power}, {key: x.pv4_power}, {key: x.pv5_power}, {key: x.pv6_power}], verified: false, sources: [evcc]}
+
+enums:
+  relay_status: {'0': Charge and discharge relays open, '1': Only discharge relay closed, '2': Only charge relay closed, '3': Charge and discharge relays closed}
+  battery_type: {'2': M4860, '3': M48100, '13': 48112-P, '16': Smile5-BAT, '24': M4856-P, '33': Smile-BAT-5.8P}
+  mos_control: {'0': Open, '1': Close}
+  disable_enable: {'0': Disable, '1': Enable}
+  off_on: {'0': 'Off', '1': 'On'}
+  work_mode: {'0': Waiting, '1': Online, '2': UPS (backup), '3': Bypass, '4': Fault}
+  system_mode: {'1': AC mode, '2': DC mode, '3': Hybrid mode}
+  meter_ct_select: {'0': Grid and PV use CT, '1': 'Grid uses CT, PV uses meter', '2': 'Grid uses meter, PV uses CT', '3': Grid and PV use meter}
+  ip_method: {'0': DHCP, '1': Static}
+  baud_rate: {'0': '9600', '1': '115200', '2': '256000'}
+  time_period_control: {'0': Time period control off, '1': Charge time period control on, '2': Discharge time period control on, '3': Charge and discharge time period control on}
+  dispatch_start: {'0': Stop, '1': Start}
+  dispatch_mode: {'1': Charge battery from PV only, '2': SOC control, '3': Load following, '4': Maximize output, '5': Normal mode, '6': Optimize consumption, '7': Maximize consumption, '8': ECO mode, '9': FCAS mode, '10': PV power setting}
+  grid_regulation: {'0': VDE0126, '1': ARN4105/11.18, '2': AS4777.2, '3': G83_2, '4': C10/C11, '5': TOR Erzeuger, '6': EN50438_NL, '7': EN50438_DK, '8': CEB, '9': CEI-021, '10': NRS097-2-1, '11': EN50549-GR, '12': UTE_C15_712, '13': IEC61727, '14': G59_3, '15': RD1699, '16': G99, '18': Tahiti_60HZ, '19': AS4777.2-SA, '20': G98, '21': EN50549-CZ, '22': PEA, '23': MEA, '24': BISI, '25': JET-GR Series, '28': DEFAULT_50HZ, '29': DEFAULT_60HZ, '30': WAREHOUSE, '31': AS4777.2-NZ, '32': Korea, '33': G98/G99-IE, '34': EN50549-PL}
+  topbmu_charge_flag: {'0': Not allowed, '1': Allowed, '2': Forced charge}
+  allow: {'0': Not allowed, '1': Allowed}
+  dispatch_energy_flow_direction: {'0': Aging End, '1': PV to Grid, '2': PV to Battery, '3': Battery to Grid, '4': Grid to Battery, '5': Battery to Grid 2}
+  battery_status: {'0': Idle, '1': Discharging, '256': Charging, '257': Charging + Discharging, '512': Charging (mode 2), '513': Charging (mode 2) + Discharging}
+  reset_mode: {'1': Reset energy totals, '7': Restart PCS, '8': Restart EMS}
+
+flags:
+  battery_fault: {'2': Cell temperature difference, '3': Balancer fault, '4': Charge over current, '5': Balancer MOS fault, '6': Discharge over current, '7': Pole over temperature, '8': Cell over voltage, '9': Cell voltage difference, '10': Discharge low temperature, '11': Low voltage shutdown, '12': Cell low voltage, '13': ISO communication fault, '14': LMU serial number repeated, '15': BMU serial number repeated, '16': IR fault, '17': LMU communication fault, '18': Cell over temperature, '19': BMU communication fault, '20': Inverter communication fault, '21': Charge low temperature, '22': TOPBMU communication fault, '23': Voltage detection fault, '24': Wire harness fault, '25': Cluster cut fault, '26': Relay fault, '27': LMU ID repeated, '28': LMU ID discontinuous, '29': Current sensor fault, '31': Temperature sensor fault}
+  system_fault_al: {'0': Network card fault, '1': RTC fault, '2': EEPROM fault, '3': Inverter communication error, '4': Grid meter lost, '5': PV meter lost, '6': BMS lost, '7': UPS battery voltage low, '8': Backup overload, '9': Inverter slave lost, '10': Inverter master lost, '11': Parallel communication error, '12': Parallel mode differs}
+
+problems:
+  - {when: {key: state, equals: 4}, kind: fault, text: Inverter fault mode}
+  - {when: {key: state, equals: 2}, kind: backup_mode, text: Inverter in UPS (backup) mode}
+  - {when: {key: x.battery_fault, not: 0}, kind: fault, text: 'Battery fault (0x{value:X})'}
+  - {when: {key: x.inverter_fault_1, not: 0}, kind: fault, text: 'Inverter fault 1 (0x{value:X})'}
+  - {when: {key: x.inverter_fault_2, not: 0}, kind: fault, text: 'Inverter fault 2 (0x{value:X})'}
+  - {when: {key: x.inverter_warning_1, not: 0}, kind: warning, text: 'Inverter warning 1 (0x{value:X})'}
+  - {when: {key: x.inverter_warning_2, not: 0}, kind: warning, text: 'Inverter warning 2 (0x{value:X})'}
+  - {when: {key: x.system_fault, not: 0}, kind: warning, text: 'System fault (0x{value:X})'}
+
+notes:
+- 'Addresses are the document''s hexadecimal register addresses, which are already 0-based protocol addresses. All registers
+  are holding registers: read with function 03, written with 06 or 16.'
+- 'The document describes RS485 (Modbus RTU): 9600 baud 8N1 for SMILE5, SMILE-B3 and SMILE-T10, 19200 baud for the Storion
+  T30; the default unit id is 0x55 (85). The SMILE5 needs Modbus enabled on its display. Answers come within 300 ms; send
+  at most one request every 300 ms. TCP and port 502 are not part of the document.'
+- 'The document''s EMS SN example starts with "AL"; the system fault (0x08D4) and grid regulation (0x1000) tables have one
+  column for AL… and one for AE… serial numbers. The flags here are the AL column. For AE systems, bits 0–27 of the system
+  fault mean: inverter disconnected, grid meter disconnected, battery disconnected, system not set up, PV meter disconnected,
+  meter not set up, PV meter connected the wrong way round, SD card missing or write error, RTC error, SDRAM error, MMC error,
+  network card error, extension CAN error, DRED error, Android LCD disconnected, STS lost, STS fault, PV inverter lost, DG/PV
+  conflict, PV inverter fault, air conditioner fault, fire fault, fire controller error, GC fault, air conditioner lost, over
+  current, PCS mode fault, battery energy low.'
+- 'Battery status 0x0103: the high byte is the charge state (0–2), the low byte the discharge state (0–1); the document gives
+  no names for the values.'
+- 'Signs: only battery power (0x0126) states its direction (− = charge, + = discharge). Grid power (0x0021) is assumed positive
+  = import; the other power values are kept device-specific.'
+- 'Left out: per-phase reactive / apparent power and power factors of the grid meter, PV meter per-phase values, pack and
+  cell ID registers (0x0105 ff.), the AUX outputs, the safety-test protection limits (0x1001–0x101B), the ATE test block (0x1100
+  ff.: reset, serial / MAC write, CT calibration), network addresses, and the industrial-series fault counters and per-cluster
+  BMU data (0xA100 ff.).'
+- The Topbmu registers (0xA000 ff.) are for the industrial series (Storion T30); other systems may not answer them. Topbmu
+  temperatures are raw × 0.1 − 40 °C as the document states.
+- Models openwb_other, solax_modbus_gen, solax_modbus_gen2_max_mppt5 come from projects and are listed after a model without
+  a match, so detection never reaches them; their points apply only when a reader selects such a model by hand.
+- Identification as alphaess-modbus recognises the device (not checked against a document).
+- ha-alphaess-modbus names the model from the serial number's prefix; the models here only identify it. SMILE-B3 and B3-PLUS
+  use other scales for a few values (see the point notes); the project doesn't detect them, the user picks the variant.
+- 'Battery power control goes through the dispatch block 0x0880…0x088A: start, active power (s32, raw = W + 32000), reactive
+  power, mode, SoC (× 0.392 %), duration in seconds, flow direction, PV switch.'
+- 'evcc template `alpha-ess-smile` (grid, pv, battery) lists: Alpha ESS Storion SMILE.'
+- The models are openWB's settings for this device (which register map to read), not detected from the device.
+- 'Left out: ct_rate_grid_meter (holding 1, u16) from alphaess-modbus overlaps counter_currents_l1 (holding 0, s32); check
+  a document.'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

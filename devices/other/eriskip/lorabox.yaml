@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Eriskip Modbus map of the LoraBOX (version 1.42.6).
+
+modbusspec: 0
+id: eriskip-lorabox
+manufacturer: Eriskip
+name: LoraBOX LoRa gateway for gas detectors
+kind: other
+
+sources:
+- title: Приложение В. Карта Modbus LoraBOX (modbus-map-v-1-42-6)
+  version: 1.42.6
+  url: https://eriskip.com/uploads/files/ru/14/666/modbus-map-v-1-42-6.pdf
+  sha256: 34593e70985ae43bfd10f58d866f00c124816cc09483bd9740e7e42424a66623
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 0
+    type: u32
+
+points:
+  # Gateway (input registers, function 04)
+  - {key: serial, label: Factory number, table: input, address: 0, type: u32, poll: slow}
+  - {key: x.dev_eui, label: Radio module DevEUI, table: input, address: 2, type: u64, poll: slow, note: Four registers; written out as 16 hex digits (register 2 first) they give the DevEUI.}
+  - {key: x.rs485_settings, label: RS485 baud rate and address, table: input, address: 6, type: u32, poll: slow, verified: false, note: 'Baud rate 9600, 19200 or 38400; the layout of the two registers is not described.'}
+  - {key: x.modbus_address, label: Modbus address, table: input, address: 8, type: s16, poll: slow}
+  - {key: x.ip_1, label: 'LAN IP address, 1st octet', table: input, address: 9, type: s16, poll: slow}
+  - {key: x.ip_2, label: 'LAN IP address, 2nd octet', table: input, address: 10, type: s16, poll: slow}
+  - {key: x.ip_3, label: 'LAN IP address, 3rd octet', table: input, address: 11, type: s16, poll: slow}
+  - {key: x.ip_4, label: 'LAN IP address, 4th octet', table: input, address: 12, type: s16, poll: slow}
+  - {key: x.ip_prefix, label: LAN netmask prefix length, table: input, address: 13, type: s16, poll: slow, note: CIDR prefix (24 = 255.255.255.0); 0 usually means Ethernet is not connected.}
+  - {key: x.jwt_state, label: JWT token state, table: input, address: 14, type: s16, enum: jwt_state, poll: slow}
+  - {key: x.device_count, label: Devices in the system, table: input, address: 15, type: s16, poll: slow}
+  - {key: x.active_device_count, label: Devices online, table: input, address: 16, type: s16, poll: fast}
+  - {key: x.gateway_count, label: Gateway modules, table: input, address: 17, type: s16, poll: slow, note: 0 when the JWT token (register 14) is inactive.}
+  - {key: x.active_gateway_count, label: Active gateway modules, table: input, address: 18, type: s16, poll: slow, note: 0 when the JWT token (register 14) is inactive.}
+  - {key: x.free_space, label: Free storage, table: input, address: 19, type: u16, unit: MB, poll: slow}
+  - {key: x.sw_cert_version, label: Software release, table: input, address: 20, type: s16, poll: slow, note: 'Each decimal digit is one version part (20 = 2.0, 100 = 1.0.0).'}
+  - {key: x.device_build_version, label: Device version, table: input, address: 21, type: s16, poll: slow, note: Each decimal digit is one version part.}
+  - {key: firmware, label: Application version, table: input, address: 22, type: s16, poll: slow, note: 'Decimal digits: first digit, next two, the rest (1418 = 1.41.8).'}
+  - {key: x.supply_voltage, label: Supply (external or battery) voltage, table: input, address: 23, type: s16, unit: V, scale: 0.01, poll: fast}
+  - {key: temperature, label: Temperature inside the housing, table: input, address: 24, type: s16, unit: °C, scale: 0.01, poll: fast}
+  - {key: x.current_input, label: 4-20 mA input, table: input, address: 25, type: s16, unit: mA, scale: 0.01, poll: fast}
+  - {key: x.clock, label: LoraBOX time, table: input, address: 26, type: u32, epoch: {start: '1970-01-01', unit: s}, poll: slow}
+  # End device 0 (group of 50 input registers from 7000)
+  - {key: x.dev0_id, label: Device 0 module ID (factory number), table: input, address: 7000, type: u32, poll: slow, note: 'For ROSSMA and S-point devices the two registers hold a letter and the device''s Modbus id instead (shown in hex, e.g. R001, S001).'}
+  - {key: x.dev0_s1_gas, label: Device 0 sensor 1 gas type, table: input, address: 7002, type: str, length: 5, poll: slow}
+  - {key: x.dev0_s1_unit, label: Device 0 sensor 1 unit, table: input, address: 7007, type: s16, enum: measure_unit, poll: slow}
+  - {key: x.dev0_s1_current, label: Device 0 sensor 1 current, table: input, address: 7008, type: s16, unit: mA, scale: 0.01, poll: fast}
+  - {key: x.dev0_s1_value, label: Device 0 sensor 1 concentration / temperature, table: input, address: 7009, type: s16, scale: 0.1, poll: fast, note: Unit given by the sensor's unit register.}
+  - {key: x.dev0_s2_gas, label: Device 0 sensor 2 gas type, table: input, address: 7010, type: str, length: 5, poll: slow}
+  - {key: x.dev0_s2_unit, label: Device 0 sensor 2 unit, table: input, address: 7015, type: s16, enum: measure_unit, poll: slow}
+  - {key: x.dev0_s2_current, label: Device 0 sensor 2 current, table: input, address: 7016, type: s16, unit: mA, scale: 0.01, poll: fast}
+  - {key: x.dev0_s2_value, label: Device 0 sensor 2 concentration / temperature, table: input, address: 7017, type: s16, scale: 0.1, poll: fast, note: Unit given by the sensor's unit register.}
+  - {key: x.dev0_s3_gas, label: Device 0 sensor 3 gas type, table: input, address: 7018, type: str, length: 5, poll: slow}
+  - {key: x.dev0_s3_unit, label: Device 0 sensor 3 unit, table: input, address: 7023, type: s16, enum: measure_unit, poll: slow}
+  - {key: x.dev0_s3_current, label: Device 0 sensor 3 current, table: input, address: 7024, type: s16, unit: mA, scale: 0.01, poll: fast}
+  - {key: x.dev0_s3_value, label: Device 0 sensor 3 concentration / temperature, table: input, address: 7025, type: s16, scale: 0.1, poll: fast, note: Unit given by the sensor's unit register.}
+  - {key: x.dev0_s4_gas, label: Device 0 sensor 4 gas type, table: input, address: 7026, type: str, length: 5, poll: slow}
+  - {key: x.dev0_s4_unit, label: Device 0 sensor 4 unit, table: input, address: 7031, type: s16, enum: measure_unit, poll: slow}
+  - {key: x.dev0_s4_current, label: Device 0 sensor 4 current, table: input, address: 7032, type: s16, unit: mA, scale: 0.01, poll: fast}
+  - {key: x.dev0_s4_value, label: Device 0 sensor 4 concentration / temperature, table: input, address: 7033, type: s16, scale: 0.1, poll: fast, note: Unit given by the sensor's unit register.}
+  - {key: x.dev0_output_current, label: Device 0 output current setting, table: input, address: 7034, type: s16, unit: mA, scale: 0.01, poll: slow, verified: false, note: The map gives the factor as ×100 mA; read as mA × 100 like the other current registers (assumed).}
+  - {key: x.dev0_sensor_temperature, label: Device 0 sensor temperature, table: input, address: 7035, type: s16, unit: °C, scale: 0.1, poll: fast}
+  - {key: x.dev0_state, label: Device 0 overall state, table: input, address: 7036, type: u16, flags: dev_state, poll: fast}
+  - {key: x.dev0_sensor_state, label: Device 0 sensor state, table: input, address: 7037, type: u16, flags: sensor_state, poll: fast}
+  - {key: x.dev0_link_quality, label: Device 0 sensor link quality, table: input, address: 7038, type: s16, unit: '%', poll: fast}
+  - {key: x.dev0_battery, label: Device 0 battery charge, table: input, address: 7039, type: s16, unit: '%', scale: 0.01, poll: slow}
+  - {key: x.dev0_battery_voltage, label: Device 0 battery voltage, table: input, address: 7040, type: s16, unit: V, scale: 0.01, poll: slow}
+  - {key: x.dev0_since_contact, label: Device 0 seconds since last contact, table: input, address: 7041, type: s16, unit: s, poll: fast}
+  - {key: x.dev0_packet, label: Device 0 last packet ID, table: input, address: 7042, type: u32, poll: fast, note: The map types it int32.}
+  - {key: x.dev0_connection, label: Device 0 connection, table: input, address: 7044, type: s16, enum: connection, poll: fast}
+  - {key: x.dev0_rssi, label: Device 0 signal level, table: input, address: 7045, type: s16, unit: dBm, poll: fast}
+  - {key: x.dev0_threshold_1, label: Device 0 threshold 1, table: input, address: 7046, type: s16, poll: slow}
+  - {key: x.dev0_threshold_2, label: Device 0 threshold 2, table: input, address: 7047, type: s16, poll: slow}
+
+enums:
+  jwt_state: {'0': Inactive, '1': Active}
+  measure_unit: {'0': '% vol', '1': ppm, '2': ppb, '3': '% LEL', '10': °C}
+  connection: {'0': No connection, '1': Connected, '2': Standby}
+
+flags:
+  dev_state: {'1': Threshold 1, '2': Threshold 2, '3': Sensor missing or damaged, '4': No link to sensor, '5': Signal over range, '6': Module initialising, '7': Service mode, '8': Fault (sensor problem), '10': Module present, '11': Hall sensor stuck, '12': Powered from battery module, '13': External power, '15': Magnet present}
+  sensor_state: {'0': Initialising, '1': Measuring cycle running, '2': Service mode, '3': Faults present, '4': Signal over range, '5': No link to end device, '6': No link to temperature sensor, '7': No link to ADC, '12': No sensor connected or sensor damaged, '13': EEPROM problem}
+
+problems:
+  - {when: {key: x.dev0_state, bit: 1}, kind: warning, text: 'Device 0: gas threshold 1 exceeded (bit 1)'}
+  - {when: {key: x.dev0_state, bit: 2}, kind: warning, text: 'Device 0: gas threshold 2 exceeded (bit 2)'}
+  - {when: {key: x.dev0_state, bit: 3}, kind: fault, text: 'Device 0: sensor missing or damaged (bit 3)'}
+  - {when: {key: x.dev0_state, bit: 4}, kind: fault, text: 'Device 0: no link to sensor (bit 4)'}
+  - {when: {key: x.dev0_state, bit: 5}, kind: warning, text: 'Device 0: signal over range (bit 5)'}
+  - {when: {key: x.dev0_state, bit: 8}, kind: fault, text: 'Device 0: sensor fault (bit 8)'}
+  - {when: {key: x.dev0_state, bit: 11}, kind: warning, text: 'Device 0: Hall sensor stuck (bit 11)'}
+  - {when: {key: x.dev0_sensor_state, bit: 7}, kind: fault, text: 'Device 0: no link to ADC (bit 7)'}
+  - {when: {key: x.dev0_sensor_state, bit: 13}, kind: fault, text: 'Device 0: EEPROM problem (bit 13)'}
+  - {when: {key: x.dev0_connection, equals: 0}, kind: warning, text: 'Device 0: no connection'}
+
+notes:
+- The LoraBOX collects data from battery-powered gas detectors (end devices) over LoRa and serves it over Modbus. All registers
+  are input registers (function 04), read-only. Addresses are the map's decimal register numbers, taken as 0-based protocol
+  addresses.
+- From register 6 on, the map's hex address column repeats 0x0002… while the decimal column goes on 6, 7, 8…; the decimal
+  numbers are used here (they match the register count and the hex column of the device table).
+- 'End devices: 80 groups of 50 registers, group n starting at 7000 + 50·n. Only group 0 is listed; the other groups have
+  the same layout at their offset. Registers 7048 and 7049 of each group are reserved.'
+- 'Each end device has up to four sensors, 8 registers each: gas name as ASCII (5 registers, 10 characters), unit code, current
+  × 100 (mA) and concentration or temperature × 10.'
+- Bits of the overall state register start at bit 1 in the map; the numbering is taken as printed (bit 0 not described). Gas
+  threshold alarms are given as warnings.
+- 'Types are as the map gives them (int16 read as signed, Hi register first for 32-bit values). Transports, port, unit id
+  and serial settings are not stated in the map: Modbus TCP on 502 and unit 1 are assumed; the RS485 baud rate is 9600, 19200
+  or 38400 (register 6).'
+- 'Changes in 1.42.6: the RSSI (register 7045) is now given directly in dBm (negative), no longer as a percentage.'
+- The map gives no model or manufacturer register, so the gateway can't be told apart from other devices in a network search.

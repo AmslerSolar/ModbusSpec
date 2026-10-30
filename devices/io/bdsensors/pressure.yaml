@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the BD SENSORS DMP 331i / DMP 333i / LMP 331i RS 485 data sheet (DMPi-LMPi_RS485, 16.05.2024 / 23.08.2024),
+# the LMP 307i RS 485 data sheet (LMP307i-RS485_EN, 16.05.2024 / 23.08.2024) and the Pressure Transmitter DCT RS485
+# Modbus RTU / I2C operating manual (BA_DCT_i2C-RS485_E, 07.2021.0).
+
+modbusspec: 0
+id: bdsensors-pressure
+manufacturer: BD SENSORS
+name: Pressure transmitters with RS 485 Modbus RTU (DMP 331i, DMP 333i, LMP 331i, LMP 307i, DCT)
+kind: io
+
+sources:
+- title: DMP 331i / DMP 333i / LMP 331i – RS 485, Precision Pressure Transmitter / Screw-in Transmitter, data sheet (en_DMPi-LMPi_RS485_EN_01)
+  version: 16.05.2024 (issued 23.08.2024)
+  url: https://www.bdsensors.cz/content/products_files/70/en_DMPi-LMPi_RS485_EN_01.pdf
+  sha256: a90c02a8789f60bdd4caab327dacc7edd053b3bc380b59a33e9e5b7a909feeb3
+- title: LMP 307i – RS 485, Precision Stainless Steel Probe, data sheet (en_LMP307i_RS485_EN)
+  version: 16.05.2024 (issued 23.08.2024)
+  url: https://www.bdsensors.cz/content/products_files/49/en_LMP307i_RS485_EN.pdf
+  sha256: e6b930522e5ce82624153b5a406f28c48ec79ac8000d23d7d96a887c5284a049
+- title: Operating Manual Pressure Transmitter DCT with RS485 Modbus RTU Interface / I2C Interface (BA_DCT_i2C-RS485_E)
+  version: 07.2021.0
+  url: https://www.insatechmarine.com/media/0jtp0rxy/im_dct_rs485_bdsensors_e.pdf
+  sha256: 6bf865ae7ad78e1170649db1e66df21a11f9ba1da46d86e19c390a1b13e79493
+  archive_url: https://web.archive.org/web/20250710205039/https://www.insatechmarine.com/media/0jtp0rxy/im_dct_rs485_bdsensors_e.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 0
+    type: u32
+
+
+model_choice: user
+
+models:
+  - {id: dmp_i, name: 'DMP 331i, DMP 333i, LMP 331i, LMP 307i (RS 485 Modbus RTU, output code 2D)'}
+  - {id: dct531i, name: 'DCT 531i (RS485 Modbus RTU, with temperature channel)'}
+  - {id: dct, name: 'DCT 131, 132, 161, 162, 531, 531P, 532, 561, 562, 571 (RS485 Modbus RTU)'}
+
+points:
+  # Measurements (input registers, function 04)
+  - {key: x.pressure, label: Pressure (actual pressure), table: input, address: 8, type: f32, unit: bar, note: 'In the pressure unit set in holding register 0 (enum pressure_unit); bar is the document''s example and assumed here, the unit can''t be expressed per setting.', verified: false}
+  - {key: x.pressure_max, label: MaxPress (maximal pressure), table: input, address: 10, type: f32, unit: bar, poll: slow, note: Highest pressure since the last reset (holding register 0x12). Unit as for the pressure., verified: false}
+  - {key: x.pressure_min, label: MinPress (minimal pressure), table: input, address: 12, type: f32, unit: bar, poll: slow, note: Lowest pressure since the last reset (holding register 0x12). Unit as for the pressure., verified: false}
+  - {key: x.medium_temperature, label: Temperature (actual temperature), table: input, address: 18, type: f32, unit: °C, models: [dmp_i, dct531i], note: In the temperature unit set in holding register 1 (enum temperature_unit); °C is the document's example and assumed here., verified: false}
+  - {key: x.temperature_max, label: MaxTemp (maximal temperature), table: input, address: 20, type: f32, unit: °C, poll: slow, models: [dmp_i, dct531i], note: Unit as for the temperature., verified: false}
+  - {key: x.temperature_min, label: MinTemp (minimal temperature), table: input, address: 22, type: f32, unit: °C, poll: slow, models: [dmp_i, dct531i], note: Unit as for the temperature., verified: false}
+
+  # Identity and ranges
+  - {key: serial, label: SerialNr (serial number), table: input, address: 0, type: u32, poll: slow}
+  - {key: x.calibration_date, label: CalDate (date of last calibration), table: input, address: 2, type: datetime, length: 2, datetime: {year: {register: 0}, month: {register: 1, bits: [8, 15]}, day: {register: 1, bits: [0, 7]}}, poll: slow, note: 'Register 2 holds the year (0x07DE = 2014), register 3 month in the high byte and day in the low byte (0x051B = 27 May), as the document''s example shows.'}
+  - {key: x.pressure_range_upper, label: PressUpperRange (upper range of pressure channel), table: input, address: 4, type: f32, unit: bar, poll: slow, note: Unit as for the pressure., verified: false}
+  - {key: x.pressure_range_lower, label: PressLowerRange (lower range of pressure channel), table: input, address: 6, type: f32, unit: bar, poll: slow, note: Unit as for the pressure., verified: false}
+  - {key: x.temperature_range_upper, label: TempUpperRange (upper range of temperature channel), table: input, address: 14, type: f32, unit: °C, poll: slow, models: [dmp_i, dct531i], note: Unit as for the temperature., verified: false}
+  - {key: x.temperature_range_lower, label: TempLowerRange (lower range of temperature channel), table: input, address: 16, type: f32, unit: °C, poll: slow, models: [dmp_i, dct531i], note: Unit as for the temperature., verified: false}
+
+  # Settings (holding registers, function 03 to read, 06 to write)
+  - {key: x.pressure_unit, label: PressUnitsCode (unit of pressure channel), table: holding, address: 0, type: u16, enum: pressure_unit, writable: true, poll: slow}
+  - {key: x.temperature_unit, label: TempUnitsCode (unit of temperature channel), table: holding, address: 1, type: u16, enum: temperature_unit, writable: true, poll: slow, models: [dmp_i, dct531i]}
+  - {key: x.modbus_address, label: DeviceAddress (device address), table: holding, address: 2, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Takes effect after a power cycle.}
+  - {key: x.baud_rate, label: Baudrate (baud rate), table: holding, address: 3, type: u16, enum: baud_rate, writable: true, poll: slow, note: Takes effect after a power cycle.}
+  - {key: x.parity, label: Parity, table: holding, address: 4, type: u16, enum: parity, writable: true, poll: slow, note: Takes effect after a power cycle.}
+  - {key: x.pressure_zero, label: PressZero (value for zeroing the pressure), table: holding, address: 5, type: f32, unit: bar, writable: true, poll: slow, models: [dmp_i], note: Written in the set pressure unit; allowed within ±10 % of the span., verified: false}
+  - {key: x.temperature_zero, label: TempZero (value for zeroing the temperature), table: holding, address: 7, type: f32, unit: °C, writable: true, min: -10, max: 10, poll: slow, models: [dmp_i], note: Always in °C.}
+  - {key: x.pressure_damping, label: PressDamping (pressure damping), table: holding, address: 16, type: f32, unit: s, writable: true, poll: slow, models: [dmp_i]}
+  - {key: x.clear_min_max, label: ClearMinMaxValues (resetting of maximum and minimum values), table: holding, address: 18, type: u16, writable: true, poll: slow, models: [dmp_i], note: Writing 0 resets all minimum and maximum values.}
+  - {key: x.pressure_decimals, label: DecPointPosPressure (decimal point position for pressure register), table: holding, address: 20, type: u16, writable: true, poll: slow, models: [dmp_i]}
+  - {key: x.temperature_decimals, label: DecPointPosTemper (decimal point position for temperature register), table: holding, address: 21, type: u16, writable: true, poll: slow, models: [dmp_i]}
+  - {key: x.pressure_int, label: PressureInt (current measured pressure integer), table: holding, address: 25, type: s16, unit: bar, scale_exponent_from: {table: holding, address: 20, type: u16, negate: true}, models: [dmp_i], note: 'Integer copy of the pressure, divided by 10 to the power of holding register 0x14 (1234 with 2 decimals = 12.34). Unit as for the pressure.', verified: false}
+  - {key: x.temperature_int, label: TemperatureInt (current measured temperature), table: holding, address: 26, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 21, type: u16, negate: true}, models: [dmp_i], note: 'Integer copy of the temperature, divided by 10 to the power of holding register 0x15 (214 with 1 decimal = 21.4). Unit as for the temperature.', verified: false}
+
+enums:
+  pressure_unit: {'3': mmH2O (4 °C), '4': mmHg (0 °C), '5': psi, '6': bar, '7': mbar, '8': g/cm², '9': kg/cm², '10': Pa, '11': kPa, '12': torr, '13': atm, '14': mH2O (4 °C), '15': MPa}
+  temperature_unit: {'0': °C, '1': K, '2': °F}
+  baud_rate: {'2': '1200', '3': '2400', '4': '4800', '5': '9600', '6': '19200', '7': '38400'}
+  parity: {'0': None, '1': Odd, '2': Even}
+
+notes:
+- Addresses are the documents' hexadecimal register addresses, used as 0-based protocol addresses.
+- 'The DMP 331i / 333i / LMP 331i and LMP 307i data sheets give the same register map. The DCT manual gives the same input
+  registers 0x00 … 0x17 and holding registers 0x00 … 0x04 only; of the DCT types only the DCT 531i has the temperature channel.
+  The models can''t be told apart over Modbus: pick one.'
+- 'Defaults per the DMPi / LMPi data sheets: unit id 1, 9600 baud, 8 data bits, even parity, 1 stop bit. The DCT manual''s
+  factory table instead gives baud code 1 (9600) and parity code 1 (odd) in a separate 0-based code list; check the parity
+  on DCT devices. The DCT holding-register baud rate list only has 4800 … 38400.'
+- 'Floats are IEEE 754, most significant register first (the documents'' examples: 0x3F9E 0x0419 = 1.2345). Registers longer
+  than 16 bits must be read and written in one request, otherwise the device answers ''illegal data address''.'
+- Pressure and temperature units follow holding registers 0 and 1 and can't be expressed per setting; bar and °C (the documents'
+  examples) are assumed. The factory pressure unit depends on the order.
+- The devices also speak HART on the same line; the HART commands are not described here. The DCT manual allows 500 ms start-up
+  time after power-on.
+- The documents list no fault or status registers.
+- The same DCT register map is in icsschneider-idct (ICS Schneider Messtechnik's IDCT manual), with odd parity in its table
+  where BD SENSORS gives even.

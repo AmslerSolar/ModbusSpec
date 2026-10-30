@@ -1,0 +1,128 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From PRACHT's ALPHA XT(+), ALPHA MONO XT(+), PNI and ALPHA XT BUSINESS manuals, Modbus chapter (below).
+
+modbusspec: 0
+id: pracht-alpha
+manufacturer: PRACHT
+name: ALPHA XT(+) / ALPHA MONO XT(+) wallboxes (RS485), with PNI network interface or ALPHA XT BUSINESS (Modbus TCP)
+kind: charger
+
+sources:
+- title: ALPHA XT(+) Bedienungs- und Montageanleitung (NRG1002 / NRG1202 / NRG1012 / NRG1212)
+  version: v2.1.0 (März 2025)
+  url: https://www.prachtenergy.com/wp-content/uploads/PRACHT-ALPHA-Nr_NRG1002_NRG1012_DE_ma.pdf
+  sha256: a163c794b0e7f81b5cab4df39b2fb878ffb32d3eca0f9352d01cdc6d4c6390b4
+  archive_url: https://web.archive.org/web/20250429034754/https://www.prachtenergy.com/wp-content/uploads/PRACHT-ALPHA-Nr_NRG1002_NRG1012_DE_ma.pdf
+- title: ALPHA MONO XT(+) Bedienungs- und Montageanleitung (NRG1026 / NRG1032 / NRG1126 / NRG1132)
+  version: v2.1.0 (März 2025)
+  url: https://www.prachtenergy.com/wp-content/uploads/PRACHT-ALPHA-Nr_NRG1026_NRG1032_NRG1126_NRG1132_DE_ma.pdf
+  sha256: b56e652d739d5798b2f945e038759b5c9d69ef75b54cf57c71ee98d393691a86
+  archive_url: https://web.archive.org/web/20260610054800/https://www.prachtenergy.com/wp-content/uploads/PRACHT-ALPHA-Nr_NRG1026_NRG1032_NRG1126_NRG1132_DE_ma.pdf
+- title: PRACHT NETWORK INTERFACE Bedienungs- und Montageanleitung (NRG9008)
+  version: v2.1.0 (März 2025)
+  url: https://www.prachtenergy.com/wp-content/uploads/2023/02/PRACHT-ALPHA-Nr_NRG9008_DE_ma.pdf
+  sha256: e8210b0e1a8fb7648b6cc78272f82f2a0c921ccfe5778eb72d06b69f7b99b546
+- title: ALPHA XT BUSINESS Bedienungs- und Montageanleitung (NRG1027 / NRG1127)
+  version: v2.1.0 (März 2025)
+  url: https://www.prachtenergy.com/wp-content/uploads/PRACHT-ALPHA-Nr_NRG1027_DE_ma.pdf
+  sha256: e748a836f860722b1a7bcfb7359512881ae98f3bc7386a495085a93cbf3e8a41
+  archive_url: https://web.archive.org/web/20260610063411/https://www.prachtenergy.com/wp-content/uploads/PRACHT-ALPHA-Nr_NRG1027_DE_ma.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 106
+    type: u16
+    range:
+    - 0
+    - 4
+  # main board software version; a device answering 0 or FFFFh everywhere is not this one
+  - table: holding
+    address: 101
+    type: u16
+    not_in:
+    - 0
+    - 65535
+
+models:
+  - {id: tcp, name: With PNI network interface / ALPHA XT BUSINESS (Modbus TCP), match: {table: holding, address: 506, type: u16, in: [1, 2]}}
+  - {id: rtu, name: ALPHA XT(+) / ALPHA MONO XT(+) over RS485}
+
+points:
+  # Control board and RFID module (all models)
+  - {key: x.modbus_id, label: Modbus ID, table: holding, address: 0, type: u16, writable: true, poll: slow}
+  - {key: x.modbus_baud, label: Modbus Baudrate, table: holding, address: 1, type: u16, writable: true, poll: slow, note: 'In hundreds of baud: 96 = 9600.'}
+  - {key: x.max_current_total, label: max. Strom gesamt Grenze, table: holding, address: 2, type: u16, unit: A, writable: true, min: 6, max: 255, note: Limit for the whole box.}
+  - {key: x.max_current_ev1, label: max. Strom KFZ1 Grenze, table: holding, address: 3, type: u16, unit: A, writable: true, min: 6, max: 255}
+  - {key: x.max_current_ev2, label: max. Strom KFZ2 Grenze, table: holding, address: 4, type: u16, unit: A, writable: true, min: 6, max: 255}
+  - {key: x.allocated_current_ev1, label: zugeteilter Strom KFZ1, table: holding, address: 11, type: u16, unit: A}
+  - {key: x.allocated_current_ev2, label: zugeteilter Strom KFZ2, table: holding, address: 12, type: u16, unit: A}
+  - {key: x.led_mode, label: Steuerung der Status LEDs, table: holding, address: 30, type: u16, enum: led_mode, writable: true, poll: slow}
+  - {key: x.rfid_cards, label: angelernte RFID Karten (Anzahl), table: holding, address: 74, type: u16, poll: slow}
+  - {key: x.firmware_rfid, label: Software Version RFID-Modul, table: holding, address: 100, type: u16, poll: slow, note: 'Decimal: D5 → 5.'}
+  - {key: firmware, label: Software Version Hauptplatine, table: holding, address: 101, type: u16, poll: slow, note: 'Decimal: V20 → 20.'}
+  - {key: x.release, label: Freigabe-Register Ladepunkte, table: holding, address: 102, type: u16, enum: release_command, writable: true, note: Command register; the box locks again about 30 s after a release.}
+  - {key: temperature, label: Temperatur in der Box, table: holding, address: 103, type: u16, unit: °C, scale: 0.4244, offset: -30.5568, note: (raw − 72) × 0.4244.}
+  - {key: state, label: Status KFZ1, table: holding, address: 106, type: u16, enum: ev_state}
+  - {key: x.state_ev2, label: Status KFZ2, table: holding, address: 107, type: u16, enum: ev_state}
+  - {key: x.state_ev1_ext, label: Status KFZ1 extended, table: holding, address: 108, type: u16, enum: ev_state_ext}
+  - {key: x.state_ev2_ext, label: Status KFZ2 extended, table: holding, address: 109, type: u16, enum: ev_state_ext}
+  - {key: x.supply_current_jumper, label: eingestellter Ladestrom Zuleitung, table: holding, address: 114, type: u16, unit: A, poll: slow, note: Set by the jumper.}
+  - {key: x.supply_current_available, label: eingestellter Ladestrom Zuleitung nach Korrekturen, table: holding, address: 115, type: u16, unit: A, note: 'Available to all vehicles together, after temperature derating and settings.'}
+  - {key: x.lock_state, label: Sperrstatusanzeige, table: holding, address: 116, type: u16, flags: locked_points}
+  # PNI / ALPHA XT BUSINESS
+  - {key: x.charge_points, label: Anzahl der Ladepunkte, table: holding, address: 506, type: u16, models: [tcp], poll: slow}
+  - {key: l1_voltage, label: Spannung L1, table: holding, address: 1000, type: u32, unit: V, scale: 0.01, models: [tcp], verified: false, note: ALPHA XT BUSINESS meter only (not in the PNI manual). Word order of the two registers not stated; most significant first assumed.}
+  - {key: l2_voltage, label: Spannung L2, table: holding, address: 1002, type: u32, unit: V, scale: 0.01, models: [tcp], verified: false}
+  - {key: l3_voltage, label: Spannung L3, table: holding, address: 1004, type: u32, unit: V, scale: 0.01, models: [tcp], verified: false}
+  - {key: l1_current, label: Strom L1, table: holding, address: 1006, type: u32, unit: A, scale: 0.0001, models: [tcp], verified: false}
+  - {key: l2_current, label: Strom L2, table: holding, address: 1008, type: u32, unit: A, scale: 0.0001, models: [tcp], verified: false}
+  - {key: l3_current, label: Strom L3, table: holding, address: 1010, type: u32, unit: A, scale: 0.0001, models: [tcp], verified: false}
+  - {key: l1_power, label: Wirkleistung L1, table: holding, address: 1018, type: u32, unit: W, scale: 0.01, positive: consumption, models: [tcp], verified: false, note: 'Unsigned, so positive = consumption (derived).'}
+  - {key: l2_power, label: Wirkleistung L2, table: holding, address: 1020, type: u32, unit: W, scale: 0.01, positive: consumption, models: [tcp], verified: false}
+  - {key: l3_power, label: Wirkleistung L3, table: holding, address: 1022, type: u32, unit: W, scale: 0.01, positive: consumption, models: [tcp], verified: false}
+  - {key: consumer_energy, label: Zählerstand, table: holding, address: 1030, type: u32, unit: kWh, scale: 0.001, models: [tcp], poll: slow, verified: false, note: Wh.}
+
+enums:
+  led_mode: {'0': LEDs always on, '1': LEDs on when needed, '2': LEDs always off}
+  release_command: {'1': Release all, '2': Lock all, '11': Release charging point 1, '21': Lock charging point 1, '12': Release charging point 2, '22': Lock charging point 2}
+  ev_state: {'0': No vehicle connected, '1': Vehicle connected, '2': Vehicle charging, '3': 'Vehicle requests charging with ventilation, not possible', '4': CP line short circuit}
+  ev_state_ext: {'0': No vehicle connected, '1': 'Vehicle connected, charging point locked', '2': 'Vehicle connected, no charging request', '3': 'Vehicle requests charging, less than 6 A available', '4': Vehicle charging, '5': 'Vehicle requests charging with ventilation, not possible', '6': CP line short circuit, '7': Switched off by DC residual current, '8': DC residual current module fault, '9': Switched off after rapidly changing commands (clean the plug), '10': Switched off due to defective diode in the vehicle}
+
+flags:
+  locked_points: {'0': Charging point 1 locked, '1': Charging point 2 locked}
+
+problems:
+  - {when: {key: state, equals: 4}, kind: fault, text: CP line short circuit (charging point 1)}
+  - {when: {key: x.state_ev1_ext, equals: 7}, kind: fault, text: Charging point 1 switched off by DC residual current}
+  - {when: {key: x.state_ev1_ext, equals: 8}, kind: fault, text: DC residual current module fault}
+  - {when: {key: x.state_ev1_ext, equals: 9}, kind: fault, text: Charging point 1 switched off after rapidly changing commands (clean the plug)}
+  - {when: {key: x.state_ev1_ext, equals: 10}, kind: fault, text: 'Charging point 1 switched off: defective diode in the vehicle'}
+  - {when: {key: x.state_ev2_ext, equals: 6}, kind: fault, text: CP line short circuit (charging point 2)}
+  - {when: {key: x.state_ev2_ext, equals: 7}, kind: fault, text: Charging point 2 switched off by DC residual current}
+
+notes:
+- 'RS485: Modbus RTU, 9600 baud, 8N1, slave id 1, response within 2 s. With the PNI (NRG9008 / NRG9014) or on the ALPHA XT
+  BUSINESS, Modbus TCP on port 502 must first be enabled in the web interface (off by default); the manuals give no unit id
+  for TCP.'
+- The manuals list each register as a 0-based address and as a 40001-style reference (address 0 = 40001); the 0-based addresses
+  are used, all in the holding table.
+- Every register is UINT16 but carries 8-bit values; values written are limited to 0–255.
+- The ALPHA MONO XT(+) has one charging point; the KFZ2 registers then don't apply.
+- 'Left out: RFID card management (75–91), the PNI''s MAC address as single bytes (500–505) and its software version (507–509).'

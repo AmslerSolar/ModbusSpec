@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Belimo Modbus Protocol for C230-FR-VR-M, C24-FR-VA-M, C230-FA-VR-M (undated).
+
+modbusspec: 0
+id: belimo-c2-thermostat
+manufacturer: Belimo
+name: C2..-F..-V..-M fan-coil room thermostat
+kind: hvac
+
+sources:
+- title: Modbus Protocol for C230-FR-VR-M, C24-FR-VA-M, C230-FA-VR-M
+  version: undated
+  url: https://www.belimo.com/mam/general-documents/system_integration/Modbus/Modbus_Register-C2..-F..-V..-M.pdf
+  sha256: 72c91ad9e5fbbc023261c02509f31a0bad3835fc717e0bb9bd72c8b1f3561899
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+defaults:
+  verified: false
+
+model_choice: user
+
+models:
+  - {id: c230_fr_vr_m, name: 'C230-FR-VR-M (230 V, 3-speed fan, on/off valve)'}
+  - {id: c24_fr_va_m, name: 'C24-FR-VA-M (24 V, 3-speed fan)'}
+  - {id: c230_fa_vr_m, name: 'C230-FA-VR-M (230 V, modulating fan and valve)'}
+
+points:
+  # Coils (function 01)
+  - {key: x.fan_low, label: 'Fan status: low', table: coil, address: 1, type: bool, models: [c230_fr_vr_m, c24_fr_va_m]}
+  - {key: x.fan_medium, label: 'Fan status: medium', table: coil, address: 2, type: bool, models: [c230_fr_vr_m, c24_fr_va_m]}
+  - {key: x.fan_high, label: 'Fan status: high', table: coil, address: 3, type: bool, models: [c230_fr_vr_m, c24_fr_va_m]}
+  - {key: x.valve_on, label: Valve status, table: coil, address: 4, type: bool, models: [c230_fr_vr_m, c230_fa_vr_m]}
+
+  # Discrete input (function 02)
+  - {key: x.temperature_sensor, label: Temperature sensor, table: discrete, address: 1, type: bool, enum: temperature_sensor, poll: slow}
+
+  # Input registers (function 04)
+  - {key: x.room_temperature, label: Room temperature, table: input, address: 1, type: s16, unit: °C, scale: 0.1, note: Signedness not stated in the document; assumed signed.}
+  - {key: x.alarm, label: Alarm information, table: input, address: 3, type: u16, flags: alarm}
+
+  # Holding registers (function 03 / 06)
+  - {key: x.set_temperature, label: Set temperature, table: holding, address: 1, type: u16, unit: °C, scale: 0.1, writable: true, note: '0.5 °C steps between the minimum and maximum set temperature (21, 20). With key-card energy saving the energy-saving temperature is shown and can''t be changed.'}
+  - {key: state, label: Power on/off, table: holding, address: 2, type: u16, enum: power, writable: true, note: Only 0 and 1 can be written; 2 is read only.}
+  - {key: x.fan_speed, label: Set wind speed, table: holding, address: 3, type: u16, enum: fan_speed_3, writable: true, models: [c230_fr_vr_m, c24_fr_va_m]}
+  - {key: x.fan_speed_5, label: Set wind speed, table: holding, address: 3, type: u16, enum: fan_speed_5, writable: true, models: [c230_fa_vr_m]}
+  - {key: x.mode, label: Mode, table: holding, address: 4, type: u16, enum: mode, writable: true, note: 4 (auto) is read only.}
+  - {key: x.dry_contact, label: Dry contact input, table: holding, address: 5, type: u16, enum: occupancy}
+  - {key: x.key_lock, label: Key lock range, table: holding, address: 6, type: u16, writable: true, poll: slow, note: 'Sum of: 1 on/off key, 2 temperature adjustment, 4 fan speed, 8 mode (0 = no lock).'}
+  - {key: x.low_temp_protection, label: Low temperature protection enabled, table: holding, address: 17, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.low_temp_protection_temperature, label: Low temperature protection temperature, table: holding, address: 18, type: u16, unit: °C, scale: 0.1, writable: true, min: 0, max: 17, poll: slow}
+  - {key: x.max_set_temperature, label: Set maximum temperature value, table: holding, address: 20, type: u16, unit: °C, scale: 0.1, writable: true, min: 2, max: 90, poll: slow}
+  - {key: x.min_set_temperature, label: Set minimum temperature value, table: holding, address: 21, type: u16, unit: °C, scale: 0.1, writable: true, min: 0, max: 88, poll: slow}
+  - {key: x.hysteresis, label: Return difference setting, table: holding, address: 22, type: u16, unit: K, scale: 0.1, writable: true, min: 1, max: 5, poll: slow}
+  - {key: x.mode_settings, label: Mode settings, table: holding, address: 25, type: u16, enum: mode_settings, writable: true, poll: slow}
+  - {key: x.modbus_address, label: Address, table: holding, address: 30, type: u16, writable: true, min: 1, max: 64, poll: slow}
+  - {key: x.serial_config, label: Serial port configuration, table: holding, address: 31, type: u16, writable: true, poll: slow, note: 'Bits 0–3 baud rate (0 = 4800, 1 = 9600, 2 = 19200, 3 = 38400), bits 4–5 parity (0 none, 1 odd, 2 even). Default 0x01.'}
+  - {key: x.high_temperature_alarm_threshold, label: Indoor high temperature alarm threshold, table: holding, address: 33, type: u16, unit: °C, scale: 0.1, writable: true, min: 35, max: 90, poll: slow}
+  - {key: x.valve_opening, label: Valve opening, table: holding, address: 50, type: u16, unit: '%', models: [c230_fa_vr_m]}
+  - {key: x.fan_output_voltage, label: Fan output voltage, table: holding, address: 51, type: u16, unit: V, scale: 0.1, models: [c230_fa_vr_m]}
+
+enums:
+  temperature_sensor: {'0': Built-in sensor, '1': External sensor}
+  power: {'0': 'Off', '1': 'On', '2': Low temperature protection}
+  fan_speed_3: {'0': Automatic, '1': Low, '2': Medium, '3': High}
+  fan_speed_5: {'0': Automatic, '1': Ultra-low, '2': Low, '3': Medium, '4': High, '5': Ultra-high}
+  mode: {'1': Cooling, '2': Heating, '3': Ventilation, '4': Heating and cooling auto}
+  occupancy: {'0': Occupied, '1': Unoccupied}
+  on_off: {'0': Disabled, '1': Enabled}
+  mode_settings: {'0': Heating only, '1': Cooling only, '2': Heating and cooling (manual switching), '3': Heating and cooling (automatic switching)}
+
+flags:
+  alarm: {'0': Built-in sensor short circuit, '1': Built-in sensor open circuit, '2': Built-in sensor high temperature, '3': Built-in sensor low temperature, '4': External sensor short circuit, '5': External sensor open circuit, '6': External sensor high temperature, '7': External sensor low temperature}
+
+problems:
+  - {when: {key: x.alarm, bit: 0}, kind: fault, text: Built-in temperature sensor short circuit (bit 0)}
+  - {when: {key: x.alarm, bit: 1}, kind: fault, text: Built-in temperature sensor open circuit (bit 1)}
+  - {when: {key: x.alarm, bit: 2}, kind: warning, text: 'High room temperature, built-in sensor (bit 2)'}
+  - {when: {key: x.alarm, bit: 3}, kind: warning, text: 'Low room temperature, built-in sensor (bit 3)'}
+  - {when: {key: x.alarm, bit: 4}, kind: fault, text: External temperature sensor short circuit (bit 4)}
+  - {when: {key: x.alarm, bit: 5}, kind: fault, text: External temperature sensor open circuit (bit 5)}
+  - {when: {key: x.alarm, bit: 6}, kind: warning, text: 'High room temperature, external sensor (bit 6)'}
+  - {when: {key: x.alarm, bit: 7}, kind: warning, text: 'Low room temperature, external sensor (bit 7)'}
+
+notes:
+- The document numbers registers per function code starting at 1 and doesn't say whether that is the protocol address or a
+  1-based number; the numbers are taken as protocol addresses unchanged, so every point is unverified.
+- Serial default 9600 Bd, no parity (serial configuration register default 0x01); data and stop bits are not stated, 8N1 assumed.
+  Address 1–64, default 1. Port 502 is for a Modbus TCP gateway in front of it.
+- The models can't be told apart over Modbus. C230-FA-VR-M has the 5-step fan, valve opening and fan output voltage; the FR
+  models have the 3-speed fan status coils.
+- 'Left out: clock and timer settings (9–15), power-down memory, display, key card and occupancy settings (16, 19, 23, 24,
+  26–29, 32), energy-saving and sleep-mode settings (34–39), temperature display correction (8) and the C230-FA-VR-M control
+  parameters (40–49).'

@@ -1,0 +1,244 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SolarEdge Technical Note "SolarEdge Inverters - SunSpec Logging" (3.2, June 2025); the older
+# versions below agree on the meter registers.
+
+modbusspec: 0
+id: solaredge-meter
+manufacturer: SolarEdge
+name: Energy meter read through a SolarEdge inverter (SunSpec meter model, meter 1)
+kind: meter
+
+sources:
+- title: Technical Note – SolarEdge Inverters - SunSpec Logging
+  version: 3.2 (June 2025)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi/blob/2bffb6ad39897991cec037ed2240032e41fab6a3/doc/sunspec-implementation-technical-note.pdf
+  sha256: ee578cc770f381b58dc0de75a6b8696477c7827f7c5109e2ee71b98a1f57dc2d
+- title: Technical Note – SunSpec Logging in SolarEdge Inverters
+  version: 2.5 (November 2022)
+  url: https://www.solaredge.com/sites/default/files/sunspec-implementation-technical-note.pdf
+  sha256: a93afea72570ec36bf2f23474b17fecce2b5abb6520a8a7542e7420f470ddbe8
+  archive_url: https://web.archive.org/web/20221207064846/https://www.solaredge.com/sites/default/files/sunspec-implementation-technical-note.pdf
+- title: Technical Note – SunSpec Logging in SolarEdge Inverters
+  version: 2.4 (December 2021)
+  url: https://github.com/nmakel/solaredge_modbus/blob/fd3ce7ae32a259ee371c672dac3bcd75bfe51258/documents/sunspec-implementation-technical-note-v2.4.pdf
+  sha256: b37440a14b4d5465e4b3d8d97715bb67a23a2488e26e004df904ac818ff06b61
+- title: Technical Note – SunSpec Logging in SolarEdge Inverters
+  version: 2.0 (January 2019)
+  url: https://github.com/nmakel/solaredge_modbus/blob/fd3ce7ae32a259ee371c672dac3bcd75bfe51258/documents/sunspec-implementation-technical-note-v2.0.pdf
+  sha256: e05a14e4cb99b18503a7737bc801694f939a6fafb1316d873b7e1025e6483501
+- title: SunSpec Implementation Technical Note
+  version: January 2016
+  url: http://www.solaredge.com/files/pdfs/sunspec-implementation-technical-note.pdf
+  sha256: 24d1ed73d102cf28256cf59fbef2a4fa9641dccbb16c09077d847049ef63cd1b
+  archive_url: https://web.archive.org/web/20160310181811/http://www.solaredge.com/files/pdfs/sunspec-implementation-technical-note.pdf
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/solaredge/solaredge
+- id: solaredge-modbus-multi
+  title: solaredge-modbus-multi (Home Assistant integration)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi
+  license: Apache-2.0
+  commit: 2bffb6ad39897991cec037ed2240032e41fab6a3
+  path: custom_components/solaredge_modbus_multi/components.py, custom_components/solaredge_modbus_multi/const.py, custom_components/solaredge_modbus_multi/scanner.py,
+    custom_components/solaredge_modbus_multi/hub.py
+- id: solaredged
+  title: solaredged (Python library used by the Home Assistant core solaredge_modbus integration)
+  url: https://github.com/frenck/python-solaredged
+  license: MIT
+  commit: c80f8a8fa3e592e6bfa689063a4a372a5dd5cbea
+  path: src/solaredged/components.py, src/solaredged/const.py
+
+connection:
+  default_port: 1502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 115200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40171
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: SolarEdge
+  - table: holding
+    address: 40121
+    type: u16
+    equals: 1
+  - table: holding
+    address: 40122
+    type: u16
+    equals: 65
+  - table: holding
+    address: 40188
+    type: u16
+    in:
+    - 201
+    - 202
+    - 203
+    - 204
+
+sunspec: true
+
+models:
+  - {id: single_phase, name: 'Single phase meter (AN or AB, SunSpec model 201)', match: {table: holding, address: 40188, type: u16, equals: 201}}
+  - {id: split_phase, name: 'Split single phase meter (ABN, SunSpec model 202)', match: {table: holding, address: 40188, type: u16, equals: 202}}
+  - {id: wye, name: 'Wye-connected three phase meter (ABCN, SunSpec model 203)', match: {table: holding, address: 40188, type: u16, equals: 203}}
+  - {id: delta, name: 'Delta-connected three phase meter (ABC, SunSpec model 204)', match: {table: holding, address: 40188, type: u16, equals: 204}}
+  - {id: solaredge_modbus_multi_single_phase, name: Single phase meter, match: {table: holding, address: 40188, type: u16, equals: 201}}
+  - {id: solaredge_modbus_multi_split_phase, name: Split phase meter, match: {table: holding, address: 40188, type: u16, equals: 202}}
+  - {id: solaredge_modbus_multi_wye, name: Three phase wye meter, match: {table: holding, address: 40188, type: u16, equals: 203}}
+  - {id: solaredge_modbus_multi_delta, name: Three phase delta meter, match: {table: holding, address: 40188, type: u16, equals: 204}}
+  - {id: solaredged_single_phase, name: Single phase meter, match: {table: holding, address: 40188, type: u16, equals: 201}}
+  - {id: solaredged_split_phase, name: Split phase meter, match: {table: holding, address: 40188, type: u16, equals: 202}}
+  - {id: solaredged_wye, name: Three phase wye meter, match: {table: holding, address: 40188, type: u16, equals: 203}}
+  - {id: solaredged_delta, name: Three phase delta meter, match: {table: holding, address: 40188, type: u16, equals: 204}}
+
+points:
+  # Meter 1 common block
+  - {key: x.common_did, label: C_SunSpec_DID, table: holding, address: 40121, type: u16, poll: slow, note: 1 = common block.}
+  - {key: x.common_length, label: C_SunSpec_Length, table: holding, address: 40122, type: u16, poll: slow, note: 65 registers.}
+  - {key: x.manufacturer, label: C_Manufacturer, table: holding, address: 40123, type: str, length: 16, poll: slow}
+  - {key: x.model, label: C_Model, table: holding, address: 40139, type: str, length: 16, poll: slow}
+  - {key: x.options, label: C_Option, table: holding, address: 40155, type: str, length: 8, poll: slow, note: 'The meter''s function as set in the inverter menus: Export+Import, Production or Consumption.'}
+  - {key: firmware, label: C_Version, table: holding, address: 40163, type: str, length: 8, poll: slow}
+  - {key: serial, label: C_SerialNumber, table: holding, address: 40171, type: str, length: 16, poll: slow}
+  - {key: x.device_address, label: C_DeviceAddress, table: holding, address: 40187, type: u16, poll: slow, note: The inverter's Modbus id.}
+
+  # Meter model 201–204
+  - {key: x.meter_did, label: C_SunSpec_DID, table: holding, address: 40188, type: u16, enum: meter_did, poll: slow}
+  - {key: x.meter_length, label: C_SunSpec_Length, table: holding, address: 40189, type: u16, poll: slow}
+  - {key: x.ac_current, label: M_AC_Current, table: holding, address: 40190, type: s16, unit: A, scale_exponent_from: {table: holding, address: 40194, type: s16}, note: Sum of the active phases.}
+  - {key: l1_current, label: M_AC_Current_A, table: holding, address: 40191, type: s16, unit: A, scale_exponent_from: {table: holding, address: 40194, type: s16}}
+  - {key: l2_current, label: M_AC_Current_B, table: holding, address: 40192, type: s16, unit: A, scale_exponent_from: {table: holding, address: 40194, type: s16}}
+  - {key: l3_current, label: M_AC_Current_C, table: holding, address: 40193, type: s16, unit: A, scale_exponent_from: {table: holding, address: 40194, type: s16}}
+  - {key: x.ac_current_sf, label: M_AC_Current_SF, table: holding, address: 40194, type: s16}
+  - {key: x.ac_voltage_ln, label: M_AC_Voltage_LN, table: holding, address: 40195, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40203, type: s16}, note: Average of the active phases.}
+  - {key: l1_voltage, label: M_AC_Voltage_AN, table: holding, address: 40196, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40203, type: s16}}
+  - {key: l2_voltage, label: M_AC_Voltage_BN, table: holding, address: 40197, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40203, type: s16}}
+  - {key: l3_voltage, label: M_AC_Voltage_CN, table: holding, address: 40198, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40203, type: s16}}
+  - {key: x.ac_voltage_ll, label: M_AC_Voltage_LL, table: holding, address: 40199, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40203, type: s16}, note: The SolarEdge meter gives no line-to-line voltages over Modbus.}
+  - {key: x.ac_voltage_ab, label: M_AC_Voltage_AB, table: holding, address: 40200, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40203, type: s16}, note: Not from the SolarEdge meter.}
+  - {key: x.ac_voltage_bc, label: M_AC_Voltage_BC, table: holding, address: 40201, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40203, type: s16}, note: Not from the SolarEdge meter.}
+  - {key: x.ac_voltage_ca, label: M_AC_Voltage_CA, table: holding, address: 40202, type: s16, unit: V, scale_exponent_from: {table: holding, address: 40203, type: s16}, note: Not from the SolarEdge meter.}
+  - {key: x.ac_voltage_sf, label: M_AC_Voltage_SF, table: holding, address: 40203, type: s16}
+  - {key: frequency, label: M_AC_Freq, table: holding, address: 40204, type: s16, unit: Hz, scale_exponent_from: {table: holding, address: 40205, type: s16}}
+  - {key: x.ac_frequency_sf, label: M_AC_Freq_SF, table: holding, address: 40205, type: s16}
+  - {key: grid_power, label: M_AC_Power, table: holding, address: 40206, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40210, type: s16}, positive: export, verified: false, note: Sum of the active phases. Grid power only when the meter is at the grid connection (C_Option Export+Import). The document only says signs follow IEEE 1459-2000 and states no direction; + = export is assumed.}
+  - {key: l1_power, label: M_AC_Power_A, table: holding, address: 40207, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40210, type: s16}, positive: export, verified: false, note: Sign as M_AC_Power (assumed).}
+  - {key: l2_power, label: M_AC_Power_B, table: holding, address: 40208, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40210, type: s16}, positive: export, verified: false, note: Sign as M_AC_Power (assumed).}
+  - {key: l3_power, label: M_AC_Power_C, table: holding, address: 40209, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40210, type: s16}, positive: export, verified: false, note: Sign as M_AC_Power (assumed).}
+  - {key: x.ac_power_sf, label: M_AC_Power_SF, table: holding, address: 40210, type: s16}
+  - {key: apparent_power, label: M_AC_VA, table: holding, address: 40211, type: s16, unit: VA, scale_exponent_from: {table: holding, address: 40215, type: s16}}
+  - {key: x.ac_va_sf, label: M_AC_VA_SF, table: holding, address: 40215, type: s16}
+  - {key: reactive_power, label: M_AC_VAR, table: holding, address: 40216, type: s16, unit: var, scale_exponent_from: {table: holding, address: 40220, type: s16}}
+  - {key: x.ac_var_sf, label: M_AC_VAR_SF, table: holding, address: 40220, type: s16}
+  - {key: x.power_factor_pct, label: M_AC_PF, table: holding, address: 40221, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40225, type: s16}, note: Average of the active phases.}
+  - {key: x.ac_pf_sf, label: M_AC_PF_SF, table: holding, address: 40225, type: s16}
+  - {key: grid_export_energy, label: M_Exported, table: holding, address: 40226, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40242, type: s16}, invalid: [0], poll: slow, note: Total exported real energy (Wh). Unsupported counters may read 0.}
+  - {key: x.exported_energy_l1, label: M_Exported_A, table: holding, address: 40228, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40242, type: s16}, invalid: [0], poll: slow}
+  - {key: x.exported_energy_l2, label: M_Exported_B, table: holding, address: 40230, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40242, type: s16}, invalid: [0], poll: slow}
+  - {key: x.exported_energy_l3, label: M_Exported_C, table: holding, address: 40232, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40242, type: s16}, invalid: [0], poll: slow}
+  - {key: grid_import_energy, label: M_Imported, table: holding, address: 40234, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40242, type: s16}, invalid: [0], poll: slow, note: Total imported real energy (Wh).}
+  - {key: x.imported_energy_l1, label: M_Imported_A, table: holding, address: 40236, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40242, type: s16}, invalid: [0], poll: slow}
+  - {key: x.imported_energy_l2, label: M_Imported_B, table: holding, address: 40238, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40242, type: s16}, invalid: [0], poll: slow}
+  - {key: x.imported_energy_l3, label: M_Imported_C, table: holding, address: 40240, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40242, type: s16}, invalid: [0], poll: slow}
+  - {key: x.energy_sf, label: M_Energy_W_SF, table: holding, address: 40242, type: s16}
+  - {key: x.events, label: M_Events, table: holding, address: 40293, type: u32, flags: meter_events}
+  - {key: x.ac_va_a, label: AC_VA_A, table: holding, address: 40212, type: s16, unit: VA, scale_exponent_from: {table: holding, address: 40215, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40215)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.ac_va_b, label: AC_VA_B, table: holding, address: 40213, type: s16, unit: VA, scale_exponent_from: {table: holding, address: 40215, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40215)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.ac_va_c, label: AC_VA_C, table: holding, address: 40214, type: s16, unit: VA, scale_exponent_from: {table: holding, address: 40215, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40215)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.ac_var_a, label: AC_var_A, table: holding, address: 40217, type: s16, unit: var, scale_exponent_from: {table: holding, address: 40220, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40220)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.ac_var_b, label: AC_var_B, table: holding, address: 40218, type: s16, unit: var, scale_exponent_from: {table: holding, address: 40220, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40220)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.ac_var_c, label: AC_var_C, table: holding, address: 40219, type: s16, unit: var, scale_exponent_from: {table: holding, address: 40220, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40220)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.ac_pf_a, label: AC_PF_A, table: holding, address: 40222, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40225, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40225)., verified: false, sources: [solaredge-modbus-multi, solaredged], conflicts: [{sources: [openwb], scale: 0.01, label: Counter power factor L1}]}
+  - {key: x.ac_pf_b, label: AC_PF_B, table: holding, address: 40223, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40225, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40225)., verified: false, sources: [solaredge-modbus-multi, solaredged], conflicts: [{sources: [openwb], scale: 0.01, label: Counter power factor L2}]}
+  - {key: x.ac_pf_c, label: AC_PF_C, table: holding, address: 40224, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40225, type: s16}, invalid: [-32768], note: Scaled by 10^(value at 40225)., verified: false, sources: [solaredge-modbus-multi, solaredged], conflicts: [{sources: [openwb], scale: 0.01, label: Counter power factor L3}]}
+  - {key: x.m_vah_exported, label: M_VAh_Exported, table: holding, address: 40243, type: u32, unit: VAh, scale_exponent_from: {table: holding, address: 40259, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40259)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.m_vah_exported_a, label: M_VAh_Exported_A, table: holding, address: 40245, type: u32, unit: VAh, scale_exponent_from: {table: holding, address: 40259, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40259)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_vah_exported_b, label: M_VAh_Exported_B, table: holding, address: 40247, type: u32, unit: VAh, scale_exponent_from: {table: holding, address: 40259, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40259)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_vah_exported_c, label: M_VAh_Exported_C, table: holding, address: 40249, type: u32, unit: VAh, scale_exponent_from: {table: holding, address: 40259, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40259)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_vah_imported, label: M_VAh_Imported, table: holding, address: 40251, type: u32, unit: VAh, scale_exponent_from: {table: holding, address: 40259, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40259)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.m_vah_imported_a, label: M_VAh_Imported_A, table: holding, address: 40253, type: u32, unit: VAh, scale_exponent_from: {table: holding, address: 40259, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40259)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_vah_imported_b, label: M_VAh_Imported_B, table: holding, address: 40255, type: u32, unit: VAh, scale_exponent_from: {table: holding, address: 40259, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40259)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_vah_imported_c, label: M_VAh_Imported_C, table: holding, address: 40257, type: u32, unit: VAh, scale_exponent_from: {table: holding, address: 40259, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40259)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_vah_sf, label: M_VAh_SF, table: holding, address: 40259, type: s16, invalid: [-32768], verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_import_q1, label: M_varh_Import_Q1, table: holding, address: 40260, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.m_varh_import_q1_a, label: M_varh_Import_Q1_A, table: holding, address: 40262, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_import_q1_b, label: M_varh_Import_Q1_B, table: holding, address: 40264, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_import_q1_c, label: M_varh_Import_Q1_C, table: holding, address: 40266, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_import_q2, label: M_varh_Import_Q2, table: holding, address: 40268, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.m_varh_import_q2_a, label: M_varh_Import_Q2_A, table: holding, address: 40270, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_import_q2_b, label: M_varh_Import_Q2_B, table: holding, address: 40272, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_import_q2_c, label: M_varh_Import_Q2_C, table: holding, address: 40274, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_export_q3, label: M_varh_Export_Q3, table: holding, address: 40276, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.m_varh_export_q3_a, label: M_varh_Export_Q3_A, table: holding, address: 40278, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_export_q3_b, label: M_varh_Export_Q3_B, table: holding, address: 40280, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_export_q3_c, label: M_varh_Export_Q3_C, table: holding, address: 40282, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_export_q4, label: M_varh_Export_Q4, table: holding, address: 40284, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi, solaredged]}
+  - {key: x.m_varh_export_q4_a, label: M_varh_Export_Q4_A, table: holding, address: 40286, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_export_q4_b, label: M_varh_Export_Q4_B, table: holding, address: 40288, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_export_q4_c, label: M_varh_Export_Q4_C, table: holding, address: 40290, type: u32, unit: varh, scale_exponent_from: {table: holding, address: 40292, type: s16}, invalid: [0, 4294967295], note: Scaled by 10^(value at 40292)., verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.m_varh_sf, label: M_varh_SF, table: holding, address: 40292, type: s16, invalid: [-32768], verified: false, sources: [solaredge-modbus-multi]}
+
+enums:
+  meter_did: {'201': Single phase (AN or AB), '202': Split single phase (ABN), '203': Wye three phase (ABCN), '204': Delta three phase (ABC)}
+
+flags:
+  meter_events: {'2': Power failure (loss of power or phase), '3': Under voltage (phase loss), '4': Low power factor (possibly mixed-up voltage and current inputs), '5': Over current (out of measuring range), '6': Over voltage (out of measuring range), '7': Missing sensor}
+
+problems:
+  - {when: {key: x.events, bit: 2}, kind: warning, text: 'Meter: loss of power or phase (bit 2)'}
+  - {when: {key: x.events, bit: 3}, kind: warning, text: 'Meter: voltage below threshold, phase loss (bit 3)'}
+  - {when: {key: x.events, bit: 4}, kind: warning, text: 'Meter: power factor below threshold, check CT and voltage wiring (bit 4)'}
+  - {when: {key: x.events, bit: 5}, kind: warning, text: 'Meter: current out of measuring range (bit 5)'}
+  - {when: {key: x.events, bit: 6}, kind: warning, text: 'Meter: voltage out of measuring range (bit 6)'}
+  - {when: {key: x.events, bit: 7}, kind: warning, text: 'Meter: sensor not connected (bit 7)'}
+
+notes:
+- Meters are read through the inverter, at the inverter's unit id and port (see solaredge-inverter). Addresses are the document's
+  base-0 protocol addresses (base-1 PLC addresses are one higher).
+- The addresses here are meter 1 (from 40121). Meter 2 starts 174 registers higher (40295), meter 3 348 higher (40469). On
+  three-phase Synergy inverters with the multiple-MPPT model, add 50 (2 units) or 70 (3 units) to every meter address.
+- 'Only enabled meters are readable and they fill the slots in order: with meters 1 and 3 enabled, meter 3 reads as the second
+  meter. C_Option tells the meter''s function.'
+- 'Values with a SunSpec scale factor: real value = raw × 10^(scale factor register).'
+- 'Left out: per-phase apparent / reactive power and power factor (40212–40214, 40217–40219, 40222–40224), apparent energy
+  (40243–40259) and the four reactive energy quadrants (40260–40292).'
+- 'M_Events: the document lists bits 2–7; bits 8–15 are reserved and the upper bits are for OEMs.'
+- The meter 2 table in document 3.2 repeats meter 1's energy addresses; the 174-register offset is taken instead.
+- openWB reads meter 1 at these addresses; meter 2 and 3 are 174 and 348 registers later, and inverters with Synergy technology
+  move them by another 50 (2 units) or 70 (3 units), detected from holding 40121 = 160 and the unit count in holding 40129.
+- Meters are read through the inverter, at the inverter's unit id. The addresses here are meter 1; meter 2 is 174 registers
+  higher (40295…), meter 3 348 higher (40469…).
+- 'With the multiple-MPPT model at 40121 (see solaredge-inverter) every meter block moves up by 10 + 20 × modules registers:
+  50 with 2 modules, 70 with 3.'
+- A meter is present when its common block reads 1 at the DID register (40121) and 65 at the length (40122), or when its model
+  register (40188) reads 201–204.
+- Kept apart from solaredge-inverter because up to three meters sit at different offsets and the first one shares its addresses
+  with the inverter's multiple-MPPT model.
+- Identification as solaredge-modbus-multi recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

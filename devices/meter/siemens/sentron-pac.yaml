@@ -1,0 +1,181 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Siemens SENTRON PAC3200 Power Monitoring Device Manual (A5E01168664B-04, 02/2008), section 3.9.
+
+modbusspec: 0
+id: siemens-sentron-pac
+manufacturer: Siemens
+name: SENTRON PAC3200 power monitoring device
+kind: meter
+
+sources:
+- title: SENTRON PAC3200 Power Monitoring Device, Manual (A5E01168664B-04)
+  version: 02/2008
+  url: https://cache.industry.siemens.com/dl/files/150/26504150/att_906558/v1/A5E01168664B-04_EN-US_122016_201612221316360495.pdf
+  sha256: b9efef1f28f8588d3f9b9ba04754e4914850fb0ec74373955d199d8f6b3de187
+  archive_url: https://web.archive.org/web/20261015221331/https://cache.industry.siemens.com/dl/files/150/26504150/att_906558/v1/A5E01168664B-04_EN-US_122016_201612221316360495.pdf
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/siemens/siemens_sentron
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 19200
+  limits:
+    max_gap: 0
+  input_equals_holding: true
+  blocks:
+  # I&M 0: only readable as a whole
+  - table: holding
+    address: 64001
+    count: 27
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 64012
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 64001
+    type: u16
+    equals: 42
+  - table: holding
+    address: 64002
+    type: str
+    length: 10
+    prefix: 7KM211
+
+points:
+  - {key: l1_voltage, label: Voltage Va-n, table: input, address: 1, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage Vb-n, table: input, address: 3, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage Vc-n, table: input, address: 5, type: f32, unit: V}
+  - {key: x.l1_l2_voltage, label: Voltage Va-b, table: input, address: 7, type: f32, unit: V}
+  - {key: x.l2_l3_voltage, label: Voltage Vb-c, table: input, address: 9, type: f32, unit: V}
+  - {key: x.l3_l1_voltage, label: Voltage Vc-a, table: input, address: 11, type: f32, unit: V}
+  - {key: l1_current, label: Current a, table: input, address: 13, type: f32, unit: A}
+  - {key: l2_current, label: Current b, table: input, address: 15, type: f32, unit: A}
+  - {key: l3_current, label: Current c, table: input, address: 17, type: f32, unit: A}
+  - {key: x.l1_apparent_power, label: Apparent Power a, table: input, address: 19, type: f32, unit: VA}
+  - {key: x.l2_apparent_power, label: Apparent Power b, table: input, address: 21, type: f32, unit: VA}
+  - {key: x.l3_apparent_power, label: Apparent Power c, table: input, address: 23, type: f32, unit: VA}
+  - {key: l1_power, label: Active Power a, table: input, address: 25, type: f32, unit: W, positive: import, verified: false, note: Sign not stated in the register table; assumed as for the total active power.}
+  - {key: l2_power, label: Active Power b, table: input, address: 27, type: f32, unit: W, positive: import, verified: false, note: Sign not stated in the register table; assumed as for the total active power.}
+  - {key: l3_power, label: Active Power c, table: input, address: 29, type: f32, unit: W, positive: import, verified: false, note: Sign not stated in the register table; assumed as for the total active power.}
+  - {key: x.l1_reactive_power, label: Reactive Power a, table: input, address: 31, type: f32, unit: var}
+  - {key: x.l2_reactive_power, label: Reactive Power b, table: input, address: 33, type: f32, unit: var}
+  - {key: x.l3_reactive_power, label: Reactive Power c, table: input, address: 35, type: f32, unit: var}
+  - {key: x.l1_power_factor, label: Power Factor a, table: input, address: 37, type: f32, note: 0 … 1 (unsigned).}
+  - {key: x.l2_power_factor, label: Power Factor b, table: input, address: 39, type: f32, note: 0 … 1 (unsigned).}
+  - {key: x.l3_power_factor, label: Power Factor c, table: input, address: 41, type: f32, note: 0 … 1 (unsigned).}
+  - {key: x.l1_voltage_thd, label: THD-R Voltage a, table: input, address: 43, type: f32, unit: '%'}
+  - {key: x.l2_voltage_thd, label: THD-R Voltage b, table: input, address: 45, type: f32, unit: '%'}
+  - {key: x.l3_voltage_thd, label: THD-R Voltage c, table: input, address: 47, type: f32, unit: '%'}
+  - {key: x.l1_current_thd, label: THD-R Current a, table: input, address: 49, type: f32, unit: '%'}
+  - {key: x.l2_current_thd, label: THD-R Current b, table: input, address: 51, type: f32, unit: '%'}
+  - {key: x.l3_current_thd, label: THD-R Current c, table: input, address: 53, type: f32, unit: '%'}
+  - {key: frequency, label: Frequency, table: input, address: 55, type: f32, unit: Hz}
+  - {key: x.voltage_ln_average, label: Average Voltage Vph-n, table: input, address: 57, type: f32, unit: V}
+  - {key: x.voltage_ll_average, label: Average Voltage Vph-ph, table: input, address: 59, type: f32, unit: V}
+  - {key: x.current_average, label: Average Current, table: input, address: 61, type: f32, unit: A}
+  - {key: apparent_power, label: Total Apparent Power, table: input, address: 63, type: f32, unit: VA}
+  - {key: grid_power, label: Total Active Power, table: input, address: 65, type: f32, unit: W, positive: import, verified: false, note: 'The register table gives no sign. The manual marks active energy import with "+" and export with "−" on the display, so positive = drawn from the grid is assumed.'}
+  - {key: reactive_power, label: Total Reactive Power, table: input, address: 67, type: f32, unit: var}
+  - {key: power_factor, label: Total Power Factor, table: input, address: 69, type: f32}
+  - {key: x.voltage_unbalance, label: Amplitude Unbalance - Voltage, table: input, address: 71, type: f32, unit: '%'}
+  - {key: x.current_unbalance, label: Amplitude Unbalance - Current, table: input, address: 73, type: f32, unit: '%'}
+  - {key: x.limit_violations, label: Limit Violations, table: input, address: 203, type: u32, flags: limits, poll: slow}
+  - {key: x.device_status, label: Device Diagnostics and Device Status, table: input, address: 205, type: u32, flags: device_status, poll: slow}
+  - {key: x.digital_outputs, label: Status of the digital outputs, table: input, address: 207, type: u32, poll: slow, note: Bit 0 = output 0.}
+  - {key: x.digital_inputs, label: Status of the digital inputs, table: input, address: 209, type: u32, poll: slow, note: Bit 0 = input 0.}
+  - {key: x.active_tariff, label: Active Tariff, table: input, address: 211, type: u32, enum: tariff, poll: slow}
+  - {key: x.working_hours, label: Working hours counter, table: input, address: 213, type: u32, unit: s, poll: slow, writable: true, min: 0, max: 999999999}
+  - {key: x.universal_counter, label: Universal counter, table: input, address: 215, type: u32, poll: slow, writable: true, min: 0, max: 999999999}
+  - {key: x.demand_import_power, label: Demand Active Power - Import, table: input, address: 501, type: f32, unit: W, poll: slow}
+  - {key: x.demand_export_power, label: Demand Active Power - Export, table: input, address: 505, type: f32, unit: W, poll: slow}
+  - {key: x.energy_import_t1, label: Active Energy Import Tariff 1, table: input, address: 801, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.energy_import_t2, label: Active Energy Import Tariff 2, table: input, address: 805, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.energy_export_t1, label: Active Energy Export Tariff 1, table: input, address: 809, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.energy_export_t2, label: Active Energy Export Tariff 2, table: input, address: 813, type: f64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.energy_reactive_import_t1, label: Reactive Energy Import Tariff 1, table: input, address: 817, type: f64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.energy_reactive_import_t2, label: Reactive Energy Import Tariff 2, table: input, address: 821, type: f64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.energy_reactive_export_t1, label: Reactive Energy Export Tariff 1, table: input, address: 825, type: f64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.energy_reactive_export_t2, label: Reactive Energy Export Tariff 2, table: input, address: 829, type: f64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.energy_apparent_t1, label: Apparent Energy Tariff 1, table: input, address: 833, type: f64, unit: kVAh, scale: 0.001, poll: slow}
+  - {key: x.energy_apparent_t2, label: Apparent Energy Tariff 2, table: input, address: 837, type: f64, unit: kVAh, scale: 0.001, poll: slow}
+  # Settings (read 03 / 04, write 16)
+  - {key: x.connection_type, label: Connection type, table: holding, address: 50001, type: u32, enum: connection_type, poll: slow, writable: true}
+  - {key: x.vt_used, label: 'Voltage measurement using voltage transformers?', table: holding, address: 50003, type: u32, enum: no_yes, poll: slow, writable: true}
+  - {key: x.vt_primary, label: Primary voltage, table: holding, address: 50005, type: u32, unit: V, poll: slow, writable: true, min: 1, max: 999999}
+  - {key: x.vt_secondary, label: Secondary voltage, table: holding, address: 50007, type: u32, unit: V, poll: slow, writable: true, min: 1, max: 690}
+  - {key: x.ct_primary, label: Primary current, table: holding, address: 50011, type: u32, unit: A, poll: slow, writable: true, min: 1, max: 99999}
+  - {key: x.ct_secondary, label: Secondary current, table: holding, address: 50013, type: u32, unit: A, poll: slow, writable: true, note: 1 A or 5 A.}
+  - {key: x.ct_invert, label: 'Invert CT polarity?', table: holding, address: 50015, type: u32, enum: no_yes, poll: slow, writable: true}
+  - {key: x.demand_period, label: Demand Period, table: holding, address: 50021, type: u32, unit: min, poll: slow, writable: true, min: 1, max: 60}
+  - {key: x.ethernet_protocol, label: Ethernet protocol, table: holding, address: 63015, type: u32, enum: ethernet_protocol, poll: slow, writable: true}
+  - {key: x.rs485_address, label: MODBUS address (RS485 module), table: holding, address: 63019, type: u32, poll: slow, writable: true, min: 1, max: 247, optional: true}
+  - {key: x.rs485_baud, label: Baudrate (RS485 module), table: holding, address: 63021, type: u32, enum: baud, poll: slow, writable: true, optional: true}
+  - {key: x.rs485_format, label: Data bits / Parity bits / Stop bits (RS485 module), table: holding, address: 63023, type: u32, enum: serial_format, poll: slow, writable: true, optional: true}
+  # I&M 0 (one block of 27 registers from 64001)
+  - {key: x.manufacturer_id, label: Manufacturer's ID, table: holding, address: 64001, type: u16, poll: slow, note: 42 = Siemens AG.}
+  - {key: x.order_number, label: Order No., table: holding, address: 64002, type: str, length: 10, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 64012, type: str, length: 8, poll: slow}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 64020, type: u16, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 64021, type: u32, poll: slow, note: 'Four bytes: a letter, then major, minor and patch.'}
+
+derived:
+  - {key: grid_import_energy, label: Active energy import (tariff 1 + 2), unit: kWh, sum: [{key: x.energy_import_t1}, {key: x.energy_import_t2}]}
+  - {key: grid_export_energy, label: Active energy export (tariff 1 + 2), unit: kWh, sum: [{key: x.energy_export_t1}, {key: x.energy_export_t2}]}
+
+enums:
+  tariff: {'0': Tariff 1, '1': Tariff 2}
+  connection_type: {'0': 3P4W, '1': 3P3W, '2': 3P4WB, '3': 3P3WB, '4': 1P2W}
+  no_yes: {'0': 'No', '1': 'Yes'}
+  ethernet_protocol: {'0': MODBUS TCP, '1': SEAbus TCP}
+  baud: {'0': '4800', '1': '9600', '2': '19200', '3': '38400'}
+  serial_format: {'0': 8N2, '1': 8E1, '2': 8O1, '3': 8N1}
+
+flags:
+  limits: {'0': Limit 0 violated, '1': Limit 1 violated, '2': Limit 2 violated, '3': Limit 3 violated, '4': Limit 4 violated, '5': Limit 5 violated, '24': Limit logic}
+  device_status: {'8': 'Relevant parameter changes (stored, acknowledge)', '9': 'Upper or lower limit violation (stored, acknowledge)', '10': 'Maximum pulse rate exceeded (stored, acknowledge)', '11': 'Restart of the device (stored, acknowledge)', '12': 'Energy counter reset by user (stored, acknowledge)', '16': Module slot 1, '17': Maximum pulse rate exceeded, '24': No synchronization pulse, '25': Device configuration menu is active, '26': Voltage overload, '27': Current overload}
+
+problems:
+  - {when: {key: x.device_status, bit: 26}, kind: warning, text: Voltage overload (status 0x04000000)}
+  - {when: {key: x.device_status, bit: 27}, kind: warning, text: Current overload (status 0x08000000)}
+  - {when: {key: x.device_status, bit: 17}, kind: warning, text: Maximum pulse rate exceeded (status 0x00020000)}
+
+notes:
+- 'Modbus TCP must be switched on at the meter (SETTINGS > COMMUNICATION > PROTOCOL): out of the box the Ethernet port speaks
+  SEAbus TCP. Port 502.'
+- Function codes 03 and 04 both read the measured values, settings, communication parameters and the I&M 0 block; the measured
+  values use input registers (04) here.
+- The tables give each value's "offset"; the offsets are used as protocol addresses (voltage Va-n = 1). A read that starts
+  in the second register of a value is refused, so a wrong base fails instead of returning shifted data. Unverified on a device.
+- Byte and word order aren't stated; most significant first is assumed. Unverified.
+- Energies are Doubles in Wh (overflow at 1.0e12), split by tariff only; the lifetime totals here are the sum of tariffs 1
+  and 2.
+- 'The order number check (prefix 7KM211, from the manual''s ordering data: 7KM2112-… and 7KM2111-…) tells the PAC3200 from
+  other SENTRON PAC meters that share the same I&M layout.'
+- 'RS485 (Modbus RTU) only with the PAC RS485 expansion module: unit id 1 … 247, 4800 … 38400 baud (default 19200); the default
+  unit id and data format aren''t stated (unit 1 assumed). Without the module the 63017 … 63025 registers are meaningless.'
+- The unit id over Modbus TCP isn't stated; 1 is used.
+- 'Left out: maximum / minimum values (75 … 201), the remaining demand values (503, 507 … 519), parameter change counters
+  (217 … 221), limit value, digital I/O, display and language settings (50025 … 50145), the expansion module''s I&M block
+  (64117) and I&M 1-4 (64028). Write-only commands (function 06): 60002 / 60003 reset max / min values, 60004 reset energy
+  counters, 60006 switch tariff, 60007 acknowledge stored status bits, 60008 switch output, 65300 activate changed IP settings.'
+- 'Status registers can also be read as discrete inputs (function 02): 0 … 5 limits 0 … 5, 50 limit logic, 108 … 127 the device
+  status bits, 200 digital input 0, 300 digital output 0.'

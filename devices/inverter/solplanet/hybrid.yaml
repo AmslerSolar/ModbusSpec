@@ -1,0 +1,46 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: solplanet-hybrid
+manufacturer: Solplanet
+name: Hybrid inverter (Modbus TCP)
+kind: inverter
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/solplanet-modbus.yaml
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+defaults:
+  verified: false
+  sources:
+  - evcc
+
+points:
+  - {key: x.batterymode_1103, label: Battery mode control (write), table: holding, address: 1103, type: u16, writable: true, note: 'evcc writes battery mode normal: 2; battery mode hold: 4; battery mode charge: 4.'}
+  - {key: x.batterymode_1152, label: Battery mode control (write), table: holding, address: 1152, type: s16, writable: true, note: 'evcc writes battery mode hold: 0; battery mode charge: a value from the user''s settings.'}
+  - {key: x.pv_curtailed_ena, label: PV feed-in / production limit (input ena), table: holding, address: 4000, type: u16, writable: true, note: 'evcc feeds it into a script that computes the PV feed-in / production limit. evcc writes curtail 100: 0; curtail (other values): 1.'}
+  - {key: x.pv_curtailed_percent, label: PV feed-in / production limit (input percent), table: holding, address: 5402, type: u16, scale: 0.01, writable: true, note: evcc feeds it into a script that computes the PV feed-in / production limit.}
+  - {key: grid_power, label: Grid power, table: holding, address: 6433, type: s32, unit: W, positive: import}
+  - {key: pv_power, label: PV power, table: input, address: 1600, type: u32, unit: W}
+  - {key: pv_energy, label: PV energy, table: input, address: 1604, type: u32, unit: kWh, scale: 0.1}
+  - {key: battery_power, label: Battery power, table: input, address: 1618, type: s32, unit: W, positive: discharge}
+  - {key: battery_soc, label: Battery state of charge, table: input, address: 1621, type: u16, unit: '%'}
+  - {key: x.battery_power_1751, label: Battery power, table: input, address: 1751, type: s32, unit: W, note: Used by evcc only with the template option battery = 2.}
+  - {key: x.battery_soc_1754, label: Battery state of charge, table: input, address: 1754, type: u16, unit: '%', note: Used by evcc only with the template option battery = 2.}
+
+notes:
+- 'evcc template `solplanet-modbus` (grid, pv, battery) lists: Solplanet Hybrid inverter (Modbus TCP).'
+- The template has the option `battery` (default unset); points used only with another value say so in their note.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

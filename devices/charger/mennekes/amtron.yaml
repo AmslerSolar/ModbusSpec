@@ -1,0 +1,142 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: mennekes-amtron
+manufacturer: Mennekes
+name: AMTRON 4You 400/500, 4Business 600/700
+kind: charger
+
+sources:
+- id: mennekes-amtron-ha
+  title: mennekes-amtron-ha (Home Assistant integration)
+  url: https://github.com/nobelp/mennekes-amtron-ha
+  license: MIT
+  commit: 4d5fb864052a942fbdf5e49215e9bf2d9d6806d7
+  path: custom_components/mennekes_amtron/const.py, custom_components/mennekes_amtron/coordinator.py, custom_components/mennekes_amtron/sensor.py,
+    modbus_wallbox.yaml, templates/wallbox.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.evse.chargepoint.bender/src/io/openems/edge/evse/chargepoint/bender/AbstractEvseChargePointBender.java,
+    io.openems.edge.evse.chargepoint.mennekes/src/io/openems/edge/evse/chargepoint/mennekes/common/AbstractMennekes.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - mennekes-amtron-ha
+
+points:
+  - {key: x.firmware_version, label: Firmware Version, table: holding, address: 100, type: str, length: 2}
+  - {key: state, label: Charging Status, table: holding, address: 104, type: u16, enum: cp_status, sources: [mennekes-amtron-ha, openems]}
+  - {key: x.error_codes_1, label: Error Codes 1, table: holding, address: 105, type: u32, flags: error_codes_1, note: Bit field; bit meanings from the project's template sensor.}
+  - {key: x.error_codes_2, label: Error Codes 2, table: holding, address: 107, type: u32}
+  - {key: x.error_codes_3, label: Error Codes 3, table: holding, address: 109, type: u32}
+  - {key: x.error_codes_4, label: Error Codes 4, table: holding, address: 111, type: u32, conflicts: [{sources: [openems], type: u16, label: Status and alarm bits (register 111)}]}
+  - {key: x.protocol_version, label: Protocol Version, table: holding, address: 120, type: str, length: 2}
+  - {key: x.vehicle_state, label: Vehicle State, table: holding, address: 122, type: u16, enum: vehicle_state, sources: [mennekes-amtron-ha, openems]}
+  - {key: x.cp_availability, label: CP Availability, table: holding, address: 124, type: u16, enum: cp_availability}
+  - {key: x.modbus_address_offset, label: Modbus Address Offset, table: holding, address: 130, type: u16}
+  - {key: x.safe_current, label: Safe Current, table: holding, address: 131, type: u16, unit: A, writable: true, note: Current used when the energy manager stops writing (communication timeout).}
+  - {key: x.comm_timeout, label: Communication Timeout, table: holding, address: 132, type: u16, unit: s, writable: true}
+  - {key: x.operator_current_limit, label: Operator Current Limit, table: holding, address: 134, type: u16, unit: A}
+  - {key: x.raw_device_id, label: Raw device ID, table: holding, address: 141, type: u16, sources: [openems]}
+  - {key: x.chargepoint_model_1, label: Chargepoint Model 1, table: holding, address: 142, type: str, length: 2, conflicts: [{sources: [openems], length: 10, label: Charge point model string}]}
+  - {key: x.chargepoint_model_2, label: Chargepoint Model 2, table: holding, address: 144, type: str, length: 2}
+  - {key: x.chargepoint_model_3, label: Chargepoint Model 3, table: holding, address: 146, type: str, length: 2}
+  - {key: x.chargepoint_model_4, label: Chargepoint Model 4, table: holding, address: 148, type: str, length: 2}
+  - {key: x.chargepoint_model_5, label: Chargepoint Model 5, table: holding, address: 150, type: str, length: 2}
+  - {key: x.plug_lock_status, label: Plug Lock Status, table: holding, address: 152, type: u16, enum: plug_lock_status}
+  - {key: x.software_version_major, label: Software version major, table: holding, address: 153, type: u16, sources: [openems]}
+  - {key: x.software_version_minor, label: Software version minor, table: holding, address: 154, type: u16, sources: [openems]}
+  - {key: x.software_version_patch, label: Software version patch, table: holding, address: 155, type: u16, sources: [openems]}
+  - {key: consumer_energy, label: Energy L1, table: holding, address: 200, type: s32, unit: kWh, scale: 0.001, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here). On this family L1 carries the meter total; L2 and L3 read 0., conflicts: [{sources: [openems], type: u32, label: Active production energy}]}
+  - {key: x.energy_l2, label: Energy L2, table: holding, address: 202, type: s32, unit: kWh, scale: 0.001, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here).}
+  - {key: x.energy_l3, label: Energy L3, table: holding, address: 204, type: s32, unit: kWh, scale: 0.001, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here).}
+  - {key: l1_power, label: Power L1, table: holding, address: 206, type: s32, unit: W, positive: consumption, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here)., conflicts: [{sources: [openems], type: u32, label: Active power L1}]}
+  - {key: l2_power, label: Power L2, table: holding, address: 208, type: s32, unit: W, positive: consumption, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here)., conflicts: [{sources: [openems], type: u32, label: Active power L2}]}
+  - {key: l3_power, label: Power L3, table: holding, address: 210, type: s32, unit: W, positive: consumption, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here)., conflicts: [{sources: [openems], type: u32, label: Active power L3}]}
+  - {key: l1_current, label: Current L1, table: holding, address: 212, type: s32, unit: A, scale: 0.001, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here)., conflicts: [{sources: [openems], type: u32}]}
+  - {key: l2_current, label: Current L2, table: holding, address: 214, type: s32, unit: A, scale: 0.001, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here)., conflicts: [{sources: [openems], type: u32}]}
+  - {key: l3_current, label: Current L3, table: holding, address: 216, type: s32, unit: A, scale: 0.001, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here)., conflicts: [{sources: [openems], type: u32}]}
+  - {key: x.total_energy, label: Total Energy, table: holding, address: 218, type: s32, unit: kWh, scale: 0.001, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here).}
+  - {key: x.total_power, label: Total Power, table: holding, address: 220, type: s32, unit: W, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here).}
+  - {key: l1_voltage, label: Voltage L1, table: holding, address: 222, type: s32, unit: V, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here)., conflicts: [{sources: [openems], type: u32}]}
+  - {key: l2_voltage, label: Voltage L2, table: holding, address: 224, type: s32, unit: V, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here)., conflicts: [{sources: [openems], type: u32}]}
+  - {key: l3_voltage, label: Voltage L3, table: holding, address: 226, type: s32, unit: V, note: The project's modbus_wallbox.yaml reads this as uint32; the integration as int32 (used here)., conflicts: [{sources: [openems], type: u32}]}
+  - {key: x.dlm_mode, label: DLM Mode, table: holding, address: 600, type: u16, enum: dlm_mode}
+  - {key: x.dlm_evse_sub_distribution_limit_l1, label: DLM EVSE Sub Distribution Limit L1, table: holding, address: 610, type: u16, unit: A}
+  - {key: x.dlm_evse_sub_distribution_limit_l2, label: DLM EVSE Sub Distribution Limit L2, table: holding, address: 611, type: u16, unit: A}
+  - {key: x.dlm_evse_sub_distribution_limit_l3, label: DLM EVSE Sub Distribution Limit L3, table: holding, address: 612, type: u16, unit: A}
+  - {key: x.dlm_operator_evse_sub_distribution_limit_l1, label: DLM Operator EVSE Sub Distribution Limit L1, table: holding, address: 613, type: u16, unit: A}
+  - {key: x.dlm_operator_evse_sub_distribution_limit_l2, label: DLM Operator EVSE Sub Distribution Limit L2, table: holding, address: 614, type: u16, unit: A}
+  - {key: x.dlm_operator_evse_sub_distribution_limit_l3, label: DLM Operator EVSE Sub Distribution Limit L3, table: holding, address: 615, type: u16, unit: A}
+  - {key: x.dlm_external_meter_support, label: DLM External Meter Support, table: holding, address: 620, type: u16}
+  - {key: x.dlm_num_slaves_connected, label: DLM Num Slaves Connected, table: holding, address: 621, type: u16}
+  - {key: x.dlm_overall_current_applied_l1, label: DLM Overall Current Applied L1, table: holding, address: 630, type: u16, unit: A}
+  - {key: x.dlm_overall_current_applied_l2, label: DLM Overall Current Applied L2, table: holding, address: 631, type: u16, unit: A}
+  - {key: x.dlm_overall_current_applied_l3, label: DLM Overall Current Applied L3, table: holding, address: 632, type: u16, unit: A}
+  - {key: x.dlm_overall_current_available_l1, label: DLM Overall Current Available L1, table: holding, address: 633, type: u16, unit: A}
+  - {key: x.dlm_overall_current_available_l2, label: DLM Overall Current Available L2, table: holding, address: 634, type: u16, unit: A}
+  - {key: x.dlm_overall_current_available_l3, label: DLM Overall Current Available L3, table: holding, address: 635, type: u16, unit: A}
+  - {key: x.charged_energy_session, label: Charged Energy Session, table: holding, address: 705, type: u16, unit: kWh, scale: 0.001}
+  - {key: x.signaled_current, label: Signaled Current, table: holding, address: 706, type: u16, unit: A}
+  - {key: x.start_time, label: Start Time, table: holding, address: 707, type: u32}
+  - {key: x.charge_duration, label: Charge Duration, table: holding, address: 709, type: u16, unit: s}
+  - {key: x.end_time, label: End Time, table: holding, address: 710, type: u32}
+  - {key: x.min_current_limit, label: Minimum Current Limit, table: holding, address: 712, type: u16, unit: A}
+  - {key: x.max_current_ev, label: Max Current EV, table: holding, address: 715, type: u16, unit: A}
+  - {key: session_energy, label: Session Energy, table: holding, address: 716, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.session_duration, label: Session Duration, table: holding, address: 718, type: u32, unit: s}
+  - {key: x.id_tag_1, label: ID Tag 1, table: holding, address: 720, type: str, length: 2}
+  - {key: x.id_tag_2, label: ID Tag 2, table: holding, address: 722, type: str, length: 2}
+  - {key: x.id_tag_3, label: ID Tag 3, table: holding, address: 724, type: str, length: 2}
+  - {key: x.id_tag_4, label: ID Tag 4, table: holding, address: 726, type: str, length: 2}
+  - {key: x.id_tag_5, label: ID Tag 5, table: holding, address: 728, type: str, length: 2}
+  - {key: x.hems_current_limit_1000, label: HEMS Current Limit, table: holding, address: 1000, type: u16, unit: A, writable: true, note: Deprecated in protocol 1.5; use 2000., sources: [mennekes-amtron-ha, openems]}
+  - {key: x.hems_current_limit, label: HEMS Current Limit, table: holding, address: 2000, type: u16, unit: A, writable: true, note: Charging current limit from an energy manager (protocol 1.5; replaces 1000).}
+  - {key: x.hems_current_limit_01a, label: Hems current limit 01a, table: holding, address: 2001, type: u16, note: Named in the project's register constants but not read by it; size assumed one register.}
+  - {key: x.hems_power_limit, label: Hems power limit, table: holding, address: 2002, type: u16, unit: W, writable: true, note: Named in the project's register constants but not read by it; size assumed one register., sources: [mennekes-amtron-ha, openems]}
+  - {key: x.hems_config, label: Hems config, table: holding, address: 2010, type: u16, enum: hems_config, note: Named in the project's register constants but not read by it; size assumed one register. Modbus TCP mode; HEMS current limit and safe current need 2 (read and write).}
+  - {key: x.hems_comm_status, label: Hems comm status, table: holding, address: 2011, type: u16, note: Named in the project's register constants but not read by it; size assumed one register.}
+  - {key: x.hems_power_min, label: Hems power min, table: holding, address: 2012, type: u16, unit: W, note: Named in the project's register constants but not read by it; size assumed one register., sources: [mennekes-amtron-ha, openems]}
+  - {key: x.hems_power_max, label: Hems power max, table: holding, address: 2013, type: u16, unit: W, note: Named in the project's register constants but not read by it; size assumed one register., sources: [mennekes-amtron-ha, openems]}
+  - {key: x.phase_switch_mode, label: Phase Switch Mode, table: holding, address: 2020, type: u16, enum: phase_switch_mode, sources: [mennekes-amtron-ha, openems]}
+  - {key: x.phase_switch_pause, label: Phase switch pause, table: holding, address: 2021, type: u16, unit: s, note: Named in the project's register constants but not read by it; size assumed one register., sources: [mennekes-amtron-ha, openems]}
+  - {key: x.phase_switch_status, label: Phase switch status, table: holding, address: 2022, type: u16, note: Named in the project's register constants but not read by it; size assumed one register., sources: [mennekes-amtron-ha, openems]}
+  - {key: x.assigned_phases, label: Assigned phases, table: holding, address: 2023, type: u16, note: Named in the project's register constants but not read by it; size assumed one register.}
+  - {key: x.authorization_status, label: Authorization status, table: holding, address: 2030, type: u16, note: Named in the project's register constants but not read by it; size assumed one register.}
+
+enums:
+  cp_status: {'0': Unknown, '1': Available, '2': Preparing, '3': Charging, '4': SuspendedEVSE, '5': SuspendedEV, '6': Finishing, '7': Reserved, '8': Unavailable, '9': Faulted}
+  vehicle_state: {'1': A – Not connected, '2': B – Connected, '3': C – Charging, '4': D – Charging (ventilation), '5': E – Error}
+  phase_switch_mode: {'0': 1-Phase Only, '1': 3-Phase Only, '2': Dynamic Phase Switch, '3': Static (Start-Of-Session)}
+  dlm_mode: {'0': Disabled, '1': DLM master + slave, '2': DLM master standalone, '3': DLM slave auto discovery, '4': DLM slave fixed IP}
+  cp_availability: {'0': Not available, '1': Available}
+  plug_lock_status: {'0': Unlocked, '1': Locked}
+  hems_config: {'0': Modbus TCP off, '1': Read only, '2': Read and write}
+
+flags:
+  error_codes_1: {'0': RCM tripped, '1': Vehicle state E, '2': Mode 3 diode check failed, '3': Type 2 MCB tripped, '4': Schuko MCB tripped, '5': RCD tripped, '6': Contactor welded, '7': Backend disconnected, '8': Plug lock actuator error, '9': Plug lock actuator stuck, '10': Firmware update running, '11': Tilt error, '12': Wrong CP/PR cable, '13': Type 2 overload, '14': No power supply}
+
+notes:
+- Modbus protocol version 1.5 (firmware 1.5.x). All AMTRON 4You and 4Business models share one register set; tested by the
+  project on a 4Business 730.
+- Modbus TCP must be enabled on the wallbox; register 2010 shows the mode (0 off, 1 read only, 2 read and write).
+- The wallbox serves one Modbus TCP client at a time.
+- Meter registers 200-227 are 32-bit values, high word first.
+- The sign of the meter power registers is not stated by the project.
+- 'Left out: holding_112_bits (holding 112, u16) from openems overlaps error_codes_4 (holding 111, u32); check a document.'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

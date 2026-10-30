@@ -1,0 +1,342 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SofarSolar ModBus-RTU Communication Protocol (2017-11-27): the storage inverter data area
+# (0x0200…0x0245), the battery parameters and the inverter information.
+
+modbusspec: 0
+id: sofar-old
+manufacturer: SofarSolar
+name: Storage inverter (2017 protocol)
+kind: inverter
+
+sources:
+- title: SOFARSOLAR ModBus-RTU Communication Protocol
+  version: '2017-11-27'
+  url: https://github.com/user-attachments/files/16641716/SOFARSOLAR.ModBus-RTU.Communication.Protocol.pdf
+  sha256: 108acecc594383b07d186aa1a4d5b835550ed219930d43ed7138f48fc4e77450
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/sofarsolar.yaml
+- id: sofar-modbus
+  title: sofar-modbus (Python library, used by Home Assistant's sofar integration)
+  url: https://github.com/darkrain-nl/sofar-modbus
+  license: Apache-2.0
+  commit: 1208faa83ae4a4108a59e0d818a9dcedef0786da
+  path: src/sofar_modbus/legacy/
+- id: solarman
+  title: ha-solarman (Home Assistant integration)
+  url: https://github.com/davidrapan/ha-solarman
+  license: MIT
+  commit: ac1d88b83268beeb0511b8a1b7fc8e17deddc044
+  path: custom_components/solarman/inverter_definitions/sofar_hybrid.yaml
+- id: solax-modbus
+  title: homeassistant-solax-modbus (Home Assistant integration)
+  url: https://github.com/wills106/homeassistant-solax-modbus
+  license: Apache-2.0
+  commit: d644181940210c4a00a6b4637888495c7a7d6217
+  path: custom_components/solax_modbus/plugin_sofar_old.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 8193
+    type: str
+    length: 7
+  any:
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SA1
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SA3
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SB1
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: ZA3
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SC1
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SD1
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SF4
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SH1
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SJ2
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SL1
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SE1E
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: SM1
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: ZE1E
+  - table: input
+    address: 8194
+    type: str
+    length: 6
+    prefix: ZM1E
+
+
+models:
+  - {id: sofar_modbus_x1_hybrid, name: 'X1 | HYBRID (serial SE1E*, SM1E*, ZE1E*, ZM1E*)'}
+  - {id: sofar_modbus_x1_pv, name: 'X1 | PV (serial SA1*, SA3*, SB1*, ZA3*)'}
+  - {id: sofar_modbus_x3_pv, name: 'X3 | PV (serial SC1*, SD1*, SF4*, SH1*, SJ2*, SL1*)'}
+  - {id: sofar_modbus_pv, name: PV (serial SM1*)}
+  - {id: solarman_default, name: default (mod 0)}
+  - {id: solarman_hyd_es, name: hyd-es / hyd3k-6k-es}
+  - {id: solax_modbus_x1_pv, name: 'X1 | PV (prefix SA1*, SA3*, SB1*, ZA3*)'}
+  - {id: solax_modbus_x3_pv, name: 'X3 | PV (prefix SC1*, SD1*, SF4*, SH1*, SJ2*, SL1*)'}
+  - {id: solax_modbus_x1_hybrid, name: 'X1 | HYBRID (prefix SE1E*, SM1E*, ZE1E*, ZM1E*)'}
+  - {id: solax_modbus_pv, name: PV (prefix SM1*)}
+
+points:
+  # Storage inverter data (function 03)
+  - {key: state, label: Running state, table: holding, address: 512, type: u16, enum: running_state}
+  - {key: x.fault_1, label: Fault message list 1 (bytes 0-1), table: holding, address: 513, type: u16, flags: fault_1}
+  - {key: x.fault_2, label: Fault message list 2 (bytes 2-3), table: holding, address: 514, type: u16, flags: fault_2}
+  - {key: x.fault_3, label: Fault message list 3 (bytes 4-5), table: holding, address: 515, type: u16, note: All bits reserved.}
+  - {key: x.fault_4, label: Fault message list 4 (bytes 6-7), table: holding, address: 516, type: u16, flags: fault_4}
+  - {key: x.fault_5, label: Fault message list 5 (bytes 8-9), table: holding, address: 517, type: u16, flags: fault_5}
+  - {key: l1_voltage, label: Grid A voltage, table: holding, address: 518, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Grid A current, table: holding, address: 519, type: s16, unit: A, scale: 0.01}
+  - {key: l2_voltage, label: Grid B voltage, table: holding, address: 520, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: l2_current, label: Grid B current, table: holding, address: 521, type: s16, unit: A, scale: 0.01, optional: true}
+  - {key: l3_voltage, label: Grid C voltage, table: holding, address: 522, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: l3_current, label: Grid C current, table: holding, address: 523, type: s16, unit: A, scale: 0.01, optional: true}
+  - {key: frequency, label: Grid frequency, table: holding, address: 524, type: u16, unit: Hz, scale: 0.01}
+  - {key: battery_power, label: Charge/discharge power, table: holding, address: 525, type: s16, unit: W, scale: 10, positive: charge, note: Not stated in the document; + = charging assumed., verified: false}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 526, type: u16, unit: V, scale: 0.1}
+  - {key: battery_current, label: Battery charge/discharge current, table: holding, address: 527, type: s16, unit: A, scale: 0.01, positive: charge, note: Not stated in the document; + = charging assumed., verified: false}
+  - {key: battery_soc, label: Residual capacity of the battery, table: holding, address: 528, type: u16, unit: '%'}
+  - {key: battery_temperature, label: Battery temperature, table: holding, address: 529, type: s16, unit: °C, note: Type and unit not stated; signed °C assumed., conflicts: [{sources: [sofar-modbus, solarman, solax-modbus], type: u16}], verified: false}
+  - {key: grid_power, label: Feed in/out power, table: holding, address: 530, type: s16, unit: W, scale: 10, positive: export, note: Not stated in the document; + = feed-in (export) assumed., verified: false}
+  - {key: load_power, label: Power of the load, table: holding, address: 531, type: u16, unit: W, scale: 10}
+  - {key: x.inverter_power, label: Input/output power, table: holding, address: 532, type: s16, unit: W, scale: 10, note: Direction not stated.}
+  - {key: pv_power, label: Power of generation, table: holding, address: 533, type: u16, unit: W, scale: 10}
+  - {key: x.eps_voltage, label: EPS output voltage, table: holding, address: 534, type: u16, unit: V, scale: 0.1}
+  - {key: x.eps_power, label: EPS output power, table: holding, address: 535, type: u16, unit: W, scale: 10}
+  - {key: pv_energy_today, label: Generation of one day, table: holding, address: 536, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.grid_export_energy_today, label: Power sold to the grid today, table: holding, address: 537, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.grid_import_energy_today, label: Power bought from the grid today, table: holding, address: 538, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.load_energy_today, label: Today's consumption of the load, table: holding, address: 539, type: u16, unit: kWh, scale: 0.01, poll: slow}
+  - {key: pv_energy, label: Total generation, table: holding, address: 540, type: u32, unit: kWh, poll: slow}
+  - {key: grid_export_energy, label: Total power sold to the grid, table: holding, address: 542, type: u32, unit: kWh, poll: slow}
+  - {key: grid_import_energy, label: Total energy bought from the grid, table: holding, address: 544, type: u32, unit: kWh, poll: slow}
+  - {key: x.load_energy_total, label: Total consumption of the load, table: holding, address: 546, type: u32, unit: kWh, poll: slow}
+  - {key: x.countdown, label: Countdown time, table: holding, address: 554, type: u16, note: Unit not stated., conflicts: [{sources: [solarman], unit: s}]}
+  - {key: x.alert, label: Inverter alert message, table: holding, address: 555, type: u16, flags: alert}
+  - {key: x.battery_cycles, label: Battery cycle times, table: holding, address: 556, type: u16, poll: slow, conflicts: [{sources: [sofar-modbus, solarman, solax-modbus], unit: Charges, label: Battery charge cycle}]}
+  - {key: x.grid_r_voltage, label: Grid R voltage, table: holding, address: 560, type: u16, unit: V, scale: 0.1}
+  - {key: x.grid_r_current, label: Grid R current, table: holding, address: 561, type: u16, unit: A, scale: 0.01}
+  - {key: x.grid_s_voltage, label: Grid S voltage, table: holding, address: 562, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.grid_s_current, label: Grid S current, table: holding, address: 563, type: u16, unit: A, scale: 0.01, optional: true}
+  - {key: x.grid_t_voltage, label: Grid T voltage, table: holding, address: 564, type: u16, unit: V, scale: 0.1, optional: true}
+  - {key: x.grid_t_current, label: Grid T current, table: holding, address: 565, type: u16, unit: A, scale: 0.01, optional: true}
+  - {key: temperature, label: Inner temperature, table: holding, address: 568, type: s16, unit: °C}
+  - {key: x.heatsink_temperature, label: Heat sink temperature, table: holding, address: 569, type: s16, unit: °C}
+  - {key: x.country, label: Country, table: holding, address: 570, type: u16, enum: country, poll: slow}
+  - {key: x.dc_current_component, label: Current DC component, table: holding, address: 571, type: s16, unit: mA, conflicts: [{sources: [solarman], type: u16, label: DC Current}]}
+  - {key: x.dc_voltage_component, label: Voltage DC component, table: holding, address: 572, type: s16, unit: V, scale: 0.1, conflicts: [{sources: [solarman], type: u16, scale: 0.01, models: [solarman_default], label: DC Voltage}, {sources: [solarman], type: u16, models: [solarman_hyd_es], label: DC Voltage}]}
+  - {key: x.battery_fault_1, label: Battery fault message 1 (bytes 0-1), table: holding, address: 573, type: u16, flags: battery_fault_1}
+  - {key: x.comm_board_message, label: Communication board inner message, table: holding, address: 578, type: u16, flags: comm_board, conflicts: [{sources: [sofar-modbus, solarman, solax-modbus], unit: min, label: Generation time today}]}
+  - {key: x.generation_time_today, label: Today generation time, table: holding, address: 579, type: u16, unit: min, poll: slow}
+  - {key: x.generation_time_total, label: Total generation time, table: holding, address: 580, type: u32, unit: h, poll: slow}
+
+  # Battery parameters (function 04)
+  - {key: x.battery_type, label: Battery type, table: input, address: 4272, type: u16, enum: battery_type, poll: slow, note: Values of protocol V1.20; V1.00 had 0x0003 = SOLTARO and 0x0080 = TELE.}
+  - {key: x.battery_capacity, label: Battery capacity, table: input, address: 4273, type: u16, unit: Ah, poll: slow}
+  - {key: x.battery_max_charge_voltage, label: Max charge voltage, table: input, address: 4275, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.battery_max_charge_current, label: Max charge current, table: input, address: 4276, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.battery_overvoltage_protection, label: Over voltage protection point, table: input, address: 4277, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.battery_min_discharge_voltage, label: Min discharge voltage, table: input, address: 4278, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.battery_max_discharge_current, label: Max discharge current, table: input, address: 4279, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.battery_undervoltage_protection, label: Under voltage protection point, table: input, address: 4280, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.battery_discharge_depth, label: Discharge depth, table: input, address: 4281, type: u16, unit: '%', poll: slow}
+  - {key: x.battery_empty_voltage, label: Empty battery voltage, table: input, address: 4283, type: u16, unit: V, scale: 0.01, poll: slow}
+  - {key: x.battery_full_voltage, label: Full battery voltage, table: input, address: 4284, type: u16, unit: V, scale: 0.01, poll: slow}
+
+  # Inverter information (function 04)
+  - {key: x.production_code, label: Production code, table: input, address: 8192, type: u16, poll: slow}
+  - {key: serial, label: S/N number, table: input, address: 8193, type: str, length: 7, poll: slow}
+  - {key: firmware, label: Software version, table: input, address: 8200, type: str, length: 2, poll: slow, note: Text assumed; the document gives no type., verified: false}
+  - {key: x.hardware_version, label: Hardware version, table: input, address: 8202, type: str, length: 2, poll: slow, note: Text assumed; the document gives no type., verified: false}
+  - {key: x.run_mode_0, label: Run mode, table: holding, address: 0, type: u16, enum: pvrunmode, models: [sofar_modbus_pv, sofar_modbus_x1_pv, sofar_modbus_x3_pv, solax_modbus_pv, solax_modbus_x1_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.pv_voltage_1, label: Pv voltage 1, table: holding, address: 6, type: u16, unit: V, scale: 0.1, models: [sofar_modbus_pv, sofar_modbus_x1_pv, sofar_modbus_x3_pv, solax_modbus_pv, solax_modbus_x1_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.pv_current_1, label: Pv current 1, table: holding, address: 7, type: u16, unit: A, scale: 0.01, models: [sofar_modbus_pv, sofar_modbus_x1_pv, sofar_modbus_x3_pv, solax_modbus_pv, solax_modbus_x1_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.pv_voltage_2, label: Pv voltage 2, table: holding, address: 8, type: u16, unit: V, scale: 0.1, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.pv_current_2, label: Pv current 2, table: holding, address: 9, type: s16, unit: A, scale: 0.01, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.pv_power, label: Pv power, table: holding, address: 10, type: u16, unit: W, scale: 10, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.pv_current_3, label: Pv current 3, table: holding, address: 11, type: s16, unit: A, scale: 0.01, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.activepower, label: activepower, table: holding, address: 12, type: u16, unit: W, scale: 10, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.reactivepower, label: reactivepower, table: holding, address: 13, type: s16, unit: var, scale: 0.01, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.grid_frequency_14, label: Grid frequency, table: holding, address: 14, type: u16, unit: Hz, scale: 0.01, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.voltage, label: voltage, table: holding, address: 15, type: u16, unit: V, scale: 0.1, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.current, label: current, table: holding, address: 16, type: u16, unit: A, scale: 0.01, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.grid_frequency_17, label: Grid frequency, table: holding, address: 17, type: u16, unit: Hz, scale: 0.01, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.voltage_r, label: Voltage r, table: holding, address: 18, type: u16, unit: V, scale: 0.1, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.current_r, label: Current r, table: holding, address: 19, type: u16, unit: A, scale: 0.01, models: [sofar_modbus_x3_pv], sources: [sofar-modbus], verified: false}
+  - {key: x.voltage_s, label: Voltage s, table: holding, address: 20, type: u16, unit: V, scale: 0.1, models: [sofar_modbus_x3_pv], sources: [sofar-modbus], conflicts: [{sources: [solax-modbus], unit: A, scale: 0.01, models: [solax_modbus_x3_pv], label: Current R}], verified: false}
+  - {key: x.total_production_21, label: Total production, table: holding, address: 21, type: u32, unit: kWh, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.voltage_t, label: Voltage t, table: holding, address: 22, type: u16, unit: V, scale: 0.1, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.total_time, label: Total time, table: holding, address: 23, type: u32, unit: h, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.total_production_24, label: Total production, table: holding, address: 24, type: u32, unit: kWh, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.today_production_25, label: Today production, table: holding, address: 25, type: u16, unit: kWh, scale: 0.01, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.today_time, label: Today time, table: holding, address: 26, type: u16, unit: min, models: [sofar_modbus_x1_pv, solax_modbus_x1_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.inverter_heatsink_temperature, label: Inverter heatsink temperature, table: holding, address: 27, type: s16, unit: °C, models: [sofar_modbus_pv, sofar_modbus_x1_pv, sofar_modbus_x3_pv, solax_modbus_pv, solax_modbus_x1_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.inverter_inner_temperature, label: Inverter inner temperature, table: holding, address: 28, type: s16, unit: °C, models: [sofar_modbus_pv, sofar_modbus_x1_pv, sofar_modbus_x3_pv, solax_modbus_pv, solax_modbus_x1_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.today_time_29, label: Today time, table: holding, address: 29, type: u16, unit: min, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.inverter_heatsink_temperature_30, label: Inverter heatsink temperature, table: holding, address: 30, type: s16, unit: °C, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.inverter_inner_temperature_31, label: Inverter inner temperature, table: holding, address: 31, type: s16, unit: °C, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.bus_voltage, label: Bus voltage, table: holding, address: 32, type: u16, unit: V, scale: 0.1, models: [sofar_modbus_x3_pv, solax_modbus_x3_pv], sources: [sofar-modbus, solax-modbus], verified: false}
+  - {key: x.today_battery_charge, label: Today Battery Charge, table: holding, address: 548, type: u16, unit: kWh, scale: 0.01, sources: [solarman], verified: false}
+  - {key: x.today_battery_discharge, label: Today Battery Discharge, table: holding, address: 549, type: u16, unit: kWh, scale: 0.01, sources: [solarman], verified: false}
+  - {key: x.total_battery_charge, label: Total Battery Charge, table: holding, address: 550, type: u32, unit: kWh, sources: [solarman], verified: false}
+  - {key: x.total_battery_discharge, label: Total Battery Discharge, table: holding, address: 552, type: u32, unit: kWh, sources: [solarman], verified: false}
+  - {key: x.bus_voltage_557, label: Bus Voltage, table: holding, address: 557, type: s16, unit: V, scale: 0.1, sources: [solarman], verified: false}
+  - {key: x.llc_bus_voltage, label: LLC Bus Voltage, table: holding, address: 558, type: u16, unit: V, scale: 0.1, sources: [solarman], verified: false}
+  - {key: x.buck_current, label: Buck Current, table: holding, address: 559, type: u16, unit: A, scale: 0.01, sources: [solarman], verified: false}
+  - {key: x.pv_current, label: PV Current, table: holding, address: 566, type: u16, unit: A, scale: 0.01, sources: [solarman], verified: false}
+  - {key: battery_soh, label: Battery SOH, table: holding, address: 567, type: u16, unit: '%', sources: [solarman], verified: false}
+  - {key: x.insulation_of_pv1_to_ground, label: Insulation of PV1+ to ground, table: holding, address: 582, type: u16, unit: Ω, sources: [solarman], verified: false}
+  - {key: x.insulation_of_pv2_to_ground, label: Insulation of PV2+ to ground, table: holding, address: 583, type: u16, unit: Ω, note: The project reads this only on devices with at least 2 MPPT trackers., sources: [solarman], verified: false}
+  - {key: x.insulation_of_pv_to_ground, label: Insulation of PV- to ground, table: holding, address: 584, type: u16, unit: Ω, sources: [solarman], verified: false}
+  - {key: x.pv_oltage_1, label: PV Voltage 1, table: holding, address: 592, type: u16, unit: V, scale: 0.1, models: [sofar_modbus_x1_hybrid, solarman_hyd_es, solax_modbus_x1_hybrid], sources: [sofar-modbus, solarman, solax-modbus], verified: false}
+  - {key: x.pv_current_1_593, label: Pv current 1, table: holding, address: 593, type: u16, unit: A, scale: 0.01, models: [sofar_modbus_x1_hybrid, solarman_hyd_es, solax_modbus_x1_hybrid], sources: [sofar-modbus, solarman, solax-modbus], verified: false}
+  - {key: x.pv_power_1, label: Pv power 1, table: holding, address: 594, type: u16, unit: W, scale: 10, models: [sofar_modbus_x1_hybrid, solarman_hyd_es, solax_modbus_x1_hybrid], sources: [sofar-modbus, solarman, solax-modbus], verified: false}
+  - {key: x.pv_oltage_2, label: PV Voltage 2, table: holding, address: 595, type: u16, unit: V, scale: 0.1, models: [sofar_modbus_x1_hybrid, solarman_hyd_es, solax_modbus_x1_hybrid], sources: [sofar-modbus, solarman, solax-modbus], verified: false}
+  - {key: x.pv_current_2_596, label: Pv current 2, table: holding, address: 596, type: u16, unit: A, scale: 0.01, models: [sofar_modbus_x1_hybrid, solarman_hyd_es, solax_modbus_x1_hybrid], sources: [sofar-modbus, solarman, solax-modbus], verified: false}
+  - {key: x.pv_power_2, label: Pv power 2, table: holding, address: 597, type: u16, unit: W, scale: 10, models: [sofar_modbus_x1_hybrid, solarman_hyd_es, solax_modbus_x1_hybrid], sources: [sofar-modbus, solarman, solax-modbus], verified: false}
+  - {key: x.work_mode, label: Work Mode, table: holding, address: 4608, type: u16, enum: work_mode, writable: true, sources: [solarman], verified: false}
+  - {key: x.timed_charge_start, label: Timed Charge Start, table: holding, address: 4609, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, sources: [solarman], verified: false}
+  - {key: x.timed_charge_end, label: Timed Charge End, table: holding, address: 4610, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, sources: [solarman], verified: false}
+  - {key: x.timed_discharge_start, label: Timed Discharge Start, table: holding, address: 4611, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, sources: [solarman], verified: false}
+  - {key: x.timed_discharge_end, label: Timed Discharge End, table: holding, address: 4612, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, sources: [solarman], verified: false}
+  - {key: x.timed_charge_power, label: Timed Charge Power, table: holding, address: 4613, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–3000., sources: [solarman], verified: false}
+  - {key: x.timed_discharge_power, label: Timed Discharge Power, table: holding, address: 4614, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–3000., sources: [solarman], verified: false}
+  - {key: x.program, label: Program, table: holding, address: 4615, type: u16, writable: true, note: The project ignores raw values outside 0–3., sources: [solarman], verified: false}
+  - {key: x.program_start, label: Program Start, table: holding, address: 4616, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, sources: [solarman], verified: false}
+  - {key: x.program_end, label: Program End, table: holding, address: 4617, type: datetime, length: 1, datetime: {hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true, sources: [solarman], verified: false}
+  - {key: x.program_soc, label: Program SOC, table: holding, address: 4618, type: u16, unit: '%', writable: true, note: The project ignores raw values outside 30–100., sources: [solarman], verified: false}
+  - {key: x.program_charge_power, label: Program Charge Power, table: holding, address: 4619, type: u16, unit: W, writable: true, note: The project ignores raw values outside 0–3000., sources: [solarman], verified: false}
+  - {key: x.time_of_use, label: Time of Use, table: holding, address: 4622, type: u16, enum: time_of_use, writable: true, sources: [solarman], verified: false}
+  - {key: x.program_2, label: Program, table: holding, address: 4623, type: u16, enum: on_off, writable: true, sources: [solarman], verified: false}
+  - {key: x.battery_minimum_capacity, label: Battery minimum capacity, table: input, address: 4173, type: u16, note: Only for AC inverters; no serial prefix in the project gives that type (the caller sets it)., sources: [sofar-modbus], verified: false}
+  - {key: x.battery_energy_management_model, label: 'Battery: Energy Management Model', table: input, address: 4274, type: u16, sources: [solarman], verified: false}
+  - {key: x.battery_periods_of_discharge_time, label: 'Battery: Periods Of Discharge time', table: input, address: 4282, type: u16, unit: h, sources: [solarman], verified: false}
+
+enums:
+  running_state: {'0': Waiting, '1': Checking (charge), '2': Normal (charging), '3': Checking (discharge), '4': Discharging, '5': EPS, '6': Fault, '7': Permanent fault}
+  battery_type: {'0': DARFON, '1': PYLON, '2': SOLTARO, '3': ALPHA.ESS, '4': GENERAL, '256': DEFAULT}
+  country: {'0': Germany VDE4105, '1': CEI0-21 internal, '2': Australia, '3': Spain RD1699, '4': Turkey, '5': Denmark, '6': Greece continent, '7': Netherlands, '8': Belgium, '9': UK G59, '10': China, '11': France, '12': Poland, '13': Germany BDEW, '14': Germany VDE0126, '15': Italy CEI0-16, '16': UK G83, '17': Greece island, '18': EU EN50438, '19': EU EN61727, '20': Korea, '21': Sweden, '22': Europe general, '23': CEI0-21 external, '24': Cyprus, '25': India, '26': Philippines, '27': New Zealand}
+  pvrunmode: {'0': Waiting, '1': Checking, '2': Normal mode, '3': Fault, '4': Permanent fault mode}
+  work_mode: {'0': Auto, '1': Time of Use, '2': Timed, '3': Passive, '4': Peak Shaving}
+  time_of_use: {'0': Disabled, '1': Monday, '2': Tuesday, '4': Wednesday, '8': Thursday, '16': Friday, '31': Weekdays, '32': Saturday, '64': Sunday, '192': Weekend}
+  on_off: {'0': 'Off', '1': 'On'}
+
+flags:
+  fault_1: {'0': Grid overvoltage (ID01), '1': Grid undervoltage (ID02), '2': Grid overfrequency (ID03), '3': Grid underfrequency (ID04), '4': Battery overvoltage (ID05), '8': LLC bus hardware overvoltage (ID09), '9': Bus hardware overvoltage (ID10), '10': Buck-boost hardware overcurrent (ID11), '11': Battery hardware overcurrent (ID12), '14': Output hardware overcurrent}
+  fault_2: {'0': Grid current sampling error (ID17), '1': DCI sampling error (ID18), '2': Grid voltage sampling error (ID19), '4': Main chip fault (ID21), '5': Auxiliary power supply fault (ID22), '8': LLC bus protection (ID25), '9': 'Bus overvoltage, software (ID26)', '10': Battery overcurrent (ID27), '11': DCI overcurrent (ID28), '12': 'Output overcurrent, software (ID29)', '13': Buck overcurrent (ID30), '14': Output overcurrent (ID31)}
+  fault_4: {'0': 'Grid voltage consistency fault, master/slave DSP (ID49)', '1': Grid frequency consistency fault (ID50), '2': DCI consistency fault (ID51), '3': Battery communication fault (ID52), '4': SPI communication fault (ID53), '5': SCI communication fault (ID54), '6': Relay fault (ID55), '8': Inverter overtemperature (ID57), '9': Boost overtemperature (ID58), '10': Ambient overtemperature (ID59)}
+  fault_5: {'0': 'Permanent: grid current too high (ID65)', '1': 'Permanent: bus voltage too high (ID66)', '2': 'Permanent: EPS battery overcurrent (ID67)', '5': 'Permanent: output current too high (ID70)', '10': 'Permanent: EEPROM write (ID75)', '11': 'Permanent: EEPROM read (ID76)', '12': 'Permanent: relay fault (ID77)'}
+  alert: {'0': 'Derating: overtemperature (ID81)', '1': 'Derating: grid overfrequency (ID82)', '2': 'Derating: remote control (ID83)', '3': Shut down by remote control (ID84), '7': Battery low voltage (ID85)}
+  comm_board: {'3': Software versions inconsistent (ID94), '4': Communication board EEPROM fault (ID95), '5': RTC clock fault (ID96), '6': Invalid country (ID97), '7': SD card fault (ID98)}
+  battery_fault_1: {'0': Discharge overcurrent (ID100), '1': Discharge short circuit (ID101), '2': Battery overvoltage (ID102), '3': Battery undervoltage (ID103), '4': Discharge overtemperature (ID104), '5': Charge overtemperature (ID105), '6': Discharge undertemperature (ID106), '7': Charge undertemperature (ID107)}
+
+problems:
+  - {when: {key: state, equals: 5}, kind: backup_mode, text: Running in EPS (backup) mode}
+  - {when: {key: state, equals: 6}, kind: fault, text: Fault (state 6)}
+  - {when: {key: state, equals: 7}, kind: fault, text: Permanent fault (state 7)}
+  - {when: {key: x.fault_1, not: 0}, kind: warning, text: 'Fault list 1 (grid / hardware): 0x{value:X}'}
+  - {when: {key: x.fault_2, not: 0}, kind: warning, text: 'Fault list 2 (sampling / overcurrent): 0x{value:X}'}
+  - {when: {key: x.fault_4, not: 0}, kind: warning, text: 'Fault list 4 (consistency / temperature): 0x{value:X}'}
+  - {when: {key: x.fault_5, not: 0}, kind: warning, text: 'Fault list 5 (permanent faults): 0x{value:X}'}
+  - {when: {key: x.battery_fault_1, not: 0}, kind: warning, text: 'Battery fault: 0x{value:X}'}
+  - {when: {key: x.alert, not: 0}, kind: warning, text: 'Inverter alert: 0x{value:X}'}
+  - {when: {key: x.comm_board_message, not: 0}, kind: warning, text: 'Communication board alarm: 0x{value:X}'}
+
+notes:
+- The document describes a SofarSolar energy storage inverter (serial product code E1) with a low-voltage battery. Live data
+  is read with function 03, battery parameters and inverter information with function 04.
+- 'Fault, alert and battery fault words: the high byte holds the odd byte number (byte 1, 3, …), the low byte the even one.
+  Battery fault words 2…5 (0x023E…0x0241) are all reserved.'
+- 'Serial number (14 characters): S = SofarSolar, product code (A1 = 1.1–6 kW, M1 = micro-inverter, C1 = 10–20 kW, D1 = 30–40
+  kW, E1 = storage inverter), region (E or U), configuration, then year, month, day and a sequence number. The document places
+  it at input registers 0x2001…0x2007; not checked on a device.'
+- 'Left out: the bus and buck readings 0x022D…0x022F and the generation current 0x0236 (units missing or unclear in the document),
+  reserved 0x0224…0x0229, and the vendor function codes (time broadcast).'
+- Models sofar_modbus_x1_pv, sofar_modbus_x3_pv, sofar_modbus_pv, solarman_default, solarman_hyd_es, solax_modbus_x1_pv, solax_modbus_x3_pv,
+  solax_modbus_x1_hybrid, solax_modbus_pv come from projects and are listed after a model without a match, so detection never
+  reaches them; their points apply only when a reader selects such a model by hand.
+- Identification as solax-modbus recognises the device (not checked against a document).
+- 'evcc template `sofarsolar` (grid, pv, battery) lists: SofarSolar Inverter; SofarSolar Hybrid Inverter; ZCS Azzurro Inverter;
+  ZCS Azzurro Hybrid Inverter.'
+- The project reads this map over RTU only and never writes it.
+- The serial number is in the input registers (0x2002); the project strips padding characters before matching its prefix.
+- Default unit 1 and 9600 baud are the Home Assistant sofar integration's defaults (it uses the current map only).
+- Models without a match can't be picked by one serial prefix; their names list the prefixes the project maps to them (first
+  prefix in its list wins).
+- The project reaches the device through a Solarman Wi-Fi / LAN data logger (its own V5 protocol on TCP 8899) or over plain
+  Modbus TCP / RTU; the register map is the same.
+- Also used for sofar_wifikit.
+- Also used for sofar_hyd-es (mod=1).
+- Also used for sofar_hyd3k-6k-es (mod=1).
+- The model is a setting in the project (its `mod` option); it isn't read from the device.
+- 'Models without a match can''t be picked by a single serial prefix; their names list the prefixes the project maps to them
+  ("some": only some of those serials, the project also looks at other data).'
+- 'Left out: serial_number (input 8194, str) from sofar-modbus, solax-modbus overlaps device_serial_number (input 8193, str,
+  7 registers); check a document.'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

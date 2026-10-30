@@ -1,0 +1,100 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Mitsubishi Electric Procon MelcoBEMS MINI (A1M+ / A1M R5) Modbus Register Tables (1.0.2).
+
+modbusspec: 0
+id: mitsubishi-melcobems-lossnay
+manufacturer: Mitsubishi Electric
+name: Procon MelcoBEMS MINI (A1M+ / A1M R5) interface, Lossnay ventilation units
+kind: ventilation
+
+sources:
+- title: Procon MelcoBEMS MINI (A1M+) / MelcoBEMS MINI (A1M R5) Modbus Register Tables (A1M+ firmware 4.1.2, A1M R5 firmware
+    3.1.05)
+  version: 1.0.2 (13/05/26)
+  url: https://www.nukumi.cz/data/files/67/procon-a1m-modbus-bacnet-adapter-1790325742.pdf?v=31f986df
+  sha256: 312bb6ff9e0bb082fd3a3c3eaf7fccbaede4a4bcce034ff1662ff2be8bea59ca
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Interface (holding registers, function 03, write 06 / 16)
+  - {key: x.modbus_slave_id, label: Modbus Slave ID, table: holding, address: 4, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Modbus RS-485 Baud Rate, table: holding, address: 5, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.parity, label: RS-485 Parity Type, table: holding, address: 6, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: firmware, label: MelcoBEMS MINI (A1M) Firmware Version, table: holding, address: 10, type: u16, poll: slow, note: Read only; coding not stated.}
+  - {key: x.comms_counter, label: Modbus Comms Counter, table: holding, address: 11, type: u16, note: +1 per valid Modbus command; wraps after 65535.}
+  - {key: x.system_type, label: System Type Detected, table: holding, address: 13, type: u16, enum: system_type, poll: slow}
+
+  # Lossnay unit
+  - {key: x.power_on_off, label: Power On/Off, table: holding, address: 300, type: u16, enum: off_on, writable: true, note: Also coil 3.}
+  - {key: x.operating_mode, label: Operating Mode, table: holding, address: 301, type: u16, enum: operating_mode, writable: true}
+  - {key: x.ventilation_mode, label: Ventilation Mode, table: holding, address: 302, type: u16, enum: ventilation_mode, writable: true, note: Some units support Lossnay mode only.}
+  - {key: x.fan_speed, label: Fan Speed A, table: holding, address: 303, type: u16, enum: fan_speed, writable: true, note: Auto (0) is not supported on all units.}
+  - {key: x.temperature_setpoint, label: Temperature Setpoint A, table: holding, address: 304, type: u16, unit: °C, scale: 0.1, writable: true, min: 0, max: 40, note: Only when the temperature control unit shows a set temperature (register 337 = 1 or 2).}
+  - {key: x.supply_air_temperature, label: Supply Air Temperature, table: holding, address: 305, type: u16, unit: °C, scale: 0.1, optional: true, note: Only with a supply air sensor (register 340).}
+  - {key: x.outdoor_temperature, label: Outdoor Temperature (signed), table: holding, address: 306, type: s16, unit: °C, scale: 0.1, invalid: [32766, 32767], optional: true, note: '−56 … 63 °C in 0.5 °C steps; 0x7FFE = still detecting, 0x7FFF = no thermistor. Register 307 holds it without sign (0 … 63 °C). Only with an outdoor sensor (register 338).'}
+  - {key: x.room_temperature, label: Room Temperature A, table: holding, address: 308, type: u16, unit: °C, scale: 0.1, optional: true, note: Only with a return air sensor (register 339).}
+  - {key: x.co2, label: Room CO2 Level, table: holding, address: 309, type: u16, unit: ppm, scale: 10, invalid: [254, 255], optional: true, note: '0 … 2400 ppm (240 = 2400 ppm and above); 254 = still detecting, 255 = no sensor.'}
+  - {key: x.fault_code_hex, label: Fault/Error Code (hex), table: holding, address: 310, type: u16, poll: slow, note: '0x8000 = no error, 0x6999 = no communication with the unit. Registers 9 and 310 hold the same.'}
+  - {key: error_code, label: Fault/Error Code (decimal), table: holding, address: 311, type: u16, enum: fault_code}
+  - {key: x.thermo_on, label: Thermo On/Off, table: holding, address: 312, type: u16, enum: off_on}
+  - {key: x.energy_consumption, label: Energy Consumption, table: holding, address: 313, type: u16, unit: kWh, scale: 0.1, poll: slow, note: 0 … 6553.5 kWh; only when register 332 says energy data is available. What period it covers is not stated.}
+  - {key: x.actual_operation_mode, label: Actual Operation Mode, table: holding, address: 314, type: u16, enum: actual_operation_mode}
+  - {key: x.night_purge, label: Night Purge, table: holding, address: 316, type: u16, enum: night_purge}
+  - {key: x.maintenance_sign, label: Maintenance Sign, table: holding, address: 317, type: u16, enum: inactive_active}
+  - {key: x.filter_sign, label: Filter Sign, table: holding, address: 318, type: u16, enum: inactive_active}
+  - {key: x.actual_ventilation_mode, label: Actual Ventilation Mode, table: holding, address: 319, type: u16, enum: actual_ventilation_mode}
+  - {key: x.supply_fan_speed, label: Actual Supply Fan Speed, table: holding, address: 320, type: u16, enum: actual_fan_speed}
+  - {key: x.extract_fan_speed, label: Actual Extract Fan Speed, table: holding, address: 321, type: u16, enum: actual_fan_speed}
+  - {key: x.fan_speed_count, label: Number of Fan Speeds, table: holding, address: 333, type: u16, poll: slow, note: 1 … 4.}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  inactive_active: {'0': Inactive, '1': Active}
+  baud_rate: {'0': '9600', '1': '1200', '2': '2400', '3': '4800', '4': '9600', '5': '14400', '6': '19200', '7': '28800', '8': '38400', '9': '56000', '10': '57600', '11': '115200'}
+  parity: {'0': None, '1': Even, '2': Odd}
+  system_type: {'0': Air-to-air unit, '1': Air-to-water system, '2': Lossnay, '255': Not detected yet}
+  fault_code: {'8000': No error, '6999': No communication with the unit}
+  operating_mode: {'1': Heat, '3': Cool, '7': Fan, '8': Auto}
+  ventilation_mode: {'0': Lossnay (heat recovery), '1': Bypass, '2': Auto}
+  fan_speed: {'0': Auto, '1': Speed 1, '2': Speed 2, '3': Speed 3, '4': Speed 4}
+  actual_fan_speed: {'0': Stop, '1': Speed 1, '2': Speed 2, '3': Speed 3, '4': Speed 4}
+  actual_operation_mode: {'0': Not auto mode, '1': Determining, '2': Heating, '3': Cooling}
+  actual_ventilation_mode: {'0': Lossnay ventilation, '1': Bypass ventilation}
+  night_purge: {'0': Normal operation, '1': Night purge}
+
+problems:
+  - {when: {key: error_code, equals: 6999}, kind: fault, text: No communication between the interface and the Lossnay unit}
+  - {when: {key: error_code, not_in: [8000, 6999]}, kind: fault, text: 'Lossnay fault code {value}'}
+  - {when: {key: x.maintenance_sign, equals: 1}, kind: warning, text: Maintenance due}
+  - {when: {key: x.filter_sign, equals: 1}, kind: warning, text: Filter needs cleaning}
+
+notes:
+- The MelcoBEMS MINI is an RS-485 Modbus RTU (or BACnet MS/TP) interface for Mitsubishi Electric units; this is its register
+  map with a Lossnay (LGH or VL series) heat-recovery ventilation unit connected.
+- Addresses are the 0-based addresses the document lists; its Modicon references (00001, 10001, 30001, 40001) are these +
+  1.
+- Every input register, coil and discrete input is mirrored in a holding register, so only holding registers are listed here.
+  Input registers 174 … 192 repeat holding 305 … 337; discrete inputs 80 … 97 repeat the status registers; coil 3 is power
+  on/off.
+- The document gives the CO2 level once as ×10 and once as ÷10 of the register; with 240 = 2400 ppm the register holds ppm
+  ÷ 10.
+- Not every register applies to both unit series; the document has a column per series.
+- Serial settings and unit id are set in registers 4 … 6; the document doesn't give the factory values. 9600 baud, no parity
+  and unit 1 are assumed.
+- The document gives no registers that single the interface out (no serial number or fixed identifier); `identify` is left
+  out. The system type (holding 13) reads 2 with a Lossnay unit.
+- 'Left out: the setpoint limits (326 … 331) and the feature and sensor availability flags (315, 322 … 325, 332, 334 … 341).'

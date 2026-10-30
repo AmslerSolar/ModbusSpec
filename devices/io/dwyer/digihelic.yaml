@@ -1,0 +1,114 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Dwyer Instruments Digihelic Modbus Register List (Rev 2, 9/28/07).
+
+modbusspec: 0
+id: dwyer-digihelic
+manufacturer: Dwyer Instruments
+name: Digihelic DH series differential pressure controller
+kind: io
+
+sources:
+- title: Digihelic Modbus Register List
+  version: Rev 2 (2007-09-28)
+  url: https://assets.dwyeromega.com/manuals-do/DH-DigihelicModbusRegisterList.pdf
+  sha256: 32f7c122769ceaf7088f6af774133347bdce82f6bbd1eb4e74b101e29e00a078
+  archive_url: https://web.archive.org/web/20250814174034/https://assets.dwyeromega.com/manuals-do/DH-DigihelicModbusRegisterList.pdf
+
+connection:
+  default_port: 502
+  default_unit: 50
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Process value and status
+  - {key: x.process_value, label: PV (displayed process value), table: holding, address: 0, type: s16, scale_exponent_from: {table: holding, address: 3, type: u16, negate: true}, verified: false, note: 'Divided by 10^(PV DPT, register 3). The unit is the one chosen in register 7 (Displayed Units), or percent when register 8 is 1. Signedness not stated; signed assumed because the ± models read negative pressures.'}
+  - {key: x.internal_temperature, label: Internal Temp, table: holding, address: 1, type: s16, unit: °F, verified: false, note: 'In °F per the document; signedness not stated, signed assumed.'}
+  - {key: x.unit_status, label: Unit Status, table: holding, address: 2, type: u16, flags: unit_status}
+  - {key: x.pv_decimals, label: 'PV DPT (decimal point position, PV only)', table: holding, address: 3, type: u16, enum: decimals, poll: slow}
+  - {key: x.decimals, label: 'DPT (decimal point position, all except PV)', table: holding, address: 4, type: u16, enum: decimals, poll: slow}
+  - {key: x.peak, label: PEAK, table: holding, address: 5, type: s16, writable: true, verified: false, note: Peak value; writing any value resets it. Decimal places as in register 4 (assumed).}
+  - {key: x.valley, label: VALY, table: holding, address: 6, type: s16, writable: true, verified: false, note: Valley value; writing any value resets it. Decimal places as in register 4 (assumed).}
+  - {key: x.display_units, label: PrES/UEL/FLO (displayed units), table: holding, address: 7, type: u16, enum: display_units, writable: true, poll: slow}
+  - {key: x.display_percent, label: PdiS (display STD / percent), table: holding, address: 8, type: u16, enum: display_mode, writable: true, poll: slow}
+  - {key: x.resolution, label: rESO (display resolution), table: holding, address: 9, type: u16, enum: resolution, writable: true, poll: slow}
+  - {key: x.dampening, label: DAMP (dampening), table: holding, address: 10, type: u16, writable: true, min: 1, max: 16, poll: slow}
+
+  # Outputs
+  - {key: x.control_type, label: Ctrl (control type), table: holding, address: 11, type: u16, enum: control_type, writable: true, poll: slow}
+  - {key: x.sp1_low, label: SP1L (set point 1 low), table: holding, address: 12, type: s16, writable: true, poll: slow}
+  - {key: x.sp1_high, label: SP1H (set point 1 high), table: holding, address: 13, type: s16, writable: true, poll: slow}
+  - {key: x.sp2_low, label: SP2L (set point 2 low), table: holding, address: 14, type: s16, writable: true, poll: slow}
+  - {key: x.sp2_high, label: SP2H (set point 2 high), table: holding, address: 15, type: s16, writable: true, poll: slow}
+  - {key: x.alarm_low, label: ALLO (low alarm), table: holding, address: 16, type: s16, writable: true, poll: slow}
+  - {key: x.alarm_high, label: ALHI (high alarm), table: holding, address: 17, type: s16, writable: true, poll: slow}
+  - {key: x.sp1_action, label: ISP (set point 1 action), table: holding, address: 18, type: u16, enum: sp_action, writable: true, poll: slow}
+  - {key: x.alarm_type, label: AL (alarm type), table: holding, address: 19, type: u16, enum: alarm_type, writable: true, poll: slow}
+  - {key: x.alarm_reset_mode, label: ALrE (alarm reset), table: holding, address: 20, type: u16, enum: alarm_reset, writable: true, poll: slow}
+  - {key: x.alarm_low_inhibit, label: ALiH (low alarm inhibit), table: holding, address: 21, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.alarm_delay, label: ALDL (alarm delay), table: holding, address: 22, type: u16, unit: s, writable: true, min: 0, max: 100, poll: slow}
+  - {key: x.ack_alarm, label: Ack Alarm, table: holding, address: 36, type: u16, writable: true, write_only: true, note: Any value resets the alarm by hand.}
+
+  # Operation (flow) settings
+  - {key: x.k_factor, label: KFAC (K factor), table: holding, address: 23, type: u16, scale: 0.01, writable: true, min: 0.01, max: 2, poll: slow}
+  - {key: x.duct_type, label: ArEA (duct type), table: holding, address: 24, type: u16, enum: duct_type, writable: true, poll: slow}
+  - {key: x.flow_range, label: FLOr, table: holding, address: 51, type: u16, enum: flow_range, writable: true, poll: slow}
+
+  # Advanced
+  - {key: x.retrans_low, label: POL (displayed value for 4 mA output), table: holding, address: 28, type: s16, writable: true, poll: slow}
+  - {key: x.retrans_high, label: POH (displayed value for 20 mA output), table: holding, address: 29, type: s16, writable: true, poll: slow}
+  - {key: x.rs485_address, label: ADDR (RS485 address), table: holding, address: 32, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.write_enable, label: WR (RS485 write enable), table: holding, address: 33, type: u16, enum: disable_enable, writable: true, poll: slow, note: Writes over RS485 only take effect while this is 1.}
+  - {key: x.maintenance_mode, label: Maint. (maintenance mode), table: holding, address: 50, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.security_level, label: SECr (security level), table: holding, address: 49, type: u16, poll: slow, note: Reads 1–4; to set level 1/2/3/4 write 10/70/90/111.}
+
+  # Identity
+  - {key: x.model_no, label: Model No., table: holding, address: 35, type: u16, enum: model_no, poll: slow}
+  - {key: firmware, label: Software (version number), table: holding, address: 37, type: u16, poll: slow}
+
+enums:
+  decimals: {'0': '0', '1': '0.0', '2': '0.00', '3': '0.000', '4': '.0000'}
+  display_units: {'0': inWC, '1': ftWC, '2': mmWC, '3': cmWC, '4': psi, '5': inHg, '6': mmHg, '7': mbar, '8': Pa, '9': kPa, '10': hPa, '11': ozin, '12': SFPM, '13': m/s, '14': SCFM, '15': m³/h}
+  display_mode: {'0': Standard, '1': Percent}
+  resolution: {'0': 4 digits, '1': 3 digits}
+  control_type: {'0': Single set point, '1': Two set points, '2': Set point / alarm}
+  sp_action: {'0': Direct, '1': Reverse}
+  alarm_type: {'0': High, '1': Low, '2': High / low}
+  alarm_reset: {'0': Automatic (on / off), '1': Hold (manual)}
+  off_on: {'0': 'Off', '1': 'On'}
+  disable_enable: {'0': Disabled, '1': Enabled}
+  duct_type: {'0': Circular, '1': Rectangular}
+  flow_range: {'0': HI, '1': LO}
+  model_no: {'0': DH-001 0–0.1 inWC, '1': DH-002 0–0.25 inWC, '2': DH-003 0–0.5 inWC, '3': DH-004 0–1.0 inWC, '4': DH-005 0–2.5 inWC, '5': DH-006 0–5 inWC, '6': DH-007 0–10 inWC, '7': DH-008 0–25 inWC, '8': DH-009 0–50 inWC, '9': DH-010 0–100 inWC, '10': DH-011 ±0.1 inWC, '11': DH-012 ±0.25 inWC, '12': DH-013 ±0.5 inWC, '13': DH-014 ±1.0 inWC, '14': DH-015 ±2.5 inWC, '15': DH-016 ±5.0 inWC, '16': DH-017 ±10 inWC}
+
+flags:
+  unit_status: {'0': Set point 1 on, '1': Set point 2 on, '2': Alarm on, '3': Over range, '4': Under range, '7': Alarm HI on, '8': Alarm LO on, '9': Maintenance mode on, '10': X1K descriptor on}
+
+problems:
+  - {when: {key: x.unit_status, bit: 2}, kind: warning, text: Alarm on (status bit 2)}
+  - {when: {key: x.unit_status, bit: 3}, kind: warning, text: Process value over range (status bit 3)}
+  - {when: {key: x.unit_status, bit: 4}, kind: warning, text: Process value under range (status bit 4)}
+
+notes:
+- Modbus RTU only, 9600 baud 8N1, factory address 50 (0x32). Port 502 only applies behind an RS485-to-TCP gateway.
+- All registers are holding registers, and the device answers only one register per request (reading or writing several returns
+  an error).
+- The document gives both the 0-based protocol address and the 4xxxx reference; the protocol addresses are used here.
+- Status bits 8–10 are the document's high-byte bits 0–2.
+- Set points, alarms, peak/valley and retransmission values have no stated scale or signedness; they are taken as signed raw
+  display values (decimal places presumably as in register 4).
+- 'Left out: duct dimensions (25–27, ranges given in the instruction manual), maintenance set points (30–31) and the write-only
+  calibration registers (47 zero, 48 span).'
+- 'The model register (35, DH-001 … DH-017) only holds 0–16: too small a range to tell this device apart in a network search,
+  and there is no serial number register, so the file has no models or identify checks.'

@@ -1,0 +1,182 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Agrowtek IM MODBUS instruction manual (undated), section "MODBUS RTU Registers".
+
+modbusspec: 0
+id: agrowtek-grownet
+manufacturer: Agrowtek
+name: GrowNET sensors, relay / I/O modules, dosing pumps and light modules (Modbus RTU)
+kind: io
+
+sources:
+- title: Agrowtek Instruction Manual – MODBUS (GrowNET devices, GCX and BDX)
+  version: undated
+  url: https://www.agrowtek.com/doc/im/IM_MODBUS.pdf
+  sha256: a30ddc9a6e272bd9e8fe96235b7aa4d759022d0db0eed5d4cb7d58c326c77e22
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 3
+    type: str
+    length: 4
+
+model_choice: user
+
+models:
+  - {id: climate, name: 'Environment / weather sensors (SXC, SXE, SXW)'}
+  - {id: gas, name: CO2 gas sensor (SXG)}
+  - {id: hydro, name: 'Hydroponics sensors (SXH, PHX)'}
+  - {id: oxygen, name: Dissolved oxygen sensor (SXO2)}
+  - {id: vwc, name: 'VWC sensor hubs (HXT, HXG)'}
+  - {id: pump, name: Dosing pumps (ADi)}
+  - {id: io, name: 'Relay and I/O modules (RX, RD, DX, VX series)'}
+  - {id: light, name: Digital light module (LXD)}
+  - {id: quantum, name: Quantum light sensor (SXQ)}
+
+points:
+  # All devices
+  - {key: x.device_address, label: Device slave address, table: holding, address: 0, type: u16, writable: true, min: 1, max: 247, poll: slow, note: 254 is a broadcast address every device answers (one device on the bus only).}
+  - {key: serial, label: Device serial number, table: holding, address: 3, type: str, length: 4, poll: slow}
+  - {key: x.manufacture_date, label: Date of manufacture, table: holding, address: 7, type: str, length: 4, poll: slow}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 11, type: str, length: 4, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 15, type: str, length: 4, poll: slow}
+  - {key: x.model, label: Device model, table: holding, address: 19, type: str, length: 4, poll: slow, note: Product model number as text; the document gives no values.}
+
+  # Environment sensors (SXC, SXE, SXW): float readings
+  - {key: x.air_temperature, label: Temperature, table: holding, address: 200, type: f32, unit: °C, models: [climate]}
+  - {key: x.humidity, label: Humidity, table: holding, address: 202, type: f32, unit: '%', models: [climate]}
+  - {key: x.light, label: Light, table: holding, address: 204, type: f32, unit: '', note: 'SXE / SXW: W/m² (0–1000); SXC: µmol/m²/s (0–5000).', models: [climate]}
+  - {key: x.co2, label: CO2, table: holding, address: 206, type: f32, unit: ppm, models: [climate]}
+  - {key: x.leaf_temperature, label: PLIR leaf IR temperature, table: holding, address: 208, type: f32, unit: °C, models: [climate]}
+  - {key: x.toggle_units, label: Toggle sensor units, table: holding, address: 1001, type: u16, writable: true, write_only: true, min: 1, max: 4, models: [climate, hydro, oxygen], note: Writing a channel number switches that channel's unit (e.g. 1 = °C / °F).}
+  # Gas sensor (SXG)
+  - {key: x.co2, label: CO2, table: holding, address: 200, type: f32, unit: ppm, models: [gas]}
+  # Hydroponics sensors (SXH, PHX)
+  - {key: x.water_temperature, label: Temperature, table: holding, address: 200, type: f32, unit: °C, models: [hydro]}
+  - {key: x.ph, label: pH, table: holding, address: 202, type: f32, unit: '', models: [hydro]}
+  - {key: x.conductivity, label: Conductivity, table: holding, address: 204, type: f32, note: '0–5000 µS/cm or 0–2500 ppm, depending on the unit setting.', models: [hydro]}
+  - {key: x.orp_do_flow, label: O.R.P. / D.O. / flow, table: holding, address: 206, type: f32, note: 'Depends on the probe: ORP −1000…1000 mV, dissolved oxygen 0–40 mg/L or flow 0–30 gpm (0–150 l/min).', models: [hydro]}
+  # Dissolved oxygen (SXO2)
+  - {key: x.water_temperature, label: Temperature, table: holding, address: 200, type: f32, unit: °C, models: [oxygen]}
+  - {key: x.dissolved_oxygen, label: D.O., table: holding, address: 202, type: f32, unit: mg/L, models: [oxygen]}
+  # VWC sensor hubs (HXT, HXG), eight channels
+  - {key: x.vwc_raw_1, label: VWC raw count 1, table: holding, address: 100, type: u16, optional: true, models: [vwc]}
+  - {key: x.vwc_raw_2, label: VWC raw count 2, table: holding, address: 101, type: u16, optional: true, models: [vwc]}
+  - {key: x.vwc_raw_3, label: VWC raw count 3, table: holding, address: 102, type: u16, optional: true, models: [vwc]}
+  - {key: x.vwc_raw_4, label: VWC raw count 4, table: holding, address: 103, type: u16, optional: true, models: [vwc]}
+  - {key: x.vwc_raw_5, label: VWC raw count 5, table: holding, address: 104, type: u16, optional: true, models: [vwc]}
+  - {key: x.vwc_raw_6, label: VWC raw count 6, table: holding, address: 105, type: u16, optional: true, models: [vwc]}
+  - {key: x.vwc_raw_7, label: VWC raw count 7, table: holding, address: 106, type: u16, optional: true, models: [vwc]}
+  - {key: x.vwc_raw_8, label: VWC raw count 8, table: holding, address: 107, type: u16, optional: true, models: [vwc]}
+  - {key: x.soil_conductivity_1, label: Electrical conductivity 1, table: holding, address: 108, type: u16, unit: uS/cm, optional: true, models: [vwc]}
+  - {key: x.soil_conductivity_2, label: Electrical conductivity 2, table: holding, address: 109, type: u16, unit: uS/cm, optional: true, models: [vwc]}
+  - {key: x.soil_conductivity_3, label: Electrical conductivity 3, table: holding, address: 110, type: u16, unit: uS/cm, optional: true, models: [vwc]}
+  - {key: x.soil_conductivity_4, label: Electrical conductivity 4, table: holding, address: 111, type: u16, unit: uS/cm, optional: true, models: [vwc]}
+  - {key: x.soil_conductivity_5, label: Electrical conductivity 5, table: holding, address: 112, type: u16, unit: uS/cm, optional: true, models: [vwc]}
+  - {key: x.soil_conductivity_6, label: Electrical conductivity 6, table: holding, address: 113, type: u16, unit: uS/cm, optional: true, models: [vwc]}
+  - {key: x.soil_conductivity_7, label: Electrical conductivity 7, table: holding, address: 114, type: u16, unit: uS/cm, optional: true, models: [vwc]}
+  - {key: x.soil_conductivity_8, label: Electrical conductivity 8, table: holding, address: 115, type: u16, unit: uS/cm, optional: true, models: [vwc]}
+  - {key: x.soil_temperature_1, label: Temperature 1, table: holding, address: 116, type: s16, unit: °C, scale: 0.1, optional: true, verified: false, note: The document calls it unsigned but gives −40…60 °C; read as signed (assumed)., models: [vwc]}
+  - {key: x.soil_temperature_2, label: Temperature 2, table: holding, address: 117, type: s16, unit: °C, scale: 0.1, optional: true, models: [vwc]}
+  - {key: x.soil_temperature_3, label: Temperature 3, table: holding, address: 118, type: s16, unit: °C, scale: 0.1, optional: true, models: [vwc]}
+  - {key: x.soil_temperature_4, label: Temperature 4, table: holding, address: 119, type: s16, unit: °C, scale: 0.1, optional: true, models: [vwc]}
+  - {key: x.soil_temperature_5, label: Temperature 5, table: holding, address: 120, type: s16, unit: °C, scale: 0.1, optional: true, models: [vwc]}
+  - {key: x.soil_temperature_6, label: Temperature 6, table: holding, address: 121, type: s16, unit: °C, scale: 0.1, optional: true, models: [vwc]}
+  - {key: x.soil_temperature_7, label: Temperature 7, table: holding, address: 122, type: s16, unit: °C, scale: 0.1, optional: true, models: [vwc]}
+  - {key: x.soil_temperature_8, label: Temperature 8, table: holding, address: 123, type: s16, unit: °C, scale: 0.1, optional: true, models: [vwc]}
+  # Dosing pumps (ADi), six pumps
+  - {key: x.pump_speed_1, label: Motor speed pump 1, table: holding, address: 100, type: u16, unit: '%', writable: true, min: 0, max: 100, optional: true, models: [pump]}
+  - {key: x.pump_speed_2, label: Motor speed pump 2, table: holding, address: 101, type: u16, unit: '%', writable: true, min: 0, max: 100, optional: true, models: [pump]}
+  - {key: x.pump_speed_3, label: Motor speed pump 3, table: holding, address: 102, type: u16, unit: '%', writable: true, min: 0, max: 100, optional: true, models: [pump]}
+  - {key: x.pump_speed_4, label: Motor speed pump 4, table: holding, address: 103, type: u16, unit: '%', writable: true, min: 0, max: 100, optional: true, models: [pump]}
+  - {key: x.pump_speed_5, label: Motor speed pump 5, table: holding, address: 104, type: u16, unit: '%', writable: true, min: 0, max: 100, optional: true, models: [pump]}
+  - {key: x.pump_speed_6, label: Motor speed pump 6, table: holding, address: 105, type: u16, unit: '%', writable: true, min: 0, max: 100, optional: true, models: [pump]}
+  - {key: x.pump_run_time_1, label: Accumulated run time pump 1, table: holding, address: 9000, type: u32, unit: s, poll: slow, optional: true, models: [pump]}
+  - {key: x.pump_run_time_2, label: Accumulated run time pump 2, table: holding, address: 9002, type: u32, unit: s, poll: slow, optional: true, models: [pump]}
+  - {key: x.pump_run_time_3, label: Accumulated run time pump 3, table: holding, address: 9004, type: u32, unit: s, poll: slow, optional: true, models: [pump]}
+  - {key: x.pump_run_time_4, label: Accumulated run time pump 4, table: holding, address: 9006, type: u32, unit: s, poll: slow, optional: true, models: [pump]}
+  - {key: x.pump_run_time_5, label: Accumulated run time pump 5, table: holding, address: 9008, type: u32, unit: s, poll: slow, optional: true, models: [pump]}
+  - {key: x.pump_run_time_6, label: Accumulated run time pump 6, table: holding, address: 9010, type: u32, unit: s, poll: slow, optional: true, models: [pump]}
+  # Relay and I/O modules (RX, RD, DX, VX), up to eight channels
+  - {key: x.output_1, label: Output coil 1, table: coil, address: 0, type: bool, writable: true, optional: true, verified: false, note: The document numbers the coils 1–8; coil 1 is taken as protocol address 0 (assumed). 1 = on., models: [io]}
+  - {key: x.output_2, label: Output coil 2, table: coil, address: 1, type: bool, writable: true, optional: true, models: [io]}
+  - {key: x.output_3, label: Output coil 3, table: coil, address: 2, type: bool, writable: true, optional: true, models: [io]}
+  - {key: x.output_4, label: Output coil 4, table: coil, address: 3, type: bool, writable: true, optional: true, models: [io]}
+  - {key: x.output_5, label: Output coil 5, table: coil, address: 4, type: bool, writable: true, optional: true, models: [io]}
+  - {key: x.output_6, label: Output coil 6, table: coil, address: 5, type: bool, writable: true, optional: true, models: [io]}
+  - {key: x.output_7, label: Output coil 7, table: coil, address: 6, type: bool, writable: true, optional: true, models: [io]}
+  - {key: x.output_8, label: Output coil 8, table: coil, address: 7, type: bool, writable: true, optional: true, models: [io]}
+  - {key: x.analog_input_1, label: Analog input value 1, table: holding, address: 200, type: f32, optional: true, note: 'Unit depends on the module and input type (e.g. DXI8: mV or mA).', models: [io]}
+  - {key: x.analog_input_2, label: Analog input value 2, table: holding, address: 202, type: f32, optional: true, models: [io]}
+  - {key: x.analog_input_3, label: Analog input value 3, table: holding, address: 204, type: f32, optional: true, models: [io]}
+  - {key: x.analog_input_4, label: Analog input value 4, table: holding, address: 206, type: f32, optional: true, models: [io]}
+  - {key: x.analog_input_5, label: Analog input value 5, table: holding, address: 208, type: f32, optional: true, models: [io]}
+  - {key: x.analog_input_6, label: Analog input value 6, table: holding, address: 210, type: f32, optional: true, models: [io]}
+  - {key: x.analog_input_7, label: Analog input value 7, table: holding, address: 212, type: f32, optional: true, models: [io]}
+  - {key: x.analog_input_8, label: Analog input value 8, table: holding, address: 214, type: f32, optional: true, models: [io]}
+  - {key: x.analog_output_1, label: PWM / 0-10 V output 1, table: holding, address: 300, type: s16, writable: true, optional: true, note: 'PWM outputs: duty cycle 0–100 %; 0-10 V outputs: 0–10000 mV.', models: [io]}
+  - {key: x.analog_output_2, label: PWM / 0-10 V output 2, table: holding, address: 301, type: s16, writable: true, optional: true, models: [io]}
+  - {key: x.analog_output_3, label: PWM / 0-10 V output 3, table: holding, address: 302, type: s16, writable: true, optional: true, models: [io]}
+  - {key: x.analog_output_4, label: PWM / 0-10 V output 4, table: holding, address: 303, type: s16, writable: true, optional: true, models: [io]}
+  - {key: x.analog_output_5, label: PWM / 0-10 V output 5, table: holding, address: 304, type: s16, writable: true, optional: true, models: [io]}
+  - {key: x.analog_output_6, label: PWM / 0-10 V output 6, table: holding, address: 305, type: s16, writable: true, optional: true, models: [io]}
+  - {key: x.closure_count_1, label: Output closure count 1, table: holding, address: 9000, type: u32, poll: slow, optional: true, models: [io]}
+  - {key: x.closure_count_2, label: Output closure count 2, table: holding, address: 9002, type: u32, poll: slow, optional: true, models: [io]}
+  - {key: x.closure_count_3, label: Output closure count 3, table: holding, address: 9004, type: u32, poll: slow, optional: true, models: [io]}
+  - {key: x.closure_count_4, label: Output closure count 4, table: holding, address: 9006, type: u32, poll: slow, optional: true, models: [io]}
+  - {key: x.closure_count_5, label: Output closure count 5, table: holding, address: 9008, type: u32, poll: slow, optional: true, models: [io]}
+  - {key: x.closure_count_6, label: Output closure count 6, table: holding, address: 9010, type: u32, poll: slow, optional: true, models: [io]}
+  - {key: x.closure_count_7, label: Output closure count 7, table: holding, address: 9012, type: u32, poll: slow, optional: true, models: [io]}
+  - {key: x.closure_count_8, label: Output closure count 8, table: holding, address: 9014, type: u32, poll: slow, optional: true, models: [io]}
+  - {key: x.comm_timeout, label: Timeout, table: holding, address: 1000, type: u16, unit: s, writable: true, min: 0, max: 32767, poll: slow, models: [pump, io, light], note: 'Outputs (pumps, light) switch off when no request arrives within this time.'}
+  # Digital light module (LXD)
+  - {key: x.light_protocol, label: Light manufacturer protocol number, table: holding, address: 99, type: u16, enum: light_protocol, writable: true, poll: slow, models: [light]}
+  - {key: x.light_channel_1, label: Recipe value channel 1, table: holding, address: 100, type: u16, writable: true, min: 0, max: 255, note: 'The meaning of each channel (brightness, a colour, 0–100) depends on the light protocol.', models: [light]}
+  - {key: x.light_channel_2, label: Recipe value channel 2, table: holding, address: 101, type: u16, writable: true, min: 0, max: 255, models: [light]}
+  - {key: x.light_channel_3, label: Recipe value channel 3, table: holding, address: 102, type: u16, writable: true, min: 0, max: 255, models: [light]}
+  - {key: x.light_channel_4, label: Recipe value channel 4, table: holding, address: 103, type: u16, writable: true, min: 0, max: 255, models: [light]}
+  - {key: x.light_channel_5, label: Recipe value channel 5, table: holding, address: 104, type: u16, writable: true, min: 0, max: 255, models: [light]}
+  - {key: x.light_channel_6, label: Recipe value channel 6, table: holding, address: 105, type: u16, writable: true, min: 0, max: 255, models: [light]}
+  - {key: x.light_channel_7, label: Recipe value channel 7, table: holding, address: 106, type: u16, writable: true, min: 0, max: 255, models: [light]}
+  - {key: x.light_channel_8, label: Recipe value channel 8, table: holding, address: 107, type: u16, writable: true, min: 0, max: 255, models: [light]}
+  # Quantum light sensor (SXQ)
+  - {key: x.illuminance, label: Lux, table: holding, address: 200, type: f32, unit: lx, models: [quantum]}
+  - {key: x.color_temperature, label: CCT, table: holding, address: 202, type: f32, unit: K, models: [quantum]}
+  - {key: x.light_frequency, label: Frequency, table: holding, address: 204, type: f32, unit: Hz, note: '0, 50 or 60 Hz (flicker frequency).', models: [quantum]}
+
+enums:
+  light_protocol: {'1': ThinkGrow I/H, '2': DLI, '3': Hydrofarm, '4': Scynce, '5': Fohse, '6': Revolution, '7': DLI CRI-Series UV 150W DE, '8': ThinkGrow Model I-Plus, '9': Fohse A3i-Pro, '10': Illuminar, '11': Faven / Matrix / Flexstar}
+
+notes:
+- The document gives holding register references with the 40001 offset ("40101" is protocol address 100); the addresses here
+  are those minus 40001. Functions 01, 03, 05 and 06. A register a device doesn't have answers with exception 02.
+- Floats are IEEE 754 single precision in two consecutive registers; the word order isn't stated, high word first is assumed.
+  Texts hold two characters per register (8 characters here).
+- Most sensors also give their readings as scaled 16-bit integers at 100… (e.g. temperature × 100, humidity × 10, pH × 100);
+  only the float copies at 200… are listed, as their scaling doesn't change with the unit setting. Temperatures follow the
+  °C / °F unit setting (toggle register 1001); °C is the default assumed here.
+- Devices sit on a GrowNET bus behind an LX2 ModLINK (RS485, 19200–115200 bit/s, any format, set with the PC utility) or an
+  LX1 USB link (115200 8N1). The LX2's default is 19200 8N1; unit 1 is an assumption.
+- The device type can't be read reliably (the model text register's values aren't listed), so the user picks it. The same
+  register means different things on different device types.
+- 'Left out: calibration registers (offset, span and analog-output trim at 1100…1401), the SXQ spectral bin values F1–F13
+  (200 + 6…30), and the integer copies of the readings.'
+- A GCX controller makes the same devices available over Modbus TCP (port 502 or 4040), each device on its own unit id (1–100
+  bus 0, 101–200 bus 1) with a generic layout (name text at 0, integer values at 100…, floats at 200…, throttle at 300…, output
+  status / force-off / force-on coils), plus control function, recipe and workspace registers on unit ids 201–204 and 301+
+  at user-chosen index registers. That layout isn't described here.

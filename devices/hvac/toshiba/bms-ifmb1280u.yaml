@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: toshiba-bms-ifmb1280u
+manufacturer: Toshiba
+name: Room air conditioners (RAC) via BMS-IFMB1280U-E Modbus interface
+kind: hvac
+
+sources:
+- id: hassio-toshiba-modbus
+  title: hassio-toshiba-modbus (Home Assistant integration)
+  url: https://github.com/jrx-code/hassio-toshiba-modbus
+  license: Apache-2.0
+  commit: ce481d259f36becc2f66943bce6c92d0bf676e69
+  path: custom_components/toshiba_modbus/registers.py, custom_components/toshiba_modbus/const.py
+
+connection:
+  default_port: 8899
+  default_unit: 1
+  transports:
+  - rtu
+  limits:
+    max_registers: 16
+
+defaults:
+  verified: false
+  sources:
+  - hassio-toshiba-modbus
+
+points:
+  - {key: x.power, label: Power (command), table: coil, address: 0, type: bool, writable: true, note: '1 switches the unit on, 0 off; the state is in discrete input 0.'}
+  - {key: x.filter_reset, label: Reset filter sign, table: coil, address: 1, type: bool, writable: true, note: The project writes 1 to reset the filter sign.}
+  - {key: x.hi_power, label: Hi-Power, table: coil, address: 57, type: bool, writable: true}
+  - {key: x.eco, label: ECO, table: coil, address: 58, type: bool, writable: true}
+  - {key: x.quiet, label: Quiet FCU, table: coil, address: 59, type: bool, writable: true}
+  - {key: x.silence, label: Silence CDU, table: coil, address: 60, type: bool, writable: true}
+  - {key: x.power_status, label: Power (status), table: discrete, address: 0, type: bool}
+  - {key: x.filter_sign, label: Filter sign, table: discrete, address: 1, type: bool}
+  - {key: x.alarm, label: Alarm, table: discrete, address: 2, type: bool}
+  - {key: x.thermo, label: Thermo (status), table: discrete, address: 3, type: bool, note: Not reported by RAC interfaces; the project has no entity for it.}
+  - {key: x.pure_filter_status, label: Pure filter (status), table: discrete, address: 80, type: bool}
+  - {key: x.hi_power_status, label: Hi-Power (status), table: discrete, address: 81, type: bool}
+  - {key: x.eco_status, label: ECO (status), table: discrete, address: 82, type: bool}
+  - {key: x.quiet_status, label: Quiet FCU (status), table: discrete, address: 83, type: bool}
+  - {key: x.silence_status, label: Silence CDU (status), table: discrete, address: 84, type: bool}
+  - {key: x.setpoint, label: Set temperature, table: holding, address: 0, type: s16, unit: °C, scale: 0.1, writable: true, note: 'Steps of 0.5 °C, 17–30 °C.'}
+  - {key: x.hours, label: Operating hours, table: holding, address: 1, type: u16, unit: h, invalid: [65535]}
+  - {key: x.mode, label: Operating mode (command), table: holding, address: 6, type: u16, enum: mode_write, writable: true}
+  - {key: x.fan, label: Fan speed (command), table: holding, address: 7, type: u16, enum: fan, writable: true}
+  - {key: x.louver, label: Louver (command), table: holding, address: 8, type: u16, enum: louver, writable: true, note: RAC units support only swing (1) and stop (7).}
+  - {key: x.rc_lock, label: Remote control lock, table: holding, address: 9, type: u16, flags: rc_lock, writable: true}
+  - {key: x.save, label: Power save level, table: holding, address: 10, type: u16, enum: save, writable: true, note: Full save (3) is not available on RAC units.}
+  - {key: x.room_temp, label: Room temperature, table: input, address: 0, type: s16, unit: °C, scale: 0.1, invalid: [-1, -32768, 32767]}
+  - {key: x.setpoint_status, label: Set temperature (status), table: input, address: 1, type: s16, unit: °C, scale: 0.1, invalid: [-1, -32768, 32767]}
+  - {key: error_code, label: Check (error) code, table: input, address: 2, type: u16, enum: check_code, invalid: [65535], note: The values are TU2C-LINK codes; the enum gives the matching TCC-LINK display code.}
+  - {key: x.model, label: Indoor unit model, table: input, address: 6, type: str, length: 8, note: ASCII. All zeros = no unit at this address. Some RAC adapters answer with a placeholder text ("RACIF Model Name") instead of the model.}
+  - {key: x.serial, label: Indoor unit serial number, table: input, address: 14, type: str, length: 8, note: ASCII. RAC adapters answer with all 0xFF (not supported).}
+  - {key: x.capacity, label: Capacity, table: input, address: 22, type: s16, unit: W, scale: 100, invalid: [-1, -32768, 32767], note: In 0.1 kW; 0xFFFF seen on all units.}
+  - {key: x.mode_status, label: Operating mode (status), table: input, address: 35, type: u16, enum: mode_read}
+  - {key: x.fan_status, label: Fan speed (status), table: input, address: 36, type: u16, enum: fan}
+  - {key: x.louver_status, label: Louver (status), table: input, address: 37, type: u16, enum: louver}
+  - {key: x.func_status, label: Supported functions, table: input, address: 58, type: u16, flags: func, invalid: [65535], note: A set bit means the unit supports that function.}
+  - {key: x.iface_software, label: Interface software name, table: input, address: 9984, type: str, length: 7, note: 'ASCII, e.g. BMS-IFMB1280U.'}
+  - {key: x.iface_version, label: Interface software version, table: input, address: 9991, type: u16, scale: 0.01, invalid: [0, 65535], note: Version × 100 (0x0193 = 4.03).}
+  - {key: x.iface_status, label: Interface status, table: input, address: 9992, type: u16, enum: iface_status}
+
+enums:
+  mode_read: {'0': Invalid, '1': Heat, '2': Cool, '3': Dry, '4': Fan only, '5': Auto heat, '6': Auto cool, '7': Unfix}
+  mode_write: {'0': Unfix, '1': Heat, '2': Cool, '3': Dry, '4': Fan only, '5': Auto}
+  fan: {'1': Stop, '2': Auto, '3': High, '4': Medium, '5': Low, '7': High plus, '8': Low plus}
+  louver: {'1': Swing, '2': F1, '3': F2, '4': F3, '5': F4, '6': F5, '7': Stop}
+  save: {'0': No limit, '1': Variable, '2': Half, '3': Full save}
+  check_code: {'0': No error, '4': E04, '7': H04, '12': F10, '13': F03, '14': J29, '15': F01, '17': P12, '18': F29, '20': P26}
+  iface_status: {'0': Undetermined, '1': Initializing, '2': Operating, '3': Operating with controller, '5': Suspended, '6': Address duplicated}
+
+flags:
+  func: {'0': Pure filter, '1': Hi power, '2': Eco, '3': Quiet fcu, '4': Silence cdu}
+  rc_lock: {'0': Onoff, '1': Mode, '2': Setpoint, '3': Louver, '4': Fan, '5': Ventilation}
+
+notes:
+- Indoor unit n (central address 1–64) starts at input and holding register 156 × (n − 1); the points listed are those of
+  unit 1. Its coils and discrete inputs start at 152 × (n − 1) (a stride of 152, not 156).
+- The function switches (Hi-Power, ECO, Quiet FCU, Silence CDU) are coils; their state is read back from the matching status
+  discrete inputs. The project offers each switch only when the unit's 'Supported functions' register has its bit set.
+- A missing indoor unit returns zeros, not an exception; the model text is the only reliable presence test.
+- The interface block (from input register 9984) sits after the block of unit 64. The interface also answers on the next slave
+  address (central addresses 65–128); the one after that answers only diagnostics.
+- The central controller id of the interface must be set to 'old controller' when RAC adapters are used, which limits a site
+  to 64 indoor units.
+- Reads of more than 16 registers got no answer on the project's installation (behind a serial-to-TCP gateway at 9600 baud,
+  8E1). The project uses RTU over TCP or Modbus TCP framing through such a gateway.
+- 'The interface answers diagnostics (function 08) itself: bus message, bus error and slave message counters (sub-functions
+  0x0B, 0x0C, 0x0E) and more.'
+- Use only one Modbus master on the bus.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

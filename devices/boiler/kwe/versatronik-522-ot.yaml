@@ -1,0 +1,92 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the KWE Technologies Versatronik 522 OT MODBUS User Guide (V1.0, 09/2013).
+
+modbusspec: 0
+id: kwe-versatronik-522-ot
+manufacturer: KWE Technologies
+name: Versatronik 522 / 522D OT Modbus gateway (OpenTherm boilers, Viessmann Vitodens 100 WB1A / WB1B)
+kind: boiler
+
+sources:
+- title: Versatronik 522 & 522D OT Communication Gateway Modbus RTU/RS485 (P/N 394041)
+  version: V1.0 (09/2013)
+  url: http://kwe-tech.com/files/Versatronik/Versatronik_522_OT_MODBUS_User_Guide.pdf
+  sha256: b35b736a10e0772e2976f03513ff0a5cc9f194edbc320b7027b0b34fef420c7f
+  archive_url: https://web.archive.org/web/20200930061307/http://kwe-tech.com/files/Versatronik/Versatronik_522_OT_MODBUS_User_Guide.pdf
+
+connection:
+  default_port: 502
+  default_unit: 88
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.control_method, label: Control method, table: coil, address: 0, type: bool, enum: control_method, poll: slow, writable: true}
+  - {key: x.temperature_unit, label: Temperature units, table: coil, address: 1, type: bool, enum: temperature_unit, poll: slow, writable: true}
+  - {key: x.boiler_enable, label: Boiler enable, table: coil, address: 2, type: bool, poll: slow, writable: true}
+  - {key: x.fault, label: Boiler - fault indication, table: coil, address: 8, type: bool}
+  - {key: x.ch_mode, label: Boiler - CH mode active, table: coil, address: 9, type: bool}
+  - {key: x.dhw_mode, label: Boiler - DHW mode active, table: coil, address: 10, type: bool}
+  - {key: x.flame, label: Boiler - flame status, table: coil, address: 11, type: bool}
+  - {key: x.cooling, label: Boiler - cooling status, table: coil, address: 12, type: bool}
+  - {key: x.ch2_mode, label: Boiler - CH2 mode, table: coil, address: 13, type: bool, note: 'Listed as "CH3 Mode"; OpenTherm''s second heating circuit is meant, presumably.'}
+  - {key: x.diagnostic, label: Boiler - diagnostic indication, table: coil, address: 14, type: bool}
+  - {key: x.service_request, label: Fault - service request, table: coil, address: 16, type: bool}
+  - {key: x.lockout, label: Fault - lockout - reset, table: coil, address: 17, type: bool}
+  - {key: x.low_water_pressure, label: Fault - low water pressure, table: coil, address: 18, type: bool}
+  - {key: x.flame_fault, label: Fault - gas / flame fault, table: coil, address: 19, type: bool}
+  - {key: x.air_pressure_fault, label: Fault - air pressure fault, table: coil, address: 20, type: bool}
+  - {key: x.water_over_temperature, label: Fault - water over temp, table: coil, address: 21, type: bool}
+  - {key: x.setpoint, label: Set-point, table: holding, address: 0, type: s16, unit: °C, invalid: [-99], poll: slow, writable: true, note: Boiler water set-point in set-point control; the maximum modulation level in modulation control (then in %).}
+  - {key: x.dhw_setpoint, label: DHW set-point, table: holding, address: 1, type: s16, unit: °C, invalid: [-99], poll: slow, writable: true, note: Not every boiler takes a DHW set-point; the gateway keeps it within the boiler's bounds (addresses 12 and 13).}
+  - {key: x.boiler_temperature, label: Boiler water temperature, table: holding, address: 2, type: s16, unit: °C, invalid: [-99]}
+  - {key: x.modulation, label: Modulation level, table: holding, address: 3, type: s16, unit: '%', invalid: [-99]}
+  - {key: x.return_temperature, label: Return water temperature, table: holding, address: 4, type: s16, unit: °C, invalid: [-99]}
+  - {key: x.flue_gas_temperature, label: Flue gas temperature, table: holding, address: 5, type: s16, unit: °C, invalid: [-99]}
+  - {key: x.heat_exchanger_temperature, label: Boiler heat exchanger temperature, table: holding, address: 6, type: s16, unit: °C, invalid: [-99]}
+  - {key: x.outdoor_temperature, label: Outdoor temperature, table: holding, address: 7, type: s16, unit: °C, invalid: [-99]}
+  - {key: x.fan_speed, label: Boiler fan speed, table: holding, address: 8, type: s16, unit: Hz, invalid: [-99]}
+  - {key: x.water_pressure, label: Water pressure, table: holding, address: 9, type: s16, unit: mbar, invalid: [-99], verified: false, note: mbar or PSI with the temperature unit setting (assumed); whole units assumed.}
+  - {key: error_code, label: OEM fault code, table: holding, address: 10, type: s16, invalid: [-99], note: 'Boiler maker''s code, usually shown in hex.'}
+  - {key: x.diagnostic_code, label: OEM diagnostic code, table: holding, address: 11, type: s16, invalid: [-99], note: 'Boiler maker''s code, usually shown in hex.'}
+  - {key: x.dhw_setpoint_max, label: DHW set-point upper bound, table: holding, address: 12, type: s16, unit: °C, invalid: [-99], poll: slow}
+  - {key: x.dhw_setpoint_min, label: DHW set-point lower bound, table: holding, address: 13, type: s16, unit: °C, invalid: [-99], poll: slow}
+
+enums:
+  control_method: {'0': Temperature set-point control, '1': Modulation control}
+  temperature_unit: {'0': Celsius, '1': Fahrenheit}
+
+problems:
+  - {when: {key: x.fault, equals: 1}, kind: fault, text: Boiler fault}
+  - {when: {key: x.lockout, equals: 1}, kind: fault, text: 'Boiler lockout, reset needed'}
+  - {when: {key: x.low_water_pressure, equals: 1}, kind: fault, text: Low water pressure}
+  - {when: {key: x.flame_fault, equals: 1}, kind: fault, text: Gas / flame fault}
+  - {when: {key: x.air_pressure_fault, equals: 1}, kind: fault, text: Air pressure fault}
+  - {when: {key: x.water_over_temperature, equals: 1}, kind: fault, text: Water over-temperature}
+  - {when: {key: x.service_request, equals: 1}, kind: warning, text: Service requested}
+  - {when: {key: x.diagnostic, equals: 1}, kind: warning, text: Boiler diagnostic indication}
+
+notes:
+- The gateway connects one OpenTherm boiler (the document names Viessmann Vitodens 100 WB1A / WB1B) to Modbus RTU. KWE makes
+  the gateway; which values carry data depends on the boiler and thermostat; values the boiler doesn't give read as -99 in
+  most cases.
+- 'Addresses: the document numbers coils from 00001 and holding registers from 40001; converted to 0-based protocol addresses
+  (00001 → coil 0, 40001 → holding 0). Coils and discrete inputs (FC 01/02) and holding and input registers (FC 03/04) are
+  listed together, so the same data is assumed in both tables of each pair. Coils 4–8, 16, 23 and 24 (00004–00008, 00016,
+  00023, 00024) are reserved.'
+- RS485 through the supplied RJ45 adapter (+/−), RTU, 9600 8N1. Unit id 88 with the rotary address knob at 0, otherwise 1–9;
+  one PCB legend calls the dial unused. Port 502 is for a gateway.
+- 'Data types aren''t stated: registers are taken as signed 16-bit whole units (s16). Not stated in the document; assumed.'
+- 'Temperatures are °C or °F (coil 1: 0 = °C, 1 = °F), water pressure mbar or PSI; the units here hold only for metric settings.'
+- Set-point control works with every boiler; modulation control only with some (the gateway then sets the boiler set-point
+  to its maximum CH water set-point, or 90 °C, and limits the modulation level).

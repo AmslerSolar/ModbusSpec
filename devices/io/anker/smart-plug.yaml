@@ -1,0 +1,91 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: anker-smart-plug
+manufacturer: Anker SOLIX
+name: Smart Plug Gen 2
+kind: io
+
+sources:
+- id: anker-solix-official
+  title: ha-anker-solix-official (Home Assistant integration)
+  url: https://github.com/anker-charging/ha-anker-solix-official
+  license: MIT
+  commit: 21c94833993cc14dbb03fd1a945106f7b1afaafe
+  path: custom_components/anker_solix_official/config/575f793986f8d2a7c714eab09c021064533d656b4c56bd9e8c72824e351d3bce.yaml,
+    custom_components/anker_solix_official/translations/en.json
+- id: openhab
+  title: openHAB add-ons (Modbus bindings)
+  url: https://github.com/openhab/openhab-addons
+  license: EPL-2.0
+  commit: 391d63d8597d9b5b535ee83c85f557cad4fba2c7
+  path: bundles/org.openhab.binding.modbus.ankersolix/src/main/java/org/openhab/binding/modbus/ankersolix/internal/AnkerSolixSmartPlugHandler.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 100
+
+encoding:
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 30005
+    type: str
+    length: 12
+  any:
+  - table: input
+    address: 30005
+    type: str
+    length: 12
+    contains:
+    - QNA
+  - table: input
+    address: 32768
+    type: str
+    length: 5
+    contains:
+    - Smart Plug
+
+defaults:
+  verified: false
+  sources:
+  - anker-solix-official
+  - openhab
+
+models:
+  - {id: a17x8, name: Smart Plug Gen 2, match: {table: input, address: 32768, type: str, length: 5, prefix: A17X8}}
+
+points:
+  - {key: x.power_switch, label: Socket Switch, table: holding, address: 30047, type: u16, enum: power_switch, writable: true}
+  - {key: serial, label: Device Serial Number, table: input, address: 30005, type: str, length: 12}
+  - {key: x.firmware_version, label: firmware version, table: input, address: 30017, type: str, length: 6, sources: [anker-solix-official]}
+  - {key: x.hardware_version, label: hardware version, table: input, address: 30023, type: str, length: 6, sources: [anker-solix-official]}
+  - {key: x.switch_status, label: Switch Status, table: input, address: 30029, type: u16, enum: switch_status}
+  - {key: x.real_time_power, label: Real-time Active Power, table: input, address: 30030, type: u16, unit: W, scale: 0.1}
+  - {key: l1_voltage, label: Real-time Voltage, table: input, address: 30031, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Real-time Current, table: input, address: 30032, type: u16, unit: A, scale: 0.01}
+  - {key: x.cumulative_energy, label: Cumulative Energy, table: input, address: 30033, type: u32, unit: kWh, scale: 0.001}
+  - {key: temperature, label: temperature, table: input, address: 30037, type: s16, unit: °C, scale: 0.1}
+  - {key: x.device_model, label: Device Model, table: input, address: 32768, type: str, length: 5}
+
+enums:
+  switch_status: {'0': Turn Off, '1': Turn On}
+  power_switch: {'0': disabled, '1': enabled}
+
+notes:
+- Modbus TCP must first be switched on in the Anker app (communication settings).
+- The product number (5 registers from input 0x8000, spaces and NULs removed) tells the products apart.
+- 'A17X8: the serial number''s product code (characters 4-6 of a 16-character serial, 4-7 of a 17-character one) names the
+  product: QNA = Anker SOLIX Smart Plug Gen 2.'
+- Taken from the openHAB binding (see sources); not checked against manufacturer documents.
+- The sources don't state the default unit id; 1 is a guess.
+- Identification as openhab recognises the device (not checked against a document).
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

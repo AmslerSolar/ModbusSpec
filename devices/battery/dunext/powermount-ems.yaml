@@ -1,0 +1,216 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the DuNext PowerMount-P960-2250kWh Series Local EMS Modbus Interface Definitions (issue 03,
+# 2026-04-17), chapter 2 (EMS registers). Its chapters 3–6 repeat the cabinet register map, see dunext-powermount.
+
+modbusspec: 0
+id: dunext-powermount-ems
+manufacturer: DuNext
+name: PowerMount Local EMS (site controller for PowerMount cabinets)
+kind: battery
+
+sources:
+- title: PowerMount-P960-2250kWh Series Local EMS Modbus Interface Definitions
+  version: 03 (2026-04-17)
+  url: https://artsani-energy.ro/wp-content/uploads/2026/08/dunext-ems-modbus.pdf
+  sha256: d21ed70022177ceb5f2a440fee3d60a79bb3527cd787685e0e9b9ce59c655011
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # working status
+  - table: holding
+    address: 1
+    type: u16
+    in:
+    - 1
+    - 2
+    - 3
+  # working mode
+  - table: holding
+    address: 2
+    type: u16
+    in:
+    - 1
+    - 2
+    - 3
+    - 4
+    - 5
+    - 7
+  # control source
+  - table: holding
+    address: 3
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+
+points:
+  # Status and measurements (1 ff.)
+  - {key: state, label: Working status, table: holding, address: 1, type: u16, enum: working_status}
+  - {key: x.working_mode, label: Working mode, table: holding, address: 2, type: u16, enum: working_mode}
+  - {key: x.control_source, label: Control power, table: holding, address: 3, type: u16, enum: control_source}
+  - {key: x.max_discharge_power, label: Permissible discharge active power limit, table: holding, address: 4, type: u16, unit: kW, scale: 0.1}
+  - {key: x.max_charge_power, label: Permissible charge active power limit, table: holding, address: 5, type: u16, unit: kW, scale: 0.1}
+  - {key: x.system_active_power, label: System active power, table: holding, address: 6, type: s16, unit: kW, scale: 0.1, verified: false, note: 'Sign not stated; presumably + = discharging, as the active power control (63).'}
+  - {key: load_power, label: Load active power, table: holding, address: 7, type: s16, unit: W, scale: 100, note: kW × 0.1 in the document.}
+  - {key: grid_power, label: Grid active power, table: holding, address: 8, type: s16, unit: W, scale: 100, positive: export, verified: false, note: kW × 0.1 in the document. Sign not stated in the document; assumed + = export.}
+  - {key: pv_power, label: MPPT total power, table: holding, address: 9, type: s16, unit: W, scale: 100, note: kW × 0.1 in the document.}
+  - {key: grid_import_energy, label: Grid input active energy, table: holding, address: 10, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_export_energy, label: Grid output active energy, table: holding, address: 12, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.load_energy, label: Load output active energy, table: holding, address: 14, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.charge_forbidden, label: High voltage charging prohibition flag, table: holding, address: 16, type: u16, enum: normal_forbidden}
+  - {key: x.discharge_forbidden, label: Low voltage discharging prohibition flag, table: holding, address: 17, type: u16, enum: normal_forbidden}
+  - {key: x.device_number, label: Device number, table: holding, address: 18, type: u16, poll: slow}
+  - {key: pv_energy, label: MPPT power generation, table: holding, address: 19, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_charge_energy, label: BMS historical charging energy, table: holding, address: 21, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.battery_discharge_energy, label: BMS historical discharge energy, table: holding, address: 23, type: u32, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.anti_backflow_state, label: Anti-backflow state, table: holding, address: 25, type: u16, note: 'G100 anti-backflow status 1, 2 or 3; the meaning of each isn''t given.'}
+  - {key: battery_soc, label: System SOC, table: holding, address: 26, type: u16, unit: '%'}
+  - {key: x.system_alarm_0, label: System alarm 0, table: holding, address: 27, type: u16, flags: system_alarm_0}
+  - {key: x.system_alarm_1, label: System alarm 1, table: holding, address: 28, type: u16, flags: system_alarm_1}
+  - {key: x.system_fault_0, label: System fault 0, table: holding, address: 29, type: u16, flags: system_fault_0}
+  - {key: x.system_fault_1, label: System fault 1, table: holding, address: 30, type: u16, note: The bit meanings aren't given.}
+  - {key: x.fault_free_days, label: Days of fault-free operation, table: holding, address: 31, type: u16, unit: d, poll: slow}
+  - {key: x.system_alarm_2, label: System alarm 2, table: holding, address: 32, type: u16, note: The bit meanings aren't given.}
+  - {key: x.meter_forward_energy, label: P - Forward total active energy, table: holding, address: 33, type: u32, unit: kWh, poll: slow, verified: false, note: Which meter (P) and which direction is forward isn't stated.}
+  - {key: x.meter_reverse_energy, label: P - Reverse total active energy, table: holding, address: 35, type: u32, unit: kWh, poll: slow, verified: false}
+  - {key: x.grid_voltage, label: Grid voltage, table: holding, address: 37, type: u16, unit: V, scale: 0.1, verified: false, note: The document gives no unit; V assumed.}
+  - {key: x.grid_current, label: Grid current, table: holding, address: 38, type: u16, unit: A, scale: 0.1, verified: false, note: The document gives no unit; A assumed.}
+  - {key: x.grid_power_factor, label: Grid power factor, table: holding, address: 39, type: u16, scale: 0.001}
+  - {key: x.clock, label: Date and time, table: holding, address: 40, type: datetime, length: 6, datetime: {year: {register: 0}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, poll: slow, verified: false, note: 'One register each for year, month, day, hour, minute and second. Whether the year is the full year (2026) isn''t stated; assumed.'}
+  - {key: x.ems_version, label: EMS version number, table: holding, address: 46, type: u16, poll: slow}
+  - {key: x.e_forward_energy, label: E - Forward active total energy, table: holding, address: 47, type: u32, unit: kWh, poll: slow, verified: false, note: 'The document gives no unit; kWh assumed, as for the P meter (33). Which meter (E) isn''t stated.'}
+  - {key: x.e_reverse_energy, label: E - Reverse active total energy, table: holding, address: 49, type: u32, unit: kWh, poll: slow, verified: false}
+  - {key: x.collection_program_version, label: Collection program version number, table: holding, address: 51, type: u16, poll: slow}
+  - {key: x.web_server_version, label: Web server version number, table: holding, address: 52, type: u16, poll: slow}
+  - {key: x.ac_pv_power, label: AC_PV active power, table: holding, address: 53, type: s16, unit: kW, scale: 0.1}
+  - {key: x.pcs_summary_status, label: Summary PCS status, table: holding, address: 54, type: u16, enum: pcs_summary_status}
+  - {key: x.soc_precise, label: High precision SOC, table: holding, address: 55, type: u16, unit: '%', scale: 0.1}
+  - {key: x.max_load_power, label: Maximum load power, table: holding, address: 56, type: u16, unit: kW}
+  - {key: x.charging_pile_power, label: Summary of charging pile power, table: holding, address: 57, type: u16, unit: kW, scale: 0.1}
+  - {key: x.charging_pile_count, label: Number of charging stations, table: holding, address: 58, type: u16, poll: slow}
+  - {key: x.generator_power, label: Diesel generator power, table: holding, address: 59, type: s16, unit: kW, scale: 0.1, note: The diesel generator meter has id 3.}
+  # Settings (60 ff.)
+  - {key: x.system_mode_control, label: System mode control, table: holding, address: 60, type: u16, enum: working_mode, writable: true, poll: slow}
+  - {key: x.system_status_control, label: System status control, table: holding, address: 61, type: u16, enum: start_stop, writable: true, poll: slow}
+  - {key: x.control_source_setting, label: Control power, table: holding, address: 62, type: u16, enum: control_source, writable: true, poll: slow}
+  - {key: x.active_power_setpoint, label: Active power control, table: holding, address: 63, type: s16, unit: kW, scale: 0.1, writable: true, poll: slow, note: − = charging.}
+  - {key: x.reactive_power_setpoint, label: Reactive power control, table: holding, address: 64, type: s16, unit: kvar, scale: 0.1, writable: true, poll: slow}
+  - {key: x.soc_high, label: SOC-H (state of charge high), table: holding, address: 65, type: u16, unit: '%', writable: true, poll: slow, verified: false, note: The document gives no unit; percent assumed (also for 79–86).}
+  - {key: x.soc_low, label: SOC-L (state of charge low), table: holding, address: 66, type: u16, unit: '%', writable: true, poll: slow, verified: false}
+  - {key: x.backup_charge_power, label: Backup charging power, table: holding, address: 67, type: s16, unit: kW, scale: 0.1, writable: true, poll: slow}
+  - {key: x.clear_faults, label: Clear faults, table: holding, address: 72, type: u16, writable: true, poll: slow}
+  - {key: x.control_rights, label: EMS control rights, table: holding, address: 75, type: u16, enum: control_rights, writable: true, poll: slow}
+  - {key: x.station_max_power, label: Station maximum power, table: holding, address: 76, type: u16, writable: true, poll: slow, note: The document gives no unit.}
+  - {key: x.pv_rated_power, label: PV rated power, table: holding, address: 77, type: u16, writable: true, poll: slow, note: The document gives no unit.}
+  - {key: x.expansion_flag, label: Expansion flag, table: holding, address: 78, type: u16, enum: expansion_flag, writable: true, poll: slow}
+  - {key: x.bcm_soc_low, label: BCM_SOCL (reserved SOC), table: holding, address: 79, type: u16, unit: '%', writable: true, poll: slow, verified: false}
+  - {key: x.pv_power_control, label: PV power control, table: holding, address: 80, type: u16, unit: kW, scale: 0.1, writable: true, poll: slow}
+  - {key: x.min_soc, label: MIN_SOC (SOC lower limit), table: holding, address: 81, type: u16, unit: '%', writable: true, poll: slow, verified: false}
+  - {key: x.backup_soc, label: BCP_SOC (backup SOC), table: holding, address: 82, type: u16, unit: '%', writable: true, poll: slow, verified: false}
+  - {key: x.peak_valley_pv_soc, label: DCM_SOC (SOC limit for peak-valley PV systems), table: holding, address: 83, type: u16, unit: '%', writable: true, poll: slow, verified: false}
+  - {key: x.max_soc, label: MAX_SOC (SOC upper limit), table: holding, address: 84, type: u16, unit: '%', writable: true, poll: slow, verified: false}
+  - {key: x.pv_operation_mode, label: PV operation mode, table: holding, address: 85, type: u16, enum: pv_operation_mode, writable: true, poll: slow}
+  - {key: x.grid_enable, label: Grid_enable, table: holding, address: 95, type: u16, enum: disabled_enabled, writable: true, poll: slow}
+  - {key: x.backflow_max, label: BackFlowMax, table: holding, address: 97, type: u16, unit: kW, writable: true, poll: slow}
+  - {key: x.state_reset, label: State reset, table: holding, address: 101, type: u16, writable: true, poll: slow, note: 1 = reset.}
+  - {key: x.g100_enable, label: Whether to use G100 settings, table: holding, address: 103, type: u16, enum: off_on, writable: true, poll: slow}
+  - {key: x.di_stop_enable, label: DI triggered stop setting, table: holding, address: 104, type: u16, enum: off_on, writable: true, poll: slow}
+  # Alarms (200 ff.)
+  - {key: x.pv_alarm, label: PV alarm, table: holding, address: 200, type: u16, flags: pv_alarm}
+  - {key: x.charging_pile_alarm, label: Charging pile alarm, table: holding, address: 201, type: u16, flags: charging_pile_alarm}
+
+enums:
+  working_status: {'1': Shutdown, '2': Running, '3': Fault}
+  working_mode: {'1': P/Q, '2': Off-grid, '3': Off-grid, '4': Peak-valley, '5': Backup power, '7': PV self-use}
+  control_source: {'0': IOT control / EMS (RS485-2), '1': Client control (RS485-1), '2': HMI control (CAN2)}
+  normal_forbidden: {'0': Normal, '1': Forbidden}
+  pcs_summary_status: {'1': Fault, '2': On-grid, '3': Off-grid, '4': Bypass}
+  start_stop: {'2': Stop, '6': Running}
+  control_rights: {'0': Network, '1': COM}
+  expansion_flag: {'0': Discharge down to SOCL, '1': 'Stop at BCM_SOCL, then expansion mode down to SOCL'}
+  pv_operation_mode: {'7': 'Load first, rest to storage (AC coupling)', '8': 'Load first, rest to grid, charging in time periods (AC coupling)', '9': 'PV + time periods (PV not controllable, AC coupling)', '10': 'PV (direct MPPT, DC coupling)', '11': Control circuit breaker, '12': 'Storage first, rest to load (AC coupling)', '13': 'PV not controllable (no time periods, AC coupling)', '14': 'PV to storage first + time periods (PV controllable, AC coupling)'}
+  disabled_enabled: {'0': Disabled, '1': Enabled}
+  off_on: {'0': 'Off', '1': 'On'}
+
+flags:
+  system_alarm_0: {'0': COM1 communication interrupted, '1': COM2 communication interrupted, '2': COM3 communication interrupted, '3': TCP communication interrupted}
+  system_alarm_1: {'0': BC1 communication interrupted, '1': BC2 communication interrupted, '2': BC3 communication interrupted, '3': BC4 communication interrupted, '4': BC5 communication interrupted, '5': BC6 communication interrupted, '6': BC7 communication interrupted, '7': BC8 communication interrupted, '8': Meter communication interrupted, '9': PVM communication interrupted, '10': Meter 2 communication interrupted}
+  system_fault_0: {'10': Power meter communication completely interrupted, '14': PVM communication interrupted, '15': SmartLogger communication interrupted}
+  pv_alarm: {'0': PV inverter 1 communication interrupted, '1': PV inverter 2 communication interrupted, '2': PV inverter 3 communication interrupted, '3': PV inverter 4 communication interrupted, '4': PV inverter 5 communication interrupted, '5': PV inverter 6 communication interrupted, '6': PV inverter 7 communication interrupted, '7': PV inverter 8 communication interrupted, '8': PV inverter 9 communication interrupted, '9': PV inverter 10 communication interrupted, '10': PV inverter 11 communication interrupted, '11': PV inverter 12 communication interrupted, '12': PV inverter 13 communication interrupted, '13': PV inverter 14 communication interrupted, '14': PV inverter 15 communication interrupted}
+  charging_pile_alarm: {'0': Charging pile 1 communication interrupted, '1': Charging pile 2 communication interrupted, '2': Charging pile 3 communication interrupted, '3': Charging pile 4 communication interrupted, '4': Charging pile 5 communication interrupted, '5': Charging pile 6 communication interrupted, '6': Charging pile 7 communication interrupted, '7': Charging pile 8 communication interrupted, '8': Charging pile 9 communication interrupted, '9': Charging pile 10 communication interrupted}
+
+problems:
+  - {when: {key: state, equals: 3}, kind: fault, text: EMS fault (working status 3)}
+  - {when: {key: x.pcs_summary_status, equals: 1}, kind: fault, text: PCS fault (summary status 1)}
+  - {when: {key: x.pcs_summary_status, equals: 3}, kind: backup_mode, text: PCS runs off-grid}
+  - {when: {key: x.system_alarm_0, bit: 0}, kind: warning, text: COM1 communication interrupted (system alarm 0 bit 0)}
+  - {when: {key: x.system_alarm_0, bit: 1}, kind: warning, text: COM2 communication interrupted (system alarm 0 bit 1)}
+  - {when: {key: x.system_alarm_0, bit: 2}, kind: warning, text: COM3 communication interrupted (system alarm 0 bit 2)}
+  - {when: {key: x.system_alarm_0, bit: 3}, kind: warning, text: TCP communication interrupted (system alarm 0 bit 3)}
+  - {when: {key: x.system_alarm_1, bit: 0}, kind: warning, text: BC1 communication interrupted (system alarm 1 bit 0)}
+  - {when: {key: x.system_alarm_1, bit: 1}, kind: warning, text: BC2 communication interrupted (system alarm 1 bit 1)}
+  - {when: {key: x.system_alarm_1, bit: 2}, kind: warning, text: BC3 communication interrupted (system alarm 1 bit 2)}
+  - {when: {key: x.system_alarm_1, bit: 3}, kind: warning, text: BC4 communication interrupted (system alarm 1 bit 3)}
+  - {when: {key: x.system_alarm_1, bit: 4}, kind: warning, text: BC5 communication interrupted (system alarm 1 bit 4)}
+  - {when: {key: x.system_alarm_1, bit: 5}, kind: warning, text: BC6 communication interrupted (system alarm 1 bit 5)}
+  - {when: {key: x.system_alarm_1, bit: 6}, kind: warning, text: BC7 communication interrupted (system alarm 1 bit 6)}
+  - {when: {key: x.system_alarm_1, bit: 7}, kind: warning, text: BC8 communication interrupted (system alarm 1 bit 7)}
+  - {when: {key: x.system_alarm_1, bit: 8}, kind: warning, text: Meter communication interrupted (system alarm 1 bit 8)}
+  - {when: {key: x.system_alarm_1, bit: 9}, kind: warning, text: PVM communication interrupted (system alarm 1 bit 9)}
+  - {when: {key: x.system_alarm_1, bit: 10}, kind: warning, text: Meter 2 communication interrupted (system alarm 1 bit 10)}
+  - {when: {key: x.system_fault_0, bit: 10}, kind: fault, text: Power meter communication completely interrupted (system fault 0 bit 10)}
+  - {when: {key: x.system_fault_0, bit: 14}, kind: fault, text: PVM communication interrupted (system fault 0 bit 14)}
+  - {when: {key: x.system_fault_0, bit: 15}, kind: fault, text: SmartLogger communication interrupted (system fault 0 bit 15)}
+  - {when: {key: x.pv_alarm, bit: 0}, kind: warning, text: PV inverter 1 communication interrupted (pv alarm bit 0)}
+  - {when: {key: x.pv_alarm, bit: 1}, kind: warning, text: PV inverter 2 communication interrupted (pv alarm bit 1)}
+  - {when: {key: x.pv_alarm, bit: 2}, kind: warning, text: PV inverter 3 communication interrupted (pv alarm bit 2)}
+  - {when: {key: x.pv_alarm, bit: 3}, kind: warning, text: PV inverter 4 communication interrupted (pv alarm bit 3)}
+  - {when: {key: x.pv_alarm, bit: 4}, kind: warning, text: PV inverter 5 communication interrupted (pv alarm bit 4)}
+  - {when: {key: x.pv_alarm, bit: 5}, kind: warning, text: PV inverter 6 communication interrupted (pv alarm bit 5)}
+  - {when: {key: x.pv_alarm, bit: 6}, kind: warning, text: PV inverter 7 communication interrupted (pv alarm bit 6)}
+  - {when: {key: x.pv_alarm, bit: 7}, kind: warning, text: PV inverter 8 communication interrupted (pv alarm bit 7)}
+  - {when: {key: x.pv_alarm, bit: 8}, kind: warning, text: PV inverter 9 communication interrupted (pv alarm bit 8)}
+  - {when: {key: x.pv_alarm, bit: 9}, kind: warning, text: PV inverter 10 communication interrupted (pv alarm bit 9)}
+  - {when: {key: x.pv_alarm, bit: 10}, kind: warning, text: PV inverter 11 communication interrupted (pv alarm bit 10)}
+  - {when: {key: x.pv_alarm, bit: 11}, kind: warning, text: PV inverter 12 communication interrupted (pv alarm bit 11)}
+  - {when: {key: x.pv_alarm, bit: 12}, kind: warning, text: PV inverter 13 communication interrupted (pv alarm bit 12)}
+  - {when: {key: x.pv_alarm, bit: 13}, kind: warning, text: PV inverter 14 communication interrupted (pv alarm bit 13)}
+  - {when: {key: x.pv_alarm, bit: 14}, kind: warning, text: PV inverter 15 communication interrupted (pv alarm bit 14)}
+  - {when: {key: x.charging_pile_alarm, bit: 0}, kind: warning, text: Charging pile 1 communication interrupted (charging pile alarm bit 0)}
+  - {when: {key: x.charging_pile_alarm, bit: 1}, kind: warning, text: Charging pile 2 communication interrupted (charging pile alarm bit 1)}
+  - {when: {key: x.charging_pile_alarm, bit: 2}, kind: warning, text: Charging pile 3 communication interrupted (charging pile alarm bit 2)}
+  - {when: {key: x.charging_pile_alarm, bit: 3}, kind: warning, text: Charging pile 4 communication interrupted (charging pile alarm bit 3)}
+  - {when: {key: x.charging_pile_alarm, bit: 4}, kind: warning, text: Charging pile 5 communication interrupted (charging pile alarm bit 4)}
+  - {when: {key: x.charging_pile_alarm, bit: 5}, kind: warning, text: Charging pile 6 communication interrupted (charging pile alarm bit 5)}
+  - {when: {key: x.charging_pile_alarm, bit: 6}, kind: warning, text: Charging pile 7 communication interrupted (charging pile alarm bit 6)}
+  - {when: {key: x.charging_pile_alarm, bit: 7}, kind: warning, text: Charging pile 8 communication interrupted (charging pile alarm bit 7)}
+  - {when: {key: x.charging_pile_alarm, bit: 8}, kind: warning, text: Charging pile 9 communication interrupted (charging pile alarm bit 8)}
+  - {when: {key: x.charging_pile_alarm, bit: 9}, kind: warning, text: Charging pile 10 communication interrupted (charging pile alarm bit 9)}
+
+notes:
+- Modbus TCP to the PowerMount Local EMS, default IP 192.168.1.200, port 502; the EMS answers on unit id 1. The cabinets behind
+  it answer on unit ids 1, 2, … with the cabinet register map (PUC, BMS, PCS; see dunext-powermount). The document shows an
+  RTU frame example too but names no serial port or settings for the EMS.
+- Function codes 03 (read) and 06 (write single register) only. Addresses are the document's register numbers as they are
+  (its example reads 300 as 0x012C).
+- Energy counters are two registers, high word first (the document calls them high and low byte), read here as one 32-bit
+  value.
+- 'Signs: only the active power control (63) is stated (− = charging). The grid power sign is assumed (+ = export) and unverified;
+  the system active power sign is unknown.'
+- SOC settings (65, 66, 79, 81–84) have no unit in the document; percent assumed.
+- 'Left out: the meter CT ratios, SOC interval and mean settings, power command and distribution settings, generator limits,
+  PV inverter type / quantity, time configuration reset, generator SOC_M and charging pile capacity (68–71, 73, 74, 86–94,
+  96, 98–100, 102, 105, 106), and the writable copies of the version numbers.'

@@ -1,0 +1,78 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: givenergy-hv-bcu
+manufacturer: GivEnergy
+name: HV battery stack controller (BCU)
+kind: battery
+
+sources:
+- id: givenergy-modbus
+  title: givenergy-modbus (Python library for GivEnergy inverters, used by givenergy-hass)
+  url: https://github.com/dewet22/givenergy-modbus
+  license: Apache-2.0
+  commit: 90e3ec13098aacc9607160209779b4e029ac8cd9
+  path: givenergy_modbus/model/hv_bcu.py
+
+connection:
+  default_port: 8899
+  default_unit: 112
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - givenergy-modbus
+
+points:
+  - {key: x.pack_software_version, label: Pack software version, table: input, address: 60, type: str, length: 2, note: 'Version prefix; the next two registers (62, 63) carry the version digits, one number per byte.'}
+  - {key: x.number_of_modules, label: Number of modules, table: input, address: 64, type: u16}
+  - {key: x.cells_per_module, label: Cells per module, table: input, address: 65, type: u16}
+  - {key: x.total_cell_count, label: Total cell count, table: input, address: 67, type: u16}
+  - {key: x.total_temperature_sensor_count, label: Total temperature sensor count, table: input, address: 68, type: u16}
+  - {key: x.status, label: Status, table: input, address: 70, type: u16, enum: bcu_status}
+  - {key: battery_voltage, label: Battery voltage, table: input, address: 73, type: u16, unit: V, scale: 0.1, note: 'The library treats values outside 0.0 to 1000.0 (after scaling) as invalid, except all zero.'}
+  - {key: x.load_voltage, label: Load voltage, table: input, address: 74, type: u16, unit: V, scale: 0.1, note: 'The library treats values outside 0.0 to 1000.0 (after scaling) as invalid, except all zero.'}
+  - {key: x.battery_current, label: Battery current, table: input, address: 76, type: s16, unit: A, scale: 0.1, note: 'The library treats values outside -500.0 to 500.0 (after scaling) as invalid, except all zero.'}
+  - {key: x.battery_power, label: Battery power, table: input, address: 79, type: u16, scale: 0.001}
+  - {key: x.battery_soc_min, label: Battery soc min, table: input, address: 80, type: u16, unit: '%', bits: [0, 7], note: 'The library treats values outside 0 to 100 (after scaling) as invalid, except all zero.'}
+  - {key: x.battery_soc_max, label: Battery soc max, table: input, address: 80, type: u16, unit: '%', bits: [8, 15], note: 'The library treats values outside 0 to 100 (after scaling) as invalid, except all zero.'}
+  - {key: battery_soh, label: Battery soh, table: input, address: 81, type: u16, unit: '%', note: 'The library treats values outside 0 to 100 (after scaling) as invalid, except all zero.'}
+  - {key: x.charge_energy_total, label: Charge energy total, table: input, address: 82, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.discharge_energy_total, label: Discharge energy total, table: input, address: 84, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.charge_capacity_total, label: Charge capacity total, table: input, address: 86, type: u32}
+  - {key: x.discharge_capacity_total, label: Discharge capacity total, table: input, address: 88, type: u32}
+  - {key: x.charge_energy_today, label: Charge energy today, table: input, address: 90, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.discharge_energy_today, label: Discharge energy today, table: input, address: 92, type: u32, unit: kWh, scale: 0.1}
+  - {key: x.charge_capacity_today, label: Charge capacity today, table: input, address: 94, type: u32}
+  - {key: x.discharge_capacity_today, label: Discharge capacity today, table: input, address: 96, type: u32}
+  - {key: x.battery_nominal_capacity_ah, label: Battery nominal capacity ah, table: input, address: 98, type: u16, unit: Ah, scale: 0.1}
+  - {key: x.remaining_battery_capacity_ah, label: Remaining battery capacity ah, table: input, address: 99, type: u16, unit: Ah, scale: 0.1}
+  - {key: x.number_of_cycles, label: Number of cycles, table: input, address: 100, type: u16, scale: 0.1}
+  - {key: x.min_discharge_voltage, label: Min discharge voltage, table: input, address: 102, type: u16, unit: V, scale: 0.1}
+  - {key: x.max_charge_voltage, label: Max charge voltage, table: input, address: 103, type: u16, unit: V, scale: 0.1}
+  - {key: x.min_discharge_current, label: Min discharge current, table: input, address: 104, type: u16, unit: A, scale: 0.1}
+  - {key: x.max_charge_current, label: Max charge current, table: input, address: 105, type: u16, unit: A, scale: 0.1}
+  - {key: x.fan_fault_code, label: Fan fault code, table: input, address: 107, type: u16}
+  - {key: x.self_check_status, label: Self check status, table: input, address: 113, type: u16}
+  - {key: x.pack_warning_status, label: Pack warning status, table: input, address: 114, type: u32}
+  - {key: x.pack_protection_status, label: Pack protection status, table: input, address: 116, type: u32}
+  - {key: x.pack_fault_status, label: Pack fault status, table: input, address: 118, type: u32}
+  - {key: serial, label: Serial number, table: input, address: 138, type: str, length: 5}
+
+enums:
+  bcu_status: {'0': Bms initialising, '1': Precharging, '2': Standby, '3': Charging, '4': Discharging, '5': Error, '6': Updating, '7': Powered off, '8': Production}
+
+notes:
+- Reached through the inverter's Wi-Fi / LAN dongle on TCP port 8899, which wraps Modbus requests in GivEnergy's own framing
+  (not plain Modbus TCP); every device on the bus answers there under its own device address. The library reads at most 60
+  registers per request, in blocks starting at multiples of 60.
+- Each HV stack controller answers at its own device address from 0x70. The battery modules (BMU) of the stack and the All-in-One
+  battery modules (0x50-0x53) each answer at their own address with 24 cell voltages at input 60-83 (0.001 V), 24 cell temperatures
+  at 90-113 (signed, 0.1 °C) and a serial at 114-118.
+- 'Left out: status_label (same register value as status).'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

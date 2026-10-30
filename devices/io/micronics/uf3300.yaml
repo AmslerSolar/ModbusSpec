@@ -1,0 +1,148 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Micronics UF3300 User Manual 1.1 and Modbus Supplement (Issue 1.1, March 2022).
+
+modbusspec: 0
+id: micronics-uf3300
+manufacturer: Micronics
+name: UF3300 ultrasonic flow / heat meter
+kind: io
+
+sources:
+- title: UF3300 User Manual 1.1 and Modbus Supplement
+  version: 1.1 (March 2022)
+  url: https://micronicsflowmeters.com/wp-content/uploads/2023/01/UF3300_User_Manual_1.1_and_Modbus_Supplement.pdf
+  sha256: 1645c04e4be11884733b52f7e14eeb2f13f98e4a46387fddc2541a4e6bb978fa
+  archive_url: https://web.archive.org/web/20240701185408/https://micronicsflowmeters.com/wp-content/uploads/2023/01/UF3300_User_Manual_1.1_and_Modbus_Supplement.pdf
+- title: UF3300 User Manual 1.1 DE and Modbus Supplement
+  version: 1.1 (March 2022)
+  url: https://micronicsflowmeters.com/wp-content/uploads/2023/01/UF3300_User_Manual_1.1_DE_and_Modbus_Supplement.pdf
+  sha256: e1ed72cf04aeeebb2a572f6f780e8f2070f9caf8252b331be26b21ea5bcc1ef8
+  archive_url: https://web.archive.org/web/20240701141649/https://micronicsflowmeters.com/wp-content/uploads/2023/01/UF3300_User_Manual_1.1_DE_and_Modbus_Supplement.pdf
+- title: UF3300 User Manual 1.1 ES and Modbus-Supplement
+  version: 1.1 (March 2022)
+  url: https://micronicsflowmeters.com/wp-content/uploads/2023/01/UF3300_User_Manual_1.1_ES_and_Modbus-Supplement.pdf
+  sha256: 3381cbc36b880a8dc21059ee8cbbeace111a51ea21a96c8987e54c24125dbd12
+  archive_url: https://web.archive.org/web/20240630090827/https://micronicsflowmeters.com/wp-content/uploads/2023/01/UF3300_User_Manual_1.1_ES_and_Modbus-Supplement.pdf
+- title: UF3300 User Manual 1.1 FR and Modbus-Supplement
+  version: 1.1 (March 2022)
+  url: https://micronicsflowmeters.com/wp-content/uploads/2023/01/UF3300_User_Manual_1.1_FR_and_Modbus-Supplement.pdf
+  sha256: b99d749ccddabb4409cbe4a3bb0c6b58de2f1699d9858db3a2956b022aed2126
+  archive_url: https://web.archive.org/web/20240629144754/https://micronicsflowmeters.com/wp-content/uploads/2023/01/UF3300_User_Manual_1.1_FR_and_Modbus-Supplement.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 2
+    type: u32
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    range:
+    - 23040
+    - 23295
+  - table: holding
+    address: 1
+    type: u16
+    in:
+    - 53
+    - 54
+    - 55
+    - 56
+
+models:
+  - {id: uf3300c, name: UF3300C, match: {table: holding, address: 1, type: u16, equals: 53}}
+  - {id: uf3300hc, name: UF3300HC, match: {table: holding, address: 1, type: u16, equals: 54}}
+  - {id: uf3300co, name: UF3300CO, match: {table: holding, address: 1, type: u16, equals: 55}}
+  - {id: uf3300hco, name: UF3300HCO, match: {table: holding, address: 1, type: u16, equals: 56}}
+
+points:
+  # Instrument block (0–9)
+  - {key: x.interface_version, label: Check value / interface version, table: holding, address: 0, type: u16, bits: [0, 7], poll: slow, note: The high byte is always 0x5A; the low byte is the register map version (0 in this document).}
+  - {key: x.device_id, label: Device ID, table: holding, address: 1, type: u16, enum: device_id, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 2, type: u32, poll: slow}
+  - {key: x.measurement_regime, label: Measurement regime, table: holding, address: 4, type: u16, bits: [0, 2], enum: regime, writable: true, persistent: false, poll: slow, note: 'Selects the units of the Modbus values only (not the display). Kept over a restart only if saved with bit 3 of the control flags (5). This file assumes the default, Metric1.'}
+  - {key: x.temperature_regime, label: Temperature regime, table: holding, address: 4, type: u16, bits: [3, 3], enum: temperature_regime, writable: true, poll: slow}
+  - {key: x.control_flags, label: Instrument control flags, table: holding, address: 5, type: u16, flags: control_flags, writable: true, poll: slow}
+  - {key: x.general_flags, label: Instrument general flags, table: holding, address: 6, type: u16, flags: general_flags}
+  - {key: x.status_flags, label: Instrument status flags, table: holding, address: 7, type: u16, flags: instrument_status}
+  - {key: x.online, label: Online (reading flow), table: holding, address: 7, type: u16, bits: [0, 0]}
+
+  # Flow block (100–149)
+  - {key: x.velocity, label: Measured velocity, table: holding, address: 104, type: f32, unit: m/s, note: Reads 0 when not measuring flow.}
+  - {key: x.flow, label: Measured flow, table: holding, address: 106, type: f32, unit: l/s, note: Reads 0 when not measuring flow.}
+  - {key: x.forward_volume, label: Forward total, table: holding, address: 108, type: f32, unit: l, writable: true, poll: slow}
+  - {key: x.reverse_volume, label: Reverse total, table: holding, address: 110, type: f32, unit: l, writable: true, poll: slow}
+  - {key: x.forward_heat_energy, label: Forward energy total, table: holding, address: 112, type: f32, unit: kWh, writable: true, poll: slow, note: Heat meter versions only.}
+  - {key: x.reverse_heat_energy, label: Reverse energy total, table: holding, address: 114, type: f32, unit: kWh, writable: true, poll: slow, note: Heat meter versions only; the document says reverse energy totals are not yet implemented.}
+  - {key: x.thermal_power, label: Instantaneous power, table: holding, address: 132, type: f32, unit: kW, verified: false, note: 'Heat meter versions only; reads 0 when not measuring flow. The register table gives kW for Metric1, the regime table says "KWH"; kW assumed.'}
+  - {key: x.flow_temperature, label: Flow side temperature, table: holding, address: 134, type: s16, unit: °C, scale: 0.01, note: Heat meter versions only. In °F when the temperature regime is set to °F (not expressible here). A faulty or disconnected probe reads −259.3.}
+  - {key: x.return_temperature, label: Return side temperature, table: holding, address: 135, type: s16, unit: °C, scale: 0.01, note: Heat meter versions only. In °F when the temperature regime is set to °F. A faulty or disconnected probe reads −259.3.}
+  - {key: x.update_flags, label: Status flags (update bits), table: holding, address: 136, type: u16, flags: update_flags, writable: true, verified: false, note: 'The document declares 136–137 as one uint32 status register, but its procedures mask-write bits 0–4 at address 136, and its example value for the fault bits only fits bits 13–15 of 137. Read here as two 16-bit registers accordingly.'}
+  - {key: x.measurement_status, label: Status flags (faults), table: holding, address: 137, type: u16, flags: measurement_status, verified: false, note: See 136.}
+  - {key: x.damping_time, label: Damping time, table: holding, address: 138, type: u16, bits: [0, 6], unit: s, writable: true, poll: slow}
+  - {key: x.damping_type, label: Damping type, table: holding, address: 138, type: u16, bits: [7, 7], enum: damping_type, writable: true, poll: slow}
+  - {key: x.signal_quality, label: Signal quality (Q), table: holding, address: 139, type: u16, unit: '%', scale: 0.01}
+  - {key: x.snr, label: Signal to noise ratio, table: holding, address: 140, type: s16, unit: dB, scale: 0.01}
+  - {key: x.signal, label: Signal, table: holding, address: 141, type: s16, unit: dB, scale: 0.01}
+  - {key: x.gain, label: Gain, table: holding, address: 142, type: s16, unit: dB, scale: 0.01}
+  - {key: x.noise, label: Noise, table: holding, address: 143, type: s16, unit: dB, scale: 0.01}
+  - {key: x.eta, label: Estimated time of arrival, table: holding, address: 144, type: f32, unit: µs}
+  - {key: x.ata, label: Actual time of arrival, table: holding, address: 146, type: f32, unit: µs}
+  - {key: x.damping_threshold, label: Dynamic damping acceleration threshold, table: holding, address: 148, type: f32, unit: m/s², writable: true, poll: slow}
+
+enums:
+  device_id: {'53': UF3300C, '54': UF3300HC, '55': UF3300CO, '56': UF3300HCO}
+  regime: {'0': Metric1, '1': Imperial, '2': US Imperial, '3': Metric2}
+  temperature_regime: {'0': °C, '1': °F}
+  damping_type: {'0': Fixed, '1': Dynamic}
+
+flags:
+  control_flags: {'0': Lock-out updates, '1': Lock screen mode, '2': Update lock screen mode, '3': Save measurement regime}
+  general_flags: {'0': Screen lock mode active, '1': Remote lockout}
+  instrument_status: {'0': Online, '1': Urgent error, '2': Remote total changes disabled, '3': Current loop alarm, '4': Digital device 0 alarm, '5': Digital output 1 alarm, '6': Digital output 2 alarm, '7': Digital output 3 alarm}
+  update_flags: {'0': Update forward flow total, '1': Update reverse flow total, '2': Update forward energy total, '3': Update reverse energy total, '4': Update damping}
+  measurement_status: {'13': Hot probe fault, '14': Cold probe fault, '15': Signal loss}
+
+problems:
+  - {when: {key: x.status_flags, bit: 1}, kind: fault, text: Urgent error (see the device's error list)}
+  - {when: {key: x.status_flags, bit: 3}, kind: warning, text: Current loop alarm}
+  - {when: {key: x.status_flags, bit: 5}, kind: warning, text: Digital output 1 alarm}
+  - {when: {key: x.status_flags, bit: 6}, kind: warning, text: Digital output 2 alarm}
+  - {when: {key: x.status_flags, bit: 7}, kind: warning, text: Digital output 3 alarm}
+  - {when: {key: x.measurement_status, bit: 13}, kind: fault, text: Hot temperature probe faulty or disconnected}
+  - {when: {key: x.measurement_status, bit: 14}, kind: fault, text: Cold temperature probe faulty or disconnected}
+  - {when: {key: x.measurement_status, bit: 15}, kind: fault, text: Ultrasonic signal lost (flow and volume frozen)}
+
+notes:
+- The UF3300 is a wall-mounted clamp-on ultrasonic flow meter; the H versions are heat meters (energy, power and the two temperatures).
+  That the H in the model names marks the heat meter versions is inferred from the manual, not stated with the device ids.
+- RS485 Modbus RTU only (optional Modbus board), holding registers (function 03). The document numbers registers from 1 and
+  lists the 0-based offset next to it; the offsets are used here. default_port only applies behind a Modbus TCP gateway.
+- Default serial setting 19200 baud, even parity, one stop bit. The unit id is set in the Modbus setup menu (1–247); 1 is
+  not stated in the document, assumed.
+- All registers change together once a second; read 100–149 in one request for a consistent set (bit 0 of 5 holds the updates
+  while reading).
+- 'Units follow the measurement regime register (4), set only by the Modbus master and back to Metric1 at restart unless saved.
+  This file gives the Metric1 units (m/s, l/s, litres, kWh, kW, m/s²) and °C. Imperial / US Imperial: ft/s, gallons/s, gallons,
+  BTU, BTU/s; Metric2: m³/h and m³ for flow and volume.'
+- Totals and damping are changed by writing the new value while bit 0 of 5 is set, then setting the matching update bit in
+  136 and clearing bit 0 of 5.
+- 'Left out: the packed date/time at 8–9 and 100–101 (big-endian uint32: seconds bits 0–5, minutes 6–11, hours 12–16, day
+  17–21, month 22–25, year − 2000 26–31), since its hour field crosses the register boundary; and the reserved output-control
+  registers 10–11.'

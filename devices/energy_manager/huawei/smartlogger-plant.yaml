@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: huawei-smartlogger-plant
+manufacturer: Huawei
+name: SmartLogger plant (meter, inverters, batteries)
+kind: energy_manager
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/huawei-smartlogger.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/huawei/huawei_smartlogger
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - openwb
+
+points:
+  - {key: pv_power, label: Inverter power, table: holding, address: 32080, type: s32, unit: W, note: Raw > 0 = generation (openWB's sign handling).}
+  - {key: pv_energy, label: Inverter exported energy, table: holding, address: 32106, type: s32, unit: kWh, scale: 0.01}
+  - {key: x.counter_voltages_l1, label: Counter voltage L1, table: holding, address: 32260, type: s32, unit: V, scale: 0.01}
+  - {key: x.counter_voltages_l2, label: Counter voltage L2, table: holding, address: 32262, type: s32, unit: V, scale: 0.01}
+  - {key: x.counter_voltages_l3, label: Counter voltage L3, table: holding, address: 32264, type: s32, unit: V, scale: 0.01}
+  - {key: l1_current, label: Grid L1 current, table: holding, address: 32272, type: s32, unit: A, scale: 0.1, sources: [evcc, openwb]}
+  - {key: l2_current, label: Grid L2 current, table: holding, address: 32274, type: s32, unit: A, scale: 0.1, sources: [evcc, openwb]}
+  - {key: l3_current, label: Grid L3 current, table: holding, address: 32276, type: s32, unit: A, scale: 0.1, sources: [evcc, openwb]}
+  - {key: grid_power, label: Grid power, table: holding, address: 32278, type: s32, unit: W, positive: import, sources: [evcc, openwb]}
+  - {key: x.counter_powers_l1, label: Counter power L1, table: holding, address: 32335, type: s32, unit: W, note: Raw > 0 = import (openWB's sign handling).}
+  - {key: x.counter_powers_l2, label: Counter power L2, table: holding, address: 32337, type: s32, unit: W, note: Raw > 0 = import (openWB's sign handling).}
+  - {key: x.counter_powers_l3, label: Counter power L3, table: holding, address: 32339, type: s32, unit: W, note: Raw > 0 = import (openWB's sign handling).}
+  - {key: grid_export_energy, label: Grid return energy, table: holding, address: 32349, type: s64, unit: kWh, scale: 0.01, sources: [evcc]}
+  - {key: grid_import_energy, label: Grid energy, table: holding, address: 32357, type: s64, unit: kWh, scale: 0.01, sources: [evcc]}
+  - {key: battery_power, label: Battery power, table: holding, address: 37001, type: s32, unit: W, positive: charge, invalid: [-2147483648, 2147483647], sources: [evcc]}
+  - {key: battery_soc, label: Battery state of charge, table: holding, address: 37004, type: u16, unit: '%', scale: 0.1, invalid: [65535], sources: [evcc]}
+  - {key: x.battery_energy, label: Battery energy, table: holding, address: 37068, type: u32, unit: kWh, scale: 0.01, invalid: [4294967295], sources: [evcc]}
+  - {key: x.bat_soc, label: Battery state of charge, table: holding, address: 37760, type: s16, unit: '%', scale: 0.1}
+  - {key: x.bat_power, label: Battery power, table: holding, address: 37765, type: s32, unit: W}
+  - {key: x.pv_curtailed_limit, label: PV feed-in / production limit (input limit), table: holding, address: 40428, type: s16, scale: 0.1, writable: true, note: evcc feeds it into a script that computes the PV feed-in / production limit., sources: [evcc]}
+  - {key: x.pv_energy, label: PV energy, table: holding, address: 40446, type: s64, unit: kWh, scale: 0.01, unit_id: 0, sources: [evcc]}
+  - {key: x.pv_power, label: PV power, table: holding, address: 40521, type: s32, unit: W, unit_id: 0, sources: [evcc]}
+  - {key: x.batterymode_47083, label: Battery mode control (write), table: holding, address: 47083, type: u16, writable: true, note: 'evcc writes battery mode hold: 1; battery mode charge: 1.', sources: [evcc, openwb]}
+  - {key: x.batterymode_47087, label: Battery mode control (write), table: holding, address: 47087, type: u16, writable: true, note: 'evcc writes battery mode charge: 1.', sources: [evcc, openwb]}
+  - {key: x.batterymode_47100, label: Battery mode control (write), table: holding, address: 47100, type: u16, writable: true, note: 'evcc writes battery mode normal: 0; battery mode hold: 2; battery mode charge: 1.', sources: [evcc, openwb]}
+  - {key: x.batterymode_47246, label: Battery mode control (write), table: holding, address: 47246, type: u16, writable: true, note: 'evcc writes battery mode hold: 0; battery mode charge: 0.', sources: [evcc, openwb]}
+  - {key: x.batterymode_47247, label: Battery mode control (write), table: holding, address: 47247, type: u32, writable: true, note: 'evcc writes battery mode charge: 2500.', sources: [evcc], conflicts: [{sources: [openwb], type: u16, label: Battery register 47247}]}
+  - {key: x.batterymode_47249, label: Battery mode control (write), table: holding, address: 47249, type: u32, writable: true, note: 'evcc writes battery mode hold: 0.', sources: [evcc], conflicts: [{sources: [openwb], type: u16, label: Battery register 47249}]}
+
+notes:
+- 'evcc template `huawei-smartlogger` (grid, pv, battery) lists: Huawei SmartLogger.'
+- evcc waits 1s after opening the connection before the first request.
+- evcc reads the power meter, inverter and battery registers through the SmartLogger; the device files huawei-smartlogger,
+  huawei-smartlogger-meter and huawei-sun2000 cover some of the same addresses.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

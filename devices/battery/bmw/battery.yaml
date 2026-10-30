@@ -1,0 +1,158 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the BMW Storage Protocol SMA (standard) (version 0.8 in its header, change history up to 1.0 of 2019-03-01).
+
+modbusspec: 0
+id: bmw-battery
+manufacturer: BMW
+name: Battery storage (BMW battery modules)
+kind: battery
+
+sources:
+- title: BMW Storage Protocol SMA (standard) ("BMW Storage Protocol Proposal", draft)
+  version: 0.8 / 1.0 (2019-03-01); copy in github.com/OpenEMS/openems, commit c044448d6346209e4aa8dae7f4bde08a676ad0ed
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.battery.bmw/doc/BMW_Storage_Protocol_SMA_%28standard%29.docx
+  sha256: 08fa52f79a9a7b08c7615306df43b20ec8c713c9130cc3d6a6fb59cf3148d9ad
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.battery.bmw
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 1048
+    type: u32
+
+points:
+  # Read registers (function 04)
+  - {key: x.life_sign, label: LifeSign, table: input, address: 999, type: u16}
+  - {key: x.bms_state, label: BmsStt, table: input, address: 1000, type: u16, flags: bms_state}
+  - {key: x.error_bits_1, label: ErrBits1, table: input, address: 1001, type: u16, flags: error_bits_1}
+  - {key: x.error_bits_2, label: ErrBits2, table: input, address: 1002, type: u16, flags: error_bits_2}
+  - {key: x.warning_bits_1, label: WarnBits1, table: input, address: 1003, type: u16, flags: warning_bits_1}
+  - {key: x.warning_bits_2, label: WarnBits2, table: input, address: 1004, type: u16, flags: warning_bits_2}
+  - {key: x.max_operating_current, label: DcAmpOpMax, table: input, address: 1006, type: s16, unit: A, poll: slow}
+  - {key: x.min_operating_current, label: DcAmpOpMin, table: input, address: 1007, type: s16, unit: A, poll: slow}
+  - {key: x.max_operating_voltage, label: DcVolOpMax, table: input, address: 1008, type: u16, unit: V, scale: 0.1, poll: slow, conflicts: [{sources: [openems], type: s16, label: Charge max voltage}]}
+  - {key: x.min_operating_voltage, label: DcVolOpMin, table: input, address: 1009, type: u16, unit: V, scale: 0.1, poll: slow, conflicts: [{sources: [openems], type: s16, label: Discharge min voltage}]}
+  - {key: x.max_dynamic_current, label: DcAmpDynMax, table: input, address: 1010, type: s16, unit: A}
+  - {key: x.min_dynamic_current, label: DcAmpDynMin, table: input, address: 1011, type: s16, unit: A}
+  - {key: x.max_dynamic_voltage, label: DcVolDynMax, table: input, address: 1012, type: u16, unit: V, scale: 0.1}
+  - {key: x.min_dynamic_voltage, label: DcVolDynMin, table: input, address: 1013, type: u16, unit: V, scale: 0.1}
+  - {key: x.strings_connected, label: NoStrgConn, table: input, address: 1014, type: u16}
+  - {key: x.strings_installed, label: NoStrgTot, table: input, address: 1015, type: u16, poll: slow}
+  - {key: x.soc_total, label: SOCTot, table: input, address: 1016, type: s16, unit: '%', scale: 0.01, note: State of charge of all strings., conflicts: [{sources: [openems], type: u16, label: Battery total soc}]}
+  - {key: battery_soc, label: SOCConn, table: input, address: 1017, type: s16, unit: '%', scale: 0.01, note: State of charge of the connected strings., conflicts: [{sources: [openems], type: u16, label: Battery soc}]}
+  - {key: x.remaining_charge_capacity, label: RemChrgAh, table: input, address: 1018, type: u16, unit: Ah}
+  - {key: x.remaining_discharge_capacity, label: RemDischrgAh, table: input, address: 1019, type: u16, unit: Ah}
+  - {key: x.remaining_charge_energy, label: RemChrgkWh, table: input, address: 1020, type: u16, unit: kWh}
+  - {key: x.remaining_discharge_energy, label: RemDischrgkWh, table: input, address: 1021, type: u16, unit: kWh}
+  - {key: x.nominal_energy_connected, label: NomEngyConn, table: input, address: 1022, type: u16, unit: kWh, poll: slow}
+  - {key: x.nominal_energy_total, label: NomEngyTot, table: input, address: 1023, type: u16, unit: kWh, poll: slow}
+  - {key: x.nominal_capacity_connected, label: NomCapConn, table: input, address: 1024, type: u16, unit: Ah, poll: slow}
+  - {key: x.nominal_capacity_total, label: NomCapTot, table: input, address: 1025, type: u16, unit: Ah, poll: slow, conflicts: [{sources: [openems], unit: kWh, scale: 0.001, label: Capacity}]}
+  - {key: battery_soh, label: SOH, table: input, address: 1026, type: u16, unit: '%', scale: 0.01, poll: slow}
+  - {key: battery_voltage, label: DcVolConn, table: input, address: 1027, type: u16, unit: V, scale: 0.1, note: DC voltage of the connected racks.}
+  - {key: x.voltage_average, label: DcVolTot, table: input, address: 1028, type: u16, unit: V, scale: 0.1, optional: true, note: Average DC voltage; only where applicable.}
+  - {key: battery_current, label: DcAmp, table: input, address: 1029, type: s16, unit: A, scale: 0.1, positive: discharge, verified: false, note: The document doesn't state the sign of the DC current; discharge positive is assumed.}
+  - {key: battery_temperature, label: TmpAvg, table: input, address: 1030, type: s16, unit: °C, scale: 0.1, conflicts: [{sources: [openems], type: u16, scale: 0.01, label: Avg battery temperature}]}
+  - {key: x.temperature_min, label: TmpMin, table: input, address: 1031, type: s16, unit: °C, scale: 0.1}
+  - {key: x.temperature_max, label: TmpMax, table: input, address: 1032, type: s16, unit: °C, scale: 0.1}
+  - {key: x.cell_voltage_min, label: CellVolMin, table: input, address: 1033, type: u16, unit: V, scale: 0.001, conflicts: [{sources: [openems], type: s16, label: Min cell voltage}]}
+  - {key: x.cell_voltage_max, label: CellVolMax, table: input, address: 1034, type: u16, unit: V, scale: 0.001, conflicts: [{sources: [openems], type: s16, label: Max cell voltage}]}
+  - {key: x.cell_voltage_avg, label: CellVolAvg, table: input, address: 1035, type: u16, unit: V, scale: 0.001, conflicts: [{sources: [openems], unit: °C, scale: 0.01, label: Avg cell temperature}]}
+  - {key: x.internal_resistance, label: RisIn, table: input, address: 1036, type: u16, unit: mΩ, poll: slow}
+  - {key: x.insulation_resistance, label: RisIso, table: input, address: 1037, type: u16, unit: Ω, scale: 100, optional: true, note: 0.1 kΩ steps; only where applicable., conflicts: [{sources: [openems], scale: 1000, label: Insulation Resistance}]}
+  - {key: x.container_temperature, label: TmpCont, table: input, address: 1038, type: s16, unit: °C, scale: 0.1, optional: true, note: Container or room temperature; only where applicable.}
+  - {key: x.ambient_temperature, label: TmpAmb, table: input, address: 1039, type: s16, unit: °C, scale: 0.1, optional: true, note: Only where applicable.}
+  - {key: x.container_humidity, label: HmdtCont, table: input, address: 1040, type: u16, unit: '%', scale: 0.1, optional: true, note: Only where applicable.}
+  - {key: x.max_dynamic_current_hires, label: DcAmpDynMaxHiRes, table: input, address: 1041, type: s16, unit: A, scale: 0.1, conflicts: [{sources: [openems], type: u16, label: Discharge max current high resolution}]}
+  - {key: x.min_dynamic_current_hires, label: DcAmpDynMinHiRes, table: input, address: 1042, type: s16, unit: A, scale: 0.1, conflicts: [{sources: [openems], type: u16, label: Charge max current high resolution}]}
+  - {key: x.full_cycle_count, label: Cnt.FullCycleCnt, table: input, address: 1043, type: u16, poll: slow}
+  - {key: x.operating_time, label: Cnt.TotOpTm, table: input, address: 1044, type: u32, unit: h, poll: slow}
+  - {key: x.protocol_version, label: BmsComProVer, table: input, address: 1046, type: u32, poll: slow}
+  - {key: serial, label: SerNo, table: input, address: 1048, type: u32, poll: slow}
+  - {key: firmware, label: SwVer, table: input, address: 1050, type: u32, poll: slow}
+  # Write registers (functions 06 / 16, read with 03), written by the inverter
+  - {key: x.heartbeat, label: HeartBeat, table: holding, address: 1399, type: u16, writable: true}
+  - {key: x.bms_state_command, label: BmsSttCmd, table: holding, address: 1400, type: u16, flags: bms_state_command, writable: true, note: 'Bit 2 high: close the contactors (pre-charge runs first where fitted); low: open them.'}
+  - {key: x.dc_link_voltage, label: DcLinkVtg, table: holding, address: 1402, type: u16, unit: V, scale: 0.1, writable: true, note: DC bus voltage measured by the inverter.}
+  - {key: x.dc_link_current, label: DcLinkCur, table: holding, address: 1403, type: s16, writable: true, verified: false, note: DC bus current measured by the inverter; the document gives neither unit nor scale.}
+  - {key: x.connection_strategy, label: ConnStrategy, table: holding, address: 1406, type: u16, flags: connection_strategy, writable: true}
+
+flags:
+  bms_state: {'0': 'Off', '1': Init, '2': Standby, '3': Ready, '4': Operation, '5': Error, '6': Pre-heat, '7': Pre-heat completed, '8': Pre-charge, '9': Pre-charge completed, '15': State unknown}
+  bms_state_command: {'0': Enable battery (reserved), '1': Operation (reserved), '2': Close contactor, '3': Close pre-charge (not used), '13': BMS sleep (reserved), '14': Clear BMS error, '15': Reset BMS}
+  connection_strategy: {'0': Low SOC first (charging), '1': High SOC first (discharging)}
+  error_bits_1: {'0': Unspecified error, '1': Low voltage error, '2': High voltage error, '3': Charge current error, '4': Discharge current error, '5': Charge power error, '6': Discharge power error, '7': Low SOC error, '8': High SOC error, '9': Low temperature error, '10': High temperature error, '11': Insulation error, '12': Contactor / fuse error, '13': Sensor error, '14': Imbalance error, '15': Communication error}
+  error_bits_2: {'0': Container / room error, '1': SOH error, '2': Rack / string error}
+  warning_bits_1: {'0': Unspecified warning, '1': Low voltage warning, '2': High voltage warning, '3': Charge current warning, '4': Discharge current warning, '5': Charge power warning, '6': Discharge power warning, '7': Low SOC warning, '8': High SOC warning, '9': Low temperature warning, '10': High temperature warning, '11': Insulation warning, '12': Contactor / fuse warning, '13': Sensor warning, '14': Imbalance warning, '15': Communication warning}
+  warning_bits_2: {'0': Container / room warning, '1': SOH warning, '2': Rack / string warning}
+
+problems:
+  - {when: {key: x.bms_state, bit: 5}, kind: fault, text: Battery management reports an error (state bit 5)}
+  - {when: {key: x.error_bits_1, bit: 0}, kind: fault, text: Unspecified error (bit 0)}
+  - {when: {key: x.error_bits_1, bit: 1}, kind: fault, text: Low voltage error (bit 1)}
+  - {when: {key: x.error_bits_1, bit: 2}, kind: fault, text: High voltage error (bit 2)}
+  - {when: {key: x.error_bits_1, bit: 3}, kind: fault, text: Charge current error (bit 3)}
+  - {when: {key: x.error_bits_1, bit: 4}, kind: fault, text: Discharge current error (bit 4)}
+  - {when: {key: x.error_bits_1, bit: 5}, kind: fault, text: Charge power error (bit 5)}
+  - {when: {key: x.error_bits_1, bit: 6}, kind: fault, text: Discharge power error (bit 6)}
+  - {when: {key: x.error_bits_1, bit: 7}, kind: fault, text: Low SOC error (bit 7)}
+  - {when: {key: x.error_bits_1, bit: 8}, kind: fault, text: High SOC error (bit 8)}
+  - {when: {key: x.error_bits_1, bit: 9}, kind: fault, text: Low temperature error (bit 9)}
+  - {when: {key: x.error_bits_1, bit: 10}, kind: fault, text: High temperature error (bit 10)}
+  - {when: {key: x.error_bits_1, bit: 11}, kind: fault, text: Insulation error (bit 11)}
+  - {when: {key: x.error_bits_1, bit: 12}, kind: fault, text: Contactor / fuse error (bit 12)}
+  - {when: {key: x.error_bits_1, bit: 13}, kind: fault, text: Sensor error (bit 13)}
+  - {when: {key: x.error_bits_1, bit: 14}, kind: fault, text: Imbalance error (bit 14)}
+  - {when: {key: x.error_bits_1, bit: 15}, kind: fault, text: Communication error (bit 15)}
+  - {when: {key: x.error_bits_2, bit: 0}, kind: fault, text: Container / room error (bit 0)}
+  - {when: {key: x.error_bits_2, bit: 1}, kind: fault, text: SOH error (bit 1)}
+  - {when: {key: x.error_bits_2, bit: 2}, kind: fault, text: Rack / string error (bit 2)}
+  - {when: {key: x.warning_bits_1, bit: 0}, kind: warning, text: Unspecified warning (bit 0)}
+  - {when: {key: x.warning_bits_1, bit: 1}, kind: warning, text: Low voltage warning (bit 1)}
+  - {when: {key: x.warning_bits_1, bit: 2}, kind: warning, text: High voltage warning (bit 2)}
+  - {when: {key: x.warning_bits_1, bit: 3}, kind: warning, text: Charge current warning (bit 3)}
+  - {when: {key: x.warning_bits_1, bit: 4}, kind: warning, text: Discharge current warning (bit 4)}
+  - {when: {key: x.warning_bits_1, bit: 5}, kind: warning, text: Charge power warning (bit 5)}
+  - {when: {key: x.warning_bits_1, bit: 6}, kind: warning, text: Discharge power warning (bit 6)}
+  - {when: {key: x.warning_bits_1, bit: 7}, kind: warning, text: Low SOC warning (bit 7)}
+  - {when: {key: x.warning_bits_1, bit: 8}, kind: warning, text: High SOC warning (bit 8)}
+  - {when: {key: x.warning_bits_1, bit: 9}, kind: warning, text: Low temperature warning (bit 9)}
+  - {when: {key: x.warning_bits_1, bit: 10}, kind: warning, text: High temperature warning (bit 10)}
+  - {when: {key: x.warning_bits_1, bit: 11}, kind: warning, text: Insulation warning (bit 11)}
+  - {when: {key: x.warning_bits_1, bit: 12}, kind: warning, text: Contactor / fuse warning (bit 12)}
+  - {when: {key: x.warning_bits_1, bit: 13}, kind: warning, text: Sensor warning (bit 13)}
+  - {when: {key: x.warning_bits_1, bit: 14}, kind: warning, text: Imbalance warning (bit 14)}
+  - {when: {key: x.warning_bits_1, bit: 15}, kind: warning, text: Communication warning (bit 15)}
+  - {when: {key: x.warning_bits_2, bit: 0}, kind: warning, text: Container / room warning (bit 0)}
+  - {when: {key: x.warning_bits_2, bit: 1}, kind: warning, text: SOH warning (bit 1)}
+  - {when: {key: x.warning_bits_2, bit: 2}, kind: warning, text: Rack / string warning (bit 2)}
+
+notes:
+- The document is BMW's register map for its stationary battery systems, following the SMA Modbus profile (its introduction
+  names SMA as the maker of the storage systems); BMW AG is the issuing organisation.
+- Registers are given as plain decimal protocol addresses and used as they are. Read registers use function 04; the write
+  registers (1399–1408) use 06 / 16 and read back with 03.
+- 32-bit values are two registers with the low word first, as the document states for the SMA profile.
+- 'Left out: the information bits at 1005 (all reserved), the reserved operation-mode registers 1052–1063, and the inverter-side
+  registers OpStt (1401), OpMod_ReqOk / ReqCanc (1404, 1405) and SystemTime (1407, no epoch given).'
+- The unit id isn't stated; 1 is assumed. Settings stored in flash must not be written cyclically.
+- OpenEMS also talks to this battery over HTTP for some functions; only the Modbus registers are here.

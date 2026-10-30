@@ -1,0 +1,533 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the BYD MODBUS Register List CESS DC (V001.19). The CESS is BYD's commercial storage system (PCS,
+# battery string and DC/DC converters for battery and PV); FENECON sold the DC-coupled version as Commercial 40.
+
+modbusspec: 0
+id: fenecon-commercial-40
+manufacturer: FENECON
+name: Commercial 40 (BYD CESS, battery storage with DC PV)
+kind: inverter
+
+sources:
+- title: BYD MODBUS Register List CESS DC (spreadsheet)
+  version: V001.19
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.ess.fenecon.commercial40/doc/BYD%20MODBUS%20Register%20List%20CESS%20DC.xlsx
+  sha256: a5fdb8f6ccdae5ed25375c08df7fd7518b9ef99c6b53cf8ab772e6d5d00c056c
+- title: Modbus Register COMMERCIAL AC (spreadsheet)
+  version: V001.14
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.ess.fenecon.commercial40/doc/Modbus_Register_COMMERCIAL_AC_v1.14.xlsx
+  sha256: 8a4faac729095ad7107b25f7fee02fb7e69c38bfa321129ecd1055326d077a98
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.ess.fenecon.commercial40
+
+connection:
+  default_port: 502
+  default_unit: 100
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # system manufacturer: BYD
+  - table: holding
+    address: 265
+    type: u16
+    equals: 1
+  # system type: CESS
+  - table: holding
+    address: 266
+    type: u16
+    equals: 1
+
+points:
+  - {key: state, label: Unit work state, table: holding, address: 257, type: u16, enum: unit_state}
+  - {key: x.control_mode, label: Unit control mode, table: holding, address: 258, type: u16, enum: control_mode}
+  - {key: x.work_mode, label: Unit work mode, table: holding, address: 259, type: u16, poll: slow, note: Bit 9 = P/Q (remote dispatch).}
+  - {key: x.battery_maintenance, label: Battery maintenance state, table: holding, address: 260, type: u16, enum: off_on}
+  - {key: x.pcs_state, label: PCS work state, table: holding, address: 261, type: u16, enum: pcs_state}
+  - {key: x.grid_state, label: Unit on/off grid, table: holding, address: 262, type: u16, enum: grid_state, note: 'Value 1 = off (off-grid), 2 = on (on-grid), as the document names them.'}
+  - {key: x.protocol_version, label: Modbus protocol version, table: holding, address: 264, type: u16, poll: slow, note: Version A.B with A = value / 256 and B = value % 256.}
+  - {key: x.system_manufacturer, label: System manufacturer, table: holding, address: 265, type: u16, enum: system_manufacturer, poll: slow}
+  - {key: x.system_type, label: System type, table: holding, address: 266, type: u16, enum: system_type, poll: slow}
+  - {key: x.unit_info_1, label: Suggestive information, table: holding, address: 272, type: u16, flags: unit_info_1}
+  - {key: x.unit_info_2, label: Suggestive information, table: holding, address: 273, type: u16, flags: unit_info_2}
+  - {key: x.unit_info_3, label: Suggestive information, table: holding, address: 293, type: u16, flags: unit_info_3}
+  - {key: x.unit_info_4, label: Suggestive information, table: holding, address: 294, type: u16, flags: unit_info_4}
+  - {key: x.pcs_switch_state, label: Switch state, table: holding, address: 336, type: u16, flags: pcs_switch_state, note: 1 = closed.}
+  - {key: x.pcs_abnormity_1, label: Abnormity, table: holding, address: 384, type: u16, flags: pcs_abnormity_1}
+  - {key: x.pcs_abnormity_2, label: Abnormity, table: holding, address: 386, type: u16, flags: pcs_abnormity_2}
+  - {key: x.pcs_abnormity_3, label: Abnormity, table: holding, address: 387, type: u16, flags: pcs_abnormity_3}
+  - {key: x.pcs_abnormity_4, label: Abnormity, table: holding, address: 388, type: u16, flags: pcs_abnormity_4}
+  - {key: x.pcs_abnormity_5, label: Abnormity, table: holding, address: 389, type: u16, flags: pcs_abnormity_5}
+  - {key: x.pcs_info_1, label: Suggestive information, table: holding, address: 390, type: u16, flags: pcs_info_1}
+  - {key: x.pcs_info_2, label: Suggestive information, table: holding, address: 391, type: u16, flags: pcs_info_2}
+  - {key: x.pcs_info_3, label: Suggestive information, table: holding, address: 392, type: u16, flags: pcs_info_3}
+  - {key: x.dc_voltage, label: DC voltage, table: holding, address: 512, type: s16, unit: V, scale: 0.1}
+  - {key: x.dc_current, label: DC current, table: holding, address: 513, type: s16, unit: A, scale: 0.1, verified: false, note: Signed; the positive direction isn't stated.}
+  - {key: x.dc_power, label: DC power, table: holding, address: 514, type: s16, unit: W, scale: 100, verified: false, note: '0.1 kW per step; signed, the positive direction isn''t stated.'}
+  - {key: x.ac_charge_energy, label: DCAC AC charge energy, table: holding, address: 520, type: u32, unit: kWh, scale: 0.1, poll: slow, word_order: little, conflicts: [{sources: [openems], scale: 100, label: Original active charge energy}]}
+  - {key: x.ac_discharge_energy, label: DCAC AC discharge energy, table: holding, address: 522, type: u32, unit: kWh, scale: 0.1, poll: slow, word_order: little, conflicts: [{sources: [openems], scale: 100, label: Original active discharge energy}]}
+  - {key: x.active_power, label: P, table: holding, address: 528, type: s16, unit: W, scale: 100, positive: discharge, verified: false, note: 0.1 kW per step. The direction isn't stated for this register; taken to be as the active power command (positive = discharge).}
+  - {key: reactive_power, label: Q, table: holding, address: 529, type: s16, unit: var, scale: 100}
+  - {key: apparent_power, label: S, table: holding, address: 530, type: u16, unit: VA, scale: 100}
+  - {key: l1_current, label: Ia, table: holding, address: 531, type: s16, unit: A, scale: 0.1}
+  - {key: l2_current, label: Ib, table: holding, address: 532, type: s16, unit: A, scale: 0.1}
+  - {key: l3_current, label: Ic, table: holding, address: 533, type: s16, unit: A, scale: 0.1}
+  - {key: l1_voltage, label: Ua, table: holding, address: 537, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Ub, table: holding, address: 538, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Uc, table: holding, address: 539, type: u16, unit: V, scale: 0.1}
+  - {key: frequency, label: Frequency, table: holding, address: 540, type: u16, unit: Hz, scale: 0.01, conflicts: [{sources: [openems], scale: 0.001}]}
+  - {key: x.inverter_l1_voltage, label: Inverter Ua, table: holding, address: 546, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_l2_voltage, label: Inverter Ub, table: holding, address: 547, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_l3_voltage, label: Inverter Uc, table: holding, address: 548, type: u16, unit: V, scale: 0.1}
+  - {key: x.inverter_l1_current, label: Inverter Ia, table: holding, address: 549, type: s16, unit: A, scale: 0.1}
+  - {key: x.inverter_l2_current, label: Inverter Ib, table: holding, address: 550, type: s16, unit: A, scale: 0.1}
+  - {key: x.inverter_l3_current, label: Inverter Ic, table: holding, address: 551, type: s16, unit: A, scale: 0.1}
+  - {key: x.inverter_power, label: Inverter power, table: holding, address: 552, type: s16, unit: W, scale: 100, verified: false, note: 0.1 kW per step; the positive direction isn't stated.}
+  - {key: x.allowed_charge_power, label: Allowable charging power, table: holding, address: 560, type: s16, unit: W, scale: 100, conflicts: [{sources: [openems], label: Original allowed charge power}]}
+  - {key: x.allowed_discharge_power, label: Allowable discharge power, table: holding, address: 561, type: u16, unit: W, scale: 100, conflicts: [{sources: [openems], label: Original allowed discharge power}]}
+  - {key: x.allowed_apparent_power, label: Allowable apparent power, table: holding, address: 562, type: u16, unit: VA, scale: 100}
+  - {key: x.ipm_l1_temperature, label: IPM phase A temperature, table: holding, address: 576, type: s16, unit: °C}
+  - {key: x.ipm_l2_temperature, label: IPM phase B temperature, table: holding, address: 577, type: s16, unit: °C}
+  - {key: x.ipm_l3_temperature, label: IPM phase C temperature, table: holding, address: 578, type: s16, unit: °C}
+  - {key: x.transformer_l2_temperature, label: Transformer phase B temperature, table: holding, address: 585, type: s16, unit: °C}
+  - {key: x.total_energy, label: Total energy, table: holding, address: 768, type: u32, unit: kWh, poll: slow, note: 'What this counts (charge, discharge or PV) isn''t stated.', word_order: little}
+  - {key: x.year_energy, label: Total year energy, table: holding, address: 770, type: u32, unit: kWh, poll: slow, word_order: little}
+  - {key: x.month_energy, label: Total month energy, table: holding, address: 772, type: u32, unit: kWh, poll: slow, word_order: little}
+  - {key: x.day_energy, label: Total date energy, table: holding, address: 774, type: u16, unit: kWh, poll: slow, note: Hourly values of the day follow at 0x0307 … 0x031E (hours 0 … 23).}
+  - {key: x.set_work_state, label: Work state control command, table: holding, address: 1280, type: u16, enum: set_work_state, writable: true, poll: slow}
+  - {key: x.set_active_power, label: Active power command, table: holding, address: 1281, type: s16, unit: W, scale: 100, writable: true, poll: slow, note: '0.1 kW per step; positive = discharge, negative = charge.'}
+  - {key: x.set_reactive_power, label: Reactive power command, table: holding, address: 1282, type: s16, unit: var, scale: 100, writable: true, poll: slow, note: 'Positive = provides reactive power, negative = absorbs it.'}
+  - {key: x.set_pv_power_limit, label: PV power limit command, table: holding, address: 1283, type: u16, unit: W, scale: 100, writable: true, min: 0, max: 60000, poll: slow}
+  - {key: x.set_work_mode, label: Work mode control command, table: holding, address: 1537, type: u16, writable: true, poll: slow, note: Bit 9 = P/Q (remote dispatch).}
+  - {key: x.battery_state, label: Battery string work state, table: holding, address: 4352, type: u16, enum: battery_state}
+  - {key: x.battery_switch_state, label: Battery string switch state, table: holding, address: 4353, type: u16, flags: battery_switch_state, note: 1 = closed.}
+  - {key: x.battery_io_state, label: Battery string peripheral IO state, table: holding, address: 4354, type: u16, flags: battery_io_state, note: 1 = closed.}
+  - {key: x.battery_info, label: Battery string suggestive information, table: holding, address: 4355, type: u16, flags: battery_info}
+  - {key: x.battery_abnormity_1, label: Battery string abnormity, table: holding, address: 4357, type: u16, flags: battery_abnormity_1}
+  - {key: x.battery_abnormity_2, label: Battery string abnormity, table: holding, address: 4358, type: u16, flags: battery_abnormity_2}
+  - {key: battery_voltage, label: Battery string total voltage, table: holding, address: 5120, type: u16, unit: V, scale: 0.1}
+  - {key: battery_current, label: Battery string total current, table: holding, address: 5121, type: s16, unit: A, scale: 0.1, positive: discharge, verified: false, note: 'Signed; the positive direction isn''t stated, discharge is assumed (as for the battery power).'}
+  - {key: battery_soc, label: Battery string SOC, table: holding, address: 5122, type: u16, unit: '%'}
+  - {key: battery_soh, label: Battery string SOH, table: holding, address: 5123, type: u16, unit: '%', poll: slow}
+  - {key: battery_temperature, label: Battery string cell average temperature, table: holding, address: 5124, type: s16, unit: °C}
+  - {key: x.charge_current_limit, label: Battery string charge current limit, table: holding, address: 5126, type: u16, unit: A, scale: 0.1}
+  - {key: x.discharge_current_limit, label: Battery string discharge current limit, table: holding, address: 5127, type: u16, unit: A, scale: 0.1}
+  - {key: x.battery_cycles, label: Battery string charge/discharge times, table: holding, address: 5130, type: u32, poll: slow, word_order: little}
+  - {key: x.battery_charge_energy, label: Battery string accumulated charge energy, table: holding, address: 5144, type: u32, unit: kWh, scale: 0.001, poll: slow, word_order: little}
+  - {key: x.battery_discharge_energy, label: Battery string accumulated discharge energy, table: holding, address: 5146, type: u32, unit: kWh, scale: 0.001, poll: slow, word_order: little}
+  - {key: battery_power, label: Battery power, table: holding, address: 5152, type: s16, unit: W, scale: 100, positive: discharge, verified: false, note: '0.1 kW per step. The document calls it the battery output power; positive = discharge is read from that, not stated outright.'}
+  - {key: x.max_cell_voltage_no, label: Battery string max cell voltage battery number, table: holding, address: 5168, type: u16}
+  - {key: x.max_cell_voltage, label: Battery string max cell voltage, table: holding, address: 5169, type: u16, unit: V, scale: 0.001}
+  - {key: x.max_cell_voltage_temperature, label: Temperature of the max voltage cell, table: holding, address: 5170, type: s16, unit: °C}
+  - {key: x.min_cell_voltage_no, label: Battery string min cell voltage battery number, table: holding, address: 5171, type: u16}
+  - {key: x.min_cell_voltage, label: Battery string min cell voltage, table: holding, address: 5172, type: u16, unit: V, scale: 0.001}
+  - {key: x.min_cell_voltage_temperature, label: Temperature of the min voltage cell, table: holding, address: 5173, type: s16, unit: °C}
+  - {key: x.max_cell_temperature_no, label: Battery string max cell temperature battery number, table: holding, address: 5178, type: u16}
+  - {key: x.max_cell_temperature, label: Battery string max cell temperature, table: holding, address: 5179, type: s16, unit: °C}
+  - {key: x.max_cell_temperature_voltage, label: Voltage of the max temperature cell, table: holding, address: 5180, type: u16, unit: V, scale: 0.001, conflicts: [{sources: [openems], type: s16, label: Battery string max cell temperature voltage}]}
+  - {key: x.min_cell_temperature_no, label: Battery string min cell temperature battery number, table: holding, address: 5181, type: u16}
+  - {key: x.min_cell_temperature, label: Battery string min cell temperature, table: holding, address: 5182, type: s16, unit: °C}
+  - {key: x.min_cell_temperature_voltage, label: Voltage of the min temperature cell, table: holding, address: 5183, type: u16, unit: V, scale: 0.001, conflicts: [{sources: [openems], type: s16, label: Battery string min cell temperature voltage}]}
+  - {key: x.cell_1_voltage, label: Battery string cell voltage 1, table: holding, address: 5376, type: u16, unit: V, scale: 0.001, poll: slow, note: 'Cell voltages from 0x1500 (range 0x1500 … 0x16FF); cell temperatures (s16, °C) from 0x1700 (0x1700 … 0x18FF).'}
+  - {key: x.bms_dcdc_state, label: BMS DCDC work state, table: holding, address: 40960, type: u16, enum: dcdc_state, optional: true}
+  - {key: x.bms_dcdc_mode, label: BMS DCDC work mode, table: holding, address: 40961, type: u16, enum: dcdc_mode, optional: true}
+  - {key: x.bms_dcdc_info_1, label: BMS DCDC suggestive information, table: holding, address: 41216, type: u16, flags: dcdc_info_1, optional: true}
+  - {key: x.bms_dcdc_info_2, label: BMS DCDC suggestive information, table: holding, address: 41217, type: u16, flags: dcdc_info_2, optional: true}
+  - {key: x.bms_dcdc_info_3, label: BMS DCDC suggestive information, table: holding, address: 41218, type: u16, flags: dcdc_info_3, optional: true}
+  - {key: x.bms_dcdc_info_4, label: BMS DCDC suggestive information, table: holding, address: 41219, type: u16, flags: dcdc_info_4, optional: true}
+  - {key: x.bms_dcdc_info_5, label: BMS DCDC suggestive information, table: holding, address: 41220, type: u16, flags: dcdc_info_5, optional: true}
+  - {key: x.bms_dcdc_abnormity_1, label: BMS DCDC abnormity, table: holding, address: 41232, type: u16, flags: dcdc_abnormity_1, optional: true}
+  - {key: x.bms_dcdc_abnormity_2, label: BMS DCDC abnormity, table: holding, address: 41233, type: u16, flags: dcdc_abnormity_2, optional: true}
+  - {key: x.bms_dcdc_abnormity_3, label: BMS DCDC abnormity, table: holding, address: 41234, type: u16, flags: dcdc_abnormity_3, optional: true}
+  - {key: x.bms_dcdc_abnormity_4, label: BMS DCDC abnormity, table: holding, address: 41235, type: u16, flags: dcdc_abnormity_4, optional: true}
+  - {key: x.bms_dcdc_abnormity_5, label: BMS DCDC abnormity, table: holding, address: 41236, type: u16, flags: dcdc_abnormity_5, optional: true}
+  - {key: x.bms_dcdc_abnormity_6, label: BMS DCDC abnormity, table: holding, address: 41237, type: u16, flags: dcdc_abnormity_6, optional: true}
+  - {key: x.bms_dcdc_abnormity_7, label: BMS DCDC abnormity, table: holding, address: 41238, type: u16, flags: dcdc_abnormity_7, optional: true}
+  - {key: x.bms_dcdc_switch_state, label: BMS DCDC switch state, table: holding, address: 41248, type: u16, flags: dcdc_switch_state, optional: true}
+  - {key: x.bms_dcdc_output_voltage, label: BMS DCDC output voltage, table: holding, address: 41264, type: s16, unit: V, scale: 0.1, optional: true}
+  - {key: x.bms_dcdc_output_current, label: BMS DCDC output current, table: holding, address: 41265, type: s16, unit: A, scale: 0.1, optional: true}
+  - {key: x.bms_dcdc_output_power, label: BMS DCDC output power, table: holding, address: 41266, type: s16, unit: W, scale: 100, optional: true}
+  - {key: x.bms_dcdc_input_voltage, label: BMS DCDC input voltage, table: holding, address: 41267, type: s16, unit: V, scale: 0.1, optional: true, conflicts: [{sources: [openems], scale: 1, label: PV1 bms dcdc input voltage}]}
+  - {key: x.bms_dcdc_input_current, label: BMS DCDC input current, table: holding, address: 41268, type: s16, unit: A, scale: 0.1, optional: true, conflicts: [{sources: [openems], scale: 1, label: PV1 bms dcdc input current}]}
+  - {key: x.bms_dcdc_input_power, label: BMS DCDC input power, table: holding, address: 41269, type: s16, unit: W, scale: 100, optional: true}
+  - {key: x.bms_dcdc_reactor_temperature, label: BMS DCDC reactor temperature, table: holding, address: 41280, type: s16, unit: °C, optional: true}
+  - {key: x.bms_dcdc_igbt_temperature, label: BMS DCDC IGBT temperature, table: holding, address: 41281, type: s16, unit: °C, optional: true}
+  - {key: x.bms_dcdc_input_charge_energy, label: BMS DCDC input total charge energy, table: holding, address: 41296, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.bms_dcdc_input_discharge_energy, label: BMS DCDC input total discharge energy, table: holding, address: 41298, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.bms_dcdc_output_charge_energy, label: BMS DCDC output total charge energy, table: holding, address: 41300, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.bms_dcdc_output_discharge_energy, label: BMS DCDC output total discharge energy, table: holding, address: 41302, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.bms_dcdc1_state, label: BMS DCDC1 work state, table: holding, address: 41728, type: u16, enum: dcdc_state, optional: true}
+  - {key: x.bms_dcdc1_mode, label: BMS DCDC1 work mode, table: holding, address: 41729, type: u16, enum: dcdc_mode, optional: true}
+  - {key: x.bms_dcdc1_info_1, label: BMS DCDC1 suggestive information, table: holding, address: 41984, type: u16, flags: dcdc_info_1, optional: true}
+  - {key: x.bms_dcdc1_info_2, label: BMS DCDC1 suggestive information, table: holding, address: 41985, type: u16, flags: dcdc_info_2, optional: true}
+  - {key: x.bms_dcdc1_info_3, label: BMS DCDC1 suggestive information, table: holding, address: 41986, type: u16, flags: dcdc_info_3, optional: true}
+  - {key: x.bms_dcdc1_info_4, label: BMS DCDC1 suggestive information, table: holding, address: 41987, type: u16, flags: dcdc_info_4, optional: true}
+  - {key: x.bms_dcdc1_info_5, label: BMS DCDC1 suggestive information, table: holding, address: 41988, type: u16, flags: dcdc_info_5, optional: true}
+  - {key: x.bms_dcdc1_abnormity_1, label: BMS DCDC1 abnormity, table: holding, address: 42000, type: u16, flags: dcdc_abnormity_1, optional: true}
+  - {key: x.bms_dcdc1_abnormity_2, label: BMS DCDC1 abnormity, table: holding, address: 42001, type: u16, flags: dcdc_abnormity_2, optional: true}
+  - {key: x.bms_dcdc1_abnormity_3, label: BMS DCDC1 abnormity, table: holding, address: 42002, type: u16, flags: dcdc_abnormity_3, optional: true}
+  - {key: x.bms_dcdc1_abnormity_4, label: BMS DCDC1 abnormity, table: holding, address: 42003, type: u16, flags: dcdc_abnormity_4, optional: true}
+  - {key: x.bms_dcdc1_abnormity_5, label: BMS DCDC1 abnormity, table: holding, address: 42004, type: u16, flags: dcdc_abnormity_5, optional: true}
+  - {key: x.bms_dcdc1_abnormity_6, label: BMS DCDC1 abnormity, table: holding, address: 42005, type: u16, flags: dcdc_abnormity_6, optional: true}
+  - {key: x.bms_dcdc1_abnormity_7, label: BMS DCDC1 abnormity, table: holding, address: 42006, type: u16, flags: dcdc_abnormity_7, optional: true}
+  - {key: x.bms_dcdc1_switch_state, label: BMS DCDC1 switch state, table: holding, address: 42016, type: u16, flags: dcdc_switch_state, optional: true}
+  - {key: x.bms_dcdc1_output_voltage, label: BMS DCDC1 output voltage, table: holding, address: 42032, type: s16, unit: V, scale: 0.1, optional: true}
+  - {key: x.bms_dcdc1_output_current, label: BMS DCDC1 output current, table: holding, address: 42033, type: s16, unit: A, scale: 0.1, optional: true}
+  - {key: x.bms_dcdc1_output_power, label: BMS DCDC1 output power, table: holding, address: 42034, type: s16, unit: W, scale: 100, optional: true}
+  - {key: x.bms_dcdc1_input_voltage, label: BMS DCDC1 input voltage, table: holding, address: 42035, type: s16, unit: V, scale: 0.1, optional: true, conflicts: [{sources: [openems], scale: 1, label: PV2 bms dcdc input voltage}]}
+  - {key: x.bms_dcdc1_input_current, label: BMS DCDC1 input current, table: holding, address: 42036, type: s16, unit: A, scale: 0.1, optional: true, conflicts: [{sources: [openems], scale: 1, label: PV2 bms dcdc input current}]}
+  - {key: x.bms_dcdc1_input_power, label: BMS DCDC1 input power, table: holding, address: 42037, type: s16, unit: W, scale: 100, optional: true}
+  - {key: x.bms_dcdc1_reactor_temperature, label: BMS DCDC1 reactor temperature, table: holding, address: 42048, type: s16, unit: °C, optional: true}
+  - {key: x.bms_dcdc1_igbt_temperature, label: BMS DCDC1 IGBT temperature, table: holding, address: 42049, type: s16, unit: °C, optional: true}
+  - {key: x.bms_dcdc1_input_charge_energy, label: BMS DCDC1 input total charge energy, table: holding, address: 42064, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.bms_dcdc1_input_discharge_energy, label: BMS DCDC1 input total discharge energy, table: holding, address: 42066, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.bms_dcdc1_output_charge_energy, label: BMS DCDC1 output total charge energy, table: holding, address: 42068, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.bms_dcdc1_output_discharge_energy, label: BMS DCDC1 output total discharge energy, table: holding, address: 42070, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.pv_dcdc_state, label: PV DCDC work state, table: holding, address: 42496, type: u16, enum: dcdc_state, optional: true}
+  - {key: x.pv_dcdc_mode, label: PV DCDC work mode, table: holding, address: 42497, type: u16, enum: dcdc_mode, optional: true}
+  - {key: x.pv_dcdc_info_1, label: PV DCDC suggestive information, table: holding, address: 42752, type: u16, flags: dcdc_info_1, optional: true}
+  - {key: x.pv_dcdc_info_2, label: PV DCDC suggestive information, table: holding, address: 42753, type: u16, flags: dcdc_info_2, optional: true}
+  - {key: x.pv_dcdc_info_3, label: PV DCDC suggestive information, table: holding, address: 42754, type: u16, flags: dcdc_info_3, optional: true}
+  - {key: x.pv_dcdc_info_4, label: PV DCDC suggestive information, table: holding, address: 42755, type: u16, flags: dcdc_info_4, optional: true}
+  - {key: x.pv_dcdc_info_5, label: PV DCDC suggestive information, table: holding, address: 42756, type: u16, flags: dcdc_info_5, optional: true}
+  - {key: x.pv_dcdc_abnormity_1, label: PV DCDC abnormity, table: holding, address: 42768, type: u16, flags: dcdc_abnormity_1, optional: true}
+  - {key: x.pv_dcdc_abnormity_2, label: PV DCDC abnormity, table: holding, address: 42769, type: u16, flags: dcdc_abnormity_2, optional: true}
+  - {key: x.pv_dcdc_abnormity_3, label: PV DCDC abnormity, table: holding, address: 42770, type: u16, flags: dcdc_abnormity_3, optional: true}
+  - {key: x.pv_dcdc_abnormity_4, label: PV DCDC abnormity, table: holding, address: 42771, type: u16, flags: dcdc_abnormity_4, optional: true}
+  - {key: x.pv_dcdc_abnormity_5, label: PV DCDC abnormity, table: holding, address: 42772, type: u16, flags: dcdc_abnormity_5, optional: true}
+  - {key: x.pv_dcdc_abnormity_6, label: PV DCDC abnormity, table: holding, address: 42773, type: u16, flags: dcdc_abnormity_6, optional: true}
+  - {key: x.pv_dcdc_abnormity_7, label: PV DCDC abnormity, table: holding, address: 42774, type: u16, flags: dcdc_abnormity_7, optional: true}
+  - {key: x.pv_dcdc_switch_state, label: PV DCDC switch state, table: holding, address: 42784, type: u16, flags: dcdc_switch_state, optional: true}
+  - {key: x.pv_dcdc_output_voltage, label: PV DCDC output voltage, table: holding, address: 42800, type: s16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv_dcdc_output_current, label: PV DCDC output current, table: holding, address: 42801, type: s16, unit: A, scale: 0.1, optional: true}
+  - {key: x.pv_dcdc_output_power, label: PV DCDC output power, table: holding, address: 42802, type: s16, unit: W, scale: 100, optional: true}
+  - {key: x.pv_dcdc_input_voltage, label: PV DCDC input voltage, table: holding, address: 42803, type: s16, unit: V, scale: 0.1, optional: true, conflicts: [{sources: [openems], scale: 1, label: PV1 pv dcdc input voltage}]}
+  - {key: x.pv_dcdc_input_current, label: PV DCDC input current, table: holding, address: 42804, type: s16, unit: A, scale: 0.1, optional: true, conflicts: [{sources: [openems], scale: 1, label: PV1 pv dcdc input current}]}
+  - {key: x.pv_dcdc_input_power, label: PV DCDC input power, table: holding, address: 42805, type: s16, unit: W, scale: 100, optional: true}
+  - {key: x.pv_dcdc_reactor_temperature, label: PV DCDC reactor temperature, table: holding, address: 42816, type: s16, unit: °C, optional: true}
+  - {key: x.pv_dcdc_igbt_temperature, label: PV DCDC IGBT temperature, table: holding, address: 42817, type: s16, unit: °C, optional: true}
+  - {key: x.pv_dcdc_input_charge_energy, label: PV DCDC input total charge energy, table: holding, address: 42832, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.pv_dcdc_input_discharge_energy, label: PV DCDC input total discharge energy, table: holding, address: 42834, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.pv_dcdc_output_charge_energy, label: PV DCDC output total charge energy, table: holding, address: 42836, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.pv_dcdc_output_discharge_energy, label: PV DCDC output total discharge energy, table: holding, address: 42838, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.pv_dcdc1_state, label: PV DCDC1 work state, table: holding, address: 43264, type: u16, enum: dcdc_state, optional: true}
+  - {key: x.pv_dcdc1_mode, label: PV DCDC1 work mode, table: holding, address: 43265, type: u16, enum: dcdc_mode, optional: true}
+  - {key: x.pv_dcdc1_info_1, label: PV DCDC1 suggestive information, table: holding, address: 43520, type: u16, flags: dcdc_info_1, optional: true}
+  - {key: x.pv_dcdc1_info_2, label: PV DCDC1 suggestive information, table: holding, address: 43521, type: u16, flags: dcdc_info_2, optional: true}
+  - {key: x.pv_dcdc1_info_3, label: PV DCDC1 suggestive information, table: holding, address: 43522, type: u16, flags: dcdc_info_3, optional: true}
+  - {key: x.pv_dcdc1_info_4, label: PV DCDC1 suggestive information, table: holding, address: 43523, type: u16, flags: dcdc_info_4, optional: true}
+  - {key: x.pv_dcdc1_info_5, label: PV DCDC1 suggestive information, table: holding, address: 43524, type: u16, flags: dcdc_info_5, optional: true}
+  - {key: x.pv_dcdc1_abnormity_1, label: PV DCDC1 abnormity, table: holding, address: 43536, type: u16, flags: dcdc_abnormity_1, optional: true}
+  - {key: x.pv_dcdc1_abnormity_2, label: PV DCDC1 abnormity, table: holding, address: 43537, type: u16, flags: dcdc_abnormity_2, optional: true}
+  - {key: x.pv_dcdc1_abnormity_3, label: PV DCDC1 abnormity, table: holding, address: 43538, type: u16, flags: dcdc_abnormity_3, optional: true}
+  - {key: x.pv_dcdc1_abnormity_4, label: PV DCDC1 abnormity, table: holding, address: 43539, type: u16, flags: dcdc_abnormity_4, optional: true}
+  - {key: x.pv_dcdc1_abnormity_5, label: PV DCDC1 abnormity, table: holding, address: 43540, type: u16, flags: dcdc_abnormity_5, optional: true}
+  - {key: x.pv_dcdc1_abnormity_6, label: PV DCDC1 abnormity, table: holding, address: 43541, type: u16, flags: dcdc_abnormity_6, optional: true}
+  - {key: x.pv_dcdc1_abnormity_7, label: PV DCDC1 abnormity, table: holding, address: 43542, type: u16, flags: dcdc_abnormity_7, optional: true}
+  - {key: x.pv_dcdc1_switch_state, label: PV DCDC1 switch state, table: holding, address: 43552, type: u16, flags: dcdc_switch_state, optional: true}
+  - {key: x.pv_dcdc1_output_voltage, label: PV DCDC1 output voltage, table: holding, address: 43568, type: s16, unit: V, scale: 0.1, optional: true}
+  - {key: x.pv_dcdc1_output_current, label: PV DCDC1 output current, table: holding, address: 43569, type: s16, unit: A, scale: 0.1, optional: true}
+  - {key: x.pv_dcdc1_output_power, label: PV DCDC1 output power, table: holding, address: 43570, type: s16, unit: W, scale: 100, optional: true}
+  - {key: x.pv_dcdc1_input_voltage, label: PV DCDC1 input voltage, table: holding, address: 43571, type: s16, unit: V, scale: 0.1, optional: true, conflicts: [{sources: [openems], scale: 1, label: PV2 pv dcdc input voltage}]}
+  - {key: x.pv_dcdc1_input_current, label: PV DCDC1 input current, table: holding, address: 43572, type: s16, unit: A, scale: 0.1, optional: true, conflicts: [{sources: [openems], scale: 1, label: PV2 pv dcdc input current}]}
+  - {key: x.pv_dcdc1_input_power, label: PV DCDC1 input power, table: holding, address: 43573, type: s16, unit: W, scale: 100, optional: true}
+  - {key: x.pv_dcdc1_reactor_temperature, label: PV DCDC1 reactor temperature, table: holding, address: 43584, type: s16, unit: °C, optional: true}
+  - {key: x.pv_dcdc1_igbt_temperature, label: PV DCDC1 IGBT temperature, table: holding, address: 43585, type: s16, unit: °C, optional: true}
+  - {key: x.pv_dcdc1_input_charge_energy, label: PV DCDC1 input total charge energy, table: holding, address: 43600, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.pv_dcdc1_input_discharge_energy, label: PV DCDC1 input total discharge energy, table: holding, address: 43602, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.pv_dcdc1_output_charge_energy, label: PV DCDC1 output total charge energy, table: holding, address: 43604, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.pv_dcdc1_output_discharge_energy, label: PV DCDC1 output total discharge energy, table: holding, address: 43606, type: u32, unit: kWh, scale: 0.1, poll: slow, optional: true, word_order: little}
+  - {key: x.state_10, label: Transformer Severe Overtemperature, table: holding, address: 294, type: u16, bits: [3, 3], verified: false, sources: [openems]}
+  - {key: x.pv1_bms_dcdc_input_energy, label: PV1 bms dcdc input energy, table: holding, address: 41270, type: s16, unit: kWh, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.pv1_bms_dcdc_output_energy, label: PV1 bms dcdc output energy, table: holding, address: 41271, type: s16, unit: kWh, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.pv2_bms_dcdc_input_energy, label: PV2 bms dcdc input energy, table: holding, address: 42038, type: s16, unit: kWh, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.pv2_bms_dcdc_output_energy, label: PV2 bms dcdc output energy, table: holding, address: 42039, type: s16, unit: kWh, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.pv1_pv_dcdc_input_energy, label: PV1 pv dcdc input energy, table: holding, address: 42806, type: s16, unit: kWh, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.pv1_pv_dcdc_output_energy, label: PV1 pv dcdc output energy, table: holding, address: 42807, type: s16, unit: kWh, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.pv2_pv_dcdc_input_energy, label: PV2 pv dcdc input energy, table: holding, address: 43574, type: s16, unit: kWh, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.pv2_pv_dcdc_output_energy, label: PV2 pv dcdc output energy, table: holding, address: 43575, type: s16, unit: kWh, scale: 0.1, verified: false, sources: [openems]}
+
+enums:
+  unit_state: {'2': Stop, '4': PV charging, '8': Standby, '16': Running, '32': Fault, '64': Debug}
+  control_mode: {'1': Remote, '2': Local manual}
+  off_on: {'0': 'Off', '1': 'On'}
+  pcs_state: {'1': Initial, '2': Fault, '4': Stop, '8': Standby, '16': Grid monitoring, '32': Ready, '64': Running, '128': Debug}
+  grid_state: {'1': Off-grid, '2': On-grid}
+  system_manufacturer: {'1': BYD}
+  system_type: {'1': CESS}
+  set_work_state: {'4': Stop, '32': Standby, '64': Run}
+  battery_state: {'1': Initial, '2': Stop, '4': Starting up, '8': Running, '16': Fault}
+  dcdc_state: {'2': Initial, '4': Stop, '8': Ready, '16': Running, '32': Fault, '64': Debug, '128': Locked}
+  dcdc_mode: {'128': Constant current, '256': Constant voltage, '512': Boost MPPT}
+
+flags:
+  unit_info_1: {'2': Emergency stop, '6': Key switch stop}
+  unit_info_2: {'3': Transformer phase B temperature sensor invalid, '12': SD memory card invalid}
+  unit_info_3: {'0': Inverter communication abnormal, '1': Battery stack communication abnormal, '2': Multifunction meter communication abnormal, '4': Remote communication abnormal}
+  unit_info_4: {'3': Transformer severe over-temperature}
+  pcs_switch_state: {'1': DC main contactor, '2': DC precharge contactor, '3': AC breaker, '4': AC main contactor, '5': AC precharge contactor}
+  pcs_abnormity_1: {'0': DC precharge contactor failed to close, '1': AC precharge contactor failed to close, '2': AC main contactor failed to close, '3': DC breaker 1 failed to close, '4': DC main contactor failed to close, '5': AC breaker tripped, '6': AC main contactor opened while running, '7': DC main contactor opened while running, '8': AC main contactor failed to open, '9': DC breaker 1 failed to open, '10': DC main contactor failed to open, '11': Hardware PDP fault, '12': Master stopped suddenly}
+  pcs_abnormity_2: {'0': DC short-circuit protection, '1': DC over-voltage protection, '2': DC under-voltage protection, '3': DC reverse polarity / not connected, '4': DC disconnection protection, '5': Commutation voltage abnormal, '6': DC over-current protection, '7': Phase A peak current over limit, '8': Phase B peak current over limit, '9': Phase C peak current over limit, '10': Phase A RMS current over limit, '11': Phase B RMS current over limit, '12': Phase C RMS current over limit, '13': Phase A grid voltage sampling invalid, '14': Phase B grid voltage sampling invalid, '15': Phase C grid voltage sampling invalid}
+  pcs_abnormity_3: {'0': Phase A inverter voltage sampling invalid, '1': Phase B inverter voltage sampling invalid, '2': Phase C inverter voltage sampling invalid, '3': AC current sampling invalid, '4': DC current sampling invalid, '5': Phase A over-temperature, '6': Phase B over-temperature, '7': Phase C over-temperature, '8': Phase A temperature sampling invalid, '9': Phase B temperature sampling invalid, '10': Phase C temperature sampling invalid, '11': Phase A precharge not reached, '12': Phase B precharge not reached, '13': Phase C precharge not reached, '14': Phase sequence error, '15': DSP protection}
+  pcs_abnormity_4: {'0': Phase A grid severe over-voltage, '1': Phase A grid over-voltage, '2': Phase B grid severe over-voltage, '3': Phase B grid over-voltage, '4': Phase C grid severe over-voltage, '5': Phase C grid over-voltage, '6': Phase A grid severe under-voltage, '7': Phase A grid under-voltage, '8': Phase B grid severe under-voltage, '9': Phase B grid under-voltage, '10': Phase C grid severe under-voltage, '11': Phase C grid under-voltage, '12': Severe over-frequency, '13': Over-frequency, '14': Severe under-frequency, '15': Under-frequency}
+  pcs_abnormity_5: {'0': Phase A grid loss, '1': Phase B grid loss, '2': Phase C grid loss, '3': Islanding protection, '4': Phase A under-voltage ride-through, '5': Phase B under-voltage ride-through, '6': Phase C under-voltage ride-through, '7': Phase A inverter severe over-voltage, '8': Phase A inverter over-voltage, '9': Phase B inverter severe over-voltage, '10': Phase B inverter over-voltage, '11': Phase C inverter severe over-voltage, '12': Phase C inverter over-voltage, '13': Inverter peak voltage high after AC disconnect}
+  pcs_info_1: {'0': DC precharge contactor check abnormal, '1': DC breaker 1 check abnormal, '2': DC breaker 2 check abnormal, '3': AC precharge contactor check abnormal, '4': AC main contactor check abnormal, '5': AC breaker check abnormal, '6': DC breaker 1 failed to close, '7': DC breaker 2 failed to close, '8': Control signal closed abnormally, '9': Control signal opened abnormally, '10': Neutral contactor failed to close, '11': Neutral contactor failed to open, '12': Work door open, '13': Emergency stop, '14': AC breaker failed to close, '15': Control switch stop}
+  pcs_info_2: {'0': Overload, '1': Severe overload, '2': Battery current over limit, '3': Power derated by over-temperature, '4': Inverter over-temperature, '5': AC three-phase current unbalance, '6': Restoring factory settings failed, '7': Pole board invalid, '8': Self-inspection failed, '9': Stopped by BMS fault, '10': Cooling equipment invalid, '11': Large IGBT temperature difference between phases, '12': EEPROM parameters out of range, '13': EEPROM parameter backup failed, '14': DC breaker failed to close}
+  pcs_info_3: {'0': Inverter–BSMU communication lost, '1': Inverter–master communication lost, '2': Inverter–UC communication lost, '3': BMS start timeout, '4': BMS stop timeout, '5': Sync signal invalid, '6': Sync signal capture fault (continuous), '7': Sync signal capture fault (repeated)}
+  battery_switch_state: {'0': Main contactor, '1': Precharge contactor, '2': Fan contactor, '3': BMU power supply relay, '4': Middle relay}
+  battery_io_state: {'0': Fuse, '4': Isolation switch}
+  battery_info: {'0': Charge over-current, '1': Discharge over-current, '2': Charge current over limit, '3': Discharge current over limit, '4': Over-voltage, '5': Under-voltage, '7': Over-temperature, '8': Under-temperature, '10': Severe over-voltage, '11': Severe under-voltage, '12': Severe under-temperature, '13': Severe charge over-current, '14': Severe discharge over-current, '15': Capacity abnormal}
+  battery_abnormity_1: {'2': Voltage sampling route invalid, '4': Voltage sampling route disconnected, '5': Temperature sampling route disconnected, '6': Internal CAN disconnected, '9': Current sampling circuit abnormal, '10': Battery cell invalid, '11': Main contactor check abnormal, '12': Precharge contactor check abnormal, '13': Negative contactor check abnormal, '14': Power supply relay check abnormal, '15': Middle relay abnormal}
+  battery_abnormity_2: {'2': Severe over-temperature, '7': Smoke fault, '8': Blown fuse indicator, '10': Leakage, '11': Severe leakage, '12': BECU peripheral CAN disconnected, '14': Power supply relay contactor disconnected}
+  dcdc_info_1: {'0': High-voltage side current sampling abnormal, '1': Low-voltage side current sampling abnormal, '6': EEPROM parameters out of range, '7': EEPROM update failed, '8': EEPROM read failed, '9': Current sampling before inductor abnormal}
+  dcdc_info_2: {'0': Reactor derated by over-temperature, '1': IGBT derated by over-temperature, '2': Temperature channel 3 derating, '3': Temperature channel 4 derating, '4': Temperature channel 5 derating, '5': Temperature channel 6 derating, '6': Temperature channel 7 derating, '7': Temperature channel 8 derating, '8': Fan 1 failed to stop, '9': Fan 2 failed to stop, '10': Fan 3 failed to stop, '11': Fan 4 failed to stop, '12': Fan 1 failed to start, '13': Fan 2 failed to start, '14': Fan 3 failed to start, '15': Fan 4 failed to start}
+  dcdc_info_3: {'0': High-voltage side over-voltage, '1': High-voltage side under-voltage, '2': High-voltage side voltage change abnormal}
+  dcdc_info_4: {'0': High-voltage side current abnormal before start, '1': Low-voltage side current abnormal before start, '2': Initial duty ratio abnormal before start, '3': High-voltage side voltage abnormal before start, '4': Low-voltage side voltage abnormal before start}
+  dcdc_info_5: {'0': High-voltage breaker check abnormal, '1': Low-voltage breaker check abnormal, '2': DC precharge contactor check abnormal, '3': DC precharge contactor failed to open, '4': DC main contactor check abnormal, '5': DC main contactor failed to open, '6': Output contactor failed to close, '7': Output contactor failed to open, '8': AC main contactor failed to close, '9': AC main contactor failed to open, '10': Negative contactor failed to open, '11': Negative contactor failed to close, '12': Negative contactor state abnormal}
+  dcdc_abnormity_1: {'0': High-voltage side under-voltage, '1': High-voltage side over-voltage, '2': Low-voltage side under-voltage, '3': Low-voltage side over-voltage, '4': High-voltage side over-current, '5': Low-voltage side over-current, '6': IGBT fault, '7': Precharge not reached}
+  dcdc_abnormity_2: {'0': BECU communication lost, '1': DC converter communication lost, '2': Current configuration out of range, '3': Battery requested stop, '5': Over-current relay fault, '6': Lightning protection fault, '7': Primary contactor opened abnormally, '9': Low-voltage side DC disconnected abnormally, '12': EEPROM abnormal 1, '13': EEPROM abnormal 2, '14': EEPROM abnormal 3}
+  dcdc_abnormity_3: {'0': Overload, '1': DC short circuit, '2': Peak pulse current protection, '3': High-voltage side DC disconnected abnormally, '4': Effective pulse value too high, '5': Severe overload, '6': High-voltage side DC breaker opened abnormally, '7': Low-voltage side DC breaker opened abnormally, '8': Precharge contactor failed to close, '9': Main contactor failed to close, '10': AC contactor state abnormal, '11': Emergency stop, '12': Charging gun disconnected, '13': DC current abnormal before start, '14': Fuse blown, '15': Hardware current or voltage fault}
+  dcdc_abnormity_4: {'0': Crystal oscillator circuit invalid, '1': Reset circuit invalid, '2': Sampling circuit invalid, '3': Digital I/O circuit invalid, '4': PWM circuit invalid, '5': X5045 circuit invalid, '6': CAN circuit invalid, '7': Protection circuit invalid, '8': Power circuit invalid, '9': CPU invalid, '10': TINT0 interrupt invalid, '11': ADC interrupt invalid, '12': CAPINT4 interrupt invalid, '13': CAPINT6 interrupt invalid, '14': T3PINT interrupt invalid, '15': T4PINT interrupt invalid}
+  dcdc_abnormity_5: {'0': PDPINTA interrupt invalid, '1': T1PINT interrupt invalid, '2': RESV interrupt invalid, '3': 100 µs task invalid, '4': Clock invalid, '5': EMS memory invalid, '6': External communication invalid, '7': IO interface invalid, '8': Input voltage bound fault, '9': Outer voltage bound fault, '10': Output voltage bound fault, '11': Inductor current bound fault, '12': Input current bound fault, '13': Output current bound fault}
+  dcdc_abnormity_6: {'0': Reactor over-temperature, '1': IGBT over-temperature, '2': Channel 3 over-temperature, '3': Channel 4 over-temperature, '4': Channel 5 over-temperature, '5': Channel 6 over-temperature, '6': Channel 7 over-temperature, '7': Channel 8 over-temperature, '8': Reactor temperature sampling invalid, '9': IGBT temperature sampling invalid, '10': Channel 3 temperature sampling invalid, '11': Channel 4 temperature sampling invalid, '12': Channel 5 temperature sampling invalid, '13': Channel 6 temperature sampling invalid, '14': Channel 7 temperature sampling invalid, '15': Channel 8 temperature sampling invalid}
+  dcdc_abnormity_7: {'5': Inductor current sampling invalid, '6': Low-voltage side current sampling invalid, '7': Low-voltage side voltage sampling invalid, '8': Insulation check fault, '9': Negative contactor failed to close, '10': Negative contactor opened while running}
+  dcdc_switch_state: {'0': DC precharge contactor, '1': DC main contactor, '2': Output contactor, '3': Output breaker, '4': Input breaker, '5': AC contactor, '6': Emergency stop button, '7': Negative contactor}
+
+problems:
+  - {when: {key: state, equals: 32}, kind: fault, text: Unit fault (state 32)}
+  - {when: {key: x.pcs_state, equals: 2}, kind: fault, text: PCS fault (state 2)}
+  - {when: {key: x.battery_state, equals: 16}, kind: fault, text: Battery string fault (state 16)}
+  - {when: {key: x.grid_state, equals: 1}, kind: backup_mode, text: Unit running off-grid}
+  - {when: {key: x.unit_info_1, bit: 2}, kind: fault, text: Emergency stop (bit 2)}
+  - {when: {key: x.unit_info_1, bit: 6}, kind: fault, text: Key switch stop (bit 6)}
+  - {when: {key: x.unit_info_2, bit: 3}, kind: warning, text: Transformer phase B temperature sensor invalid (bit 3)}
+  - {when: {key: x.unit_info_2, bit: 12}, kind: warning, text: SD memory card invalid (bit 12)}
+  - {when: {key: x.unit_info_3, bit: 0}, kind: warning, text: Inverter communication abnormal (bit 0)}
+  - {when: {key: x.unit_info_3, bit: 1}, kind: warning, text: Battery stack communication abnormal (bit 1)}
+  - {when: {key: x.unit_info_3, bit: 2}, kind: warning, text: Multifunction meter communication abnormal (bit 2)}
+  - {when: {key: x.unit_info_3, bit: 4}, kind: warning, text: Remote communication abnormal (bit 4)}
+  - {when: {key: x.unit_info_4, bit: 3}, kind: fault, text: Transformer severe over-temperature (bit 3)}
+  - {when: {key: x.pcs_abnormity_1, bit: 0}, kind: fault, text: 'PCS: DC precharge contactor failed to close (bit 0)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 1}, kind: fault, text: 'PCS: AC precharge contactor failed to close (bit 1)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 2}, kind: fault, text: 'PCS: AC main contactor failed to close (bit 2)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 3}, kind: fault, text: 'PCS: DC breaker 1 failed to close (bit 3)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 4}, kind: fault, text: 'PCS: DC main contactor failed to close (bit 4)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 5}, kind: fault, text: 'PCS: AC breaker tripped (bit 5)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 6}, kind: fault, text: 'PCS: AC main contactor opened while running (bit 6)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 7}, kind: fault, text: 'PCS: DC main contactor opened while running (bit 7)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 8}, kind: fault, text: 'PCS: AC main contactor failed to open (bit 8)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 9}, kind: fault, text: 'PCS: DC breaker 1 failed to open (bit 9)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 10}, kind: fault, text: 'PCS: DC main contactor failed to open (bit 10)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 11}, kind: fault, text: 'PCS: Hardware PDP fault (bit 11)'}
+  - {when: {key: x.pcs_abnormity_1, bit: 12}, kind: fault, text: 'PCS: Master stopped suddenly (bit 12)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 0}, kind: fault, text: 'PCS: DC short-circuit protection (bit 0)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 1}, kind: fault, text: 'PCS: DC over-voltage protection (bit 1)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 2}, kind: fault, text: 'PCS: DC under-voltage protection (bit 2)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 3}, kind: fault, text: 'PCS: DC reverse polarity / not connected (bit 3)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 4}, kind: fault, text: 'PCS: DC disconnection protection (bit 4)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 5}, kind: fault, text: 'PCS: Commutation voltage abnormal (bit 5)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 6}, kind: fault, text: 'PCS: DC over-current protection (bit 6)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 7}, kind: fault, text: 'PCS: Phase A peak current over limit (bit 7)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 8}, kind: fault, text: 'PCS: Phase B peak current over limit (bit 8)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 9}, kind: fault, text: 'PCS: Phase C peak current over limit (bit 9)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 10}, kind: fault, text: 'PCS: Phase A RMS current over limit (bit 10)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 11}, kind: fault, text: 'PCS: Phase B RMS current over limit (bit 11)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 12}, kind: fault, text: 'PCS: Phase C RMS current over limit (bit 12)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 13}, kind: fault, text: 'PCS: Phase A grid voltage sampling invalid (bit 13)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 14}, kind: fault, text: 'PCS: Phase B grid voltage sampling invalid (bit 14)'}
+  - {when: {key: x.pcs_abnormity_2, bit: 15}, kind: fault, text: 'PCS: Phase C grid voltage sampling invalid (bit 15)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 0}, kind: fault, text: 'PCS: Phase A inverter voltage sampling invalid (bit 0)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 1}, kind: fault, text: 'PCS: Phase B inverter voltage sampling invalid (bit 1)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 2}, kind: fault, text: 'PCS: Phase C inverter voltage sampling invalid (bit 2)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 3}, kind: fault, text: 'PCS: AC current sampling invalid (bit 3)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 4}, kind: fault, text: 'PCS: DC current sampling invalid (bit 4)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 5}, kind: fault, text: 'PCS: Phase A over-temperature (bit 5)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 6}, kind: fault, text: 'PCS: Phase B over-temperature (bit 6)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 7}, kind: fault, text: 'PCS: Phase C over-temperature (bit 7)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 8}, kind: fault, text: 'PCS: Phase A temperature sampling invalid (bit 8)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 9}, kind: fault, text: 'PCS: Phase B temperature sampling invalid (bit 9)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 10}, kind: fault, text: 'PCS: Phase C temperature sampling invalid (bit 10)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 11}, kind: fault, text: 'PCS: Phase A precharge not reached (bit 11)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 12}, kind: fault, text: 'PCS: Phase B precharge not reached (bit 12)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 13}, kind: fault, text: 'PCS: Phase C precharge not reached (bit 13)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 14}, kind: fault, text: 'PCS: Phase sequence error (bit 14)'}
+  - {when: {key: x.pcs_abnormity_3, bit: 15}, kind: fault, text: 'PCS: DSP protection (bit 15)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 0}, kind: fault, text: 'PCS: Phase A grid severe over-voltage (bit 0)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 1}, kind: fault, text: 'PCS: Phase A grid over-voltage (bit 1)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 2}, kind: fault, text: 'PCS: Phase B grid severe over-voltage (bit 2)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 3}, kind: fault, text: 'PCS: Phase B grid over-voltage (bit 3)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 4}, kind: fault, text: 'PCS: Phase C grid severe over-voltage (bit 4)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 5}, kind: fault, text: 'PCS: Phase C grid over-voltage (bit 5)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 6}, kind: fault, text: 'PCS: Phase A grid severe under-voltage (bit 6)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 7}, kind: fault, text: 'PCS: Phase A grid under-voltage (bit 7)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 8}, kind: fault, text: 'PCS: Phase B grid severe under-voltage (bit 8)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 9}, kind: fault, text: 'PCS: Phase B grid under-voltage (bit 9)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 10}, kind: fault, text: 'PCS: Phase C grid severe under-voltage (bit 10)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 11}, kind: fault, text: 'PCS: Phase C grid under-voltage (bit 11)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 12}, kind: fault, text: 'PCS: Severe over-frequency (bit 12)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 13}, kind: fault, text: 'PCS: Over-frequency (bit 13)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 14}, kind: fault, text: 'PCS: Severe under-frequency (bit 14)'}
+  - {when: {key: x.pcs_abnormity_4, bit: 15}, kind: fault, text: 'PCS: Under-frequency (bit 15)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 0}, kind: mains_lost, text: 'PCS: Phase A grid loss (bit 0)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 1}, kind: mains_lost, text: 'PCS: Phase B grid loss (bit 1)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 2}, kind: mains_lost, text: 'PCS: Phase C grid loss (bit 2)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 3}, kind: mains_lost, text: 'PCS: Islanding protection (bit 3)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 4}, kind: fault, text: 'PCS: Phase A under-voltage ride-through (bit 4)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 5}, kind: fault, text: 'PCS: Phase B under-voltage ride-through (bit 5)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 6}, kind: fault, text: 'PCS: Phase C under-voltage ride-through (bit 6)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 7}, kind: fault, text: 'PCS: Phase A inverter severe over-voltage (bit 7)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 8}, kind: fault, text: 'PCS: Phase A inverter over-voltage (bit 8)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 9}, kind: fault, text: 'PCS: Phase B inverter severe over-voltage (bit 9)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 10}, kind: fault, text: 'PCS: Phase B inverter over-voltage (bit 10)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 11}, kind: fault, text: 'PCS: Phase C inverter severe over-voltage (bit 11)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 12}, kind: fault, text: 'PCS: Phase C inverter over-voltage (bit 12)'}
+  - {when: {key: x.pcs_abnormity_5, bit: 13}, kind: fault, text: 'PCS: Inverter peak voltage high after AC disconnect (bit 13)'}
+  - {when: {key: x.pcs_info_1, bit: 0}, kind: warning, text: 'PCS: DC precharge contactor check abnormal (bit 0)'}
+  - {when: {key: x.pcs_info_1, bit: 1}, kind: warning, text: 'PCS: DC breaker 1 check abnormal (bit 1)'}
+  - {when: {key: x.pcs_info_1, bit: 2}, kind: warning, text: 'PCS: DC breaker 2 check abnormal (bit 2)'}
+  - {when: {key: x.pcs_info_1, bit: 3}, kind: warning, text: 'PCS: AC precharge contactor check abnormal (bit 3)'}
+  - {when: {key: x.pcs_info_1, bit: 4}, kind: warning, text: 'PCS: AC main contactor check abnormal (bit 4)'}
+  - {when: {key: x.pcs_info_1, bit: 5}, kind: warning, text: 'PCS: AC breaker check abnormal (bit 5)'}
+  - {when: {key: x.pcs_info_1, bit: 6}, kind: warning, text: 'PCS: DC breaker 1 failed to close (bit 6)'}
+  - {when: {key: x.pcs_info_1, bit: 7}, kind: warning, text: 'PCS: DC breaker 2 failed to close (bit 7)'}
+  - {when: {key: x.pcs_info_1, bit: 8}, kind: warning, text: 'PCS: Control signal closed abnormally (bit 8)'}
+  - {when: {key: x.pcs_info_1, bit: 9}, kind: warning, text: 'PCS: Control signal opened abnormally (bit 9)'}
+  - {when: {key: x.pcs_info_1, bit: 10}, kind: warning, text: 'PCS: Neutral contactor failed to close (bit 10)'}
+  - {when: {key: x.pcs_info_1, bit: 11}, kind: warning, text: 'PCS: Neutral contactor failed to open (bit 11)'}
+  - {when: {key: x.pcs_info_1, bit: 12}, kind: warning, text: 'PCS: Work door open (bit 12)'}
+  - {when: {key: x.pcs_info_1, bit: 13}, kind: warning, text: 'PCS: Emergency stop (bit 13)'}
+  - {when: {key: x.pcs_info_1, bit: 14}, kind: warning, text: 'PCS: AC breaker failed to close (bit 14)'}
+  - {when: {key: x.pcs_info_1, bit: 15}, kind: warning, text: 'PCS: Control switch stop (bit 15)'}
+  - {when: {key: x.pcs_info_2, bit: 0}, kind: warning, text: 'PCS: Overload (bit 0)'}
+  - {when: {key: x.pcs_info_2, bit: 1}, kind: warning, text: 'PCS: Severe overload (bit 1)'}
+  - {when: {key: x.pcs_info_2, bit: 2}, kind: warning, text: 'PCS: Battery current over limit (bit 2)'}
+  - {when: {key: x.pcs_info_2, bit: 3}, kind: warning, text: 'PCS: Power derated by over-temperature (bit 3)'}
+  - {when: {key: x.pcs_info_2, bit: 4}, kind: warning, text: 'PCS: Inverter over-temperature (bit 4)'}
+  - {when: {key: x.pcs_info_2, bit: 5}, kind: warning, text: 'PCS: AC three-phase current unbalance (bit 5)'}
+  - {when: {key: x.pcs_info_2, bit: 6}, kind: warning, text: 'PCS: Restoring factory settings failed (bit 6)'}
+  - {when: {key: x.pcs_info_2, bit: 7}, kind: warning, text: 'PCS: Pole board invalid (bit 7)'}
+  - {when: {key: x.pcs_info_2, bit: 8}, kind: warning, text: 'PCS: Self-inspection failed (bit 8)'}
+  - {when: {key: x.pcs_info_2, bit: 9}, kind: warning, text: 'PCS: Stopped by BMS fault (bit 9)'}
+  - {when: {key: x.pcs_info_2, bit: 10}, kind: warning, text: 'PCS: Cooling equipment invalid (bit 10)'}
+  - {when: {key: x.pcs_info_2, bit: 11}, kind: warning, text: 'PCS: Large IGBT temperature difference between phases (bit 11)'}
+  - {when: {key: x.pcs_info_2, bit: 12}, kind: warning, text: 'PCS: EEPROM parameters out of range (bit 12)'}
+  - {when: {key: x.pcs_info_2, bit: 13}, kind: warning, text: 'PCS: EEPROM parameter backup failed (bit 13)'}
+  - {when: {key: x.pcs_info_2, bit: 14}, kind: warning, text: 'PCS: DC breaker failed to close (bit 14)'}
+  - {when: {key: x.pcs_info_3, bit: 0}, kind: warning, text: 'PCS: Inverter–BSMU communication lost (bit 0)'}
+  - {when: {key: x.pcs_info_3, bit: 1}, kind: warning, text: 'PCS: Inverter–master communication lost (bit 1)'}
+  - {when: {key: x.pcs_info_3, bit: 2}, kind: warning, text: 'PCS: Inverter–UC communication lost (bit 2)'}
+  - {when: {key: x.pcs_info_3, bit: 3}, kind: warning, text: 'PCS: BMS start timeout (bit 3)'}
+  - {when: {key: x.pcs_info_3, bit: 4}, kind: warning, text: 'PCS: BMS stop timeout (bit 4)'}
+  - {when: {key: x.pcs_info_3, bit: 5}, kind: warning, text: 'PCS: Sync signal invalid (bit 5)'}
+  - {when: {key: x.pcs_info_3, bit: 6}, kind: warning, text: 'PCS: Sync signal capture fault (continuous) (bit 6)'}
+  - {when: {key: x.pcs_info_3, bit: 7}, kind: warning, text: 'PCS: Sync signal capture fault (repeated) (bit 7)'}
+  - {when: {key: x.battery_info, bit: 0}, kind: warning, text: 'Battery: Charge over-current (bit 0)'}
+  - {when: {key: x.battery_info, bit: 1}, kind: warning, text: 'Battery: Discharge over-current (bit 1)'}
+  - {when: {key: x.battery_info, bit: 2}, kind: warning, text: 'Battery: Charge current over limit (bit 2)'}
+  - {when: {key: x.battery_info, bit: 3}, kind: warning, text: 'Battery: Discharge current over limit (bit 3)'}
+  - {when: {key: x.battery_info, bit: 4}, kind: warning, text: 'Battery: Over-voltage (bit 4)'}
+  - {when: {key: x.battery_info, bit: 5}, kind: warning, text: 'Battery: Under-voltage (bit 5)'}
+  - {when: {key: x.battery_info, bit: 7}, kind: warning, text: 'Battery: Over-temperature (bit 7)'}
+  - {when: {key: x.battery_info, bit: 8}, kind: warning, text: 'Battery: Under-temperature (bit 8)'}
+  - {when: {key: x.battery_info, bit: 10}, kind: warning, text: 'Battery: Severe over-voltage (bit 10)'}
+  - {when: {key: x.battery_info, bit: 11}, kind: warning, text: 'Battery: Severe under-voltage (bit 11)'}
+  - {when: {key: x.battery_info, bit: 12}, kind: warning, text: 'Battery: Severe under-temperature (bit 12)'}
+  - {when: {key: x.battery_info, bit: 13}, kind: warning, text: 'Battery: Severe charge over-current (bit 13)'}
+  - {when: {key: x.battery_info, bit: 14}, kind: warning, text: 'Battery: Severe discharge over-current (bit 14)'}
+  - {when: {key: x.battery_info, bit: 15}, kind: warning, text: 'Battery: Capacity abnormal (bit 15)'}
+  - {when: {key: x.battery_abnormity_1, bit: 2}, kind: fault, text: 'Battery: Voltage sampling route invalid (bit 2)'}
+  - {when: {key: x.battery_abnormity_1, bit: 4}, kind: fault, text: 'Battery: Voltage sampling route disconnected (bit 4)'}
+  - {when: {key: x.battery_abnormity_1, bit: 5}, kind: fault, text: 'Battery: Temperature sampling route disconnected (bit 5)'}
+  - {when: {key: x.battery_abnormity_1, bit: 6}, kind: fault, text: 'Battery: Internal CAN disconnected (bit 6)'}
+  - {when: {key: x.battery_abnormity_1, bit: 9}, kind: fault, text: 'Battery: Current sampling circuit abnormal (bit 9)'}
+  - {when: {key: x.battery_abnormity_1, bit: 10}, kind: fault, text: 'Battery: Battery cell invalid (bit 10)'}
+  - {when: {key: x.battery_abnormity_1, bit: 11}, kind: fault, text: 'Battery: Main contactor check abnormal (bit 11)'}
+  - {when: {key: x.battery_abnormity_1, bit: 12}, kind: fault, text: 'Battery: Precharge contactor check abnormal (bit 12)'}
+  - {when: {key: x.battery_abnormity_1, bit: 13}, kind: fault, text: 'Battery: Negative contactor check abnormal (bit 13)'}
+  - {when: {key: x.battery_abnormity_1, bit: 14}, kind: fault, text: 'Battery: Power supply relay check abnormal (bit 14)'}
+  - {when: {key: x.battery_abnormity_1, bit: 15}, kind: fault, text: 'Battery: Middle relay abnormal (bit 15)'}
+  - {when: {key: x.battery_abnormity_2, bit: 2}, kind: fault, text: 'Battery: Severe over-temperature (bit 2)'}
+  - {when: {key: x.battery_abnormity_2, bit: 7}, kind: fault, text: 'Battery: Smoke fault (bit 7)'}
+  - {when: {key: x.battery_abnormity_2, bit: 8}, kind: fault, text: 'Battery: Blown fuse indicator (bit 8)'}
+  - {when: {key: x.battery_abnormity_2, bit: 10}, kind: fault, text: 'Battery: Leakage (bit 10)'}
+  - {when: {key: x.battery_abnormity_2, bit: 11}, kind: fault, text: 'Battery: Severe leakage (bit 11)'}
+  - {when: {key: x.battery_abnormity_2, bit: 12}, kind: fault, text: 'Battery: BECU peripheral CAN disconnected (bit 12)'}
+  - {when: {key: x.battery_abnormity_2, bit: 14}, kind: fault, text: 'Battery: Power supply relay contactor disconnected (bit 14)'}
+  - {when: {key: x.bms_dcdc_state, equals: 32}, kind: fault, text: BMS DCDC fault (state 32)}
+  - {when: {key: x.bms_dcdc_info_1, not: 0}, kind: warning, text: 'BMS DCDC warning (information word 1, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_info_2, not: 0}, kind: warning, text: 'BMS DCDC warning (information word 2, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_info_3, not: 0}, kind: warning, text: 'BMS DCDC warning (information word 3, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_info_4, not: 0}, kind: warning, text: 'BMS DCDC warning (information word 4, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_info_5, not: 0}, kind: warning, text: 'BMS DCDC warning (information word 5, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_abnormity_1, not: 0}, kind: fault, text: 'BMS DCDC fault (abnormity word 1, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_abnormity_2, not: 0}, kind: fault, text: 'BMS DCDC fault (abnormity word 2, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_abnormity_3, not: 0}, kind: fault, text: 'BMS DCDC fault (abnormity word 3, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_abnormity_4, not: 0}, kind: fault, text: 'BMS DCDC fault (abnormity word 4, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_abnormity_5, not: 0}, kind: fault, text: 'BMS DCDC fault (abnormity word 5, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_abnormity_6, not: 0}, kind: fault, text: 'BMS DCDC fault (abnormity word 6, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc_abnormity_7, not: 0}, kind: fault, text: 'BMS DCDC fault (abnormity word 7, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_state, equals: 32}, kind: fault, text: BMS DCDC1 fault (state 32)}
+  - {when: {key: x.bms_dcdc1_info_1, not: 0}, kind: warning, text: 'BMS DCDC1 warning (information word 1, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_info_2, not: 0}, kind: warning, text: 'BMS DCDC1 warning (information word 2, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_info_3, not: 0}, kind: warning, text: 'BMS DCDC1 warning (information word 3, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_info_4, not: 0}, kind: warning, text: 'BMS DCDC1 warning (information word 4, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_info_5, not: 0}, kind: warning, text: 'BMS DCDC1 warning (information word 5, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_abnormity_1, not: 0}, kind: fault, text: 'BMS DCDC1 fault (abnormity word 1, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_abnormity_2, not: 0}, kind: fault, text: 'BMS DCDC1 fault (abnormity word 2, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_abnormity_3, not: 0}, kind: fault, text: 'BMS DCDC1 fault (abnormity word 3, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_abnormity_4, not: 0}, kind: fault, text: 'BMS DCDC1 fault (abnormity word 4, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_abnormity_5, not: 0}, kind: fault, text: 'BMS DCDC1 fault (abnormity word 5, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_abnormity_6, not: 0}, kind: fault, text: 'BMS DCDC1 fault (abnormity word 6, bits 0x{value:X})'}
+  - {when: {key: x.bms_dcdc1_abnormity_7, not: 0}, kind: fault, text: 'BMS DCDC1 fault (abnormity word 7, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_state, equals: 32}, kind: fault, text: PV DCDC fault (state 32)}
+  - {when: {key: x.pv_dcdc_info_1, not: 0}, kind: warning, text: 'PV DCDC warning (information word 1, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_info_2, not: 0}, kind: warning, text: 'PV DCDC warning (information word 2, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_info_3, not: 0}, kind: warning, text: 'PV DCDC warning (information word 3, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_info_4, not: 0}, kind: warning, text: 'PV DCDC warning (information word 4, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_info_5, not: 0}, kind: warning, text: 'PV DCDC warning (information word 5, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_abnormity_1, not: 0}, kind: fault, text: 'PV DCDC fault (abnormity word 1, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_abnormity_2, not: 0}, kind: fault, text: 'PV DCDC fault (abnormity word 2, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_abnormity_3, not: 0}, kind: fault, text: 'PV DCDC fault (abnormity word 3, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_abnormity_4, not: 0}, kind: fault, text: 'PV DCDC fault (abnormity word 4, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_abnormity_5, not: 0}, kind: fault, text: 'PV DCDC fault (abnormity word 5, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_abnormity_6, not: 0}, kind: fault, text: 'PV DCDC fault (abnormity word 6, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc_abnormity_7, not: 0}, kind: fault, text: 'PV DCDC fault (abnormity word 7, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_state, equals: 32}, kind: fault, text: PV DCDC1 fault (state 32)}
+  - {when: {key: x.pv_dcdc1_info_1, not: 0}, kind: warning, text: 'PV DCDC1 warning (information word 1, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_info_2, not: 0}, kind: warning, text: 'PV DCDC1 warning (information word 2, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_info_3, not: 0}, kind: warning, text: 'PV DCDC1 warning (information word 3, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_info_4, not: 0}, kind: warning, text: 'PV DCDC1 warning (information word 4, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_info_5, not: 0}, kind: warning, text: 'PV DCDC1 warning (information word 5, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_abnormity_1, not: 0}, kind: fault, text: 'PV DCDC1 fault (abnormity word 1, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_abnormity_2, not: 0}, kind: fault, text: 'PV DCDC1 fault (abnormity word 2, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_abnormity_3, not: 0}, kind: fault, text: 'PV DCDC1 fault (abnormity word 3, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_abnormity_4, not: 0}, kind: fault, text: 'PV DCDC1 fault (abnormity word 4, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_abnormity_5, not: 0}, kind: fault, text: 'PV DCDC1 fault (abnormity word 5, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_abnormity_6, not: 0}, kind: fault, text: 'PV DCDC1 fault (abnormity word 6, bits 0x{value:X})'}
+  - {when: {key: x.pv_dcdc1_abnormity_7, not: 0}, kind: fault, text: 'PV DCDC1 fault (abnormity word 7, bits 0x{value:X})'}
+
+notes:
+- Addresses are the document's hexadecimal register addresses (function 03). The document doesn't give the port, unit id or
+  transport; Modbus TCP on port 502 with unit 100 is assumed.
+- 'Two-register counters give the low word first (LSW, then MSW): word order little.'
+- State registers set one bit per state; the enums list the resulting values (bit 1 = 2, bit 2 = 4 …).
+- Powers are in 0.1 kW and given here in W (scale 100).
+- 'The DCDC blocks repeat every 0x300: BMS DCDC at 0xA000, BMS DCDC1 at 0xA300, PV DCDC at 0xA600, PV DCDC1 at 0xA900. They
+  are only fitted in DC-coupled systems, so they are optional. Their 16-bit input / output energies (offsets 0x136, 0x137)
+  and the hourly energies (0x0307 … 0x031E) are left out, as are per-cell values beyond the first.'
+- The older AC-coupled variant's list (COMMERCIAL AC, V001.14) has the same registers without the DCDC blocks; its work state
+  command (0x0500) lists only Stop (bit 2) and Run (bit 6).
+- Reserved bits are left out of the flag tables. In the DCDC words, problems are reported per word, not per bit.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

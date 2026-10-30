@@ -1,0 +1,134 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Drives "Modbus RTU for MCD1 V2 V9.1.32&9.1.31 26022025" communication manual (2025-02-26).
+
+modbusspec: 0
+id: drives-mcd1
+manufacturer: Drives
+name: MCD1 soft starter
+kind: other
+
+sources:
+- title: Описание Modbus RTU for MCD1 V2 V9.1.32&9.1.31 26022025 (Communication manual, MCD1 serial softstarter)
+  version: 2025-02-26 (firmware V9.1.32 / V9.1.31)
+  url: https://drives.ru/dh-files/52fa3a56-2df4-4351-973b-071a3b5b0952/%D0%9E%D0%BF%D0%B8%D1%81%D0%B0%D0%BD%D0%B8%D0%B5_Modbus%20RTU%20for%20MCD1%20V2%20V9.1.32%269.1.31%2026022025.pdf
+  sha256: 929617d32c9763ae7cad8eccb74cfb3d55c779309d17fa9b8cdd4515e99a6b38
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+  limits:
+    min_interval_ms: 1000
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Real-time data (input registers 30001…, function 04)
+  - {key: x.l1_current_pct, label: A phase current, table: input, address: 0, type: u16, unit: '%', poll: fast, note: 'Percent of the full load current (FLA, holding 1).'}
+  - {key: x.l2_current_pct, label: B phase current, table: input, address: 1, type: u16, unit: '%', poll: fast, note: Percent of FLA.}
+  - {key: x.l3_current_pct, label: C phase current, table: input, address: 2, type: u16, unit: '%', poll: fast, note: Percent of FLA.}
+  - {key: x.initial_voltage_raw, label: Initial voltage (potentiometer), table: input, address: 3, type: u16, poll: slow, note: Raw 0…512; initial voltage in % = 30 + int((512 − n) / 32) × 3.}
+  - {key: x.start_time_raw, label: Start time (potentiometer), table: input, address: 4, type: u16, poll: slow, note: Raw 0…512; start time in s = (512 − n) / 16.}
+  - {key: x.stop_time_raw, label: Stop time (potentiometer), table: input, address: 5, type: u16, poll: slow, note: Raw 0…512; stop time in s = (512 − n) / 16.}
+  - {key: x.average_current_pct, label: Average current, table: input, address: 6, type: u16, unit: '%', poll: fast, note: Percent of FLA.}
+  - {key: frequency, label: Frequency, table: input, address: 7, type: u16, unit: Hz, poll: fast}
+  - {key: x.system_status, label: System status, table: input, address: 8, type: u16, flags: system_status, poll: fast}
+  - {key: x.input_status, label: Input status, table: input, address: 9, type: u16, poll: fast, note: The document gives no layout for this register.}
+  - {key: x.fault_status, label: Fault status, table: input, address: 10, type: u16, flags: fault_status, poll: fast}
+  - {key: x.running_hours, label: Accumulated running time (hours), table: input, address: 11, type: u16, unit: h, poll: slow}
+  - {key: x.running_time_fraction, label: Accumulated running time (0.1 s), table: input, address: 12, type: u16, unit: s, scale: 0.1, poll: slow, note: Part of the running time below one hour (assumed; the document only gives the unit)., verified: false}
+  - {key: x.start_count, label: Times of start, table: input, address: 13, type: u16, poll: slow}
+  - {key: x.fault_count, label: Times of fault, table: input, address: 14, type: u16, poll: slow}
+  - {key: x.max_start_current_pct, label: Max current during starting, table: input, address: 15, type: u16, unit: '%', poll: slow, note: Percent of FLA.}
+  - {key: error_code, label: Fault code-1, table: input, address: 16, type: u16, enum: fault_code, poll: fast, verified: false, note: Fault codes 1…10 (30017…30026) are a fault history; that code-1 is the latest is not stated in the document; assumed.}
+  - {key: x.fault_code_2, label: Fault code-2, table: input, address: 17, type: u16, enum: fault_code, poll: slow}
+  - {key: x.fault_code_3, label: Fault code-3, table: input, address: 18, type: u16, enum: fault_code, poll: slow}
+  - {key: x.fault_current_pct, label: Fault current, table: input, address: 26, type: u16, unit: '%', poll: slow, note: Average current (percent of FLA) when the last fault tripped.}
+
+  # Coils (00001…, function 01 / 05 / 15)
+  - {key: x.run_command, label: Start/Stop, table: coil, address: 0, type: bool, writable: true, note: '1 = start, 0 = stop. A start by Modbus can be stopped by Modbus or by removing control power.'}
+  - {key: x.reset_fault, label: Reset Fault, table: coil, address: 7, type: bool, writable: true, write_only: true, note: Write 1 to reset a fault. Remove the start signal first or the starter starts again.}
+
+  # Discrete inputs (10001…, function 02)
+  - {key: x.external_start, label: Outside start/stop signal, table: discrete, address: 0, type: bool, poll: fast}
+  - {key: x.internal_start, label: Inside start/stop signal, table: discrete, address: 1, type: bool, poll: fast}
+  - {key: x.dip_switch_1, label: DIP switch 1, table: discrete, address: 2, type: bool, poll: slow}
+  - {key: x.dip_switch_2, label: DIP switch 2, table: discrete, address: 3, type: bool, poll: slow}
+
+  # Parameters (holding registers 40001…, function 03 / 06 / 16)
+  - {key: x.full_load_current, label: Full Load Amps (FLA), table: holding, address: 1, type: u16, unit: A, writable: true, min: 1, max: 1600, poll: slow, note: Factory set to the starter's rating.}
+  - {key: x.overcurrent_level, label: Over current protection value, table: holding, address: 4, type: u16, unit: '%', writable: true, min: 200, max: 600, poll: slow, note: '% of FLA, default 450 %.'}
+  - {key: x.overcurrent_delay, label: Over current trip delay time, table: holding, address: 5, type: u16, unit: s, scale: 0.1, writable: true, min: 0, max: 2, poll: slow, note: Default 1 s.}
+  - {key: x.overload_level, label: Over load protection value, table: holding, address: 6, type: u16, unit: '%', writable: true, min: 100, max: 200, poll: slow, note: '% of FLA, default 115 %.'}
+  - {key: x.overload_class, label: Overload protection grade, table: holding, address: 7, type: u16, enum: overload_class, writable: true, poll: slow}
+  - {key: x.undercurrent_level, label: Under current protection value, table: holding, address: 8, type: u16, unit: '%', writable: true, min: 0, max: 100, poll: slow, note: '% of FLA, default 0.'}
+  - {key: x.undercurrent_delay, label: Under current protection delay time, table: holding, address: 9, type: u16, unit: s, scale: 0.1, writable: true, poll: slow}
+  - {key: x.unbalance_level, label: Unbalanced current protection value, table: holding, address: 10, type: u16, unit: '%', writable: true, min: 10, max: 50, poll: slow, note: '% of FLA, default 30 %.'}
+  - {key: x.unbalance_delay, label: Unbalanced current protection delay time, table: holding, address: 11, type: u16, unit: s, scale: 0.1, writable: true, poll: slow}
+  - {key: x.phase_sequence_protection, label: Phase sequence protection, table: holding, address: 13, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.initial_voltage_setting, label: Initial voltage, table: holding, address: 16, type: u16, poll: slow, note: '0…15; initial voltage in % = n × 3 + 30. Set on the panel potentiometer, read-only by Modbus.'}
+  - {key: x.start_time_setting, label: Starting time, table: holding, address: 17, type: u16, poll: slow, note: '0…15; start time = n × 2 s (n = 0: 1 s). Set on the panel, read-only by Modbus.'}
+  - {key: x.stop_time_setting, label: Stop time, table: holding, address: 18, type: u16, poll: slow, note: '0…15; stop time = n × 2 s. Set on the panel, read-only by Modbus.'}
+  - {key: x.parameter_source, label: Parameter Setting, table: holding, address: 20, type: u16, enum: parameter_source, writable: true, poll: slow}
+  - {key: x.max_start_time, label: Max Start Time, table: holding, address: 21, type: u16, unit: s, scale: 0.1, writable: true, poll: slow, note: Default 30 s.}
+  - {key: x.overtemp_protection, label: Over temperature protection switch, table: holding, address: 24, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.phase_loss_protection, label: Phase lose protection switch, table: holding, address: 25, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.overcurrent_protection, label: Over current protection switch, table: holding, address: 26, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.overload_protection, label: Over load protection switch, table: holding, address: 27, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.unbalance_protection, label: Unbalanced current protection switch, table: holding, address: 28, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.undercurrent_protection, label: Under current protection switch, table: holding, address: 29, type: u16, enum: on_off, writable: true, poll: slow}
+  - {key: x.k1_relay_type, label: K1 relay type, table: holding, address: 32, type: u16, enum: k1_relay_type, writable: true, poll: slow}
+  - {key: x.bypass_mode, label: Bypass mode, table: holding, address: 33, type: u16, enum: bypass_mode, writable: true, poll: slow}
+  - {key: x.slave_address, label: Slave machines address, table: holding, address: 36, type: u16, writable: true, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 37, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.parity, label: Parity check, table: holding, address: 38, type: u16, enum: parity, writable: true, poll: slow}
+
+enums:
+  fault_code: {'0': No fault, '1': Overtemperature trip, '2': Missing phase / no voltage trip, '3': Overcurrent trip, '4': Overload trip, '5': Current unbalance trip, '6': Phase sequence trip, '7': Maximum start time trip, '8': Undercurrent trip, '9': EEPROM write failure trip, '10': Other trip}
+  overload_class: {'0': Class 10A, '1': Class 10, '2': Class 20, '3': Class 30}
+  on_off: {'0': 'Off', '1': 'On'}
+  parameter_source: {'0': Potentiometer, '1': Communication}
+  k1_relay_type: {'0': Running signal, '1': Bypass signal}
+  bypass_mode: {'0': Send pulses after bypass, '1': Stop pulses after bypass}
+  baud_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200', '5': '38400', '6': '57600'}
+  parity: {'0': Even, '1': Odd, '2': None}
+
+flags:
+  system_status: {'0': Stopped, '1': Soft starting, '2': Bypass, '3': Soft stopping, '4': Running, '5': Full voltage, '7': Fault}
+  fault_status: {'0': Overtemperature, '1': Missing phase, '2': Overcurrent, '3': Overload, '4': Current unbalance, '5': Phase sequence, '6': Control failure, '7': Undercurrent, '8': Maximum start time}
+
+problems:
+  - {when: {key: x.system_status, bit: 7}, kind: fault, text: Soft starter tripped (fault)}
+  - {when: {key: x.fault_status, bit: 0}, kind: fault, text: Overtemperature trip (bit 0)}
+  - {when: {key: x.fault_status, bit: 1}, kind: fault, text: Missing phase / no voltage (bit 1)}
+  - {when: {key: x.fault_status, bit: 2}, kind: fault, text: Overcurrent trip (bit 2)}
+  - {when: {key: x.fault_status, bit: 3}, kind: fault, text: Overload trip (bit 3)}
+  - {when: {key: x.fault_status, bit: 4}, kind: fault, text: Current unbalance trip (bit 4)}
+  - {when: {key: x.fault_status, bit: 5}, kind: fault, text: Phase sequence trip (bit 5)}
+  - {when: {key: x.fault_status, bit: 6}, kind: fault, text: Control failure (bit 6)}
+  - {when: {key: x.fault_status, bit: 7}, kind: fault, text: Undercurrent trip (bit 7)}
+  - {when: {key: x.fault_status, bit: 8}, kind: fault, text: Maximum start time trip (bit 8)}
+
+notes:
+- The document names no maker; it is published by drives.ru, used here as the maker. Possibly an OEM product.
+- 'Addresses: the document''s 00001 / 10001 / 30001 / 40001 numbering is 1-based per table; 1 was subtracted (its own examples
+  write FLA, 40002, at address 0x0001 and reset-fault coil 00008 at 0x0007).'
+- Port 502 only applies behind a Modbus TCP gateway (the starter itself is RS485 only). RS485 only, Modbus RTU, unit 1…127
+  (default 1), 8 data bits; 1200…57600 Bd (default 9600), parity even (default), odd or none; with no parity 2 stop bits,
+  else 1. Communication changes take effect after a restart; the starter can't be reset to defaults, so a wrong setting can
+  lock out Modbus.
+- Function codes 1, 2, 3, 4, 5, 6, 8, 15, 16; no broadcast. When writing parameters, query no faster than every 1000 ms. Responses
+  take 4…40 ms, up to 200 ms.
+- Currents are reported as percent of the full load current (FLA, holding 1), not in amperes.
+- 'Left out: fault codes 4…10 (input 19…25), reserved registers. The document gives the system status as one-hot values (1
+  = stopped, 2 = soft starting, 4 = bypass, 8 = soft stopping, 16 = running, 32 = full voltage, 128 = fault), written here
+  as bits.'
+- After switching a protection off by Modbus, power-cycle the control supply for it to take effect.

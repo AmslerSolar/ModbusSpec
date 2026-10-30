@@ -1,0 +1,401 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Fronius GEN24 Modbus document (42,0410,2649) and the SunSpec models workbook.
+
+modbusspec: 0
+id: fronius-gen24
+manufacturer: Fronius
+name: Primo / Symo GEN24 and GEN24 Plus (SunSpec, float or int + SF)
+kind: inverter
+
+sources:
+- title: Fronius GEN24 / GEN24 Plus Modbus TCP & RTU (operating instructions)
+  version: 42,0410,2649
+  url: http://www.fronius.com/QR-link/0024
+  sha256: dc4c5d49362ee0c9721f21886f17fa18497e54c4d92bb5cc2c50472deb266b55
+- title: SunSpec Information Models (models workbook)
+  version: models_workbook.xlsx, master 2026-10-21
+  url: https://github.com/sunspec/models/raw/master/models_workbook.xlsx
+- id: fronius-modbus
+  title: fronius_modbus (Home Assistant integration)
+  url: https://github.com/redpomodoro/fronius_modbus
+  license: Apache-2.0
+  commit: eafca35aa5f5caf01f9952d4f29dbdb9648a7a18
+  path: custom_components/fronius_modbus/froniusmodbusclient.py, custom_components/fronius_modbus/froniusmodbusclient_const.py,
+    custom_components/fronius_modbus/const.py, custom_components/fronius_modbus/config_flow.py
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.fronius
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40052
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+  - table: holding
+    address: 40002
+    type: u16
+    equals: 1
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: Fronius
+  # an inverter model
+  - table: holding
+    address: 40069
+    type: u16
+    in:
+    - 101
+    - 102
+    - 103
+    - 111
+    - 112
+    - 113
+
+sunspec: true
+
+models:
+  - {id: int_sf, name: SunSpec model type "int + SF" (inverter model 101-103), match: {table: holding, address: 40069, type: u16, in: [101, 102, 103]}}
+  - {id: float, name: 'SunSpec model type "float" (inverter model 111-113, factory setting)', match: {table: holding, address: 40069, type: u16, in: [111, 112, 113]}}
+  - {id: primo_gen24, name: Primo GEN24, match: {table: holding, address: 40020, type: str, length: 16, prefix: Primo GEN24}}
+  - {id: symo_gen24, name: Symo GEN24, match: {table: holding, address: 40020, type: str, length: 16, prefix: Symo GEN24}}
+
+points:
+  - {key: x.manufacturer, label: Mn (manufacturer), table: holding, address: 40004, type: str, length: 16, poll: slow}
+  - {key: x.model, label: Md (model), table: holding, address: 40020, type: str, length: 16, poll: slow}
+  - {key: x.options, label: Opt (options), table: holding, address: 40036, type: str, length: 8, poll: slow}
+  - {key: firmware, label: Vr (version), table: holding, address: 40044, type: str, length: 8, poll: slow}
+  - {key: serial, label: SN (serial number), table: holding, address: 40052, type: str, length: 16, poll: slow}
+  - {key: x.device_address, label: DA (Modbus device address), table: holding, address: 40068, type: u16, poll: slow}
+  - {key: x.ac_current, label: A (AC current), table: holding, address: 40071, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, models: [int_sf]}
+  - {key: l1_current, label: AphA, table: holding, address: 40072, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, models: [int_sf]}
+  - {key: l2_current, label: AphB, table: holding, address: 40073, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, models: [int_sf]}
+  - {key: l3_current, label: AphC, table: holding, address: 40074, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40075, type: s16}, models: [int_sf]}
+  - {key: l1_voltage, label: PhVphA, table: holding, address: 40079, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, models: [int_sf]}
+  - {key: l2_voltage, label: PhVphB, table: holding, address: 40080, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, models: [int_sf]}
+  - {key: l3_voltage, label: PhVphC, table: holding, address: 40081, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, models: [int_sf]}
+  - {key: x.ac_power, label: W (AC power), table: holding, address: 40083, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40084, type: s16}, positive: generation, models: [int_sf], note: SunSpec defines no sign; + = AC output is assumed., verified: false}
+  - {key: frequency, label: Hz, table: holding, address: 40085, type: u16, unit: Hz, scale_exponent_from: {table: holding, address: 40086, type: s16}, models: [int_sf], conflicts: [{sources: [fronius-modbus], type: s16, label: Line frequency}]}
+  - {key: apparent_power, label: VA, table: holding, address: 40087, type: s16, unit: VA, scale_exponent_from: {table: holding, address: 40088, type: s16}, models: [int_sf]}
+  - {key: reactive_power, label: VAr, table: holding, address: 40089, type: s16, unit: var, scale_exponent_from: {table: holding, address: 40090, type: s16}, models: [int_sf]}
+  - {key: x.power_factor_pct, label: PF, table: holding, address: 40091, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40092, type: s16}, models: [int_sf]}
+  - {key: pv_energy, label: WH (AC lifetime energy), table: holding, address: 40093, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40095, type: s16}, models: [int_sf], poll: slow, note: 'The inverter''s AC energy (acc32, Wh); its use as lifetime solar yield is assumed.', verified: false}
+  - {key: x.dc_power, label: DCW, table: holding, address: 40100, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40101, type: s16}, models: [int_sf]}
+  - {key: temperature, label: TmpCab (cabinet temperature), table: holding, address: 40102, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40106, type: s16}, models: [int_sf]}
+  - {key: x.heat_sink_temperature, label: TmpSnk, table: holding, address: 40103, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40106, type: s16}, models: [int_sf]}
+  - {key: state, label: St (operating state), table: holding, address: 40107, type: u16, enum: inverter_state, models: [int_sf]}
+  - {key: x.vendor_state, label: StVnd, table: holding, address: 40108, type: u16, models: [int_sf]}
+  - {key: x.events, label: Evt1, table: holding, address: 40109, type: u32, flags: evt1, models: [int_sf]}
+  - {key: x.ac_current, label: A (AC current), table: holding, address: 40071, type: f32, unit: A, models: [float]}
+  - {key: l1_current, label: AphA, table: holding, address: 40073, type: f32, unit: A, models: [float]}
+  - {key: l2_current, label: AphB, table: holding, address: 40075, type: f32, unit: A, models: [float]}
+  - {key: l3_current, label: AphC, table: holding, address: 40077, type: f32, unit: A, models: [float]}
+  - {key: l1_voltage, label: PhVphA, table: holding, address: 40085, type: f32, unit: V, models: [float]}
+  - {key: l2_voltage, label: PhVphB, table: holding, address: 40087, type: f32, unit: V, models: [float]}
+  - {key: l3_voltage, label: PhVphC, table: holding, address: 40089, type: f32, unit: V, models: [float]}
+  - {key: x.ac_power, label: W (AC power), table: holding, address: 40091, type: f32, unit: W, positive: generation, models: [float], note: SunSpec defines no sign; + = AC output is assumed., verified: false}
+  - {key: frequency, label: Hz, table: holding, address: 40093, type: f32, unit: Hz, models: [float]}
+  - {key: apparent_power, label: VA, table: holding, address: 40095, type: f32, unit: VA, models: [float]}
+  - {key: reactive_power, label: VAr, table: holding, address: 40097, type: f32, unit: var, models: [float]}
+  - {key: x.power_factor_pct, label: PF, table: holding, address: 40099, type: f32, unit: '%', models: [float]}
+  - {key: pv_energy, label: WH (AC lifetime energy), table: holding, address: 40101, type: f32, unit: kWh, scale: 0.001, models: [float], poll: slow, note: The inverter's AC energy (Wh); its use as lifetime solar yield is assumed., verified: false}
+  - {key: x.dc_power, label: DCW, table: holding, address: 40107, type: f32, unit: W, models: [float]}
+  - {key: temperature, label: TmpCab (cabinet temperature), table: holding, address: 40109, type: f32, unit: °C, models: [float]}
+  - {key: x.heat_sink_temperature, label: TmpSnk, table: holding, address: 40111, type: f32, unit: °C, models: [float]}
+  - {key: state, label: St (operating state), table: holding, address: 40117, type: u16, enum: inverter_state, models: [float]}
+  - {key: x.vendor_state, label: StVnd, table: holding, address: 40118, type: u16, models: [float]}
+  - {key: x.events, label: Evt1, table: holding, address: 40119, type: u32, flags: evt1, models: [float]}
+  - {key: x.rated_power, label: WRtg, table: holding, address: 40124, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40125, type: s16}, models: [int_sf], poll: slow}
+  - {key: x.rated_apparent_power, label: VARtg, table: holding, address: 40126, type: u16, unit: VA, scale_exponent_from: {table: holding, address: 40127, type: s16}, models: [int_sf], poll: slow}
+  - {key: x.rated_current, label: ARtg, table: holding, address: 40133, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40134, type: s16}, models: [int_sf], poll: slow}
+  - {key: x.rated_storage_energy, label: WHRtg, table: holding, address: 40140, type: u16, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40141, type: s16}, models: [int_sf], poll: slow, conflicts: [{sources: [fronius-modbus], label: Capacity}]}
+  - {key: x.max_charge_rate, label: MaxChaRte, table: holding, address: 40144, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40145, type: s16}, models: [int_sf], poll: slow, conflicts: [{sources: [fronius-modbus], label: Maximum charge rate}]}
+  - {key: x.max_discharge_rate, label: MaxDisChaRte, table: holding, address: 40146, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40147, type: s16}, models: [int_sf], poll: slow, conflicts: [{sources: [fronius-modbus], label: Maximum discharge rate}]}
+  - {key: x.dc_inputs, label: N (number of DC modules), table: holding, address: 40261, type: u16, models: [int_sf], poll: slow}
+  - {key: x.dc1_id, label: 'ID, module 1 (DC input 1)', table: holding, address: 40263, type: u16, models: [int_sf], poll: slow}
+  - {key: x.dc1_name, label: 'IDStr, module 1', table: holding, address: 40264, type: str, length: 8, models: [int_sf], poll: slow}
+  - {key: x.dc1_current, label: 'DCA, module 1', table: holding, address: 40272, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40255, type: s16}, models: [int_sf]}
+  - {key: x.dc1_voltage, label: 'DCV, module 1', table: holding, address: 40273, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40256, type: s16}, models: [int_sf]}
+  - {key: x.dc1_power, label: 'DCW, module 1', table: holding, address: 40274, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40257, type: s16}, models: [int_sf]}
+  - {key: x.dc1_energy, label: 'DCWH, module 1', table: holding, address: 40275, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40258, type: s16}, models: [int_sf], poll: slow}
+  - {key: x.dc1_temperature, label: 'Tmp, module 1', table: holding, address: 40279, type: s16, unit: °C, models: [int_sf]}
+  - {key: x.dc1_state, label: 'DCSt, module 1', table: holding, address: 40280, type: u16, enum: dc_state, models: [int_sf]}
+  - {key: x.dc1_events, label: 'DCEvt, module 1', table: holding, address: 40281, type: u32, flags: dc_evt, models: [int_sf]}
+  - {key: x.dc2_id, label: 'ID, module 2 (DC input 2)', table: holding, address: 40283, type: u16, models: [int_sf], poll: slow}
+  - {key: x.dc2_name, label: 'IDStr, module 2', table: holding, address: 40284, type: str, length: 8, models: [int_sf], poll: slow}
+  - {key: x.dc2_current, label: 'DCA, module 2', table: holding, address: 40292, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40255, type: s16}, models: [int_sf]}
+  - {key: x.dc2_voltage, label: 'DCV, module 2', table: holding, address: 40293, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40256, type: s16}, models: [int_sf]}
+  - {key: x.dc2_power, label: 'DCW, module 2', table: holding, address: 40294, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40257, type: s16}, models: [int_sf]}
+  - {key: x.dc2_energy, label: 'DCWH, module 2', table: holding, address: 40295, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40258, type: s16}, models: [int_sf], poll: slow}
+  - {key: x.dc2_temperature, label: 'Tmp, module 2', table: holding, address: 40299, type: s16, unit: °C, models: [int_sf]}
+  - {key: x.dc2_state, label: 'DCSt, module 2', table: holding, address: 40300, type: u16, enum: dc_state, models: [int_sf]}
+  - {key: x.dc2_events, label: 'DCEvt, module 2', table: holding, address: 40301, type: u32, flags: dc_evt, models: [int_sf]}
+  - {key: x.storage_charge_id, label: 'ID, module 3 (storage charging (MPP3))', table: holding, address: 40303, type: u16, models: [int_sf], poll: slow}
+  - {key: x.storage_charge_name, label: 'IDStr, module 3', table: holding, address: 40304, type: str, length: 8, models: [int_sf], poll: slow}
+  - {key: x.storage_charge_current, label: 'DCA, module 3', table: holding, address: 40312, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40255, type: s16}, models: [int_sf]}
+  - {key: x.storage_charge_voltage, label: 'DCV, module 3', table: holding, address: 40313, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40256, type: s16}, models: [int_sf]}
+  - {key: x.storage_charge_power, label: 'DCW, module 3', table: holding, address: 40314, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40257, type: s16}, positive: charge, models: [int_sf], note: 'Fronius: with storage, module 3 carries the charging power. Its IDStr contains ''StCha'' (not stated in the documents).'}
+  - {key: x.storage_charge_energy, label: 'DCWH, module 3', table: holding, address: 40315, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40258, type: s16}, models: [int_sf], poll: slow}
+  - {key: x.storage_charge_temperature, label: 'Tmp, module 3', table: holding, address: 40319, type: s16, unit: °C, models: [int_sf]}
+  - {key: x.storage_charge_state, label: 'DCSt, module 3', table: holding, address: 40320, type: u16, enum: dc_state, models: [int_sf]}
+  - {key: x.storage_charge_events, label: 'DCEvt, module 3', table: holding, address: 40321, type: u32, flags: dc_evt, models: [int_sf]}
+  - {key: x.storage_discharge_id, label: 'ID, module 4 (storage discharging (MPP4))', table: holding, address: 40323, type: u16, models: [int_sf], poll: slow}
+  - {key: x.storage_discharge_name, label: 'IDStr, module 4', table: holding, address: 40324, type: str, length: 8, models: [int_sf], poll: slow}
+  - {key: x.storage_discharge_current, label: 'DCA, module 4', table: holding, address: 40332, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40255, type: s16}, models: [int_sf]}
+  - {key: x.storage_discharge_voltage, label: 'DCV, module 4', table: holding, address: 40333, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40256, type: s16}, models: [int_sf]}
+  - {key: x.storage_discharge_power, label: 'DCW, module 4', table: holding, address: 40334, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40257, type: s16}, positive: discharge, models: [int_sf], note: 'Fronius: with storage, module 4 carries the discharging power. Its IDStr contains ''StDisCha'' (not stated in the documents).'}
+  - {key: x.storage_discharge_energy, label: 'DCWH, module 4', table: holding, address: 40335, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40258, type: s16}, models: [int_sf], poll: slow}
+  - {key: x.storage_discharge_temperature, label: 'Tmp, module 4', table: holding, address: 40339, type: s16, unit: °C, models: [int_sf]}
+  - {key: x.storage_discharge_state, label: 'DCSt, module 4', table: holding, address: 40340, type: u16, enum: dc_state, models: [int_sf]}
+  - {key: x.storage_discharge_events, label: 'DCEvt, module 4', table: holding, address: 40341, type: u32, flags: dc_evt, models: [int_sf]}
+  - {key: x.max_charge_power, label: WChaMax, table: holding, address: 40345, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40361, type: s16}, models: [int_sf], poll: slow, conflicts: [{sources: [fronius-modbus], label: Max charging power}]}
+  - {key: x.storage_control_mode, label: StorCtl_Mod, table: holding, address: 40348, type: u16, flags: storctl_mod, models: [int_sf]}
+  - {key: x.minimum_reserve, label: MinRsvPct, table: holding, address: 40350, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 40364, type: s16}, models: [int_sf], conflicts: [{sources: [fronius-modbus], scale: 0.01, label: Minimum reserve}]}
+  - {key: battery_soc, label: ChaState, table: holding, address: 40351, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 40365, type: s16}, models: [int_sf], conflicts: [{sources: [fronius-modbus], scale: 0.01, label: State of charge}]}
+  - {key: x.available_charge, label: StorAval, table: holding, address: 40352, type: u16, unit: Ah, scale_exponent_from: {table: holding, address: 40366, type: s16}, models: [int_sf], note: Ampere-hours per the SunSpec workbook.}
+  - {key: battery_voltage, label: InBatV, table: holding, address: 40353, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40367, type: s16}, models: [int_sf]}
+  - {key: x.charge_state, label: ChaSt, table: holding, address: 40354, type: u16, enum: charge_state, models: [int_sf]}
+  - {key: x.discharge_rate_limit, label: OutWRte, table: holding, address: 40355, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40368, type: s16}, models: [int_sf], note: 'Percent of WChaMax. Fronius: in the power window, negative = charging, positive = discharging.', conflicts: [{sources: [fronius-modbus], scale: 0.01, label: Discharging power}]}
+  - {key: x.charge_rate_limit, label: InWRte, table: holding, address: 40356, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40368, type: s16}, models: [int_sf], note: 'Percent of WChaMax. Fronius: in the power window, negative = charging, positive = discharging.', conflicts: [{sources: [fronius-modbus], scale: 0.01, label: Charging power}]}
+  - {key: x.grid_charging, label: ChaGriSet, table: holding, address: 40360, type: u16, enum: cha_gri_set, models: [int_sf], note: 'Values from the SunSpec workbook (0 PV, 1 grid); the Fronius document gives none, and an open-source project reads 1 = disabled, 2 = enabled. AND-linked with ''battery charging from DNO grid'' in the inverter settings.', verified: false}
+  - {key: x.rated_power, label: WRtg, table: holding, address: 40134, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40135, type: s16}, models: [float], poll: slow}
+  - {key: x.rated_apparent_power, label: VARtg, table: holding, address: 40136, type: u16, unit: VA, scale_exponent_from: {table: holding, address: 40137, type: s16}, models: [float], poll: slow}
+  - {key: x.rated_current, label: ARtg, table: holding, address: 40143, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40144, type: s16}, models: [float], poll: slow}
+  - {key: x.rated_storage_energy, label: WHRtg, table: holding, address: 40150, type: u16, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40151, type: s16}, models: [float], poll: slow}
+  - {key: x.max_charge_rate, label: MaxChaRte, table: holding, address: 40154, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40155, type: s16}, models: [float], poll: slow}
+  - {key: x.max_discharge_rate, label: MaxDisChaRte, table: holding, address: 40156, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40157, type: s16}, models: [float], poll: slow}
+  - {key: x.dc_inputs, label: N (number of DC modules), table: holding, address: 40271, type: u16, models: [float], poll: slow}
+  - {key: x.dc1_id, label: 'ID, module 1 (DC input 1)', table: holding, address: 40273, type: u16, models: [float], poll: slow}
+  - {key: x.dc1_name, label: 'IDStr, module 1', table: holding, address: 40274, type: str, length: 8, models: [float], poll: slow}
+  - {key: x.dc1_current, label: 'DCA, module 1', table: holding, address: 40282, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40265, type: s16}, models: [float]}
+  - {key: x.dc1_voltage, label: 'DCV, module 1', table: holding, address: 40283, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40266, type: s16}, models: [float]}
+  - {key: x.dc1_power, label: 'DCW, module 1', table: holding, address: 40284, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40267, type: s16}, models: [float]}
+  - {key: x.dc1_energy, label: 'DCWH, module 1', table: holding, address: 40285, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40268, type: s16}, models: [float], poll: slow}
+  - {key: x.dc1_temperature, label: 'Tmp, module 1', table: holding, address: 40289, type: s16, unit: °C, models: [float]}
+  - {key: x.dc1_state, label: 'DCSt, module 1', table: holding, address: 40290, type: u16, enum: dc_state, models: [float]}
+  - {key: x.dc1_events, label: 'DCEvt, module 1', table: holding, address: 40291, type: u32, flags: dc_evt, models: [float]}
+  - {key: x.dc2_id, label: 'ID, module 2 (DC input 2)', table: holding, address: 40293, type: u16, models: [float], poll: slow}
+  - {key: x.dc2_name, label: 'IDStr, module 2', table: holding, address: 40294, type: str, length: 8, models: [float], poll: slow}
+  - {key: x.dc2_current, label: 'DCA, module 2', table: holding, address: 40302, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40265, type: s16}, models: [float]}
+  - {key: x.dc2_voltage, label: 'DCV, module 2', table: holding, address: 40303, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40266, type: s16}, models: [float]}
+  - {key: x.dc2_power, label: 'DCW, module 2', table: holding, address: 40304, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40267, type: s16}, models: [float]}
+  - {key: x.dc2_energy, label: 'DCWH, module 2', table: holding, address: 40305, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40268, type: s16}, models: [float], poll: slow}
+  - {key: x.dc2_temperature, label: 'Tmp, module 2', table: holding, address: 40309, type: s16, unit: °C, models: [float]}
+  - {key: x.dc2_state, label: 'DCSt, module 2', table: holding, address: 40310, type: u16, enum: dc_state, models: [float]}
+  - {key: x.dc2_events, label: 'DCEvt, module 2', table: holding, address: 40311, type: u32, flags: dc_evt, models: [float]}
+  - {key: x.storage_charge_id, label: 'ID, module 3 (storage charging (MPP3))', table: holding, address: 40313, type: u16, models: [float], poll: slow}
+  - {key: x.storage_charge_name, label: 'IDStr, module 3', table: holding, address: 40314, type: str, length: 8, models: [float], poll: slow}
+  - {key: x.storage_charge_current, label: 'DCA, module 3', table: holding, address: 40322, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40265, type: s16}, models: [float]}
+  - {key: x.storage_charge_voltage, label: 'DCV, module 3', table: holding, address: 40323, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40266, type: s16}, models: [float]}
+  - {key: x.storage_charge_power, label: 'DCW, module 3', table: holding, address: 40324, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40267, type: s16}, positive: charge, models: [float], note: 'Fronius: with storage, module 3 carries the charging power. Its IDStr contains ''StCha'' (not stated in the documents).'}
+  - {key: x.storage_charge_energy, label: 'DCWH, module 3', table: holding, address: 40325, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40268, type: s16}, models: [float], poll: slow}
+  - {key: x.storage_charge_temperature, label: 'Tmp, module 3', table: holding, address: 40329, type: s16, unit: °C, models: [float]}
+  - {key: x.storage_charge_state, label: 'DCSt, module 3', table: holding, address: 40330, type: u16, enum: dc_state, models: [float]}
+  - {key: x.storage_charge_events, label: 'DCEvt, module 3', table: holding, address: 40331, type: u32, flags: dc_evt, models: [float]}
+  - {key: x.storage_discharge_id, label: 'ID, module 4 (storage discharging (MPP4))', table: holding, address: 40333, type: u16, models: [float], poll: slow}
+  - {key: x.storage_discharge_name, label: 'IDStr, module 4', table: holding, address: 40334, type: str, length: 8, models: [float], poll: slow}
+  - {key: x.storage_discharge_current, label: 'DCA, module 4', table: holding, address: 40342, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40265, type: s16}, models: [float]}
+  - {key: x.storage_discharge_voltage, label: 'DCV, module 4', table: holding, address: 40343, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40266, type: s16}, models: [float]}
+  - {key: x.storage_discharge_power, label: 'DCW, module 4', table: holding, address: 40344, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40267, type: s16}, positive: discharge, models: [float], note: 'Fronius: with storage, module 4 carries the discharging power. Its IDStr contains ''StDisCha'' (not stated in the documents).'}
+  - {key: x.storage_discharge_energy, label: 'DCWH, module 4', table: holding, address: 40345, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40268, type: s16}, models: [float], poll: slow}
+  - {key: x.storage_discharge_temperature, label: 'Tmp, module 4', table: holding, address: 40349, type: s16, unit: °C, models: [float]}
+  - {key: x.storage_discharge_state, label: 'DCSt, module 4', table: holding, address: 40350, type: u16, enum: dc_state, models: [float]}
+  - {key: x.storage_discharge_events, label: 'DCEvt, module 4', table: holding, address: 40351, type: u32, flags: dc_evt, models: [float]}
+  - {key: x.max_charge_power, label: WChaMax, table: holding, address: 40355, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40371, type: s16}, models: [float], poll: slow}
+  - {key: x.storage_control_mode, label: StorCtl_Mod, table: holding, address: 40358, type: u16, flags: storctl_mod, models: [float], conflicts: [{sources: [openems], unit: s, label: Set revert timeout}]}
+  - {key: x.minimum_reserve, label: MinRsvPct, table: holding, address: 40360, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 40374, type: s16}, models: [float]}
+  - {key: battery_soc, label: ChaState, table: holding, address: 40361, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 40375, type: s16}, models: [float]}
+  - {key: x.available_charge, label: StorAval, table: holding, address: 40362, type: u16, unit: Ah, scale_exponent_from: {table: holding, address: 40376, type: s16}, models: [float], note: Ampere-hours per the SunSpec workbook.}
+  - {key: battery_voltage, label: InBatV, table: holding, address: 40363, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40377, type: s16}, models: [float]}
+  - {key: x.charge_state, label: ChaSt, table: holding, address: 40364, type: u16, enum: charge_state, models: [float]}
+  - {key: x.discharge_rate_limit, label: OutWRte, table: holding, address: 40365, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40378, type: s16}, models: [float], note: 'Percent of WChaMax. Fronius: in the power window, negative = charging, positive = discharging.'}
+  - {key: x.charge_rate_limit, label: InWRte, table: holding, address: 40366, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40378, type: s16}, models: [float], note: 'Percent of WChaMax. Fronius: in the power window, negative = charging, positive = discharging.'}
+  - {key: x.grid_charging, label: ChaGriSet, table: holding, address: 40370, type: u16, enum: cha_gri_set, models: [float], note: 'Values from the SunSpec workbook (0 PV, 1 grid); the Fronius document gives none, and an open-source project reads 1 = disabled, 2 = enabled. AND-linked with ''battery charging from DNO grid'' in the inverter settings.', verified: false}
+  - {key: x.ppvphab, label: AC voltage L1-L2, table: holding, address: 40076, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, models: [symo_gen24], verified: false, sources: [fronius-modbus]}
+  - {key: x.ppvphbc, label: AC voltage L2-L3, table: holding, address: 40077, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, models: [symo_gen24], verified: false, sources: [fronius-modbus]}
+  - {key: x.ppvphca, label: AC voltage L3-L1, table: holding, address: 40078, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, models: [symo_gen24], verified: false, sources: [fronius-modbus]}
+  - {key: x.ac_voltage_l1_n_40079, label: AC voltage L1-N, table: holding, address: 40079, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.ac_voltage_l2_n_40080, label: AC voltage L2-N, table: holding, address: 40080, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, models: [symo_gen24], verified: false, sources: [fronius-modbus]}
+  - {key: x.ac_voltage_l3_n_40081, label: AC voltage L3-N, table: holding, address: 40081, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40082, type: s16}, models: [symo_gen24], verified: false, sources: [fronius-modbus]}
+  - {key: x.acpower, label: AC power, table: holding, address: 40083, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40084, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.line_frequency_40085, label: Line frequency, table: holding, address: 40085, type: s16, unit: Hz, scale_exponent_from: {table: holding, address: 40086, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.acenergy, label: AC energy, table: holding, address: 40093, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40095, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.temperature_40102, label: Temperature, table: holding, address: 40102, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40106, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.status_40108, label: Status, table: holding, address: 40108, type: u16, enum: fronius_inverter_status, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.events2, label: Events, table: holding, address: 40115, type: u32, flags: inverter_events, verified: false, sources: [fronius-modbus]}
+  - {key: x.dertyp, label: DERTyp, table: holding, address: 40123, type: u16, verified: false, sources: [fronius-modbus]}
+  - {key: x.whrtg, label: Capacity, table: holding, address: 40140, type: u16, unit: kWh, scale: 0.001, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.maxcharte, label: Maximum charge rate, table: holding, address: 40144, type: u16, unit: W, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.maxdischarte, label: Maximum discharge rate, table: holding, address: 40146, type: u16, unit: W, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.max_power, label: Maximum power, table: holding, address: 40151, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40171, type: s16}, verified: false, sources: [fronius-modbus]}
+  - {key: x.pv_connection, label: PV connection, table: holding, address: 40183, type: u16, enum: connection_status_condensed, verified: false, sources: [fronius-modbus]}
+  - {key: x.storage_connection, label: Storage connection, table: holding, address: 40184, type: u16, enum: connection_status_condensed, verified: false, sources: [fronius-modbus]}
+  - {key: x.ecp_connection, label: Electrical connection, table: holding, address: 40185, type: u16, enum: ecp_connection_status, verified: false, sources: [fronius-modbus]}
+  - {key: x.inverter_controls, label: Control mode, table: holding, address: 40216, type: u32, flags: inverter_controls, verified: false, sources: [fronius-modbus]}
+  - {key: x.conn, label: Connection control, table: holding, address: 40231, type: u16, enum: control_status, verified: false, sources: [fronius-modbus]}
+  - {key: x.wmaxlim_ena, label: Throttle control, table: holding, address: 40236, type: u16, enum: control_status, verified: false, sources: [fronius-modbus]}
+  - {key: x.outpfset_ena, label: Fixed power factor, table: holding, address: 40241, type: u16, enum: control_status, verified: false, sources: [fronius-modbus]}
+  - {key: x.varpct_ena, label: Limit VAr control, table: holding, address: 40249, type: s16, enum: control_status, verified: false, sources: [fronius-modbus]}
+  - {key: x.mppt1_power, label: MPPT1 power, table: holding, address: 40274, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40257, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.mppt1_lfte, label: MPPT1 lifetime energy, table: holding, address: 40275, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40258, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.mppt2_power, label: MPPT2 power, table: holding, address: 40294, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40257, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.mppt2_lfte, label: MPPT2 lifetime energy, table: holding, address: 40295, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40258, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.mppt3_power, label: Storage charging power, table: holding, address: 40314, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40257, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.mppt3_lfte, label: Storage charging lifetime energy, table: holding, address: 40315, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40258, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.mppt4_power, label: Storage discharging power, table: holding, address: 40334, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40257, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.mppt4_lfte, label: Storage discharging lifetime energy, table: holding, address: 40335, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40258, type: s16}, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.max_charge, label: Max charging power, table: holding, address: 40345, type: u16, unit: W, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.wdischagra, label: Wdischagra, table: holding, address: 40347, type: u16, verified: false, sources: [fronius-modbus]}
+  - {key: x.control_mode, label: Core storage control mode, table: holding, address: 40348, type: u16, enum: storage_control_mode, writable: true, verified: false, sources: [fronius-modbus, openems], models: [primo_gen24, symo_gen24]}
+  - {key: x.minimum_reserve_40350, label: Minimum reserve, table: holding, address: 40350, type: u16, unit: '%', scale: 0.01, writable: true, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.state_of_charge_40351, label: State of charge, table: holding, address: 40351, type: u16, unit: '%', scale: 0.01, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.charge_status, label: Charge status, table: holding, address: 40354, type: u16, enum: charge_status, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+  - {key: x.discharging_power, label: Discharging power, table: holding, address: 40355, type: s16, unit: '%', scale: 0.01, writable: true, verified: false, sources: [fronius-modbus], conflicts: [{sources: [openems], scale: 1, label: Set out w rte}], models: [primo_gen24, symo_gen24]}
+  - {key: x.charging_power, label: Charging power, table: holding, address: 40356, type: s16, unit: '%', scale: 0.01, writable: true, verified: false, sources: [fronius-modbus], conflicts: [{sources: [openems], scale: 1, label: Set in w rte}], models: [primo_gen24, symo_gen24]}
+  - {key: x.set_revert_timeout, label: Set revert timeout, table: holding, address: 40358, type: u16, unit: s, writable: true, verified: false, sources: [openems], models: [primo_gen24, symo_gen24]}
+  - {key: x.grid_charging_40360, label: Grid charging, table: holding, address: 40360, type: u16, enum: charge_grid_status, verified: false, sources: [fronius-modbus], models: [primo_gen24, symo_gen24]}
+
+derived:
+  - {key: battery_power, label: Battery power (module 4 − module 3), unit: W, positive: discharge, sum: [{key: x.storage_discharge_power}, {key: x.storage_charge_power, factor: -1}], note: Only with storage (4 DC modules).}
+  - {key: pv_power, label: PV power, unit: W, sum: [{key: x.mppt1_power}, {key: x.mppt2_power}], verified: false, sources: [fronius-modbus]}
+
+enums:
+  inverter_state: {'1': 'Off', '2': Sleeping, '3': Starting, '4': MPPT (producing), '5': Throttled, '6': Shutting down, '7': Fault, '8': Standby}
+  dc_state: {'1': 'Off', '2': Sleeping, '3': Starting, '4': MPPT, '5': Throttled, '6': Shutting down, '7': Fault, '8': Standby, '9': Test, '10': Reserved}
+  charge_state: {'1': 'Off', '2': Empty, '3': Discharging, '4': Charging, '5': Full, '6': Holding, '7': Testing}
+  cha_gri_set: {'0': PV only, '1': Grid allowed}
+  fronius_inverter_status: {'1': 'Off', '2': Sleeping, '3': Starting, '4': Normal, '5': Throttled, '6': Shutdown, '7': Fault, '8': Standby, '9': No solarnet, '10': No inverter communication, '11': Overcurrent solarnet, '12': Firmware updating, '13': ACFI event}
+  connection_status_condensed: {'0': Disconnected, '1': Connected, '3': Available, '7': Operating}
+  ecp_connection_status: {'0': Disconnected, '1': Connected}
+  control_status: {'0': Disabled, '1': Enabled}
+  charge_grid_status: {'1': Disabled, '2': Enabled}
+  charge_status: {'1': 'Off', '2': Empty, '3': Discharging, '4': Charging, '5': Full, '6': Holding, '7': Testing}
+  storage_control_mode: {'0': Auto, '1': Charge, '2': Discharge, '3': Change and Discharge}
+
+flags:
+  evt1: {'0': Ground fault, '1': DC over-voltage, '2': AC disconnect open, '3': DC disconnect open, '4': Grid disconnected, '5': Cabinet open, '6': Manual shutdown, '7': Over-temperature, '8': Grid over-frequency, '9': Grid under-frequency, '10': Grid over-voltage, '11': Grid under-voltage, '12': Blown string fuse, '13': Under-temperature, '14': Memory loss, '15': Hardware test failure}
+  dc_evt: {'0': Ground fault, '1': Input over-voltage, '3': DC disconnect open, '5': Cabinet open, '6': Manual shutdown, '7': Over-temperature, '12': Blown fuse, '13': Under-temperature, '14': Memory loss, '15': Arc detected, '20': Test failed, '22': Input over-current}
+  storctl_mod: {'0': Charge limit (InWRte) active, '1': Discharge limit (OutWRte) active}
+  inverter_events: {'0': Error, '1': Warning, '2': Info}
+  inverter_controls: {'0': Power reduction, '1': Constant reactive power, '2': Constant power factor}
+
+problems:
+  - {when: {key: state, equals: 7}, kind: fault, text: Inverter fault (St 7)}
+  - {when: {key: x.events, bit: 0}, kind: fault, text: Ground fault (Evt1 bit 0)}
+  - {when: {key: x.events, bit: 1}, kind: fault, text: DC over-voltage (Evt1 bit 1)}
+  - {when: {key: x.events, bit: 2}, kind: fault, text: AC disconnect open (Evt1 bit 2)}
+  - {when: {key: x.events, bit: 3}, kind: fault, text: DC disconnect open (Evt1 bit 3)}
+  - {when: {key: x.events, bit: 4}, kind: mains_lost, text: Grid disconnected (Evt1 bit 4)}
+  - {when: {key: x.events, bit: 5}, kind: warning, text: Cabinet open (Evt1 bit 5)}
+  - {when: {key: x.events, bit: 6}, kind: warning, text: Manual shutdown (Evt1 bit 6)}
+  - {when: {key: x.events, bit: 7}, kind: warning, text: Over-temperature (Evt1 bit 7)}
+  - {when: {key: x.events, bit: 8}, kind: mains_lost, text: Grid over-frequency (Evt1 bit 8)}
+  - {when: {key: x.events, bit: 9}, kind: mains_lost, text: Grid under-frequency (Evt1 bit 9)}
+  - {when: {key: x.events, bit: 10}, kind: mains_lost, text: Grid over-voltage (Evt1 bit 10)}
+  - {when: {key: x.events, bit: 11}, kind: mains_lost, text: Grid under-voltage (Evt1 bit 11)}
+  - {when: {key: x.events, bit: 12}, kind: fault, text: Blown string fuse (Evt1 bit 12)}
+  - {when: {key: x.events, bit: 13}, kind: warning, text: Under-temperature (Evt1 bit 13)}
+  - {when: {key: x.events, bit: 14}, kind: fault, text: Memory loss (Evt1 bit 14)}
+  - {when: {key: x.events, bit: 15}, kind: fault, text: Hardware test failure (Evt1 bit 15)}
+  - {when: {key: x.dc1_state, equals: 7}, kind: fault, text: 'DC input 1: fault (DCSt 7)'}
+  - {when: {key: x.dc1_events, bit: 0}, kind: fault, text: 'DC input 1: ground fault (DCEvt bit 0)'}
+  - {when: {key: x.dc1_events, bit: 1}, kind: fault, text: 'DC input 1: input over-voltage (DCEvt bit 1)'}
+  - {when: {key: x.dc1_events, bit: 3}, kind: fault, text: 'DC input 1: dc disconnect open (DCEvt bit 3)'}
+  - {when: {key: x.dc1_events, bit: 5}, kind: warning, text: 'DC input 1: cabinet open (DCEvt bit 5)'}
+  - {when: {key: x.dc1_events, bit: 6}, kind: warning, text: 'DC input 1: manual shutdown (DCEvt bit 6)'}
+  - {when: {key: x.dc1_events, bit: 7}, kind: warning, text: 'DC input 1: over-temperature (DCEvt bit 7)'}
+  - {when: {key: x.dc1_events, bit: 12}, kind: fault, text: 'DC input 1: blown fuse (DCEvt bit 12)'}
+  - {when: {key: x.dc1_events, bit: 13}, kind: warning, text: 'DC input 1: under-temperature (DCEvt bit 13)'}
+  - {when: {key: x.dc1_events, bit: 14}, kind: fault, text: 'DC input 1: memory loss (DCEvt bit 14)'}
+  - {when: {key: x.dc1_events, bit: 15}, kind: fault, text: 'DC input 1: arc detected (DCEvt bit 15)'}
+  - {when: {key: x.dc1_events, bit: 20}, kind: fault, text: 'DC input 1: test failed (DCEvt bit 20)'}
+  - {when: {key: x.dc1_events, bit: 22}, kind: fault, text: 'DC input 1: input over-current (DCEvt bit 22)'}
+  - {when: {key: x.dc2_state, equals: 7}, kind: fault, text: 'DC input 2: fault (DCSt 7)'}
+  - {when: {key: x.dc2_events, bit: 0}, kind: fault, text: 'DC input 2: ground fault (DCEvt bit 0)'}
+  - {when: {key: x.dc2_events, bit: 1}, kind: fault, text: 'DC input 2: input over-voltage (DCEvt bit 1)'}
+  - {when: {key: x.dc2_events, bit: 3}, kind: fault, text: 'DC input 2: dc disconnect open (DCEvt bit 3)'}
+  - {when: {key: x.dc2_events, bit: 5}, kind: warning, text: 'DC input 2: cabinet open (DCEvt bit 5)'}
+  - {when: {key: x.dc2_events, bit: 6}, kind: warning, text: 'DC input 2: manual shutdown (DCEvt bit 6)'}
+  - {when: {key: x.dc2_events, bit: 7}, kind: warning, text: 'DC input 2: over-temperature (DCEvt bit 7)'}
+  - {when: {key: x.dc2_events, bit: 12}, kind: fault, text: 'DC input 2: blown fuse (DCEvt bit 12)'}
+  - {when: {key: x.dc2_events, bit: 13}, kind: warning, text: 'DC input 2: under-temperature (DCEvt bit 13)'}
+  - {when: {key: x.dc2_events, bit: 14}, kind: fault, text: 'DC input 2: memory loss (DCEvt bit 14)'}
+  - {when: {key: x.dc2_events, bit: 15}, kind: fault, text: 'DC input 2: arc detected (DCEvt bit 15)'}
+  - {when: {key: x.dc2_events, bit: 20}, kind: fault, text: 'DC input 2: test failed (DCEvt bit 20)'}
+  - {when: {key: x.dc2_events, bit: 22}, kind: fault, text: 'DC input 2: input over-current (DCEvt bit 22)'}
+  - {when: {key: x.storage_charge_state, equals: 7}, kind: fault, text: 'Storage charging: fault (DCSt 7)'}
+  - {when: {key: x.storage_charge_events, bit: 0}, kind: fault, text: 'Storage charging: ground fault (DCEvt bit 0)'}
+  - {when: {key: x.storage_charge_events, bit: 1}, kind: fault, text: 'Storage charging: input over-voltage (DCEvt bit 1)'}
+  - {when: {key: x.storage_charge_events, bit: 3}, kind: fault, text: 'Storage charging: dc disconnect open (DCEvt bit 3)'}
+  - {when: {key: x.storage_charge_events, bit: 5}, kind: warning, text: 'Storage charging: cabinet open (DCEvt bit 5)'}
+  - {when: {key: x.storage_charge_events, bit: 6}, kind: warning, text: 'Storage charging: manual shutdown (DCEvt bit 6)'}
+  - {when: {key: x.storage_charge_events, bit: 7}, kind: warning, text: 'Storage charging: over-temperature (DCEvt bit 7)'}
+  - {when: {key: x.storage_charge_events, bit: 12}, kind: fault, text: 'Storage charging: blown fuse (DCEvt bit 12)'}
+  - {when: {key: x.storage_charge_events, bit: 13}, kind: warning, text: 'Storage charging: under-temperature (DCEvt bit 13)'}
+  - {when: {key: x.storage_charge_events, bit: 14}, kind: fault, text: 'Storage charging: memory loss (DCEvt bit 14)'}
+  - {when: {key: x.storage_charge_events, bit: 15}, kind: fault, text: 'Storage charging: arc detected (DCEvt bit 15)'}
+  - {when: {key: x.storage_charge_events, bit: 20}, kind: fault, text: 'Storage charging: test failed (DCEvt bit 20)'}
+  - {when: {key: x.storage_charge_events, bit: 22}, kind: fault, text: 'Storage charging: input over-current (DCEvt bit 22)'}
+  - {when: {key: x.storage_discharge_state, equals: 7}, kind: fault, text: 'Storage discharging: fault (DCSt 7)'}
+  - {when: {key: x.storage_discharge_events, bit: 0}, kind: fault, text: 'Storage discharging: ground fault (DCEvt bit 0)'}
+  - {when: {key: x.storage_discharge_events, bit: 1}, kind: fault, text: 'Storage discharging: input over-voltage (DCEvt bit 1)'}
+  - {when: {key: x.storage_discharge_events, bit: 3}, kind: fault, text: 'Storage discharging: dc disconnect open (DCEvt bit 3)'}
+  - {when: {key: x.storage_discharge_events, bit: 5}, kind: warning, text: 'Storage discharging: cabinet open (DCEvt bit 5)'}
+  - {when: {key: x.storage_discharge_events, bit: 6}, kind: warning, text: 'Storage discharging: manual shutdown (DCEvt bit 6)'}
+  - {when: {key: x.storage_discharge_events, bit: 7}, kind: warning, text: 'Storage discharging: over-temperature (DCEvt bit 7)'}
+  - {when: {key: x.storage_discharge_events, bit: 12}, kind: fault, text: 'Storage discharging: blown fuse (DCEvt bit 12)'}
+  - {when: {key: x.storage_discharge_events, bit: 13}, kind: warning, text: 'Storage discharging: under-temperature (DCEvt bit 13)'}
+  - {when: {key: x.storage_discharge_events, bit: 14}, kind: fault, text: 'Storage discharging: memory loss (DCEvt bit 14)'}
+  - {when: {key: x.storage_discharge_events, bit: 15}, kind: fault, text: 'Storage discharging: arc detected (DCEvt bit 15)'}
+  - {when: {key: x.storage_discharge_events, bit: 20}, kind: fault, text: 'Storage discharging: test failed (DCEvt bit 20)'}
+  - {when: {key: x.storage_discharge_events, bit: 22}, kind: fault, text: 'Storage discharging: input over-current (DCEvt bit 22)'}
+
+notes:
+- 'Fronius says the addresses aren''t fixed: find each SunSpec model by walking the chain from ''SunS'' at 40000, then use
+  offsets. The absolute addresses here follow from Fronius'' Common model of 65 registers and the start addresses the document
+  gives (inverter model at 40069; 120 at 40121 / 40131, 160 at 40253 / 40263, 124 at 40343 / 40353 for int + SF / float).'
+- The 'SunSpec Model Type' setting picks float (factory setting, models 111-113) or int + SF (101-103); models 120, 160 and
+  124 are the same in both but sit 10 registers later with float. Models 160 and 124 have no float variant and always use
+  scale factors.
+- 'Fronius: scale factors aren''t constant (firmware updates, auto-scaling at runtime); read them with every poll.'
+- Single-phase inverters (model 101 / 111) leave phase B and C values not implemented (0xFFFF / 0x8000 / NaN).
+- Model 160 has 2 DC modules without storage and 4 with (3 = storage charging, 4 = storage discharging); model 124 exists
+  only with storage.
+- The Smart Meter is a separate device behind the inverter (fronius-smart-meter, unit id 200).
+- 'SunSpec ''not implemented'' values: 0xFFFF (u16), 0x8000 (s16), 0xFFFFFFFF (u32), NaN (float); the acc32 energy counters
+  read 0 when not accumulated.'
+- 'Left out: Wchagra (holding 40346, u16) from fronius-modbus overlaps x.storage_discharge_energy from the documents.'
+- Modbus TCP must be enabled in the inverter's web interface with 'SunSpec Model Type' set to 'int + SF'; the addresses here
+  are for that setting.
+- The battery's DC side appears as MPPT modules 3 (charging power / energy) and 4 (discharging power / energy) of the multiple-MPPT
+  block.
+- Storage registers are only meaningful when the nameplate DER type (40123) reads 82 (storage present).
+- The project's house load is meter power (positive = import) plus the inverter's AC power.
+- OpenEMS writes these storage-control registers of the SunSpec "int + SF" register map at fixed addresses; it reads the rest
+  through SunSpec.
+- Identification as fronius-modbus recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,80 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: franceair-volcane-xs
+manufacturer: France Air (Cairox)
+name: Volcane XS 250 heat-recovery ventilation (Eco-Smart controller)
+kind: ventilation
+
+sources:
+- id: volcane-xs
+  title: ha-volcane-xs (Home Assistant integration)
+  url: https://github.com/zbuh/ha-volcane-xs
+  license: MIT
+  commit: 81625bb6df3741e4cc73d5b9e078a2ad16fb238e
+  path: custom_components/volcane_xs/device.py, custom_components/volcane_xs/sensor.py, custom_components/volcane_xs/binary_sensor.py,
+    custom_components/volcane_xs/number.py, custom_components/volcane_xs/select.py, custom_components/volcane_xs/switch.py,
+    custom_components/volcane_xs/translations/en.json, CLAUDE.md
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 4800
+    format: 8N1
+
+encoding:
+  word_order: big
+
+defaults:
+  verified: false
+  sources:
+  - volcane-xs
+
+points:
+  - {key: x.auto_restart, label: Auto-restart after power loss, table: holding, address: 0, type: u16, enum: off_on, writable: true, note: '1 = power the unit back on after a power loss (factory default 1). The project reads this register alone: a read spanning registers 0-25 gets no answer.'}
+  - {key: x.bypass_min_temp, label: Bypass minimum temperature, table: holding, address: 2, type: s16, unit: °C, writable: true, note: 'X: the bypass opens when the outdoor temperature is between X and X+Y; 5-30 °C.'}
+  - {key: x.bypass_y_range, label: Bypass range above minimum, table: holding, address: 3, type: s16, unit: °C, writable: true, note: 'Y: range above the minimum, 2-15 °C.'}
+  - {key: x.defrost_interval, label: Defrost check interval, table: holding, address: 4, type: s16, unit: min, writable: true, note: 'Minutes between defrost checks, 15-99 (default 30).'}
+  - {key: x.defrost_entry_temperature, label: Defrost entry temperature, table: holding, address: 5, type: s16, unit: °C, offset: -40, writable: true, note: 'Exhaust air temperature that starts a defrost, -9 to 5 °C (default -1, raw 39); raw = °C + 40 as for the temperature sensors.'}
+  - {key: x.defrost_duration, label: Defrost duration, table: holding, address: 6, type: s16, unit: min, writable: true, note: 'Minutes a defrost runs, 2-20 (default 10).'}
+  - {key: x.power, label: Power, table: holding, address: 9, type: u16, enum: off_on, writable: true, note: The unit's on/off switch.}
+  - {key: x.supply_speed, label: Supply fan speed, table: holding, address: 10, type: u16, enum: fan_speed, writable: true, note: 'Write-only: the unit never answers a read of this register. Same codes as the exhaust fan.'}
+  - {key: x.exhaust_speed, label: Exhaust fan speed, table: holding, address: 11, type: u16, enum: fan_speed, writable: true, note: Codes valid in 3-speed mode (speed_mode = 1); other codes are not accepted.}
+  - {key: x.return_air_temperature, label: Return air temperature, table: holding, address: 12, type: s16, unit: °C, offset: -40}
+  - {key: x.outdoor_air_temperature, label: Outdoor air temperature, table: holding, address: 13, type: s16, unit: °C, offset: -40}
+  - {key: x.exhaust_air_temperature, label: Exhaust air temperature, table: holding, address: 14, type: s16, unit: °C, offset: -40}
+  - {key: x.supply_air_temperature, label: Supply air temperature, table: holding, address: 15, type: s16, unit: °C, offset: -40}
+  - {key: x.boost_active, label: Boost active, table: holding, address: 16, type: u16, enum: off_on, note: Boost from an external dry contact; cannot be set over Modbus.}
+  - {key: x.alarms, label: Alarm bits, table: holding, address: 18, type: u16, flags: bypass_alarm}
+  - {key: x.error_flags, label: Error symbol bits, table: holding, address: 20, type: u16, flags: error_symbol, note: 'Bit 4 (filter) is doubtful: the project now believes this bit does not exist, as the manufacturer''s bit table skips it.'}
+  - {key: x.speed_mode, label: Speed mode, table: holding, address: 23, type: u16, enum: speed_mode, note: Must be 1 (3-speed) for the fan speed codes; 0 and 2 are the same field on other variants. Taken from the project's register table; not read by the integration.}
+  - {key: x.command, label: Command, table: holding, address: 24, type: s16, writable: true, note: 'Write 1 to clear the dirty-filter alarm, 2 to clear the weekly timers. Not polled by the project; a read returns 0.'}
+  - {key: x.filter_alarm_interval, label: Filter alarm interval, table: holding, address: 25, type: u16, enum: filter_alarm_interval, writable: true, note: The firmware does not check the range (writing 4 is stored as is).}
+  - {key: x.operating_hours, label: Operating hours, table: holding, address: 769, type: u16, unit: h, scale: 0.1, note: Unsigned (the project's register table).}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  fan_speed: {'0': 'Off', '2': Speed 1, '3': Speed 2, '5': Speed 3}
+  filter_alarm_interval: {'0': 45 days, '1': 60 days, '2': 90 days, '3': 180 days}
+  speed_mode: {'0': 2-speed, '1': 3-speed, '2': 10-speed (DC)}
+
+flags:
+  bypass_alarm: {'0': Fire alarm, '1': Bypass active, '3': Defrost active}
+  error_symbol: {'0': Outdoor air sensor error, '1': EEPROM error, '2': Return air sensor error, '3': Exhaust air sensor error, '4': Filter alarm, '5': Supply air sensor error, '6': Supply fan error, '7': Exhaust fan error}
+
+notes:
+- 'Modbus RTU on the controller board''s RS-485 connector (the project uses an RS-485 to TCP gateway). Baud rate set by DIP
+  switch SW4-4: off = 4800 (default), on = 9600; 8 data bits, 1 stop bit, parity none or even.'
+- Everything is in holding registers (function 03, writes with 06); the unit does not answer function 04.
+- Temperatures are raw = °C + 40.
+- This is the map of the Eco-Smart segment-LCD controller. The touch-screen controller of the same range uses a different,
+  incompatible map at the same addresses.
+- 'The project leaves out registers for hardware its unit lacks (electric heater, CO2, humidity): 1, 7, 8 (the unit''s Modbus
+  id, 1-16), 17, 19, 21, 27, 768 (CO2 ppm), 770 (humidity).'
+- Some gateways need a pause between requests.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

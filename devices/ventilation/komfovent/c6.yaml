@@ -1,0 +1,228 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: komfovent-c6
+manufacturer: Komfovent
+name: C6 / C6M / C8 air handling unit controllers
+kind: ventilation
+
+sources:
+- id: komfovent
+  title: hass-komfovent (Home Assistant integration)
+  url: https://github.com/lnagel/hass-komfovent
+  license: MIT
+  commit: 56b75855bdbf157607c495d1ea332d95154705bb
+  path: custom_components/komfovent/registers.py,custom_components/komfovent/const.py,custom_components/komfovent/sensor.py,custom_components/komfovent/number.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+defaults:
+  verified: false
+  sources:
+  - komfovent
+
+models:
+  - {id: c6, name: C6, match: {table: holding, address: 999, type: u16, range: [0, 4095]}}
+  - {id: c6m, name: C6M, match: {table: holding, address: 999, type: u16, range: [4096, 8191]}}
+  - {id: c8, name: C8, match: {table: holding, address: 999, type: u16, range: [8192, 12287]}}
+
+points:
+  - {key: x.power, label: Power, table: holding, address: 0, type: u16, writable: true}
+  - {key: x.auto_mode_control, label: Auto mode control, table: holding, address: 1, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.eco_mode, label: ECO Mode, table: holding, address: 2, type: u16, writable: true}
+  - {key: x.auto_mode, label: AUTO Mode, table: holding, address: 3, type: u16, writable: true}
+  - {key: x.operation_mode, label: Operation mode, table: holding, address: 4, type: u16, enum: operationmode, writable: true}
+  - {key: x.scheduler_mode, label: Scheduler mode, table: holding, address: 5, type: u16, enum: schedulermode, writable: true}
+  - {key: x.next_mode, label: Next mode, table: holding, address: 6, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.next_mode_time, label: Next mode time, table: holding, address: 7, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.next_mode_weekday, label: Next mode weekday, table: holding, address: 8, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.before_mode_mask, label: Before mode mask, table: holding, address: 9, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.temperature_control, label: Temperature control, table: holding, address: 10, type: u16, enum: temperaturecontrol, writable: true}
+  - {key: x.flow_control, label: Flow control, table: holding, address: 11, type: u16, enum: flowcontrol, models: [c6, c6m], writable: true}
+  - {key: x.max_supply_flow, label: Maximum Supply Flow, table: holding, address: 12, type: u32, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.max_extract_flow, label: Maximum Extract Flow, table: holding, address: 14, type: u32, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.max_supply_pressure, label: Maximum Supply Pressure, table: holding, address: 16, type: u16, unit: Pa, note: Shown by the integration only with variable air volume flow control.}
+  - {key: x.max_extract_pressure, label: Maximum Extract Pressure, table: holding, address: 17, type: u16, unit: Pa, note: Shown by the integration only with variable air volume flow control.}
+  - {key: x.control_stage_1, label: Control Stage 1, table: holding, address: 18, type: u16, enum: controlstage, writable: true}
+  - {key: x.control_stage_2, label: Control Stage 2, table: holding, address: 19, type: u16, enum: controlstage, writable: true}
+  - {key: x.control_stage_3, label: Control Stage 3, table: holding, address: 20, type: u16, enum: controlstage, models: [c6, c6m], writable: true}
+  - {key: x.external_coil_type, label: External Coil Type, table: holding, address: 21, type: u16, enum: coiltype, writable: true}
+  - {key: x.ip, label: Ip, table: holding, address: 22, type: u32, note: Named in registers.py but not shown by the integration.}
+  - {key: x.mask, label: Mask, table: holding, address: 24, type: u32, note: Named in registers.py but not shown by the integration.}
+  - {key: x.language, label: Language, table: holding, address: 26, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.flow_unit, label: Flow Unit, table: holding, address: 27, type: u16, enum: flowunit, models: [c6, c6m]}
+  - {key: x.clock, label: Clock, table: holding, address: 28, type: datetime, length: 3, datetime: {year: {register: 1}, month: {register: 2, bits: [8, 15]}, day: {register: 2, bits: [0, 7]}, hour: {register: 0, bits: [8, 15]}, minute: {register: 0, bits: [0, 7]}}, writable: true}
+  - {key: x.week_day, label: Week day, table: holding, address: 31, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.system_time, label: System Time, table: holding, address: 32, type: u32, epoch: {start: '1970-01-01', unit: s}, writable: true, note: Counted in local time. Read-only on C6 below functional version 21; the integration then sets the clock through addresses 28–30.}
+  - {key: x.dhcp, label: Dhcp, table: holding, address: 34, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.gateway, label: Gateway, table: holding, address: 35, type: u32, note: Named in registers.py but not shown by the integration.}
+  - {key: x.bacnet_id, label: Bacnet id, table: holding, address: 37, type: u32, note: Named in registers.py but not shown by the integration.}
+  - {key: x.icing_protection, label: Icing protection, table: holding, address: 39, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.indoor_humidity, label: Indoor humidity, table: holding, address: 40, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.fire_alarm_restart, label: Fire alarm restart, table: holding, address: 41, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.bacnet_port, label: Bacnet port, table: holding, address: 43, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.away_supply_flow, label: Away Supply Flow, table: holding, address: 99, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.away_extract_flow, label: Away Extract Flow, table: holding, address: 101, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.away_temperature, label: Away Temperature, table: holding, address: 103, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.away_electric_heater, label: Away Electric Heater, table: holding, address: 104, type: u16, writable: true}
+  - {key: x.normal_supply_flow, label: Normal Supply Flow, table: holding, address: 105, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.normal_extract_flow, label: Normal Extract Flow, table: holding, address: 107, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.normal_temperature, label: Normal Temperature, table: holding, address: 109, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.normal_electric_heater, label: Normal Electric Heater, table: holding, address: 110, type: u16, writable: true}
+  - {key: x.intensive_supply_flow, label: Intensive Supply Flow, table: holding, address: 111, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.intensive_extract_flow, label: Intensive Extract Flow, table: holding, address: 113, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.intensive_temperature, label: Intensive Temperature, table: holding, address: 115, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.intensive_electric_heater, label: Intensive Electric Heater, table: holding, address: 116, type: u16, writable: true}
+  - {key: x.boost_supply_flow, label: Boost Supply Flow, table: holding, address: 117, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.boost_extract_flow, label: Boost Extract Flow, table: holding, address: 119, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.boost_temperature, label: Boost Temperature, table: holding, address: 121, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.boost_electric_heater, label: Boost Electric Heater, table: holding, address: 122, type: u16, writable: true}
+  - {key: x.kitchen_supply_flow, label: Kitchen Supply Flow, table: holding, address: 123, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.kitchen_extract_flow, label: Kitchen Extract Flow, table: holding, address: 125, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.kitchen_temperature, label: Kitchen Temperature, table: holding, address: 127, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.kitchen_electric_heater, label: Kitchen Electric Heater, table: holding, address: 128, type: u16, writable: true}
+  - {key: x.kitchen_timer, label: Kitchen Timer, table: holding, address: 129, type: u16, unit: min, writable: true}
+  - {key: x.fireplace_supply_flow, label: Fireplace Supply Flow, table: holding, address: 130, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.fireplace_extract_flow, label: Fireplace Extract Flow, table: holding, address: 132, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.fireplace_temperature, label: Fireplace Temperature, table: holding, address: 134, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.fireplace_electric_heater, label: Fireplace Electric Heater, table: holding, address: 135, type: u16, writable: true}
+  - {key: x.fireplace_timer, label: Fireplace Timer, table: holding, address: 136, type: u16, unit: min, writable: true}
+  - {key: x.override_supply_flow, label: Override Supply Flow, table: holding, address: 137, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.override_extract_flow, label: Override Extract Flow, table: holding, address: 139, type: u32, writable: true, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.override_temperature, label: Override Temperature, table: holding, address: 141, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.override_electric_heater, label: Override Electric Heater, table: holding, address: 142, type: u16, writable: true}
+  - {key: x.override_activation, label: Override Activation, table: holding, address: 143, type: u16, enum: overrideactivation, writable: true}
+  - {key: x.override_timer, label: Override Timer, table: holding, address: 144, type: u16, unit: min, writable: true}
+  - {key: x.holidays_micro_ventilation, label: Holidays Micro-ventilation, table: holding, address: 145, type: u16, enum: microventilation, writable: true}
+  - {key: x.holidays_temperature, label: Holidays Temperature, table: holding, address: 146, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.holidays_electric_heater, label: Holidays Electric Heater, table: holding, address: 147, type: u16, writable: true}
+  - {key: x.holidays_from, label: Holidays From, table: holding, address: 148, type: u32, epoch: {start: '1970-01-01', unit: s}, writable: true, note: Counted in local time.}
+  - {key: x.holidays_until, label: Holidays Until, table: holding, address: 150, type: u32, epoch: {start: '1970-01-01', unit: s}, writable: true, note: Counted in local time.}
+  - {key: x.holidays_year_from, label: Holidays year from, table: holding, address: 152, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.holidays_date_from, label: Holidays date from, table: holding, address: 153, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.holidays_year_till, label: Holidays year till, table: holding, address: 154, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.holidays_date_till, label: Holidays date till, table: holding, address: 155, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.override_delay_start, label: Override Delay Start, table: holding, address: 156, type: u16, unit: min, writable: true}
+  - {key: x.override_delay_stop, label: Override Delay Stop, table: holding, address: 157, type: u16, unit: min, writable: true}
+  - {key: x.eco_min_supply_temperature, label: ECO Min Supply Temperature, table: holding, address: 199, type: u16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.eco_max_supply_temperature, label: ECO Max Supply Temperature, table: holding, address: 200, type: u16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.eco_free_heat_cool, label: ECO Free Heating/Cooling, table: holding, address: 201, type: u16, writable: true}
+  - {key: x.eco_heater_blocking, label: ECO Heater Blocking, table: holding, address: 202, type: u16, writable: true}
+  - {key: x.eco_cooler_blocking, label: ECO Cooler Blocking, table: holding, address: 203, type: u16, writable: true}
+  - {key: x.aq_impurity_control, label: AQ Impurity Control, table: holding, address: 204, type: u16, writable: true}
+  - {key: x.aq_temperature_setpoint, label: AQ Temperature Setpoint, table: holding, address: 205, type: s16, unit: °C, scale: 0.1, writable: true}
+  - {key: x.aq_impurity_setpoint, label: AQ impurity setpoint, table: holding, address: 206, type: u16, writable: true, note: 'Meaning depends on the installed air quality sensor: AQ CO2 Setpoint (ppm), AQ VOC Setpoint (%).'}
+  - {key: x.aq_humidity_setpoint, label: AQ Humidity Setpoint, table: holding, address: 207, type: u16, unit: '%', writable: true}
+  - {key: x.aq_minimum_intensity, label: AQ Minimum Intensity, table: holding, address: 208, type: u16, unit: '%', writable: true}
+  - {key: x.aq_maximum_intensity, label: AQ Maximum Intensity, table: holding, address: 209, type: u16, unit: '%', writable: true}
+  - {key: x.aq_electric_heater, label: AQ Electric Heater, table: holding, address: 210, type: u16, writable: true}
+  - {key: x.aq_check_period, label: AQ Check Period, table: holding, address: 211, type: u16, unit: h, writable: true}
+  - {key: x.aq_sensor1_type, label: AQ Sensor 1 Type, table: holding, address: 212, type: u16, enum: airqualitysensortype, writable: true}
+  - {key: x.aq_sensor2_type, label: AQ Sensor 2 Type, table: holding, address: 213, type: u16, enum: airqualitysensortype, models: [c6, c6m], writable: true}
+  - {key: x.aq_humidity_control, label: AQ Humidity Control, table: holding, address: 214, type: u16, writable: true, note: C6/C6M read it only from functional version 38.}
+  - {key: x.aq_outdoor_humidity_sensor, label: AQ Outdoor Humidity Sensor, table: holding, address: 215, type: u16, enum: outdoorhumiditysensor, writable: true, note: C6/C6M read it only from functional version 38.}
+  - {key: x.eco_heat_recovery, label: ECO Heat Recovery, table: holding, address: 216, type: u16, enum: heatrecoverycontrol, writable: true}
+  - {key: x.active_alarms, label: Active alarms count, table: holding, address: 599, type: u16, writable: true, note: Writing 0x99C6 resets the alarms and restores the previous mode.}
+  - {key: x.active_alarm1, label: Active alarm1, table: holding, address: 600, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.active_alarm2, label: Active alarm2, table: holding, address: 601, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.active_alarm3, label: Active alarm3, table: holding, address: 602, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.active_alarm4, label: Active alarm4, table: holding, address: 603, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.active_alarm5, label: Active alarm5, table: holding, address: 604, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.active_alarm6, label: Active alarm6, table: holding, address: 605, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.active_alarm7, label: Active alarm7, table: holding, address: 606, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.active_alarm8, label: Active alarm8, table: holding, address: 607, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.active_alarm9, label: Active alarm9, table: holding, address: 608, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.active_alarm10, label: Active alarm10, table: holding, address: 609, type: u16, enum: alarm, note: 'Alarm code: bit 7 set = warning (W), clear = fault (F); bits 0–6 = alarm number.'}
+  - {key: x.status, label: Unit status, table: holding, address: 899, type: u16, flags: status}
+  - {key: x.heating_config, label: Heating config, table: holding, address: 900, type: u16, flags: heating_config, note: The integration shows the water temperature only when the water bit is set.}
+  - {key: x.supply_temperature, label: Supply Temperature, table: holding, address: 901, type: s16, unit: °C, scale: 0.1}
+  - {key: x.extract_temperature, label: Extract Temperature, table: holding, address: 902, type: s16, unit: °C, scale: 0.1}
+  - {key: x.outdoor_temperature, label: Outdoor Temperature, table: holding, address: 903, type: s16, unit: °C, scale: 0.1}
+  - {key: x.water_temperature, label: Water Temperature, table: holding, address: 904, type: s16, unit: °C, scale: 0.1}
+  - {key: x.supply_flow, label: Supply Flow, table: holding, address: 905, type: u32, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.extract_flow, label: Extract Flow, table: holding, address: 907, type: u32, note: 'Air flow: on C6/C6M in m³/h or l/s as set in the flow unit register (address 27), or % when flow control (address 11) is off; on C8 in %.'}
+  - {key: x.supply_fan, label: Supply Fan, table: holding, address: 909, type: u16, unit: '%', scale: 0.1}
+  - {key: x.extract_fan, label: Extract Fan, table: holding, address: 910, type: u16, unit: '%', scale: 0.1}
+  - {key: x.heat_exchanger, label: Heat Exchanger, table: holding, address: 911, type: u16, unit: '%', scale: 0.1}
+  - {key: x.electric_heater, label: Electric Heater, table: holding, address: 912, type: u16, unit: '%', scale: 0.1}
+  - {key: x.water_heater, label: Water Heater, table: holding, address: 913, type: u16, unit: '%', scale: 0.1}
+  - {key: x.water_cooler, label: Water Cooler, table: holding, address: 914, type: u16, unit: '%', scale: 0.1}
+  - {key: x.dx_unit, label: DX unit, table: holding, address: 915, type: s16, unit: '%', scale: 0.1, note: 'Positive values are DX heating, negative values DX cooling.'}
+  - {key: x.filter_clogging, label: Filter Clogging, table: holding, address: 916, type: u16, unit: '%'}
+  - {key: x.air_dampers, label: Air Dampers, table: holding, address: 917, type: u16, unit: '%'}
+  - {key: x.supply_pressure, label: Supply Pressure, table: holding, address: 918, type: u16, unit: Pa, note: Shown by the integration only with variable air volume flow control.}
+  - {key: x.extract_pressure, label: Extract Pressure, table: holding, address: 919, type: u16, unit: Pa, note: Shown by the integration only with variable air volume flow control.}
+  - {key: consumer_power, label: Power Consumption, table: holding, address: 920, type: u16, unit: W, positive: consumption}
+  - {key: x.heater_power, label: Heater Power, table: holding, address: 921, type: u16, unit: W}
+  - {key: x.heat_recovery, label: Heat Recovery, table: holding, address: 922, type: u16, unit: W}
+  - {key: x.heat_exchanger_efficiency, label: Heat Exchanger Efficiency, table: holding, address: 923, type: u16, unit: '%'}
+  - {key: x.energy_saving, label: Energy Saving, table: holding, address: 924, type: u16, unit: '%'}
+  - {key: x.specific_power_input, label: Specific Power Input, table: holding, address: 925, type: u16, scale: 0.001, models: [c6, c6m]}
+  - {key: x.daily_ahu_energy, label: Daily AHU Energy, table: holding, address: 926, type: u32, unit: kWh, scale: 0.001, models: [c6, c6m]}
+  - {key: x.monthly_ahu_energy, label: Monthly AHU Energy, table: holding, address: 928, type: u32, unit: kWh, scale: 0.001, models: [c6, c6m]}
+  - {key: consumer_energy, label: Total AHU Energy, table: holding, address: 930, type: u32, unit: kWh, scale: 0.001, models: [c6, c6m]}
+  - {key: x.daily_heater_energy, label: Daily Heater Energy, table: holding, address: 932, type: u32, unit: kWh, scale: 0.001, models: [c6, c6m]}
+  - {key: x.monthly_heater_energy, label: Monthly Heater Energy, table: holding, address: 934, type: u32, unit: kWh, scale: 0.001, models: [c6, c6m]}
+  - {key: x.total_heater_energy, label: Total Heater Energy, table: holding, address: 936, type: u32, unit: kWh, scale: 0.001, models: [c6, c6m]}
+  - {key: x.daily_recovered_energy, label: Daily Recovered Energy, table: holding, address: 938, type: u32, unit: kWh, scale: 0.001, models: [c6, c6m]}
+  - {key: x.monthly_recovered_energy, label: Monthly Recovered Energy, table: holding, address: 940, type: u32, unit: kWh, scale: 0.001, models: [c6, c6m]}
+  - {key: x.total_recovered_energy, label: Total Recovered Energy, table: holding, address: 942, type: u32, unit: kWh, scale: 0.001, models: [c6, c6m]}
+  - {key: x.spi_day, label: Spi day, table: holding, address: 944, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.panel_1_temperature, label: Panel 1 Temperature, table: holding, address: 945, type: s16, unit: °C, scale: 0.1}
+  - {key: x.panel_1_humidity, label: Panel 1 Humidity, table: holding, address: 946, type: s16, unit: '%'}
+  - {key: x.panel1_aq, label: Panel1 aq, table: holding, address: 947, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.panel_2_temperature, label: Panel 2 Temperature, table: holding, address: 948, type: s16, unit: °C, scale: 0.1}
+  - {key: x.panel_2_humidity, label: Panel 2 Humidity, table: holding, address: 949, type: s16, unit: '%'}
+  - {key: x.panel2_aq, label: Panel2 aq, table: holding, address: 950, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.extract_aq_1, label: Extract aq 1, table: holding, address: 951, type: u16, note: 'Meaning set by the sensor type register (address 212 / 213): CO2 in ppm, VOC in %, or relative humidity in %.'}
+  - {key: x.extract_aq_2, label: Extract aq 2, table: holding, address: 952, type: u16, note: 'Meaning set by the sensor type register (address 212 / 213): CO2 in ppm, VOC in %, or relative humidity in %.'}
+  - {key: x.connected_panels, label: Connected Panels, table: holding, address: 953, type: u16, enum: connectedpanels}
+  - {key: x.heat_exchanger_type, label: Heat Exchanger Type, table: holding, address: 954, type: u16, enum: heatexchangertype}
+  - {key: x.indoor_absolute_humidity, label: Indoor Absolute Humidity, table: holding, address: 955, type: u16, unit: g/m³, scale: 0.01, invalid: [65534, 65535], note: C6/C6M read it only from functional version 38.}
+  - {key: x.outdoor_absolute_humidity, label: Outdoor Absolute Humidity, table: holding, address: 956, type: u16, unit: g/m³, scale: 0.01, invalid: [65534, 65535], note: C6/C6M read it only from functional version 38.}
+  - {key: x.do_alarm, label: Do alarm, table: holding, address: 957, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.do_heating, label: Do heating, table: holding, address: 958, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.do_cooling, label: Do cooling, table: holding, address: 959, type: u16, note: Named in registers.py but not shown by the integration.}
+  - {key: x.exhaust_temperature, label: Exhaust Temperature, table: holding, address: 960, type: s16, unit: °C, scale: 0.1, models: [c6, c6m], note: Read only on C6/C6M from functional version 67.}
+  - {key: x.controller_firmware, label: Controller firmware, table: holding, address: 999, type: u32, note: 'Packed version: bits 28–31 controller type (0 C6, 1 C6M, 2 C8), then 4, 4, 8 and 12 bits for the four version numbers; the last one is the functional version.'}
+  - {key: x.panel_1_firmware, label: Panel 1 firmware, table: holding, address: 1001, type: u32, note: 'Packed version: bits 28–31 panel type (0 P1), then 4, 4, 8 and 12 bits for the four version numbers. Read only when the panel is connected (address 953).'}
+  - {key: x.panel_2_firmware, label: Panel 2 firmware, table: holding, address: 1003, type: u32, note: 'Packed version: bits 28–31 panel type (0 P1), then 4, 4, 8 and 12 bits for the four version numbers. Read only when the panel is connected (address 953).'}
+  - {key: x.reset_settings, label: Reset settings, table: holding, address: 1049, type: u16, enum: resetsettings, note: Named in registers.py but not shown by the integration.}
+  - {key: x.clean_filters, label: Clean filters, table: holding, address: 1050, type: u16, writable: true}
+
+enums:
+  alarm: {'1': F1 Supply Flow Not Reached, '2': F2 Exhaust Flow Not Reached, '3': F3 Water Temp B5 Too Low, '4': F4 Low Supply Air Temperature, '5': F5 High Supply Air Temperature, '6': F6 Electric Heater Overheat, '7': F7 Heat Exchanger Failure, '8': F8 Heat Exchanger Icing, '9': F9 Internal Fire, '10': F10 External Fire, '11': F11 Supply Air Temp B1 Short, '12': F12 Supply Air Temp B1 Not Connected, '13': F13 Extract Air Temp B2 Short, '14': F14 Extract Air Temp B2 Not Connected, '15': F15 Outdoor Air Temp B3 Short, '16': F16 Outdoor Air Temp B3 Not Connected, '17': F17 Exhaust Air Temp B4 Short, '18': F18 Exhaust Air Temp B4 Not Connected, '19': F19 Water Temp B5 Short, '20': F20 Water Temp B5 Not Connected, '21': F21 Supply Temp After Hx B10 Short, '22': F22 Supply Temp After Hx B10 Not Connected, '23': F23 Flash Fail, '24': F24 Too Low 24V Supply Voltage, '25': F25 Too High 24V Supply Voltage, '26': F26 24V Supply Voltage Overloaded, '28': F28 Room Temperature Sensor Fail, '29': F29 Room Humidity Sensor Fail, '30': F30 Humidity Sensor Failure, '31': F31 Impurity Sensor Failure, '32': F32 Heat Exchanger Failure, '33': F33 Heat Exchanger Failure, '34': F34 Heat Exchanger Failure, '35': F35 Heat Exchanger Failure, '36': F36 Heat Exchanger Failure, '37': F37 Heat Exchanger Failure, '38': F38 Air Flow Sensor Failure, '39': F39 Air Flow Sensor Failure, '40': F40 Communication Error, '41': F41 Fire Dampers Failure, '42': F42 Fire Damper Failure, '43': F43 Fire Damper Failure, '44': F44 Fire Damper Failure, '45': F45 Fire Damper Failure, '46': F46 External Fire Alarm, '47': F47 External Fire Alarm, '48': F48 External Fire Alarm, '49': F49 External Fire Alarm, '50': F50 External Fire Alarm, '51': F51 Electric Heater Failure, '52': F52 Electric Preheater Failure, '129': W1 Change Air Filter, '130': W2 Service Mode, '131': W3 Water Temp B5 Too Low, '132': W4 Humidity Sensor Failure, '133': W5 Impurity Sensor Failure, '134': W6 Low Heat Exchanger Efficiency}
+  operationmode: {'0': Standby, '1': Away, '2': Normal, '3': Intensive, '4': Boost, '5': Kitchen, '6': Fireplace, '7': Override, '8': Holiday, '9': Air quality, '10': 'Off'}
+  schedulermode: {'0': Stay at home, '1': Working week, '2': Office, '3': Custom}
+  temperaturecontrol: {'0': Supply, '1': Extract, '2': Room, '3': Balance}
+  flowcontrol: {'0': Constant, '1': Variable, '2': Direct, '3': 'Off'}
+  controlstage: {'0': None, '1': External coil, '2': Electric heater, '3': External dx unit}
+  coiltype: {'0': Hot water, '1': Cold water, '2': Combi}
+  flowunit: {'0': M3h, '1': Ls}
+  overrideactivation: {'0': All time, '1': If on, '2': If off}
+  microventilation: {'1': Once, '2': Twice, '3': Thrice, '4': Four}
+  airqualitysensortype: {'0': Not installed, '1': Co2, '2': Voc, '3': Humidity}
+  outdoorhumiditysensor: {'0': None, '1': Sensor1, '2': Sensor2}
+  heatrecoverycontrol: {'0': Auto, '1': Constant, '2': Non stop}
+  connectedpanels: {'0': None, '1': Panel1, '2': Panel2, '3': Both}
+  heatexchangertype: {'0': Plate, '1': Rotary}
+  resetsettings: {'1': Away, '2': Normal, '3': Intensive, '4': Boost, '5': Holidays, '6': Override, '7': Kitchen, '8': Fireplace, '9': Air quality, '10': Eco, '11': Advanced}
+
+flags:
+  status: {'0': Status Starting, '1': Status Stopping, '2': Status Fan, '3': Status Rotor, '4': Status Heating, '5': Status Cooling, '6': Status Heating Denied, '7': Status Cooling Denied, '8': Status Flow Down, '9': Status Free Heating, '10': Status Free Cooling, '11': Status Alarm Fault, '12': Status Alarm Warning}
+  heating_config: {'0': Electric heater, '1': Water heater, '2': DX unit}
+
+notes:
+- Register numbers in the integration are 1-based; addresses here are the numbers minus 1. All registers are holding registers;
+  32-bit values have the high register first.
+- 'The controller type is the top 4 bits of the firmware version (holding 999–1000): 0 C6, 1 C6M, 2 C8.'
+- Points listed only for C6/C6M are the ones the integration creates only for those controllers.
+- The sources don't state the default unit id; 1 is a guess.
+- 'Left out: room_sensor (holding 38, u16) from komfovent overlaps bacnet_id (holding 37, u32); check a document.'
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

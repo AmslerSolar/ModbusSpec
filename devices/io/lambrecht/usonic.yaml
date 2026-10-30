@@ -1,0 +1,72 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the LAMBRECHT meteo usonic Modbus 16470 Betriebsanleitung 6 (no version, 09.26).
+
+modbusspec: 0
+id: lambrecht-usonic
+manufacturer: LAMBRECHT meteo
+name: u[sonic] Modbus ultrasonic wind sensor
+kind: io
+
+sources:
+- title: LAMBRECHT meteo u[sonic] Modbus Betriebsanleitung (usonic_Modbus_16470_Betriebsanleitung_6)
+  version: no version (09.26)
+  url: https://api.lambrecht.net/upload/manuals/usonic_Modbus_16470_Betriebsanleitung_6.pdf
+  sha256: bd2315e15aeec808e5ba164279af2af860366f84ef401bf51cef661abf3a615a
+
+connection:
+  default_port: 502
+  default_unit: 9
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40100
+    type: str
+    length: 6
+  checks:
+  - table: holding
+    address: 40050
+    type: str
+    length: 8
+    prefix: '00.16470'
+
+points:
+  # Instantaneous values (input registers, function 04, one register per request)
+  - {key: x.wind_speed, label: Windgeschwindigkeit, table: input, address: 30001, type: s16, unit: m/s, scale: 0.1, invalid: [-9999]}
+  - {key: x.wind_direction, label: Windrichtung, table: input, address: 30201, type: s16, unit: °, scale: 0.1, invalid: [-9999]}
+
+  # Identity (holding registers, function 03)
+  - {key: x.device_id, label: Geräte-Identifikationsnummer, table: holding, address: 40050, type: str, length: 8, poll: slow, note: 'Article number as text, e.g. 00.16470.100130; null-terminated.'}
+  - {key: serial, label: Seriennummer, table: holding, address: 40100, type: str, length: 6, poll: slow, note: 'Up to 11 characters, null-terminated.'}
+  - {key: firmware, label: Firmwareversion, table: holding, address: 40150, type: str, length: 13, poll: slow, note: 'Up to 25 characters, null-terminated.'}
+
+  # Configuration (holding registers)
+  - {key: x.modbus_address, label: Modbus-Adresse Gerät, table: holding, address: 40001, type: u16, writable: true, poll: slow, write_only: true, write_multiple: true, note: Restart the device after a change.}
+  - {key: x.baud_rate, label: Baudrate, table: holding, address: 40200, type: u16, enum: baud_rate, writable: true, poll: slow, write_only: true, write_multiple: true, note: Restart the device after a change.}
+  - {key: x.parity, label: Parität, table: holding, address: 40201, type: u16, enum: parity, writable: true, poll: slow, write_only: true, write_multiple: true, note: Restart the device after a change.}
+
+enums:
+  baud_rate: {'96': '9600', '192': '19200', '384': '38400'}
+  parity: {'0': None, '1': Even}
+
+notes:
+- 'Addresses: the document''s register numbers (30001 …, 40001 …) are sent on the wire unchanged, as its example frames show
+  (30001 = 0x7531, 40050 = 0x9C72); they are used here as the protocol addresses, no offset subtracted.'
+- Every measured value must be requested on its own (one register per input-register request).
+- A value of −9999 means an internal sensor error. Values are signed 16-bit integers divided by 10 (signedness not spelled
+  out; needed for the −9999 error code).
+- 'Defaults: unit id 9, 19200 baud, 8E1.'
+- The sensor also measures a virtual (acoustic) temperature, but the document lists no register for it.
+- 'Left out: the period values (average, maximum, minimum since the previous request, input 30002 … 30004 and 30202 … 30204).
+  Reading the average clears the group, so they suit only a single reader that reads minimum, maximum, average in that order.'

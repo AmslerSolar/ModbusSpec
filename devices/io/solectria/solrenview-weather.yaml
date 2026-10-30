@@ -1,0 +1,84 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Solectria Renewables Modbus for SolrenView Weather Station (DOCR-070535, Revision A).
+
+modbusspec: 0
+id: solectria-solrenview-weather
+manufacturer: Solectria
+name: SolrenView weather station
+kind: io
+
+sources:
+- title: Solectria Renewables Modbus for SolrenView Weather Station (DOCR-070535)
+  version: Revision A (2014)
+  url: http://www.solectria.com/site/assets/files/1658/docr-070535-a_-_modbus_for_srv_weather_station.pdf
+  sha256: cb74c0e434997f5e85c35378894239c39b9d78f667a6a34f2c8c0797f9cdb357
+  archive_url: https://web.archive.org/web/20170727083016/http://solectria.com//site/assets/files/1658/docr-070535-a_-_modbus_for_srv_weather_station.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40052
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: Solren
+  - table: holding
+    address: 40020
+    type: str
+    length: 16
+    prefix: WEATHER
+
+points:
+  # Measurements
+  - {key: x.ambient_temperature, label: Ambient Temperature, table: holding, address: 30, type: u16, unit: °C, scale: 0.1, offset: -273.15, invalid: [65535], optional: true, note: Raw value is 0.1 K; converted to °C here (see notes).}
+  - {key: x.module_temperature, label: Panel Module Temperature, table: holding, address: 31, type: u16, unit: °C, scale: 0.1, offset: -273.15, invalid: [65535], optional: true, note: Raw value is 0.1 K.}
+  - {key: x.pcb_temperature, label: PCB Temperature, table: holding, address: 32, type: u16, unit: °C, scale: 0.1, offset: -273.15, invalid: [65535], note: Raw value is 0.1 K.}
+  - {key: x.irradiance, label: Irradiance, table: holding, address: 33, type: u16, unit: W/m², scale: 0.1, invalid: [65535], optional: true}
+  - {key: x.wind_direction, label: Wind Direction, table: holding, address: 34, type: u16, unit: °, scale: 0.1, invalid: [65535], optional: true, note: 0 to under 360.}
+  - {key: x.wind_speed, label: Wind Speed, table: holding, address: 35, type: u16, unit: m/s, scale: 0.0447, invalid: [65535], optional: true, note: Raw value is 0.1 mph; × 0.0447 gives m/s (the document's own conversion).}
+  # Settings
+  - {key: x.unit_id, label: Slave Address/ID, table: holding, address: 14, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Baud Rate, table: holding, address: 15, type: u16, unit: Bd, writable: true, poll: slow, note: 19200 or 9600 only; the value is the baud rate itself.}
+  # Identity (SunSpec common model, newer firmware only)
+  - {key: x.manufacturer, label: Manufacturer String, table: holding, address: 40004, type: str, length: 16, poll: slow, note: Reads "Solren".}
+  - {key: x.model, label: Common - Model, table: holding, address: 40020, type: str, length: 16, poll: slow, note: Reads "WEATHER".}
+  - {key: firmware, label: Version, table: holding, address: 40044, type: str, length: 8, poll: slow, note: 'Firmware date, e.g. 20121024.'}
+  - {key: serial, label: Device Serial Number, table: holding, address: 40052, type: str, length: 16, poll: slow, note: 'The MAC address as text (00:90:C2:…).'}
+
+notes:
+- Function 03 reads, 06 / 10 write. Every register is one 16-bit word, high byte first. The register numbers in the document
+  are used as the 0-based protocol addresses (its example request for register 30 sends address 0x001E).
+- 0xFFFF in a measurement register means the sensor is not connected; ambient, module temperature, irradiance and wind sensors
+  are optional.
+- Temperatures are sent in 0.1 K steps (valid range 218–398 K). The document's conversion formula to °C adds 273 instead of
+  subtracting it; °C = K − 273.15 is used here.
+- A SunSpec block (common model 1, then models 307 base meteorological and 308 mini weather, end marker at 40248) starts at
+  40000 on units with firmware from 2012 onward; older units don't have it, and identification relies on it. Its model 307/308
+  values repeat the readings above (ambient and module temperature in 0.1 °C, irradiance in W/m², wind speed in whole m/s,
+  wind direction in degrees); humidity, pressure and precipitation are not implemented. Only the more precise legacy registers
+  are listed.
+- The document doesn't give a default unit id or the bus termination; unit 1 and port 502 (behind an RS485 gateway) are assumed.
+  Baud rate 19200 or 9600, 8N1; 19200 is taken as the default (the timing section assumes it).

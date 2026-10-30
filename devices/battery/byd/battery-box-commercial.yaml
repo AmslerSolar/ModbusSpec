@@ -1,0 +1,207 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the BMSER Communication protocol for BMS and PCS (V3.1, 2019-07-05; file name "RS485 MODBUS based
+# communication protocol between BMS and PCS V2.1 20190323"). The document comes from the BMS maker BMSER
+# (Hangzhou Xieneng); it describes the BMS of the BYD Battery-Box Commercial (C130) battery clusters.
+
+modbusspec: 0
+id: byd-battery-box-commercial
+manufacturer: BYD
+name: Battery-Box Commercial (C130)
+kind: battery
+
+sources:
+- title: Communication protocol for BMS and PCS (BMSER), file "20200323(New)RS485 MODBUS based communication protocol between
+    BMS and PCS V2.1 20190323"
+  version: V3.1 (2019-07-05)
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.battery.bydcommercial/doc/20200323%EF%BC%88New%EF%BC%89RS485%20MODBUS%20based%20communication%20protocol%20between%20BMS%20and%20%20PCS%20V2.1_20190323_.pdf
+  sha256: aeb619b3cc57a58a7928530ebbb18017766fffe6a22426ec6e751f5542bc674d
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.battery.bydcommercial
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 57600
+    format: 8N1
+  limits:
+    max_registers: 125
+    min_interval_ms: 300
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Control (cluster 1 base 0x2000 + offset)
+  - {key: x.power_circuit_control, label: Power circuit control, table: holding, address: 8208, type: u16, enum: off_on, writable: true, note: Closes (1) or opens (0) the main circuit contactor.}
+  # Cluster status
+  - {key: battery_voltage, label: Battery stack voltage, table: holding, address: 8448, type: u16, unit: V, scale: 0.1}
+  - {key: battery_current, label: Battery circuit current, table: holding, address: 8449, type: s16, unit: A, scale: 0.1, positive: discharge, verified: false, note: Range −500 … 500 A. The document doesn't say which direction is positive; discharge is assumed.}
+  - {key: x.work_state, label: Battery work state, table: holding, address: 8450, type: u16, enum: work_state}
+  - {key: battery_soc, label: Battery stack SOC, table: holding, address: 8451, type: u16, unit: '%'}
+  - {key: battery_soh, label: Battery stack SOH, table: holding, address: 8452, type: u16, unit: '%', poll: slow}
+  - {key: x.max_cell_voltage_position, label: Position of maximum cell voltage, table: holding, address: 8453, type: u16, note: Cell 1 … 224.}
+  - {key: x.max_cell_voltage, label: Maximum cell voltage, table: holding, address: 8454, type: u16, unit: V, scale: 0.001}
+  - {key: x.min_cell_voltage_position, label: Position of minimum cell voltage, table: holding, address: 8455, type: u16}
+  - {key: x.min_cell_voltage, label: Minimum cell voltage, table: holding, address: 8456, type: u16, unit: V, scale: 0.001}
+  - {key: x.max_temperature_position, label: Maximum temperature position, table: holding, address: 8457, type: u16}
+  - {key: x.max_temperature, label: Maximum temperature value, table: holding, address: 8458, type: s16, unit: °C, scale: 0.1}
+  - {key: x.min_temperature_position, label: Minimum temperature position, table: holding, address: 8459, type: u16}
+  - {key: x.min_temperature, label: Minimum temperature value, table: holding, address: 8460, type: s16, unit: °C, scale: 0.1}
+  - {key: x.insulation_resistance, label: System insulation value, table: holding, address: 8470, type: u16, unit: kΩ}
+  - {key: x.charge_state, label: Battery charge state, table: holding, address: 8477, type: u16, note: 1 = the battery needs charging; other values mean nothing.}
+  # Alarms (0 = normal, 1 = alarm)
+  - {key: x.alarm_level1_1, label: Alarm level 1_1, table: holding, address: 8512, type: u16, flags: cell_alarm_bits}
+  - {key: x.alarm_level2_1, label: Alarm level 2_1, table: holding, address: 8513, type: u16, flags: cell_alarm_bits}
+  - {key: x.cluster_run_state, label: Cluster run state, table: holding, address: 8514, type: u16, enum: cluster_run_state}
+  - {key: x.alarm_level3_1, label: Alarm level 3_1, table: holding, address: 8515, type: u16, flags: cell_alarm_bits}
+  - {key: x.other_alarms, label: Other alarm info, table: holding, address: 8516, type: u16, flags: other_alarm_bits}
+  - {key: x.alarm_level1_2, label: Alarm level 1_2, table: holding, address: 8517, type: u16, flags: system_alarm_bits}
+  - {key: x.alarm_level2_2, label: Alarm level 2_2, table: holding, address: 8518, type: u16, flags: system_alarm_bits}
+  - {key: x.alarm_level3_2, label: Alarm level 3_2, table: holding, address: 8519, type: u16, flags: system_alarm_bits}
+  # Limits
+  - {key: x.max_charge_current, label: Max charge current, table: holding, address: 8556, type: s16, unit: A, scale: 0.1, conflicts: [{sources: [openems], type: u16, label: Bp charge bms}]}
+  - {key: x.max_discharge_current, label: Max discharge current, table: holding, address: 8557, type: s16, unit: A, scale: 0.1, conflicts: [{sources: [openems], type: u16, label: Bp discharge bms}]}
+  # Slave units (BMU)
+  - {key: x.slave_comm_2, label: Master / slave control communication fault 2, table: holding, address: 8579, type: u16, flags: slave_comm_2_bits}
+  - {key: x.slave_comm_1, label: Master / slave control communication fault 1, table: holding, address: 8580, type: u16, flags: slave_comm_1_bits}
+  - {key: x.slave_unit_faults, label: Slave unit function fault, table: holding, address: 8581, type: u16, flags: slave_fault_bits}
+  # Cell values (first of each block)
+  - {key: x.cell_1_voltage, label: 'Battery voltage: cell 1', table: holding, address: 10240, type: u16, unit: V, scale: 0.001, poll: slow, note: 'First of the cell voltages: cell n at 0x2800 + n − 1, up to 224 cells (the document''s table ends at cell 216, 0x28D7).'}
+  - {key: x.temperature_1, label: 'Battery temperature: 1', table: holding, address: 11264, type: s16, unit: °C, scale: 0.1, poll: slow, note: 'First of the temperature sensors: sensor n at 0x2C00 + n − 1 (the document''s table ends at sensor 108, 0x2C6B; up to 224 supported).', conflicts: [{sources: [openems], type: u16, label: Cluster 1 battery 00 temperature}]}
+  - {key: x.module_qty, label: Module qty, table: holding, address: 8461, type: u16, verified: false, sources: [openems]}
+  - {key: x.total_voltage_of_single_module, label: Total voltage of single module, table: holding, address: 8462, type: u16, unit: V, scale: 0.001, verified: false, sources: [openems]}
+  - {key: x.need_charge, label: Battery Need Charge, table: holding, address: 8477, type: u16, bits: [1, 1], verified: false, sources: [openems]}
+  - {key: x.charge_max_voltage, label: Charge max voltage, table: holding, address: 8558, type: u16, unit: V, scale: 0.1, verified: false, sources: [openems]}
+  - {key: x.discharge_min_voltage, label: Discharge min voltage, table: holding, address: 8559, type: u16, unit: V, scale: 0.1, verified: false, sources: [openems]}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  work_state: {'0': Standby, '1': Discharge, '2': Charge}
+  cluster_run_state: {'0': Normal, '1': Full, '2': Empty, '3': Standby, '4': Stop}
+
+flags:
+  cell_alarm_bits: {'0': Cell over voltage, '1': Cell under voltage, '2': Cell voltage imbalance, '3': Over temperature (discharge), '4': Under temperature (discharge), '5': Over temperature (charge), '6': Under temperature (charge), '7': Temperature difference too high, '9': Pole (terminal) temperature too high, '10': Discharge current too high, '11': Charge current too high}
+  system_alarm_bits: {'0': System over voltage, '1': System under voltage, '2': System voltage imbalance, '3': Insulation resistance low, '4': Insulation resistance low (positive pole), '5': Insulation resistance low (negative pole), '6': SOC too low, '7': SOC too high, '8': SOH too low, '9': High-voltage box temperature too high, '10': Cell voltage extremely high, '11': Cell voltage extremely low}
+  other_alarm_bits: {'0': Slave unit summary fault, '1': BCU temperature sensor (NTC) fault, '2': Contactor welded, '3': BCU–BMU communication fault, '4': EEPROM fault, '5': Current sensor fault, '6': Insulation check fault, '7': BAU communication fault, '8': Isolation switch state, '9': Fuse fault}
+  slave_fault_bits: {'0': Slave unit initialisation fault, '1': Voltage sampling line fault, '2': Connecting line fault, '3': Sampling chip fault, '4': Voltage sampling fault, '5': Temperature sampling fault, '6': Temperature sensor fault, '7': Contactor fault, '8': EEPROM fault, '9': Passive balancing fault, '10': Passive balancing temperature fault, '11': Active balancing fault}
+  slave_comm_1_bits: {'0': Slave unit 1 communication fault, '1': Slave unit 2 communication fault, '2': Slave unit 3 communication fault, '3': Slave unit 4 communication fault, '4': Slave unit 5 communication fault, '5': Slave unit 6 communication fault, '6': Slave unit 7 communication fault, '7': Slave unit 8 communication fault, '8': Slave unit 9 communication fault, '9': Slave unit 10 communication fault, '10': Slave unit 11 communication fault, '11': Slave unit 12 communication fault, '12': Slave unit 13 communication fault, '13': Slave unit 14 communication fault, '14': Slave unit 15 communication fault, '15': Slave unit 16 communication fault}
+  slave_comm_2_bits: {'0': Slave unit 17 communication fault, '1': Slave unit 18 communication fault, '2': Slave unit 19 communication fault, '3': Slave unit 20 communication fault, '4': Slave unit 21 communication fault, '5': Slave unit 22 communication fault, '6': Slave unit 23 communication fault, '7': Slave unit 24 communication fault, '8': Slave unit 25 communication fault, '9': Slave unit 26 communication fault, '10': Slave unit 27 communication fault, '11': Slave unit 28 communication fault, '12': Slave unit 29 communication fault, '13': Slave unit 30 communication fault, '14': Slave unit 31 communication fault, '15': Slave unit 32 communication fault}
+
+problems:
+  - {when: {key: x.alarm_level1_1, bit: 0}, kind: warning, text: 'Cell over voltage (level 1 alarm, bit 0)'}
+  - {when: {key: x.alarm_level1_1, bit: 1}, kind: warning, text: 'Cell under voltage (level 1 alarm, bit 1)'}
+  - {when: {key: x.alarm_level1_1, bit: 2}, kind: warning, text: 'Cell voltage imbalance (level 1 alarm, bit 2)'}
+  - {when: {key: x.alarm_level1_1, bit: 3}, kind: warning, text: 'Over temperature (discharge) (level 1 alarm, bit 3)'}
+  - {when: {key: x.alarm_level1_1, bit: 4}, kind: warning, text: 'Under temperature (discharge) (level 1 alarm, bit 4)'}
+  - {when: {key: x.alarm_level1_1, bit: 5}, kind: warning, text: 'Over temperature (charge) (level 1 alarm, bit 5)'}
+  - {when: {key: x.alarm_level1_1, bit: 6}, kind: warning, text: 'Under temperature (charge) (level 1 alarm, bit 6)'}
+  - {when: {key: x.alarm_level1_1, bit: 7}, kind: warning, text: 'Temperature difference too high (level 1 alarm, bit 7)'}
+  - {when: {key: x.alarm_level1_1, bit: 9}, kind: warning, text: 'Pole (terminal) temperature too high (level 1 alarm, bit 9)'}
+  - {when: {key: x.alarm_level1_1, bit: 10}, kind: warning, text: 'Discharge current too high (level 1 alarm, bit 10)'}
+  - {when: {key: x.alarm_level1_1, bit: 11}, kind: warning, text: 'Charge current too high (level 1 alarm, bit 11)'}
+  - {when: {key: x.alarm_level1_2, bit: 0}, kind: warning, text: 'System over voltage (level 1 alarm, bit 0)'}
+  - {when: {key: x.alarm_level1_2, bit: 1}, kind: warning, text: 'System under voltage (level 1 alarm, bit 1)'}
+  - {when: {key: x.alarm_level1_2, bit: 2}, kind: warning, text: 'System voltage imbalance (level 1 alarm, bit 2)'}
+  - {when: {key: x.alarm_level1_2, bit: 3}, kind: warning, text: 'Insulation resistance low (level 1 alarm, bit 3)'}
+  - {when: {key: x.alarm_level1_2, bit: 4}, kind: warning, text: 'Insulation resistance low (positive pole) (level 1 alarm, bit 4)'}
+  - {when: {key: x.alarm_level1_2, bit: 5}, kind: warning, text: 'Insulation resistance low (negative pole) (level 1 alarm, bit 5)'}
+  - {when: {key: x.alarm_level1_2, bit: 6}, kind: warning, text: 'SOC too low (level 1 alarm, bit 6)'}
+  - {when: {key: x.alarm_level1_2, bit: 7}, kind: warning, text: 'SOC too high (level 1 alarm, bit 7)'}
+  - {when: {key: x.alarm_level1_2, bit: 8}, kind: warning, text: 'SOH too low (level 1 alarm, bit 8)'}
+  - {when: {key: x.alarm_level1_2, bit: 9}, kind: warning, text: 'High-voltage box temperature too high (level 1 alarm, bit 9)'}
+  - {when: {key: x.alarm_level1_2, bit: 10}, kind: warning, text: 'Cell voltage extremely high (level 1 alarm, bit 10)'}
+  - {when: {key: x.alarm_level1_2, bit: 11}, kind: warning, text: 'Cell voltage extremely low (level 1 alarm, bit 11)'}
+  - {when: {key: x.alarm_level2_1, bit: 0}, kind: warning, text: 'Cell over voltage (level 2 alarm, bit 0)'}
+  - {when: {key: x.alarm_level2_1, bit: 1}, kind: warning, text: 'Cell under voltage (level 2 alarm, bit 1)'}
+  - {when: {key: x.alarm_level2_1, bit: 2}, kind: warning, text: 'Cell voltage imbalance (level 2 alarm, bit 2)'}
+  - {when: {key: x.alarm_level2_1, bit: 3}, kind: warning, text: 'Over temperature (discharge) (level 2 alarm, bit 3)'}
+  - {when: {key: x.alarm_level2_1, bit: 4}, kind: warning, text: 'Under temperature (discharge) (level 2 alarm, bit 4)'}
+  - {when: {key: x.alarm_level2_1, bit: 5}, kind: warning, text: 'Over temperature (charge) (level 2 alarm, bit 5)'}
+  - {when: {key: x.alarm_level2_1, bit: 6}, kind: warning, text: 'Under temperature (charge) (level 2 alarm, bit 6)'}
+  - {when: {key: x.alarm_level2_1, bit: 7}, kind: warning, text: 'Temperature difference too high (level 2 alarm, bit 7)'}
+  - {when: {key: x.alarm_level2_1, bit: 9}, kind: warning, text: 'Pole (terminal) temperature too high (level 2 alarm, bit 9)'}
+  - {when: {key: x.alarm_level2_1, bit: 10}, kind: warning, text: 'Discharge current too high (level 2 alarm, bit 10)'}
+  - {when: {key: x.alarm_level2_1, bit: 11}, kind: warning, text: 'Charge current too high (level 2 alarm, bit 11)'}
+  - {when: {key: x.alarm_level2_2, bit: 0}, kind: warning, text: 'System over voltage (level 2 alarm, bit 0)'}
+  - {when: {key: x.alarm_level2_2, bit: 1}, kind: warning, text: 'System under voltage (level 2 alarm, bit 1)'}
+  - {when: {key: x.alarm_level2_2, bit: 2}, kind: warning, text: 'System voltage imbalance (level 2 alarm, bit 2)'}
+  - {when: {key: x.alarm_level2_2, bit: 3}, kind: warning, text: 'Insulation resistance low (level 2 alarm, bit 3)'}
+  - {when: {key: x.alarm_level2_2, bit: 4}, kind: warning, text: 'Insulation resistance low (positive pole) (level 2 alarm, bit 4)'}
+  - {when: {key: x.alarm_level2_2, bit: 5}, kind: warning, text: 'Insulation resistance low (negative pole) (level 2 alarm, bit 5)'}
+  - {when: {key: x.alarm_level2_2, bit: 6}, kind: warning, text: 'SOC too low (level 2 alarm, bit 6)'}
+  - {when: {key: x.alarm_level2_2, bit: 7}, kind: warning, text: 'SOC too high (level 2 alarm, bit 7)'}
+  - {when: {key: x.alarm_level2_2, bit: 8}, kind: warning, text: 'SOH too low (level 2 alarm, bit 8)'}
+  - {when: {key: x.alarm_level2_2, bit: 9}, kind: warning, text: 'High-voltage box temperature too high (level 2 alarm, bit 9)'}
+  - {when: {key: x.alarm_level2_2, bit: 10}, kind: warning, text: 'Cell voltage extremely high (level 2 alarm, bit 10)'}
+  - {when: {key: x.alarm_level2_2, bit: 11}, kind: warning, text: 'Cell voltage extremely low (level 2 alarm, bit 11)'}
+  - {when: {key: x.alarm_level3_1, bit: 0}, kind: fault, text: 'Cell over voltage (level 3 alarm, bit 0)'}
+  - {when: {key: x.alarm_level3_1, bit: 1}, kind: fault, text: 'Cell under voltage (level 3 alarm, bit 1)'}
+  - {when: {key: x.alarm_level3_1, bit: 2}, kind: fault, text: 'Cell voltage imbalance (level 3 alarm, bit 2)'}
+  - {when: {key: x.alarm_level3_1, bit: 3}, kind: fault, text: 'Over temperature (discharge) (level 3 alarm, bit 3)'}
+  - {when: {key: x.alarm_level3_1, bit: 4}, kind: fault, text: 'Under temperature (discharge) (level 3 alarm, bit 4)'}
+  - {when: {key: x.alarm_level3_1, bit: 5}, kind: fault, text: 'Over temperature (charge) (level 3 alarm, bit 5)'}
+  - {when: {key: x.alarm_level3_1, bit: 6}, kind: fault, text: 'Under temperature (charge) (level 3 alarm, bit 6)'}
+  - {when: {key: x.alarm_level3_1, bit: 7}, kind: fault, text: 'Temperature difference too high (level 3 alarm, bit 7)'}
+  - {when: {key: x.alarm_level3_1, bit: 9}, kind: fault, text: 'Pole (terminal) temperature too high (level 3 alarm, bit 9)'}
+  - {when: {key: x.alarm_level3_1, bit: 10}, kind: fault, text: 'Discharge current too high (level 3 alarm, bit 10)'}
+  - {when: {key: x.alarm_level3_1, bit: 11}, kind: fault, text: 'Charge current too high (level 3 alarm, bit 11)'}
+  - {when: {key: x.alarm_level3_2, bit: 0}, kind: fault, text: 'System over voltage (level 3 alarm, bit 0)'}
+  - {when: {key: x.alarm_level3_2, bit: 1}, kind: fault, text: 'System under voltage (level 3 alarm, bit 1)'}
+  - {when: {key: x.alarm_level3_2, bit: 2}, kind: fault, text: 'System voltage imbalance (level 3 alarm, bit 2)'}
+  - {when: {key: x.alarm_level3_2, bit: 3}, kind: fault, text: 'Insulation resistance low (level 3 alarm, bit 3)'}
+  - {when: {key: x.alarm_level3_2, bit: 4}, kind: fault, text: 'Insulation resistance low (positive pole) (level 3 alarm, bit 4)'}
+  - {when: {key: x.alarm_level3_2, bit: 5}, kind: fault, text: 'Insulation resistance low (negative pole) (level 3 alarm, bit 5)'}
+  - {when: {key: x.alarm_level3_2, bit: 6}, kind: fault, text: 'SOC too low (level 3 alarm, bit 6)'}
+  - {when: {key: x.alarm_level3_2, bit: 7}, kind: fault, text: 'SOC too high (level 3 alarm, bit 7)'}
+  - {when: {key: x.alarm_level3_2, bit: 8}, kind: fault, text: 'SOH too low (level 3 alarm, bit 8)'}
+  - {when: {key: x.alarm_level3_2, bit: 9}, kind: fault, text: 'High-voltage box temperature too high (level 3 alarm, bit 9)'}
+  - {when: {key: x.alarm_level3_2, bit: 10}, kind: fault, text: 'Cell voltage extremely high (level 3 alarm, bit 10)'}
+  - {when: {key: x.alarm_level3_2, bit: 11}, kind: fault, text: 'Cell voltage extremely low (level 3 alarm, bit 11)'}
+  - {when: {key: x.other_alarms, bit: 0}, kind: fault, text: 'Slave unit summary fault (other alarm, bit 0)'}
+  - {when: {key: x.other_alarms, bit: 1}, kind: fault, text: 'BCU temperature sensor (NTC) fault (other alarm, bit 1)'}
+  - {when: {key: x.other_alarms, bit: 2}, kind: fault, text: 'Contactor welded (other alarm, bit 2)'}
+  - {when: {key: x.other_alarms, bit: 3}, kind: fault, text: 'BCU–BMU communication fault (other alarm, bit 3)'}
+  - {when: {key: x.other_alarms, bit: 4}, kind: fault, text: 'EEPROM fault (other alarm, bit 4)'}
+  - {when: {key: x.other_alarms, bit: 5}, kind: fault, text: 'Current sensor fault (other alarm, bit 5)'}
+  - {when: {key: x.other_alarms, bit: 6}, kind: fault, text: 'Insulation check fault (other alarm, bit 6)'}
+  - {when: {key: x.other_alarms, bit: 7}, kind: fault, text: 'BAU communication fault (other alarm, bit 7)'}
+  - {when: {key: x.other_alarms, bit: 9}, kind: fault, text: 'Fuse fault (other alarm, bit 9)'}
+  - {when: {key: x.slave_unit_faults, bit: 0}, kind: fault, text: 'Slave unit initialisation fault (slave unit, bit 0)'}
+  - {when: {key: x.slave_unit_faults, bit: 1}, kind: fault, text: 'Voltage sampling line fault (slave unit, bit 1)'}
+  - {when: {key: x.slave_unit_faults, bit: 2}, kind: fault, text: 'Connecting line fault (slave unit, bit 2)'}
+  - {when: {key: x.slave_unit_faults, bit: 3}, kind: fault, text: 'Sampling chip fault (slave unit, bit 3)'}
+  - {when: {key: x.slave_unit_faults, bit: 4}, kind: fault, text: 'Voltage sampling fault (slave unit, bit 4)'}
+  - {when: {key: x.slave_unit_faults, bit: 5}, kind: fault, text: 'Temperature sampling fault (slave unit, bit 5)'}
+  - {when: {key: x.slave_unit_faults, bit: 6}, kind: fault, text: 'Temperature sensor fault (slave unit, bit 6)'}
+  - {when: {key: x.slave_unit_faults, bit: 7}, kind: fault, text: 'Contactor fault (slave unit, bit 7)'}
+  - {when: {key: x.slave_unit_faults, bit: 8}, kind: fault, text: 'EEPROM fault (slave unit, bit 8)'}
+  - {when: {key: x.slave_unit_faults, bit: 9}, kind: fault, text: 'Passive balancing fault (slave unit, bit 9)'}
+  - {when: {key: x.slave_unit_faults, bit: 10}, kind: fault, text: 'Passive balancing temperature fault (slave unit, bit 10)'}
+  - {when: {key: x.slave_unit_faults, bit: 11}, kind: fault, text: 'Active balancing fault (slave unit, bit 11)'}
+  - {when: {key: x.slave_comm_1, not: 0}, kind: fault, text: 'Slave unit 1–16 communication fault (bits 0x{value:X})'}
+  - {when: {key: x.slave_comm_2, not: 0}, kind: fault, text: 'Slave unit 17–32 communication fault (bits 0x{value:X})'}
+  - {when: {key: x.charge_state, equals: 1}, kind: warning, text: Battery needs charging}
+  - {when: {key: x.need_charge, equals: 1}, kind: warning, text: Battery Need Charge}
+
+notes:
+- Register address = cluster base + offset. The document gives the base of cluster 1 (0x2000) and says further clusters have
+  their own base, without listing them; only cluster 1 is described here.
+- Addresses are the document's hexadecimal register addresses, read with function 03 (holding); function 06 and 16 write.
+- Registers are unsigned unless the document marks them signed.
+- 'Alarm levels: the document doesn''t rank them. Level 3 bits are taken as faults and levels 1 and 2 as warnings (assumed).
+  Bit 8 of the other-alarm word is the isolation switch state, not an alarm.'
+- 'Alarm word 2 bits 10 and 11: the English and Chinese texts disagree; the Chinese is followed (bit 10 cell voltage extremely
+  high, bit 11 extremely low).'
+- The front page lists 9600 and 57600 baud with one of them struck through; the rendered text gives 57600.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

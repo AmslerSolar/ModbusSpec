@@ -1,0 +1,110 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From Peblar's Modbus TCP server specification on its developer site (below).
+
+modbusspec: 0
+id: peblar-wallbox
+manufacturer: Peblar
+name: Peblar Home / Home Plus / Business wallboxes (also sold as ChargeLine), firmware ≥ 1.6
+kind: charger
+
+sources:
+- title: Peblar Modbus TCP server (developer information, Modbus API)
+  version: API 1.0 (page as of 2026-10-24)
+  url: https://developer.peblar.com/modbus-api
+- title: Peblar py-modbus-api-client (manufacturer's example client, register addresses)
+  url: https://github.com/Peblar/py-modbus-api-client
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 30050
+    type: str
+    length: 12
+  checks:
+  - table: input
+    address: 30123
+    type: u16
+    range:
+    - 1
+    - 1
+
+points:
+  # Energy meter (input registers)
+  - {key: consumer_energy, label: EnergyTotal, table: input, address: 30000, type: s64, unit: kWh, scale: 0.001, poll: slow, note: Wh.}
+  - {key: session_energy, label: SessionEnergy, table: input, address: 30004, type: s64, unit: kWh, scale: 0.001, note: Wh; energy of the last charging session.}
+  - {key: l1_power, label: PowerPhase1, table: input, address: 30008, type: s32, unit: W, positive: consumption, verified: false, note: Sign not stated in the specification; a charger only draws power.}
+  - {key: l2_power, label: PowerPhase2, table: input, address: 30010, type: s32, unit: W, positive: consumption, verified: false, note: Sign not stated in the specification.}
+  - {key: l3_power, label: PowerPhase3, table: input, address: 30012, type: s32, unit: W, positive: consumption, verified: false, note: Sign not stated in the specification.}
+  - {key: consumer_power, label: PowerTotal, table: input, address: 30014, type: s32, unit: W, positive: consumption, verified: false, note: Sign not stated in the specification; a charger only draws power.}
+  - {key: l1_voltage, label: VoltagePhase1, table: input, address: 30016, type: s32, unit: V}
+  - {key: l2_voltage, label: VoltagePhase2, table: input, address: 30018, type: s32, unit: V}
+  - {key: l3_voltage, label: VoltagePhase3, table: input, address: 30020, type: s32, unit: V}
+  - {key: l1_current, label: CurrentPhase1, table: input, address: 30022, type: s32, unit: A, scale: 0.001}
+  - {key: l2_current, label: CurrentPhase2, table: input, address: 30024, type: s32, unit: A, scale: 0.001}
+  - {key: l3_current, label: CurrentPhase3, table: input, address: 30026, type: s32, unit: A, scale: 0.001}
+  # System information
+  - {key: serial, label: ProductSn, table: input, address: 30050, type: str, length: 12, poll: slow}
+  - {key: x.product_number, label: ProductPn, table: input, address: 30062, type: str, length: 12, poll: slow}
+  - {key: firmware, label: FirmwareVersion, table: input, address: 30074, type: str, length: 12, poll: slow}
+  - {key: x.wlan_signal, label: WlanSignalStrength, table: input, address: 30086, type: s32, unit: dBm, poll: slow}
+  - {key: x.cellular_signal, label: CellularSignalStrength, table: input, address: 30088, type: s32, unit: dBm, poll: slow}
+  - {key: x.uptime, label: Uptime, table: input, address: 30090, type: u32, unit: s, poll: slow}
+  - {key: x.phase_count, label: PhaseCount, table: input, address: 30092, type: u16, poll: slow}
+  - {key: x.independent_relays, label: IndependentRelays, table: input, address: 30093, type: u16, enum: independent_relays, poll: slow}
+  - {key: x.warning_1, label: ActiveWarning1, table: input, address: 30100, type: u16, note: 'Warning number, 0 = none. Up to five warnings at once (30100–30104); the specification gives no list of numbers.'}
+  - {key: x.warning_2, label: ActiveWarning2, table: input, address: 30101, type: u16}
+  - {key: x.warning_3, label: ActiveWarning3, table: input, address: 30102, type: u16}
+  - {key: x.warning_4, label: ActiveWarning4, table: input, address: 30103, type: u16}
+  - {key: x.warning_5, label: ActiveWarning5, table: input, address: 30104, type: u16}
+  - {key: error_code, label: ActiveError1, table: input, address: 30105, type: u16, note: 'Error number, 0 = none. Up to five errors at once (30105–30109); the specification gives no list of numbers.'}
+  - {key: x.error_2, label: ActiveError2, table: input, address: 30106, type: u16}
+  - {key: x.error_3, label: ActiveError3, table: input, address: 30107, type: u16}
+  - {key: x.error_4, label: ActiveError4, table: input, address: 30108, type: u16}
+  - {key: x.error_5, label: ActiveError5, table: input, address: 30109, type: u16}
+  # EV interface
+  - {key: state, label: CpState, table: input, address: 30110, type: u16, enum: cp_state, verified: false, note: Control pilot state as one ASCII letter in a 16-bit register; read here as the letter's code in the low byte (assumed — the specification doesn't say which byte).}
+  - {key: x.lock_state, label: LockState, table: input, address: 30111, type: s16, enum: lock_state, note: Stays 0 on fixed-cable units.}
+  - {key: x.current_limit_source, label: ChargeCurrentLimitSource, table: input, address: 30112, type: u16, enum: current_limit_source}
+  - {key: x.current_limit_actual, label: ChargeCurrentLimitActual, table: input, address: 30113, type: u32, unit: A, scale: 0.001, note: 'Current signalled to the vehicle: the lowest of all limits.'}
+  # Modbus API
+  - {key: x.hardware_identifier, label: HardwareIdentifier, table: input, address: 30122, type: u16, poll: slow, note: Reserved; reads 0.}
+  - {key: x.api_version_major, label: ModbusApiVersionMajor, table: input, address: 30123, type: u16, poll: slow, note: The specification describes major version 1.}
+  - {key: x.api_version_minor, label: ModbusApiVersionMinor, table: input, address: 30124, type: u16, poll: slow}
+  # Holding registers (writable in the ReadWrite mode of the API)
+  - {key: x.charge_current_limit, label: ChargeCurrentLimit, table: holding, address: 40000, type: u32, unit: A, scale: 0.001, writable: true, note: Per-phase limit from this API. 6–16 A (11 kW units) or 6–32 A (22 kW units) charges; 0 (or below 6 A) pauses. Pause at most 3 times per 10 minutes.}
+  - {key: x.force_1phase, label: Force1Phase, table: holding, address: 40002, type: u16, enum: force_1phase, writable: true, note: Switches over during a running session where supported.}
+  - {key: x.alive_timeout, label: AliveTimeout, table: holding, address: 40050, type: u32, unit: s, writable: true, poll: slow, note: After this time without a write to any holding register the fallback current applies; 0 = off.}
+  - {key: x.fallback_current, label: FallbackCurrent, table: holding, address: 40052, type: s32, unit: A, scale: 0.001, writable: true, poll: slow, note: Default 6 A; overrides ChargeCurrentLimit while the alive timeout has run out.}
+
+enums:
+  cp_state: {'65': A – no vehicle connected, '66': 'B – vehicle connected, suspended', '67': 'C – vehicle connected, charging', '68': 'D – charging, ventilation requested', '69': E – error (short to PE or powered off), '70': F – fault, '73': I – invalid CP level, '85': U – unknown}
+  lock_state: {'0': Unlocked, '1': Locked}
+  independent_relays: {'0': L1/L2/L3 and N on one relay, '1': L1/N and L2/L3 on separate relays}
+  force_1phase: {'0': Don't force 1-phase, '1': Force 1-phase}
+  current_limit_source: {'0': Unknown, '1': 'Fixed cable (deprecated after firmware 1.9, see 8)', '2': Thermal, '3': Configured installation limit, '4': Dynamic load balancing, '5': Group load balancing, '6': User cable (socket), '7': Overcurrent protection, '8': Hardware limit, '9': Power factor, '10': OCPP smart charging, '11': Phase imbalance monitoring, '12': Local scheduled charging, '13': Solar charging, '14': Current slider, '15': Local REST API, '16': Local Modbus API, '17': Power limit input, '18': Household power limit, '19': Reserved, '20': Internal power limiter}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charger error {value}'}
+  - {when: {key: state, equals: 69}, kind: fault, text: Control pilot state E (short to PE or powered off)}
+  - {when: {key: state, equals: 70}, kind: fault, text: Control pilot state F (fault)}
+  - {when: {key: x.warning_1, not: 0}, kind: warning, text: 'Charger warning {value}'}
+
+notes:
+- Enable the Modbus TCP server in the charger's web interface (advanced settings) as ReadOnly or ReadWrite; only ReadWrite
+  accepts the holding-register writes.
+- Addresses are the specification's register numbers used directly as protocol addresses (30000 = input register 30000, 40000
+  = holding register 40000), as the manufacturer's example client does; they aren't 30001/40001-style references.
+- The specification gives no unit id; 1 is the example client's library default (not verified).
+- The specification doesn't list the warning and error numbers.

@@ -1,0 +1,180 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the LG HBC Battery Modbus Protocol (2026-10-19), a description reverse-engineered from bus captures
+# between inverter and battery (battery firmware 3.1.4, 3.1.7, 3.1.8, 4.0.3, 4.0.5). Registers the document marks as
+# likely are `verified: false`; registers it marks as unknown or unused are left out.
+
+modbusspec: 0
+id: lg-hbc
+manufacturer: LG Energy Solution
+name: HBC battery (BMS on the inverter's RS485 bus)
+kind: battery
+
+sources:
+- title: LG HBC Battery Modbus Protocol (reverse-engineered from bus captures)
+  version: '2026-10-19'
+
+connection:
+  default_port: 502
+  default_unit: 15
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 53
+    max_gap: 30
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 101
+    type: u32
+  checks:
+  # BMS state
+  - table: holding
+    address: 201
+    type: u16
+    in:
+    - 0
+    - 1
+    - 3
+    - 5
+    - 10
+  # firmware major
+  - table: holding
+    address: 103
+    type: u16
+    in:
+    - 3
+    - 4
+  # rated energy, 3750 Wh per module
+  - table: holding
+    address: 107
+    type: u16
+    in:
+    - 7500
+    - 11250
+    - 15000
+
+points:
+  # Identity (101 ff.)
+  - {key: x.bms_id, label: BMS unit ID, table: holding, address: 101, type: u32, poll: slow, verified: false, note: 'Identifies the BMS control box: different per BMS, kept across firmware updates and module changes. 0x7B8BC3B0 appears while the BMS boots and is a placeholder, not an ID. There are no module serial numbers on this bus.'}
+  - {key: x.firmware_major, label: Firmware major, table: holding, address: 103, type: u16, poll: slow}
+  - {key: x.firmware_minor, label: Firmware minor, table: holding, address: 104, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.firmware_patch, label: Firmware patch, table: holding, address: 104, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.firmware_build, label: Firmware build suffix, table: holding, address: 105, type: str, length: 2, poll: slow, note: 'ASCII, e.g. ".100".'}
+  - {key: x.rated_energy, label: Rated energy, table: holding, address: 107, type: u16, unit: kWh, scale: 0.001, poll: slow, note: '3750 Wh per module (11250 = 3 modules, 15000 = 4).'}
+  # Live data (201 ff.)
+  - {key: state, label: BMS state, table: holding, address: 201, type: u16, enum: bms_state}
+  - {key: battery_power, label: Battery power, table: holding, address: 202, type: s16, unit: W, positive: charge}
+  - {key: x.full_capacity, label: Full capacity, table: holding, address: 203, type: u16, unit: Ah, scale: 0.001, poll: slow, note: '38.9 Ah on firmware 3.x and 4.0.3, 36.9 Ah on 4.0.5.'}
+  - {key: x.remaining_capacity, label: Remaining capacity, table: holding, address: 204, type: u16, unit: Ah, scale: 0.001}
+  - {key: x.charged_energy, label: Charged energy since BMS start, table: holding, address: 205, type: u32, unit: kWh, scale: 0.001}
+  - {key: x.discharged_energy, label: Discharged energy since BMS start, table: holding, address: 207, type: u32, unit: kWh, scale: 0.001, verified: false}
+  - {key: battery_voltage, label: Pack voltage, table: holding, address: 209, type: u16, unit: V, scale: 0.1, note: Cells × average cell voltage; 28 cells per module.}
+  - {key: x.average_cell_voltage, label: Average cell voltage, table: holding, address: 210, type: u16, unit: V, scale: 0.001}
+  - {key: x.max_charge_power, label: Maximum charge power allowed, table: holding, address: 211, type: u16, unit: W}
+  - {key: x.max_discharge_power, label: Maximum discharge power allowed, table: holding, address: 212, type: u16, unit: W}
+  - {key: x.bus_voltage, label: Bus voltage after the contactor, table: holding, address: 213, type: u16, unit: V, scale: 0.1, note: Ramps up during precharge.}
+  - {key: battery_current, label: Pack current, table: holding, address: 214, type: s16, unit: A, scale: 0.1, positive: charge}
+  - {key: x.temperature_215, label: Temperature (pair 1), table: holding, address: 215, type: s16, unit: °C, scale: 0.1, invalid: [-450], note: 215–218 are two max / min pairs; which register of a pair is the maximum isn't stated. −45.0 °C (raw −450) = sensor missing.}
+  - {key: x.temperature_216, label: Temperature (pair 1), table: holding, address: 216, type: s16, unit: °C, scale: 0.1, invalid: [-450]}
+  - {key: x.temperature_217, label: Temperature (pair 2), table: holding, address: 217, type: s16, unit: °C, scale: 0.1, invalid: [-450]}
+  - {key: x.temperature_218, label: Temperature (pair 2), table: holding, address: 218, type: s16, unit: °C, scale: 0.1, invalid: [-450]}
+  - {key: battery_soc, label: BMS state of charge, table: holding, address: 219, type: u16, unit: '%', scale: 0.1, note: Remaining / full capacity (204 / 203). The inverter shows a different SOC that keeps 10 % in reserve (see notes).}
+  - {key: x.min_cell_voltage, label: Minimum cell voltage, table: holding, address: 221, type: u16, unit: V, scale: 0.001}
+  - {key: x.max_cell_voltage, label: Maximum cell voltage, table: holding, address: 222, type: u16, unit: V, scale: 0.001}
+  - {key: battery_soh, label: State of health, table: holding, address: 223, type: u16, unit: '%', scale: 0.1, verified: false, note: Always 100.0 % in the captures.}
+  - {key: x.charge_current_limit, label: Charge current limit, table: holding, address: 224, type: u16, unit: A, scale: 0.1}
+  - {key: x.discharge_current_limit, label: Discharge current limit, table: holding, address: 225, type: u16, unit: A, scale: 0.1}
+  - {key: x.status_bits, label: Status bits, table: holding, address: 226, type: u16, flags: status_bits, verified: false, note: '0x06 in run, 0x16 at rest.'}
+  - {key: x.bms_ready, label: BMS ready, table: holding, address: 227, type: u16, enum: off_on, verified: false}
+  - {key: x.operation, label: Operation, table: holding, address: 228, type: u16, enum: operation, verified: false}
+  - {key: x.max_cell_number, label: Cell number of the maximum cell, table: holding, address: 229, type: u16, bits: [8, 15], verified: false, note: '1–28. The byte order of 229 and 230 is inferred: an outlier cell keeps its number in the min byte near empty and in the max byte near full.'}
+  - {key: x.min_cell_number, label: Cell number of the minimum cell, table: holding, address: 229, type: u16, bits: [0, 7], verified: false}
+  - {key: x.max_cell_module, label: Module number of the maximum cell, table: holding, address: 230, type: u16, bits: [8, 15], verified: false, note: 1–4.}
+  - {key: x.min_cell_module, label: Module number of the minimum cell, table: holding, address: 230, type: u16, bits: [0, 7], verified: false}
+  - {key: x.max_module_voltage, label: Maximum module voltage, table: holding, address: 231, type: u16, unit: V, scale: 0.1}
+  - {key: x.min_module_voltage, label: Minimum module voltage, table: holding, address: 232, type: u16, unit: V, scale: 0.1}
+  - {key: x.max_voltage_module, label: Module number of the maximum module voltage, table: holding, address: 233, type: u16, bits: [8, 15], verified: false}
+  - {key: x.min_voltage_module, label: Module number of the minimum module voltage, table: holding, address: 233, type: u16, bits: [0, 7], verified: false}
+  - {key: x.temperature_modules, label: Module numbers of the four temperature readings, table: holding, address: 234, type: u16, verified: false, note: One nibble per reading; which nibble belongs to which register isn't stated.}
+  - {key: x.temperature_sensor_location, label: Temperature sensor location, table: holding, address: 235, type: u16, verified: false, note: Two bytes; their meaning isn't stated.}
+  - {key: x.event_counter, label: Event / fault counter, table: holding, address: 236, type: u16, verified: false}
+  - {key: x.poll_counter, label: Rolling counter, table: holding, address: 237, type: u16, note: '0–255, +1 per poll.'}
+  - {key: x.alarm_word_238, label: Alarm word, table: holding, address: 238, type: u16, verified: false, note: Bit meanings aren't known.}
+  - {key: x.alarm_word_240, label: Alarm word, table: holding, address: 240, type: u16, verified: false, note: Bit meanings aren't known.}
+  - {key: x.alarm_word_242, label: Alarm word, table: holding, address: 242, type: u16, verified: false, note: Bit meanings aren't known.}
+  - {key: x.alarm_word_245, label: Alarm word, table: holding, address: 245, type: u16, verified: false, note: 2 during fault 783.}
+  - {key: x.bms_board_temperature, label: BMS board temperature, table: holding, address: 246, type: s16, unit: °C, scale: 0.1, verified: false, note: The unit is a guess in the document.}
+  - {key: error_code, label: Active fault code, table: holding, address: 247, type: u16, enum: fault_code, note: 0 = none. The code is the B number (740 = B740).}
+  # Last-fault snapshot (2001 ff.): all zeros until a fault, then frozen at the moment of the fault
+  - {key: x.last_fault_code, label: Last fault code, table: holding, address: 2001, type: u16, enum: fault_code, poll: slow}
+  - {key: x.last_fault_event, label: Last fault event number, table: holding, address: 2002, type: u16, poll: slow, verified: false}
+  - {key: x.last_fault_state, label: BMS state at the last fault, table: holding, address: 2003, type: u16, enum: bms_state, poll: slow}
+  - {key: x.last_fault_check, label: Internal check number at the last fault, table: holding, address: 2004, type: u16, poll: slow, verified: false, note: 0x18 is the cell-imbalance check.}
+  - {key: x.last_fault_voltage, label: Pack voltage at the last fault, table: holding, address: 2006, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.last_fault_bus_voltage, label: Bus voltage at the last fault, table: holding, address: 2007, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.last_fault_soc, label: SOC at the last fault, table: holding, address: 2009, type: u16, unit: '%', scale: 0.1, poll: slow}
+  - {key: x.last_fault_current, label: Current at the last fault, table: holding, address: 2010, type: s16, unit: A, scale: 0.1, poll: slow, verified: false, note: Sign not stated; taken to be as 214 (positive = charging).}
+  - {key: x.last_fault_min_cell_voltage, label: Minimum cell voltage at the last fault, table: holding, address: 2011, type: u16, unit: V, scale: 0.001, poll: slow}
+  - {key: x.last_fault_max_cell_voltage, label: Maximum cell voltage at the last fault, table: holding, address: 2012, type: u16, unit: V, scale: 0.001, poll: slow}
+  - {key: x.last_fault_average_cell_voltage, label: Average cell voltage at the last fault, table: holding, address: 2013, type: u16, unit: V, scale: 0.001, poll: slow}
+  - {key: x.last_fault_min_module_voltage, label: Minimum module voltage at the last fault, table: holding, address: 2014, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.last_fault_max_module_voltage, label: Maximum module voltage at the last fault, table: holding, address: 2015, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.last_fault_temperature_1, label: Temperature 1 at the last fault, table: holding, address: 2016, type: s16, unit: °C, scale: 0.1, poll: slow}
+  - {key: x.last_fault_temperature_2, label: Temperature 2 at the last fault, table: holding, address: 2017, type: s16, unit: °C, scale: 0.1, poll: slow}
+  - {key: x.last_fault_temperature_3, label: Temperature 3 at the last fault, table: holding, address: 2018, type: s16, unit: °C, scale: 0.1, poll: slow}
+  - {key: x.last_fault_temperature_4, label: Temperature 4 at the last fault, table: holding, address: 2019, type: s16, unit: °C, scale: 0.1, poll: slow}
+
+enums:
+  bms_state: {'0': Standby (contactors open), '1': Precharge, '3': Run, '5': Fault, '10': Fault lock}
+  off_on: {'0': 'No', '1': 'Yes'}
+  operation: {'1': Precharge, '2': Discharging, '3': Charging, '7': Run / idle}
+  fault_code: {'0': No fault, '734': Cell over voltage, '735': Cell under voltage, '737': Unit (module) over voltage, '738': Unit (module) under voltage, '740': Cell voltage imbalance, '741': Pack voltage imbalance, '742': Discharge over temperature, '743': Discharge under temperature (too cold to discharge), '744': Charge over temperature, '745': Charge under temperature, '746': Terminal over temperature, '750': Discharge over current, '751': Charge over current, '753': Ambient temperature (discharge / charge), '754': Ambient temperature (discharge / charge), '755': Ambient temperature (discharge / charge), '756': Ambient temperature (discharge / charge), '762': Relay (contactor) operation fault, '764': Reset over count, '766': Sensor or ADC fault, '767': Cell sense wire open, '768': Sensor or ADC fault, '769': Sensor or ADC fault, '770': Sensor or ADC fault, '771': Sensor or ADC fault, '772': Sensor or ADC fault, '773': Sensor or ADC fault, '774': Sensor or ADC fault, '775': Sensor or ADC fault, '776': Sensor or ADC fault, '777': Sensor or ADC fault, '778': Sensor or ADC fault, '783': Internal communication error (BMS to module board)}
+
+flags:
+  status_bits: {'1': Precharge complete, '2': OK, '3': Precharging}
+
+problems:
+  - {when: {key: error_code, in: [734, 735, 737, 738, 740, 741, 742, 743, 744, 745, 746, 750, 751, 753, 754, 755, 756, 762, 764, 766, 767, 768, 769, 770, 771, 772, 773, 774, 775, 776, 777, 778, 783]}, kind: fault, text: 'Battery fault B{value}: {text}'}
+  - {when: {key: error_code, range: [670, 699]}, kind: warning, text: 'Battery warning B{value}'}
+  - {when: {key: error_code, range: [1, 65535], not_in: [670, 671, 672, 673, 674, 675, 676, 677, 678, 679, 680, 681, 682, 683, 684, 685, 686, 687, 688, 689, 690, 691, 692, 693, 694, 695, 696, 697, 698, 699, 734, 735, 737, 738, 740, 741, 742, 743, 744, 745, 746, 750, 751, 753, 754, 755, 756, 762, 764, 766, 767, 768, 769, 770, 771, 772, 773, 774, 775, 776, 777, 778, 783]}, kind: fault, text: 'Battery fault B{value}'}
+  - {when: {key: state, equals: 10}, kind: fault, text: Battery locked after a fault (BMS state 10)}
+
+notes:
+- Modbus RTU on the RS485 line between inverter and battery, 9600 baud, 8N1; the BMS is unit 15 (0x0F). Function codes 03,
+  06 and 16; all registers are holding registers. 32-bit values high word first.
+- 'The inverter is the bus master. A second master on the same line collides with its polls: read the BMS in place of the
+  inverter, or listen to the inverter''s requests and the BMS replies.'
+- 'The inverter polls about once per second: 101 × 15 (firmware 3.x) or × 21, 201 × 47 (firmware 3.x) or × 52 / 53, 2001 ×
+  25, and writes 1101 × 10 or × 20 (function 16). Which sizes it uses depends on the inverter''s software more than on the
+  battery firmware. Other request sizes and partial reads aren''t described.'
+- 'Command and heartbeat block 1101 (written by the inverter every poll): 1101 command (3 run / connect, 1 standby / wake,
+  0 stop / open contactors; restart: 0, 1, wait about 12 s, 3, then precharge and run); 1102–1107 inverter clock (second,
+  minute, hour, day, month, year); 1108 heartbeat counter, +1 per write, reset when the inverter restarts; 1110 the SOC the
+  inverter shows (0.1 %); 1113 inverter mode in the 20-register frame (1 startup, 2 transition, 3 normal, 4 idle; likely).
+  If the writes stop, the battery has no heartbeat; what it then does isn''t described.'
+- 'Startup handshake (twice, then polling): function 16 to 135–136 = baud rate as u32 (9600), function 16 to 142 = 0x0100,
+  read 114 (reads 10), function 06 to 141 = 1 (apply); on firmware 4.x then a read of 143 × 44 (all 0xFFFF).'
+- 'Firmware update through a bootloader (about 5 minutes at 9600 baud): 20334 = 11 enters it (exception 02 until ready), 65395
+  reads 11 in bootloader mode, 501 = 1 starts / erases, the image goes to 511 in 120-register blocks (exception 02 outside
+  the bootloader), 502 = 1 finishes, 20334 = 10 reboots, 503–504 give the new version.'
+- 'Fault codes come in three severity tiers for the same check: warnings B670–B699, Fault1 B702–B725, Fault2 B734–B762; the
+  names here are those of the Fault2 codes and the codes above 762. Which warning or Fault1 code belongs to which check isn''t
+  stated.'
+- 'The inverter keeps the lowest 10 % of the BMS SOC as a reserve: displayed SOC = (BMS SOC rounded down to a whole percent
+  − 10 %) / 0.9, so BMS 10 % shows 0 % and BMS 100 % shows 100 %.'
+- Module count = round(pack voltage / (average cell voltage × 28)); the rated energy (107, 3750 Wh per module) gives it too.
+- Measured module voltage ≈ rest voltage(SOC) + R × current, R ≈ 0.18 V/A per module discharging and 0.16 V/A charging (13–26
+  °C). A whole module at a different charge shows a module gap (231 − 232) of several volts and a cell gap that stays flat
+  with SOC; a single low-capacity cell shows a small module gap, a cell gap that grows toward full, and the same cell number
+  in 229 (min byte near empty, max byte near full).
+- Port 502 is only for a Modbus TCP gateway on the RS485 line; the document names none.

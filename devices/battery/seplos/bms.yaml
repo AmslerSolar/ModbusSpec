@@ -1,0 +1,256 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Seplos XZH BMS Modbus-RTU Protocol V0.3 (English, official) (V0.3, 2024-10-15), checked against
+# the Chinese V0.3 and the English V0.1.
+
+modbusspec: 0
+id: seplos-bms
+manufacturer: Seplos
+name: BMS (Modbus RTU protocol V0.3, up to 16 cells)
+kind: battery
+
+sources:
+- title: XZH BMS Modbus-RTU Protocol V0.3 (English, official) – SEPLOS BMS Modbus RTU Protocol
+  version: V0.3 (2024-10-15)
+  url: https://github.com/syssi/esphome-seplos-bms/blob/4a9bd96537c5cecaa0103be3897970915e4e0413/docs/XZH%20BMS%20Modbus-RTU%20Protocol%20V0.3%20%28English%2C%20official%29.pdf
+  sha256: abba2025fa3bf7e7cba67a6d1a74fa4af0d53991c0d243669bff3df10909daa5
+- title: 上海鑫智恒 Modbus_RTU 通信协议 中文版 (Shanghai Xinzhiheng Electronic Technology, XZH BMS Modbus-RTU Protocol, Chinese)
+  version: V0.3 (2024-10-15)
+  url: https://github.com/syssi/esphome-seplos-bms/blob/4a9bd96537c5cecaa0103be3897970915e4e0413/docs/XZH%20BMS%20Modbus-RTU%20Protocol%20V0.3%20%28Chinese%29.pdf
+  sha256: 720b53da38b38bfa7ad2b8bcd05a446f6dfb71b63dec42f5619281055c886af5
+- title: XZH BMS Modbus RTU Protocol (BMS48100/48200)
+  version: V0.1 (2023-02-09)
+  url: https://github.com/syssi/esphome-seplos-bms/blob/4a9bd96537c5cecaa0103be3897970915e4e0413/docs/XZH%20BMS%20Modbus-RTU%20Protocol.pdf
+  sha256: d03096658d66c382de7c4335f0b2f32a4d3329959df56d28abe91732354b467a
+
+connection:
+  default_port: 502
+  default_unit: 0
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 5909
+    type: str
+    length: 15
+    byte_order: little
+  checks:
+  # factory name
+  - table: input
+    address: 5888
+    type: str
+    length: 10
+    byte_order: little
+    printable: true
+
+points:
+  # Pack info A (PIA), function 04
+  - {key: battery_voltage, label: Pack voltage, table: input, address: 4096, type: u16, unit: V, scale: 0.01}
+  - {key: battery_current, label: Current, table: input, address: 4097, type: s16, unit: A, scale: 0.01, positive: charge, verified: false, note: The direction isn't stated; charge positive is assumed. Document V0.2 changed the PIA current unit to 0.1 A for 300 A and 400 A BMS models (see notes).}
+  - {key: x.remaining_capacity, label: Remaining capacity, table: input, address: 4098, type: u16, unit: Ah, scale: 0.01}
+  - {key: x.total_capacity, label: Total capacity, table: input, address: 4099, type: u16, unit: Ah, scale: 0.01, poll: slow}
+  - {key: x.total_discharge_capacity, label: Total discharge capacity, table: input, address: 4100, type: u16, unit: Ah, scale: 10, poll: slow}
+  - {key: battery_soc, label: SOC, table: input, address: 4101, type: u16, unit: '%', scale: 0.1}
+  - {key: battery_soh, label: SOH, table: input, address: 4102, type: u16, unit: '%', scale: 0.1, poll: slow}
+  - {key: x.cycles, label: Cycle, table: input, address: 4103, type: u16, poll: slow}
+  - {key: x.average_cell_voltage, label: Average of cell voltage, table: input, address: 4104, type: u16, unit: V, scale: 0.001}
+  - {key: battery_temperature, label: Average of cell temperature, table: input, address: 4105, type: u16, unit: °C, scale: 0.1, offset: -273.1}
+  - {key: x.max_cell_voltage, label: Max cell voltage, table: input, address: 4106, type: u16, unit: V, scale: 0.001}
+  - {key: x.min_cell_voltage, label: Min cell voltage, table: input, address: 4107, type: u16, unit: V, scale: 0.001}
+  - {key: x.max_cell_temperature, label: Max cell temperature, table: input, address: 4108, type: u16, unit: °C, scale: 0.1, offset: -273.1}
+  - {key: x.min_cell_temperature, label: Min cell temperature, table: input, address: 4109, type: u16, unit: °C, scale: 0.1, offset: -273.1}
+  - {key: x.max_discharge_current, label: MaxDisCurt (suggested maximum discharge current), table: input, address: 4111, type: u16, unit: A}
+  - {key: x.max_charge_current, label: MaxChgCurt (suggested maximum charge current), table: input, address: 4112, type: u16, unit: A}
+  - {key: x.precharge_percent, label: Precharge percent, table: input, address: 4113, type: u16, unit: '%', scale: 0.1, optional: true, note: Only in the English V0.3; the Chinese V0.3 and V0.1 list nothing after 0x1010.}
+  # Pack info B (PIB), function 04
+  - {key: x.cell_01_voltage, label: Cell1 voltage, table: input, address: 4352, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_02_voltage, label: Cell2 voltage, table: input, address: 4353, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_03_voltage, label: Cell3 voltage, table: input, address: 4354, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_04_voltage, label: Cell4 voltage, table: input, address: 4355, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_05_voltage, label: Cell5 voltage, table: input, address: 4356, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_06_voltage, label: Cell6 voltage, table: input, address: 4357, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_07_voltage, label: Cell7 voltage, table: input, address: 4358, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_08_voltage, label: Cell8 voltage, table: input, address: 4359, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_09_voltage, label: Cell9 voltage, table: input, address: 4360, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_10_voltage, label: Cell10 voltage, table: input, address: 4361, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_11_voltage, label: Cell11 voltage, table: input, address: 4362, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_12_voltage, label: Cell12 voltage, table: input, address: 4363, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_13_voltage, label: Cell13 voltage, table: input, address: 4364, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_14_voltage, label: Cell14 voltage, table: input, address: 4365, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_15_voltage, label: Cell15 voltage, table: input, address: 4366, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_16_voltage, label: Cell16 voltage, table: input, address: 4367, type: u16, unit: V, scale: 0.001}
+  - {key: x.cell_temperature_1, label: Cell temperature 1, table: input, address: 4368, type: u16, unit: °C, scale: 0.1, offset: -273.1}
+  - {key: x.cell_temperature_2, label: Cell temperature 2, table: input, address: 4369, type: u16, unit: °C, scale: 0.1, offset: -273.1}
+  - {key: x.cell_temperature_3, label: Cell temperature 3, table: input, address: 4370, type: u16, unit: °C, scale: 0.1, offset: -273.1}
+  - {key: x.cell_temperature_4, label: Cell temperature 4, table: input, address: 4371, type: u16, unit: °C, scale: 0.1, offset: -273.1}
+  - {key: x.environment_temperature, label: Environment temperature, table: input, address: 4376, type: u16, unit: °C, scale: 0.1, offset: -273.1}
+  - {key: temperature, label: Power temperature, table: input, address: 4377, type: u16, unit: °C, scale: 0.1, offset: -273.1, note: Temperature of the power stage (MOSFETs).}
+  # System parameters (SPA): read with function 04, written with function 16 at the same address
+  - {key: x.ntc_count, label: Ntc number, table: input, address: 4864, type: u16, writable: true, poll: slow, note: Writable per the Chinese V0.3; V0.1 lists it read-only.}
+  - {key: x.cell_count, label: Cell number serial battery, table: input, address: 4865, type: u16, writable: true, poll: slow}
+  - {key: x.cell_over_voltage_protection_limit, label: Cell over voltage protection, table: input, address: 4877, type: u16, unit: V, scale: 0.001, writable: true, poll: slow}
+  - {key: x.cell_under_voltage_protection_limit, label: Cell under voltage protection, table: input, address: 4881, type: u16, unit: V, scale: 0.001, writable: true, poll: slow}
+  - {key: x.charge_over_current_protection_limit, label: Charge over current protection, table: input, address: 4887, type: u16, unit: A, writable: true, poll: slow}
+  - {key: x.discharge_over_current_protection_limit, label: Discharge over current protection, table: input, address: 4893, type: u16, unit: A, writable: true, poll: slow}
+  - {key: x.soc_low_alarm, label: SOC low alarm, table: input, address: 4949, type: u16, unit: '%', scale: 0.1, writable: true, poll: slow}
+  - {key: x.soc_under_protection, label: SOC under protection, table: input, address: 4951, type: u16, unit: '%', scale: 0.1, writable: true, poll: slow}
+  - {key: x.rated_capacity, label: Battery rated capacity, table: input, address: 4952, type: u16, unit: Ah, scale: 0.01, writable: true, poll: slow}
+  # Version info (VIA), function 04; text stored low byte first
+  - {key: x.factory_name, label: Factory names, table: input, address: 5888, type: str, length: 10, byte_order: little, poll: slow}
+  - {key: x.device_name, label: Device names, table: input, address: 5898, type: str, length: 10, byte_order: little, poll: slow}
+  - {key: firmware, label: Firmware version, table: input, address: 5908, type: str, length: 1, byte_order: little, poll: slow}
+  - {key: serial, label: BMS SN, table: input, address: 5909, type: str, length: 15, byte_order: little, poll: slow}
+  - {key: x.pack_serial, label: PACK SN, table: input, address: 5924, type: str, length: 15, byte_order: little, poll: slow}
+  # Status block (PIC), function 01: 18 bytes of event bits, one coil per bit
+  # System state (TB09): byte 8 of the status block, coils 0x1240–0x1247
+  - {key: x.state_discharge, label: Discharge, table: coil, address: 4672, type: bool}
+  - {key: x.state_charge, label: Charge, table: coil, address: 4673, type: bool}
+  - {key: x.state_float, label: Floating charge, table: coil, address: 4674, type: bool}
+  - {key: x.state_full, label: Full charge, table: coil, address: 4675, type: bool}
+  - {key: x.state_standby, label: Standby mode, table: coil, address: 4676, type: bool}
+  - {key: x.state_off, label: Turn off, table: coil, address: 4677, type: bool}
+  # Voltage event (TB02): byte 9 of the status block, coils 0x1248–0x124F
+  - {key: x.cell_high_voltage_alarm, label: Cell high voltage alarm, table: coil, address: 4680, type: bool}
+  - {key: x.cell_over_voltage_protection, label: Cell over voltage protection, table: coil, address: 4681, type: bool}
+  - {key: x.cell_low_voltage_alarm, label: Cell low voltage alarm, table: coil, address: 4682, type: bool}
+  - {key: x.cell_under_voltage_protection, label: Cell under voltage protection, table: coil, address: 4683, type: bool}
+  - {key: x.pack_high_voltage_alarm, label: Pack high voltage alarm, table: coil, address: 4684, type: bool}
+  - {key: x.pack_over_voltage_protection, label: Pack over voltage protection, table: coil, address: 4685, type: bool}
+  - {key: x.pack_low_voltage_alarm, label: Pack low voltage alarm, table: coil, address: 4686, type: bool}
+  - {key: x.pack_under_voltage_protection, label: Pack under voltage protection, table: coil, address: 4687, type: bool}
+  # Cell temperature event (TB03): byte 10 of the status block, coils 0x1250–0x1257
+  - {key: x.charge_high_temp_alarm, label: Charge high temperature alarm, table: coil, address: 4688, type: bool}
+  - {key: x.charge_over_temp_protection, label: Charge over temperature protection, table: coil, address: 4689, type: bool}
+  - {key: x.charge_low_temp_alarm, label: Charge low temperature alarm, table: coil, address: 4690, type: bool}
+  - {key: x.charge_under_temp_protection, label: Charge under temperature protection, table: coil, address: 4691, type: bool}
+  - {key: x.discharge_high_temp_alarm, label: Discharge high temperature alarm, table: coil, address: 4692, type: bool}
+  - {key: x.discharge_over_temp_protection, label: Discharge over temperature protection, table: coil, address: 4693, type: bool}
+  - {key: x.discharge_low_temp_alarm, label: Discharge low temperature alarm, table: coil, address: 4694, type: bool}
+  - {key: x.discharge_under_temp_protection, label: Discharge under temperature protection, table: coil, address: 4695, type: bool}
+  # Environment and power temperature event (TB04): byte 11 of the status block, coils 0x1258–0x125F
+  - {key: x.env_high_temp_alarm, label: High environment temperature alarm, table: coil, address: 4696, type: bool}
+  - {key: x.env_over_temp_protection, label: Over environment temperature protection, table: coil, address: 4697, type: bool}
+  - {key: x.env_low_temp_alarm, label: Low environment temperature alarm, table: coil, address: 4698, type: bool}
+  - {key: x.env_under_temp_protection, label: Under environment temperature protection, table: coil, address: 4699, type: bool}
+  - {key: x.power_high_temp_alarm, label: High power temperature alarm, table: coil, address: 4700, type: bool}
+  - {key: x.power_over_temp_protection, label: Over power temperature protection, table: coil, address: 4701, type: bool}
+  - {key: x.cell_low_temp_heating, label: Cell temperature low heating, table: coil, address: 4702, type: bool}
+  # Current event 1 (TB05): byte 12 of the status block, coils 0x1260–0x1267
+  - {key: x.charge_current_alarm, label: Charge current alarm, table: coil, address: 4704, type: bool}
+  - {key: x.charge_over_current_protection, label: Charge over current protection, table: coil, address: 4705, type: bool}
+  - {key: x.charge_second_level_current_protection, label: Charge second level current protection, table: coil, address: 4706, type: bool}
+  - {key: x.discharge_current_alarm, label: Discharge current alarm, table: coil, address: 4707, type: bool}
+  - {key: x.discharge_over_current_protection, label: Discharge over current protection, table: coil, address: 4708, type: bool}
+  - {key: x.discharge_second_level_current_protection, label: Discharge second level over current protection, table: coil, address: 4709, type: bool}
+  - {key: x.output_short_circuit_protection, label: Output short circuit protection, table: coil, address: 4710, type: bool}
+  # Current event 2 (TB16): byte 13 of the status block, coils 0x1268–0x126F
+  - {key: x.output_short_latch, label: Output short latch up, table: coil, address: 4712, type: bool}
+  - {key: x.reverse_polarity_protection, label: Reverse connection protection, table: coil, address: 4713, type: bool, note: Bit 1 of current event 2 in the Chinese V0.3; reserved in V0.1.}
+  - {key: x.charge_second_level_latch, label: Second charge latch up, table: coil, address: 4714, type: bool}
+  - {key: x.discharge_second_level_latch, label: Second discharge latch up, table: coil, address: 4715, type: bool}
+  # Residual capacity (TB06): byte 14 of the status block, coils 0x1270–0x1277
+  - {key: x.soc_alarm, label: SOC alarm, table: coil, address: 4722, type: bool}
+  - {key: x.soc_protection, label: SOC protection, table: coil, address: 4723, type: bool}
+  - {key: x.cell_diff_alarm, label: Cell difference alarm, table: coil, address: 4724, type: bool}
+  - {key: x.gyroscope_lock, label: Gyroscope lock, table: coil, address: 4726, type: bool, note: Bit 6 of the residual capacity byte in the Chinese V0.3 (gyroscope added in V0.3 for X02/X03).}
+  # FET event (TB07): byte 15 of the status block, coils 0x1278–0x127F
+  - {key: x.discharge_fet_on, label: Discharge FET on, table: coil, address: 4728, type: bool}
+  - {key: x.charge_fet_on, label: Charge FET on, table: coil, address: 4729, type: bool}
+  - {key: x.current_limit_fet_on, label: Current limiting FET on, table: coil, address: 4730, type: bool}
+  - {key: x.heating_on, label: Heating on, table: coil, address: 4731, type: bool}
+  # Equalization state (TB08): byte 16 of the status block, coils 0x1280–0x1287
+  - {key: x.equalization_module_on, label: Equalization module on, table: coil, address: 4736, type: bool}
+  - {key: x.static_equalization, label: Static equalization indication, table: coil, address: 4737, type: bool}
+  - {key: x.static_equalization_timeout, label: Static equalization timeout, table: coil, address: 4738, type: bool}
+  - {key: x.equalization_temperature_limit, label: Equalization stopped by temperature limit, table: coil, address: 4739, type: bool}
+  - {key: x.cell_failure_alarm, label: Cell failure alarm, table: coil, address: 4740, type: bool, note: Bit 4 in the Chinese V0.3; reserved in V0.1.}
+  # Hard fault (TB15): byte 17 of the status block, coils 0x1288–0x128F
+  - {key: x.ntc_fault, label: NTC fault, table: coil, address: 4744, type: bool}
+  - {key: x.afe_fault, label: AFE fault, table: coil, address: 4745, type: bool}
+  - {key: x.charge_mosfet_fault, label: Charge MOSFETs fault, table: coil, address: 4746, type: bool}
+  - {key: x.discharge_mosfet_fault, label: Discharge MOSFETs fault, table: coil, address: 4747, type: bool}
+  - {key: x.cell_fault, label: Cell fault, table: coil, address: 4748, type: bool}
+  - {key: x.break_line_fault, label: Break line fault, table: coil, address: 4749, type: bool}
+  - {key: x.key_fault, label: Key fault, table: coil, address: 4750, type: bool}
+  - {key: x.aerosol_alarm, label: Aerosol alarm, table: coil, address: 4751, type: bool}
+
+problems:
+  - {when: {key: x.cell_high_voltage_alarm, equals: 1}, kind: warning, text: Cell high voltage alarm}
+  - {when: {key: x.cell_over_voltage_protection, equals: 1}, kind: fault, text: Cell over voltage protection}
+  - {when: {key: x.cell_low_voltage_alarm, equals: 1}, kind: warning, text: Cell low voltage alarm}
+  - {when: {key: x.cell_under_voltage_protection, equals: 1}, kind: fault, text: Cell under voltage protection}
+  - {when: {key: x.pack_high_voltage_alarm, equals: 1}, kind: warning, text: Pack high voltage alarm}
+  - {when: {key: x.pack_over_voltage_protection, equals: 1}, kind: fault, text: Pack over voltage protection}
+  - {when: {key: x.pack_low_voltage_alarm, equals: 1}, kind: warning, text: Pack low voltage alarm}
+  - {when: {key: x.pack_under_voltage_protection, equals: 1}, kind: fault, text: Pack under voltage protection}
+  - {when: {key: x.charge_high_temp_alarm, equals: 1}, kind: warning, text: Charge high temperature alarm}
+  - {when: {key: x.charge_over_temp_protection, equals: 1}, kind: fault, text: Charge over temperature protection}
+  - {when: {key: x.charge_low_temp_alarm, equals: 1}, kind: warning, text: Charge low temperature alarm}
+  - {when: {key: x.charge_under_temp_protection, equals: 1}, kind: fault, text: Charge under temperature protection}
+  - {when: {key: x.discharge_high_temp_alarm, equals: 1}, kind: warning, text: Discharge high temperature alarm}
+  - {when: {key: x.discharge_over_temp_protection, equals: 1}, kind: fault, text: Discharge over temperature protection}
+  - {when: {key: x.discharge_low_temp_alarm, equals: 1}, kind: warning, text: Discharge low temperature alarm}
+  - {when: {key: x.discharge_under_temp_protection, equals: 1}, kind: fault, text: Discharge under temperature protection}
+  - {when: {key: x.env_high_temp_alarm, equals: 1}, kind: warning, text: High environment temperature alarm}
+  - {when: {key: x.env_over_temp_protection, equals: 1}, kind: fault, text: Over environment temperature protection}
+  - {when: {key: x.env_low_temp_alarm, equals: 1}, kind: warning, text: Low environment temperature alarm}
+  - {when: {key: x.env_under_temp_protection, equals: 1}, kind: fault, text: Under environment temperature protection}
+  - {when: {key: x.power_high_temp_alarm, equals: 1}, kind: warning, text: High power temperature alarm}
+  - {when: {key: x.power_over_temp_protection, equals: 1}, kind: fault, text: Over power temperature protection}
+  - {when: {key: x.charge_current_alarm, equals: 1}, kind: warning, text: Charge current alarm}
+  - {when: {key: x.charge_over_current_protection, equals: 1}, kind: fault, text: Charge over current protection}
+  - {when: {key: x.charge_second_level_current_protection, equals: 1}, kind: fault, text: Charge second level current protection}
+  - {when: {key: x.discharge_current_alarm, equals: 1}, kind: warning, text: Discharge current alarm}
+  - {when: {key: x.discharge_over_current_protection, equals: 1}, kind: fault, text: Discharge over current protection}
+  - {when: {key: x.discharge_second_level_current_protection, equals: 1}, kind: fault, text: Discharge second level over current protection}
+  - {when: {key: x.output_short_circuit_protection, equals: 1}, kind: fault, text: Output short circuit protection}
+  - {when: {key: x.output_short_latch, equals: 1}, kind: fault, text: Output short latch up}
+  - {when: {key: x.charge_second_level_latch, equals: 1}, kind: fault, text: Second charge latch up}
+  - {when: {key: x.discharge_second_level_latch, equals: 1}, kind: fault, text: Second discharge latch up}
+  - {when: {key: x.reverse_polarity_protection, equals: 1}, kind: fault, text: Reverse connection protection}
+  - {when: {key: x.soc_alarm, equals: 1}, kind: warning, text: SOC alarm}
+  - {when: {key: x.soc_protection, equals: 1}, kind: fault, text: SOC protection}
+  - {when: {key: x.cell_diff_alarm, equals: 1}, kind: warning, text: Cell difference alarm}
+  - {when: {key: x.gyroscope_lock, equals: 1}, kind: fault, text: Gyroscope lock}
+  - {when: {key: x.cell_failure_alarm, equals: 1}, kind: warning, text: Cell failure alarm}
+  - {when: {key: x.ntc_fault, equals: 1}, kind: fault, text: NTC fault}
+  - {when: {key: x.afe_fault, equals: 1}, kind: fault, text: AFE fault}
+  - {when: {key: x.charge_mosfet_fault, equals: 1}, kind: fault, text: Charge MOSFETs fault}
+  - {when: {key: x.discharge_mosfet_fault, equals: 1}, kind: fault, text: Discharge MOSFETs fault}
+  - {when: {key: x.cell_fault, equals: 1}, kind: fault, text: Cell fault}
+  - {when: {key: x.break_line_fault, equals: 1}, kind: fault, text: Break line fault}
+  - {when: {key: x.key_fault, equals: 1}, kind: fault, text: Key fault}
+  - {when: {key: x.aerosol_alarm, equals: 1}, kind: fault, text: Aerosol alarm}
+
+notes:
+- 'Maker: the English V0.3 is titled "SEPLOS BMS Modbus RTU Protocol"; the Chinese V0.3 and V0.1 are documents of Shanghai
+  Xinzhiheng Electronic Technology (XZH), which makes the BMS boards.'
+- The English V0.3 covers Seplos BMS boards with up to 16 cells and 4 cell temperature sensors (the X02 series adds SNMP,
+  WiFi and a gyroscope).
+- RS485, 19200 baud, 8N1. A BMS answers only its own address, 0x00–0x7F; the document's examples use address 0, so unit 0
+  here (some Modbus gateways treat 0 as broadcast and won't forward it).
+- Addresses are the document's hex register addresses (0-based protocol addresses as sent in the request; the examples read
+  0x1000, 0x1100 and coils from 0x1200).
+- 'Live values and parameters are read with function 04 only (input registers); parameters are written with function 16 to
+  the same addresses. Status bits are read with function 01: the document''s PIC table packs them into bytes (two per register
+  row from 0x1200), and the coil for bit b of byte n is 0x1200 + 8 × n + b (its example reads 0x90 = 144 coils from 0x1200).'
+- Temperatures are in 0.1 K; the document's examples subtract 273.1 K (raw 2944 = 21.3 °C).
+- 'Document V0.2: for 300 A and 400 A BMS models the PIA current unit became 0.1 A; below 200 A it stayed 10 mA. A reader
+  can''t tell the models apart from the registers; the 10 mA scale is used here.'
+- The version info strings (0x1700 ff.) are stored little-endian per the document.
+- 'Left out: per-cell low/high voltage and temperature alarm bits, balancing bits (coils 0x1200–0x123F), most system parameters
+  (0x1302–0x1367: recover, alarm and delay thresholds, balancing, heating, pulse and precharge settings), function switches
+  (SFA, 0x1400 ff.), system control commands (SCA, 0x1500 ff.: clock, calibration, FET control, power off, reset, factory
+  reset), history records (HIA, 0x1600 ff.), PCS protocol settings (PCT, 0x1800 ff.) and the EMS / system blocks (EIA/EIB/EIC,
+  0x2000 ff.), which the document lists only for the ECU and display, not for the BMS itself.'

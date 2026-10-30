@@ -1,0 +1,119 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# From PULSARES' Modbus register maps for the EV EasyCharge and EV EasyCharge BASIC charge controllers (below).
+
+modbusspec: 0
+id: pulsares-easycharge
+manufacturer: PULSARES
+name: EV EasyCharge / EV EasyCharge BASIC charge controllers (RS485)
+kind: charger
+
+sources:
+- title: Modbus Register-Map EV EasyCharge BASIC
+  version: Version 1 (2024-02-19)
+  url: https://www.pulsares.shop/medien/dokumente/ev-easycharge-basic-modbus-map.pdf
+  sha256: 572bc9d978cfe03f3c0eef1fde0f9e1997dbcd3d5df4eb56a236756002f47a42
+  archive_url: https://web.archive.org/web/20260828120255/https://pulsares.shop/medien/dokumente/ev-easycharge-basic-modbus-map.pdf
+- title: Modbus Register-Map – Holding Registers (EV EasyCharge)
+  version: Version 2 (2023-06-25)
+  url: https://www.pulsares.shop/medien/dokumente/Modbus_Map_EV_EasyCharge.pdf
+  sha256: 0ff0f61b6e6118a15b92cb14fc988c1d9be79b582ec11bfa48ba4e6ba5f238d4
+  archive_url: https://web.archive.org/web/20240519212418/https://www.pulsares.shop/medien/dokumente/Modbus_Map_EV_EasyCharge.pdf
+
+connection:
+  default_port: 502
+  default_unit: 2
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 9
+    type: u32
+  checks:
+  - table: holding
+    address: 3
+    type: u16
+    range:
+    - 42953
+    - 42953
+
+models:
+  - {id: easycharge, name: EV EasyCharge (PulCharge system), match: {table: holding, address: 5, type: u16, equals: 1}}
+  - {id: easycharge_basic, name: EV EasyCharge BASIC, match: {table: holding, address: 5, type: u16, equals: 2}}
+
+points:
+  - {key: x.active_software, label: Aktive Software, table: holding, address: 1, type: u16, enum: active_software, poll: slow}
+  - {key: x.manufacturer_id, label: PULSARES (Hersteller) Identifikation, table: holding, address: 3, type: u16, poll: slow, note: Always 0xA7C9.}
+  - {key: x.product_type, label: Produkttyp, table: holding, address: 5, type: u16, enum: product_type, poll: slow}
+  - {key: firmware, label: Software-Version, table: holding, address: 7, type: u16, poll: slow, note: Version of whichever is running (bootloader or firmware).}
+  - {key: serial, label: Seriennummer, table: holding, address: 9, type: u32, poll: slow, note: First of four UINT32 (addresses 9–16) forming the unique microcontroller serial number.}
+  - {key: error_code, label: Fehlerzustand, table: holding, address: 25, type: u16, enum: error, note: Codes 3–7 differ between the two controllers (see the enum).}
+  - {key: x.plug_state, label: Status Ladestecker, table: holding, address: 27, type: u16, enum: plug_state}
+  - {key: x.last_session, label: Status letzter Ladevorgang, table: holding, address: 29, type: u16, enum: last_session}
+  - {key: state, label: Status Ladevorgang, table: holding, address: 31, type: u16, enum: charge_state}
+  - {key: x.charge_type, label: Ladetyp, table: holding, address: 33, type: u16, enum: charge_type}
+  - {key: temperature, label: Temperatur (Mikrocontroller / Schaltunit), table: holding, address: 35, type: u16, unit: °C, invalid: [255], note: 'EasyCharge BASIC: microcontroller; EasyCharge: switching unit microcontroller (255 while the switching unit is inactive).'}
+  - {key: x.switch_unit_state, label: Schaltunit Status, table: holding, address: 37, type: u16, enum: switch_unit_state, models: [easycharge]}
+  - {key: x.smart_input_state, label: SMART-Eingang Status, table: holding, address: 41, type: u16, enum: smart_input_state}
+  - {key: x.smart_input_current, label: SMART-Eingang Stromwert, table: holding, address: 43, type: u16, unit: A, scale: 0.001, note: 'Per phase; unconnected = 32 A, 0 = blocked.'}
+  - {key: x.valid_current, label: Gültiger Ladestrom, table: holding, address: 45, type: u16, unit: A, scale: 0.001, note: 'Per phase: the lowest of all inputs; switched or about to be.'}
+  - {key: x.temperature_current_limit, label: Temperatur-Strombegrenzung, table: holding, address: 49, type: u16, unit: A}
+  - {key: x.charge_profile_1, label: Ladeprofil 1 (Standard-Ladeprofil), table: holding, address: 51, type: u16, unit: A, writable: true, min: 6, max: 32, persistent: true, models: [easycharge], poll: slow, note: Maximum grid charging current when the profile system is off.}
+  - {key: x.active_profile, label: Aktives Ladeprofil, table: holding, address: 61, type: u16, writable: true, min: 0, max: 4, persistent: false, models: [easycharge], poll: slow}
+  - {key: x.error_mode, label: Fehler-Einstellung, table: holding, address: 63, type: u16, enum: error_mode, writable: true, persistent: true, poll: slow}
+  - {key: x.simplified_pilot, label: Vereinfachter Pilot, table: holding, address: 87, type: u16, enum: on_off, writable: true, persistent: true, poll: slow, note: Needs at least 10 A per phase.}
+  - {key: x.low_power_standby, label: Low-Power Standby, table: holding, address: 89, type: u16, enum: on_off, writable: true, persistent: true, models: [easycharge], poll: slow, note: 'When on, Modbus is inactive while no vehicle is connected.'}
+  - {key: x.smart_input_use, label: SMART-Eingang, table: holding, address: 91, type: u16, enum: smart_input_use, writable: true, persistent: true, poll: slow}
+  - {key: x.modbus_current, label: Modbus-Ladestrom, table: holding, address: 93, type: u16, unit: A, scale: 0.001, writable: true, min: 0, max: 32, persistent: false, note: 'Maximum charging current per phase set over Modbus (sent in mA). EasyCharge: only active if the address was set in the input menu.'}
+  - {key: x.backup_current, label: Backup-Ladestrom, table: holding, address: 95, type: u16, unit: A, scale: 0.001, writable: true, min: 0, max: 32, persistent: true, poll: slow}
+  - {key: x.backup_mode, label: Backup-Ladestrom Einstellung, table: holding, address: 97, type: u16, enum: backup_mode, writable: true, persistent: true, poll: slow, note: Settings 2–6 add a Modbus watchdog.}
+  - {key: x.hardware_current_limit, label: Hardware-Strombegrenzung, table: holding, address: 99, type: u16, enum: hardware_limit, writable: true, persistent: true, poll: slow, note: Electricians only.}
+  - {key: x.error_reset, label: Fehlerrücksetzung, table: holding, address: 111, type: u16, writable: true, write_only: true, persistent: false, models: [easycharge], poll: slow, note: Write 1 to clear the error.}
+  - {key: x.error_reset, label: Fehlerrücksetzung, table: holding, address: 113, type: u16, writable: true, persistent: false, models: [easycharge_basic], poll: slow, note: Write 1 to clear the error.}
+  - {key: x.pp_state, label: PP-Widerstand Status, table: holding, address: 155, type: u16, enum: pp_state, models: [easycharge_basic]}
+  - {key: x.relay_state, label: Schaltung Status, table: holding, address: 161, type: u16, enum: relay_state, models: [easycharge_basic]}
+
+enums:
+  active_software: {'0': Bootloader, '1': Firmware}
+  product_type: {'1': EV EasyCharge, '2': EV EasyCharge BASIC}
+  error: {'0': No error, '1': CP guard error, '2': CP control error, '3': 'BASIC: PP resistor not detected; EasyCharge: switching unit tripped repeatedly (e.g. residual current sensor)', '4': 'BASIC: sensor calibration; EasyCharge: switching unit contacts welded', '5': 'BASIC: sensor tripped repeatedly; EasyCharge: flash memory error (CRC32)', '6': 'BASIC: flash memory error (CRC32); EasyCharge: overtemperature despite current reduction', '7': 'BASIC: overtemperature despite current reduction'}
+  plug_state: {'0': Unplugged from vehicle, '1': Plugged into vehicle, '2': Undefined}
+  last_session: {'0': Undefined, '1': Ended successfully, '2': Ended with error}
+  charge_state: {'0': 'Charging possible (EasyCharge: vehicle disconnected)', '1': Charging locked, '2': 'Released, interrupted by vehicle', '3': Relay / switching unit released, '4': 'Ending, waiting for vehicle', '5': CP control error, '6': Resetting error, '7': Wake sequence active (BASIC)}
+  charge_type: {'0': Undefined, '1': Normal charging (6 A – 16/32 A per phase), '2': Simplified pilot detected (min. 10 A per phase)}
+  switch_unit_state: {'0': Mains disconnected, '1': Waiting for mains switching, '2': Mains switched, '3': Waiting for disconnection, '4': Contacts welded}
+  smart_input_state: {'0': Undefined, '1': Analog active, '2': PWM active, '3': 'PWM out of range, charging locked'}
+  error_mode: {'0': Reset when the Type 2 plug is pulled or by Modbus, '1': Reset only by Modbus}
+  on_off: {'0': 'Off', '1': 'On'}
+  smart_input_use: {'0': Ignored, '1': SMART input current used}
+  backup_mode: {'0': Backup current not loaded, '1': Loaded after restart, '2': After restart and Modbus watchdog 2 s, '3': After restart and Modbus watchdog 5 s, '4': After restart and Modbus watchdog 10 s, '5': After restart and Modbus watchdog 30 s, '6': After restart and Modbus watchdog 60 s}
+  hardware_limit: {'0': Limited to 16 A, '1': Limited to 32 A}
+  pp_state: {'0': Undefined, '1': Invalid value, '2': GND, '3': Open, '4': 32 A (220 Ω), '5': 20 A (680 Ω), '6': 13 A (1500 Ω)}
+  relay_state: {'0': Relay open, '1': Waiting for residual current sensor, '2': Relay closed}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charge controller error (code {value})'}
+  - {when: {key: state, equals: 5}, kind: fault, text: CP control error}
+
+notes:
+- The maps give 40001-style references with the protocol address next to them in hex (40001 = 0x0001); those hex addresses
+  are used here, all holding registers. Only odd addresses are used; reading across unused registers returns 0, but a read
+  must not end on one.
+- 'Serial defaults differ: EasyCharge BASIC factory settings are unit 2, 9600 baud, even parity, 1 stop bit (used above);
+  the EasyCharge''s are unit 1, 57600 baud, no parity, 2 stop bits. New settings take effect only after writing the RS485
+  / Modbus Set register.'
+- evcc lists a Pulsares SimpleBox; which of these controllers it contains isn't documented.
+- 'Left out: RS485 settings and the set command (105–111; their addresses differ between the two maps), the EasyCharge''s
+  charging profiles 2–5 (53–59), RGBW lighting (65–83), external button and LED (85, 101) and ColorLock (39, 47, 103), the
+  BASIC''s wake sequence (125–127), potentiometer and branding registers (143–153, 157–159), and the bootloader / firmware-update
+  registers (500 ff.).'

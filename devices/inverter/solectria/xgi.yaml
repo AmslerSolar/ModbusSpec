@@ -1,0 +1,231 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Yaskawa Solectria Solar Modbus Map SOLECTRIA XGI 1000 (DOCR-070999, Rev A).
+
+modbusspec: 0
+id: solectria-xgi
+manufacturer: Yaskawa Solectria Solar
+name: XGI 1000 string inverters
+kind: inverter
+
+sources:
+- title: Modbus Map SOLECTRIA XGI 1000 (DOCR-070999)
+  version: Rev A
+  url: http://solectria.com/site/assets/files/2606/docr-070999-a_solectria_xgi_1000_modbus_map.pdf
+  sha256: 62c4fd843914316db0c4fd9f70c1eef5d140dfc2f9ed9972176b97e73f1d98dc
+  archive_url: https://web.archive.org/web/20190709095810/http://solectria.com//site/assets/files/2606/docr-070999-a_solectria_xgi_1000_modbus_map.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 40052
+    type: str
+    length: 16
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+  - table: holding
+    address: 40002
+    type: u16
+    equals: 1
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: Yaskawa
+  - table: holding
+    address: 40070
+    type: u16
+    equals: 103
+
+sunspec: true
+
+points:
+  # SunSpec common model (1) at 40002
+  - {key: x.manufacturer, label: Manufacturer, table: holding, address: 40004, type: str, length: 16, poll: slow, note: Reads "Yaskawa Solectria Solar".}
+  - {key: x.model, label: Model, table: holding, address: 40020, type: str, length: 16, poll: slow}
+  - {key: x.options, label: Options, table: holding, address: 40036, type: str, length: 8, poll: slow}
+  - {key: firmware, label: Version, table: holding, address: 40044, type: str, length: 8, poll: slow}
+  - {key: serial, label: Serial Number, table: holding, address: 40052, type: str, length: 16, poll: slow}
+  - {key: x.device_address, label: Device Address, table: holding, address: 40068, type: u16, poll: slow}
+
+  # SunSpec inverter model 103 (three phase) at 40070
+  - {key: x.ac_current, label: A, table: holding, address: 40072, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40076, type: s16}, note: Sum of the three phases.}
+  - {key: l1_current, label: AphA, table: holding, address: 40073, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40076, type: s16}}
+  - {key: l2_current, label: AphB, table: holding, address: 40074, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40076, type: s16}}
+  - {key: l3_current, label: AphC, table: holding, address: 40075, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40076, type: s16}}
+  - {key: x.voltage_l1_l2, label: PPVphAB, table: holding, address: 40077, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40083, type: s16}}
+  - {key: x.voltage_l2_l3, label: PPVphBC, table: holding, address: 40078, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40083, type: s16}}
+  - {key: x.voltage_l3_l1, label: PPVphCA, table: holding, address: 40079, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40083, type: s16}}
+  - {key: l1_voltage, label: PhVphA, table: holding, address: 40080, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40083, type: s16}}
+  - {key: l2_voltage, label: PhVphB, table: holding, address: 40081, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40083, type: s16}}
+  - {key: l3_voltage, label: PhVphC, table: holding, address: 40082, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40083, type: s16}}
+  - {key: pv_power, label: W, table: holding, address: 40084, type: s16, unit: W, scale_exponent_from: {table: holding, address: 40085, type: s16}, verified: false, note: 'AC output power. The document lists uint16; SunSpec model 103 defines int16, used here. + = AC output assumed (not stated).'}
+  - {key: frequency, label: Hz, table: holding, address: 40086, type: u16, unit: Hz, scale_exponent_from: {table: holding, address: 40087, type: s16}}
+  - {key: apparent_power, label: VA, table: holding, address: 40088, type: s16, unit: VA, scale_exponent_from: {table: holding, address: 40089, type: s16}}
+  - {key: reactive_power, label: VAr, table: holding, address: 40090, type: s16, unit: var, scale_exponent_from: {table: holding, address: 40091, type: s16}, verified: false, note: Signed per SunSpec model 103 (the document lists uint16). The document doesn't say which sign means which.}
+  - {key: x.power_factor, label: PF, table: holding, address: 40092, type: s16, unit: '%', scale_exponent_from: {table: holding, address: 40093, type: s16}, verified: false, note: Percent per SunSpec model 103 (the document gives no unit for this register; the float model 113 says Pct). Signed per SunSpec.}
+  - {key: pv_energy, label: Wh, table: holding, address: 40094, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 40096, type: s16}, poll: slow, note: 'Lifetime AC energy (acc32, Wh).'}
+  - {key: x.dc_current, label: DCA, table: holding, address: 40097, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40098, type: s16}}
+  - {key: x.dc_voltage, label: DCV, table: holding, address: 40099, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40100, type: s16}}
+  - {key: x.dc_power, label: DCW, table: holding, address: 40101, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40102, type: s16}}
+  - {key: temperature, label: TmpOt, table: holding, address: 40106, type: s16, unit: °C, scale_exponent_from: {table: holding, address: 40107, type: s16}, note: Named IMI temperature in the document; it sits where SunSpec puts the 'other' temperature.}
+  - {key: state, label: St, table: holding, address: 40108, type: u16, enum: state}
+  - {key: x.vendor_state, label: StVnd, table: holding, address: 40109, type: u16, enum: vendor_state}
+  - {key: x.events, label: Evt1, table: holding, address: 40110, type: u32, flags: events}
+  - {key: x.vendor_events_1, label: EvtVnd1, table: holding, address: 40114, type: u32, flags: vendor_events_1}
+  - {key: x.vendor_events_2, label: EvtVnd2, table: holding, address: 40116, type: u32, flags: vendor_events_2}
+  - {key: x.vendor_events_3, label: EvtVnd3, table: holding, address: 40118, type: u32, flags: vendor_events_3}
+
+  # SunSpec nameplate model 120 at 40184
+  - {key: x.der_type, label: DERTyp, table: holding, address: 40186, type: u16, enum: der_type, poll: slow}
+  - {key: x.rated_power, label: WRtg, table: holding, address: 40187, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40188, type: s16}, poll: slow}
+  - {key: x.rated_apparent_power, label: VARtg, table: holding, address: 40189, type: u16, unit: VA, scale_exponent_from: {table: holding, address: 40190, type: s16}, poll: slow}
+  - {key: x.rated_current, label: ARtg, table: holding, address: 40196, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40197, type: s16}, poll: slow}
+
+  # SunSpec basic settings model 121 at 40212
+  - {key: x.max_power, label: WMax, table: holding, address: 40214, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40234, type: s16}, poll: slow}
+  - {key: x.reference_voltage, label: VRef, table: holding, address: 40215, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40235, type: s16}, poll: slow}
+  - {key: x.max_apparent_power, label: VAMax, table: holding, address: 40219, type: u16, unit: VA, scale_exponent_from: {table: holding, address: 40238, type: s16}, poll: slow}
+  - {key: x.nominal_frequency, label: ECPNomHz, table: holding, address: 40232, type: u16, unit: Hz, scale_exponent_from: {table: holding, address: 40243, type: s16}, poll: slow}
+
+  # SunSpec measurement status model 122 at 40244
+  - {key: x.pv_connection, label: PVConn, table: holding, address: 40246, type: u16, flags: pv_connection, note: 'One register; the document''s type column says bitfield32 but its size column says 1, as SunSpec''s bitfield16.'}
+
+  # SunSpec immediate controls model 123 at 40290
+  - {key: x.connection_control, label: Conn, table: holding, address: 40294, type: u16, enum: connect, writable: true}
+  - {key: x.power_limit, label: WMaxLimPct, table: holding, address: 40295, type: u16, unit: '%', scale_exponent_from: {table: holding, address: 40313, type: s16}, writable: true, note: Percent of WMax.}
+  - {key: x.power_limit_enable, label: WMaxLim_Ena, table: holding, address: 40299, type: u16, enum: enable, writable: true}
+  - {key: x.power_factor_setpoint, label: OutPFSet, table: holding, address: 40300, type: s16, scale_exponent_from: {table: holding, address: 40314, type: s16}, writable: true, note: Cosine of the phase angle.}
+  - {key: x.power_factor_enable, label: OutPFSet_Ena, table: holding, address: 40304, type: u16, enum: enable, writable: true}
+
+  # SunSpec multiple MPPT model 160 at 40564 (four input zones)
+  - {key: x.zone_1_dc_current, label: DCA zone 1, table: holding, address: 40583, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40566, type: s16}}
+  - {key: x.zone_1_dc_voltage, label: DCV zone 1, table: holding, address: 40584, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40567, type: s16}}
+  - {key: x.zone_1_dc_power, label: DCW zone 1, table: holding, address: 40585, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40568, type: s16}}
+  - {key: x.zone_1_dc_energy, label: DCWH zone 1, table: holding, address: 40586, type: u32, unit: Wh, scale_exponent_from: {table: holding, address: 40569, type: s16}, poll: slow}
+  - {key: x.zone_1_events, label: DCEvt zone 1, table: holding, address: 40592, type: u32, flags: zone_events}
+  - {key: x.zone_2_dc_current, label: DCA zone 2, table: holding, address: 40603, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40566, type: s16}}
+  - {key: x.zone_2_dc_voltage, label: DCV zone 2, table: holding, address: 40604, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40567, type: s16}}
+  - {key: x.zone_2_dc_power, label: DCW zone 2, table: holding, address: 40605, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40568, type: s16}}
+  - {key: x.zone_2_dc_energy, label: DCWH zone 2, table: holding, address: 40606, type: u32, unit: Wh, scale_exponent_from: {table: holding, address: 40569, type: s16}, poll: slow}
+  - {key: x.zone_2_events, label: DCEvt zone 2, table: holding, address: 40612, type: u32, flags: zone_events}
+  - {key: x.zone_3_dc_current, label: DCA zone 3, table: holding, address: 40623, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40566, type: s16}}
+  - {key: x.zone_3_dc_voltage, label: DCV zone 3, table: holding, address: 40624, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40567, type: s16}}
+  - {key: x.zone_3_dc_power, label: DCW zone 3, table: holding, address: 40625, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40568, type: s16}}
+  - {key: x.zone_3_dc_energy, label: DCWH zone 3, table: holding, address: 40626, type: u32, unit: Wh, scale_exponent_from: {table: holding, address: 40569, type: s16}, poll: slow}
+  - {key: x.zone_3_events, label: DCEvt zone 3, table: holding, address: 40632, type: u32, flags: zone_events}
+  - {key: x.zone_4_dc_current, label: DCA zone 4, table: holding, address: 40643, type: u16, unit: A, scale_exponent_from: {table: holding, address: 40566, type: s16}}
+  - {key: x.zone_4_dc_voltage, label: DCV zone 4, table: holding, address: 40644, type: u16, unit: V, scale_exponent_from: {table: holding, address: 40567, type: s16}}
+  - {key: x.zone_4_dc_power, label: DCW zone 4, table: holding, address: 40645, type: u16, unit: W, scale_exponent_from: {table: holding, address: 40568, type: s16}}
+  - {key: x.zone_4_dc_energy, label: DCWH zone 4, table: holding, address: 40646, type: u32, unit: Wh, scale_exponent_from: {table: holding, address: 40569, type: s16}, poll: slow}
+  - {key: x.zone_4_events, label: DCEvt zone 4, table: holding, address: 40652, type: u32, flags: zone_events}
+
+  # Solectria vendor model 64190 at 40870
+  - {key: pv_energy_today, label: WH (today), table: holding, address: 40874, type: f32, unit: kWh, scale: 0.001, note: 'Today''s AC energy production, float, in Wh.'}
+  - {key: x.inverter_name, label: InvName, table: holding, address: 40876, type: str, length: 16, writable: true, poll: slow}
+  - {key: x.led_status, label: LedStat, table: holding, address: 40903, type: u16, flags: led_status}
+  - {key: x.abnormal_recovery_time, label: AFRT, table: holding, address: 40872, type: u16, unit: s, scale_exponent_from: {table: holding, address: 40873, type: s16}, writable: true, poll: slow}
+  - {key: x.abnormal_recovery_wait_time, label: AFRWT, table: holding, address: 40919, type: u16, unit: s, scale_exponent_from: {table: holding, address: 40920, type: s16}, writable: true, poll: slow}
+
+enums:
+  state: {'3': Starting, '4': MPPT, '5': Throttled, '6': Shutting down, '7': Fault, '8': Standby}
+  vendor_state: {'1': Initializing, '2': Recovery, '3': 'Normal operation, factory configuration', '4': 'Normal operation, manufacturing configuration', '5': Setting up custom configuration, '6': 'Normal operation, custom configuration', '7': 'Normal operation, communication fault', '8': Administrator configuration, '9': Software update, '10': Normal shutdown}
+  der_type: {'4': Photovoltaic, '82': Photovoltaic and storage}
+  connect: {'0': Disconnect, '1': Connect}
+  enable: {'0': Disabled, '1': Enabled}
+
+flags:
+  events: {'0': Ground fault, '1': DC over voltage, '2': AC disconnected, '4': Grid shutdown, '6': Manual shutdown, '7': Over temperature, '8': Over frequency, '9': Under frequency, '10': AC over voltage, '11': AC under voltage, '14': Memory loss or internal communication error, '15': Hardware test failure}
+  vendor_events_1: {'1': Software parameter load failure, '2': Internal communication 1 failure, '3': Internal communication 2 failure, '4': Arc fault detected, '5': AC contactor failure, '6': Over temperature, '7': Excessive leakage current, '8': Low isolation resistance, '9': Internal hardware failure, '10': Ground fault detection failure, '11': Self-check failure, '12': Self-check startup failure}
+  vendor_events_2: {'1': Over voltage current, '2': Phase lock loop failure, '3': Island detected, '4': Open phase detected, '5': Low frequency 1 (LF1), '6': Low frequency 2 (LF2), '7': High frequency 1 (HF1), '8': High frequency 2 (HF2), '9': Low voltage 1 (LV1), '10': Low voltage 2 (LV2), '11': Low voltage 3 (LV3), '12': High voltage 1 (HV1), '13': High voltage 2 (HV2), '24': Communications system fault, '25': Communications 1 fault, '26': Communications 2 fault, '27': Communications 3 fault, '28': Network fault, '29': Software update fault, '30': Unauthorized network access fault, '31': Invalid configuration request}
+  vendor_events_3: {'1': Power derating (temperature), '2': Power derating (customer command)}
+  pv_connection: {'0': Connected, '1': Available, '2': Operating, '3': Test}
+  zone_events: {'15': Arc detected}
+  led_status: {'0': Inverter warning / fault, '1': Inverter service, '2': AC power generation, '3': Network status, '4': System ready}
+
+problems:
+  - {when: {key: state, equals: 7}, kind: fault, text: Inverter fault (state 7)}
+  - {when: {key: x.events, bit: 0}, kind: fault, text: Ground fault}
+  - {when: {key: x.events, bit: 1}, kind: fault, text: DC over voltage}
+  - {when: {key: x.events, bit: 2}, kind: warning, text: AC disconnected}
+  - {when: {key: x.events, bit: 4}, kind: warning, text: Grid shutdown}
+  - {when: {key: x.events, bit: 6}, kind: warning, text: Manual shutdown}
+  - {when: {key: x.events, bit: 7}, kind: fault, text: Over temperature}
+  - {when: {key: x.events, bit: 8}, kind: warning, text: Grid over frequency}
+  - {when: {key: x.events, bit: 9}, kind: warning, text: Grid under frequency}
+  - {when: {key: x.events, bit: 10}, kind: warning, text: AC over voltage}
+  - {when: {key: x.events, bit: 11}, kind: warning, text: AC under voltage}
+  - {when: {key: x.events, bit: 14}, kind: fault, text: Memory loss or internal communication error}
+  - {when: {key: x.events, bit: 15}, kind: fault, text: Hardware test failure}
+  - {when: {key: x.vendor_events_1, bit: 1}, kind: fault, text: Software parameter load failure}
+  - {when: {key: x.vendor_events_1, bit: 2}, kind: fault, text: Internal communication 1 failure}
+  - {when: {key: x.vendor_events_1, bit: 3}, kind: fault, text: Internal communication 2 failure}
+  - {when: {key: x.vendor_events_1, bit: 4}, kind: fault, text: Arc fault detected}
+  - {when: {key: x.vendor_events_1, bit: 5}, kind: fault, text: AC contactor failure}
+  - {when: {key: x.vendor_events_1, bit: 6}, kind: fault, text: Over temperature (vendor)}
+  - {when: {key: x.vendor_events_1, bit: 7}, kind: fault, text: Excessive leakage current}
+  - {when: {key: x.vendor_events_1, bit: 8}, kind: fault, text: Low isolation resistance}
+  - {when: {key: x.vendor_events_1, bit: 9}, kind: fault, text: Internal hardware failure}
+  - {when: {key: x.vendor_events_1, bit: 10}, kind: fault, text: Ground fault detection failure}
+  - {when: {key: x.vendor_events_1, bit: 11}, kind: fault, text: Self-check failure}
+  - {when: {key: x.vendor_events_1, bit: 12}, kind: fault, text: Self-check startup failure}
+  - {when: {key: x.vendor_events_2, bit: 1}, kind: warning, text: Over voltage current}
+  - {when: {key: x.vendor_events_2, bit: 2}, kind: warning, text: Phase lock loop failure}
+  - {when: {key: x.vendor_events_2, bit: 3}, kind: mains_lost, text: Island detected}
+  - {when: {key: x.vendor_events_2, bit: 4}, kind: warning, text: Open phase detected}
+  - {when: {key: x.vendor_events_2, bit: 5}, kind: warning, text: Grid low frequency 1}
+  - {when: {key: x.vendor_events_2, bit: 6}, kind: warning, text: Grid low frequency 2}
+  - {when: {key: x.vendor_events_2, bit: 7}, kind: warning, text: Grid high frequency 1}
+  - {when: {key: x.vendor_events_2, bit: 8}, kind: warning, text: Grid high frequency 2}
+  - {when: {key: x.vendor_events_2, bit: 9}, kind: warning, text: Grid low voltage 1}
+  - {when: {key: x.vendor_events_2, bit: 10}, kind: warning, text: Grid low voltage 2}
+  - {when: {key: x.vendor_events_2, bit: 11}, kind: warning, text: Grid low voltage 3}
+  - {when: {key: x.vendor_events_2, bit: 12}, kind: warning, text: Grid high voltage 1}
+  - {when: {key: x.vendor_events_2, bit: 13}, kind: warning, text: Grid high voltage 2}
+  - {when: {key: x.vendor_events_2, bit: 24}, kind: warning, text: Communications system fault}
+  - {when: {key: x.vendor_events_2, bit: 25}, kind: warning, text: Communications 1 fault}
+  - {when: {key: x.vendor_events_2, bit: 26}, kind: warning, text: Communications 2 fault}
+  - {when: {key: x.vendor_events_2, bit: 27}, kind: warning, text: Communications 3 fault}
+  - {when: {key: x.vendor_events_2, bit: 28}, kind: warning, text: Network fault}
+  - {when: {key: x.vendor_events_2, bit: 29}, kind: warning, text: Software update fault}
+  - {when: {key: x.vendor_events_2, bit: 30}, kind: warning, text: Unauthorized network access}
+  - {when: {key: x.vendor_events_2, bit: 31}, kind: warning, text: Invalid configuration request}
+  - {when: {key: x.vendor_events_3, bit: 1}, kind: warning, text: Power derating (temperature)}
+  - {when: {key: x.zone_1_events, bit: 15}, kind: fault, text: Arc detected on input zone 1}
+  - {when: {key: x.zone_2_events, bit: 15}, kind: fault, text: Arc detected on input zone 2}
+  - {when: {key: x.zone_3_events, bit: 15}, kind: fault, text: Arc detected on input zone 3}
+  - {when: {key: x.zone_4_events, bit: 15}, kind: fault, text: Arc detected on input zone 4}
+
+notes:
+- 'SunSpec map: ''SunS'' at 40000, then models 1, 103, 113 (float copy of 103), 120, 121, 122, 123, 129, 130, 135, 136, 160,
+  16 / 16001–16003 (network interfaces) and the vendor model 64190, end marker at 40921. The document''s addresses are used
+  as 0-based protocol addresses, as in SunSpec. Read groups (strings, 32-bit values) from their first register in one request.
+  Function 03 reads, 06 writes.'
+- The document doesn't name the transport, port or unit id. The inverter has Ethernet and Wi-Fi interfaces, so Modbus TCP
+  on port 502 with unit 1 is assumed.
+- 'Every scale factor is a register (listed values: currents, voltages, power, frequency, energy −1; ratings 3 or −1); scale
+  factors are read as signed although the document''s type column sometimes says uint16. Power, apparent / reactive power
+  and power factor are taken as signed per SunSpec model 103; the document lists them as uint16.'
+- 'EvtVnd2 bit numbers for the communication faults differ between the document''s tables: the model 103 / 113 tables use
+  bits 24–31 (used here), the model 64190 table bits 25–31 (without ''Invalid configuration request'').'
+- The document names the WMaxLim_Ena and OutPFSet_Ena values 0 'Disconnect' and 1 'Connect'; given here as disabled / enabled.
+- 'Left out: model 113 (float duplicates of model 103), ride-through curves (models 129, 130, 135, 136), the network interface
+  models, the remaining model 121 settings, per-zone timestamps / temperatures / states (the document shows them as not available),
+  and the vendor write-only and test registers (password, event clearing, arc / insulation / IMI test start, input zone configuration).'
+- Model 120 in the document lists both the ID and the DERTyp at 40186; the ID is at 40184 and the length at 40185.
+- 'Problem kinds: grid voltage / frequency and island events are the grid''s, reported as warnings (island detection as grid
+  lost); inverter hardware, arc, insulation and ground faults as faults. Derating by customer command is not a problem.'

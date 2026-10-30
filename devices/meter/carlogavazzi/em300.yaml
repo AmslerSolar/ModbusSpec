@@ -1,0 +1,214 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Carlo Gavazzi EM300 / ET300 series communication protocol (Version 2 Revision 17, 2021-07-05);
+# ET-only energies and THD and the EM341 extras from the Version 2 Revision 9 edition.
+
+modbusspec: 0
+id: carlogavazzi-em300
+manufacturer: Carlo Gavazzi
+name: EM330 / EM331 / EM340 / EM341 / ET330 / ET340 energy meters
+kind: meter
+
+sources:
+- title: Carlo Gavazzi EM300 / ET300 Series Communication Protocol
+  version: Version 2 Revision 17 (2021-07-05)
+  url: https://www.gavazziautomation.com/fileadmin/images/PIM/OTHERSTUFF/COMPRO/EM330_EM340_ET330_ET340_CP.pdf
+  sha256: df1a113bd360af4189cced7a369c59ebc3c59ee94991f91c2ff92945c2bc2b7d
+  archive_url: https://web.archive.org/web/20260520065222/https://www.gavazziautomation.com/fileadmin/images/PIM/OTHERSTUFF/COMPRO/EM330_EM340_ET330_ET340_CP.pdf
+- title: Carlo Gavazzi EM300 Series and ET300 Series Communication Protocol
+  version: Version 2 Revision 9 (EM341 edition)
+  url: https://www.galoz.co.il/wp-content/uploads/2014/11/EM341-Modbus.pdf
+  sha256: c76a245a189f53568b95fd72a9d5da264961c19782593468bf6e362a77b571f5
+  archive_url: https://web.archive.org/web/20240214025138/https://www.galoz.co.il/wp-content/uploads/2014/11/EM341-Modbus.pdf
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/carlogavazzi-ex3x0.go
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.carlo.gavazzi/src/io/openems/edge/meter/carlo/gavazzi/em300/MeterCarloGavazziEm300Impl.java
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/carlo_gavazzi/carlo_gavazzi
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  input_equals_holding: true
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 50
+    max_gap: 32
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 20480
+    type: str
+    length: 7
+    chars: low
+  checks:
+  - table: input
+    address: 11
+    type: u16
+    in:
+    - 331
+    - 332
+    - 355
+    - 335
+    - 336
+    - 341
+    - 346
+    - 345
+
+models:
+  - {id: em330_av6, name: EM330 (AV6), match: {table: input, address: 11, type: u16, equals: 331}}
+  - {id: em330_av5, name: EM330 (AV5), match: {table: input, address: 11, type: u16, equals: 332}}
+  - {id: em331, name: EM331, match: {table: input, address: 11, type: u16, equals: 355}}
+  - {id: et330_av5, name: ET330 (AV5), match: {table: input, address: 11, type: u16, equals: 335}}
+  - {id: et330_av6, name: ET330 (AV6), match: {table: input, address: 11, type: u16, equals: 336}}
+  - {id: em340, name: EM340, match: {table: input, address: 11, type: u16, equals: 341}}
+  - {id: em341, name: EM341, match: {table: input, address: 11, type: u16, equals: 346}}
+  - {id: et340, name: ET340, match: {table: input, address: 11, type: u16, equals: 345}}
+
+points:
+  # Instantaneous variables
+  - {key: l1_voltage, label: V L1-N, table: input, address: 0, type: s32, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: V L2-N, table: input, address: 2, type: s32, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: V L3-N, table: input, address: 4, type: s32, unit: V, scale: 0.1}
+  - {key: x.l1_l2_voltage, label: V L1-L2, table: input, address: 6, type: s32, unit: V, scale: 0.1}
+  - {key: x.l2_l3_voltage, label: V L2-L3, table: input, address: 8, type: s32, unit: V, scale: 0.1}
+  - {key: x.l3_l1_voltage, label: V L3-L1, table: input, address: 10, type: s32, unit: V, scale: 0.1}
+  - {key: l1_current, label: A L1, table: input, address: 12, type: s32, unit: A, scale: 0.001, note: Signed in bidirectional mode.}
+  - {key: l2_current, label: A L2, table: input, address: 14, type: s32, unit: A, scale: 0.001}
+  - {key: l3_current, label: A L3, table: input, address: 16, type: s32, unit: A, scale: 0.001}
+  - {key: l1_power, label: W L1, table: input, address: 18, type: s32, unit: W, scale: 0.1, positive: import}
+  - {key: l2_power, label: W L2, table: input, address: 20, type: s32, unit: W, scale: 0.1, positive: import}
+  - {key: l3_power, label: W L3, table: input, address: 22, type: s32, unit: W, scale: 0.1, positive: import}
+  - {key: x.l1_apparent_power, label: VA L1, table: input, address: 24, type: s32, unit: VA, scale: 0.1}
+  - {key: x.l2_apparent_power, label: VA L2, table: input, address: 26, type: s32, unit: VA, scale: 0.1}
+  - {key: x.l3_apparent_power, label: VA L3, table: input, address: 28, type: s32, unit: VA, scale: 0.1}
+  - {key: x.l1_reactive_power, label: var L1, table: input, address: 30, type: s32, unit: var, scale: 0.1}
+  - {key: x.l2_reactive_power, label: var L2, table: input, address: 32, type: s32, unit: var, scale: 0.1}
+  - {key: x.l3_reactive_power, label: var L3, table: input, address: 34, type: s32, unit: var, scale: 0.1}
+  - {key: x.system_voltage_ln, label: V L-N sys, table: input, address: 36, type: s32, unit: V, scale: 0.1}
+  - {key: x.system_voltage_ll, label: V L-L sys, table: input, address: 38, type: s32, unit: V, scale: 0.1}
+  - {key: grid_power, label: W sys, table: input, address: 40, type: s32, unit: W, scale: 0.1, positive: import, note: 'Bidirectional mode (B / PFB): quadrants II and III show −W and count kWh(−), i.e. negative = export; the PF notes say the same. In easy connection mode (A / PFA) P is always positive and export can''t be seen.'}
+  - {key: apparent_power, label: VA sys, table: input, address: 42, type: s32, unit: VA, scale: 0.1}
+  - {key: reactive_power, label: var sys, table: input, address: 44, type: s32, unit: var, scale: 0.1}
+  - {key: x.l1_power_factor, label: PF L1, table: input, address: 46, type: s16, unit: '', scale: 0.001, invalid: [32767]}
+  - {key: x.l2_power_factor, label: PF L2, table: input, address: 47, type: s16, unit: '', scale: 0.001, invalid: [32767]}
+  - {key: x.l3_power_factor, label: PF L3, table: input, address: 48, type: s16, unit: '', scale: 0.001, invalid: [32767]}
+  - {key: power_factor, label: PF sys, table: input, address: 49, type: s16, unit: '', scale: 0.001, invalid: [32767], note: Negative with exported active power.}
+  - {key: x.phase_sequence, label: Phase sequence, table: input, address: 50, type: s16, enum: phase_sequence, invalid: [32767]}
+  - {key: frequency, label: Hz, table: input, address: 51, type: s16, unit: Hz, scale: 0.1, invalid: [32767]}
+  - {key: grid_import_energy, label: kWh (+) TOT, table: input, address: 52, type: s32, unit: kWh, scale: 0.1}
+  - {key: x.import_reactive_energy, label: kvarh (+) TOT, table: input, address: 54, type: s32, unit: kvarh, scale: 0.1}
+  - {key: x.power_demand, label: kW dmd, table: input, address: 56, type: s32, unit: W, scale: 0.1}
+  - {key: grid_export_energy, label: kWh (-) TOT, table: input, address: 78, type: s32, unit: kWh, scale: 0.1, note: Counts only in bidirectional mode.}
+  - {key: x.export_reactive_energy, label: kvarh (-) TOT, table: input, address: 80, type: s32, unit: kvarh, scale: 0.1}
+  - {key: x.run_hours, label: Run hour meter, table: input, address: 90, type: s32, unit: h, scale: 0.01, poll: slow, models: [em330_av6, em330_av5, et330_av5, et330_av6, et340], note: Only ET series and EM330 (the Version 2 Revision 9 document says ET series only).}
+  - {key: x.l1_export_energy, label: kWh (-) L1, table: input, address: 96, type: s32, unit: kWh, scale: 0.1, models: [et330_av5, et330_av6, et340], note: Only ET series (Version 2 Revision 9 document).}
+  - {key: x.l2_export_energy, label: kWh (-) L2, table: input, address: 98, type: s32, unit: kWh, scale: 0.1, models: [et330_av5, et330_av6, et340], note: Only ET series (Version 2 Revision 9 document).}
+  - {key: x.l3_export_energy, label: kWh (-) L3, table: input, address: 100, type: s32, unit: kWh, scale: 0.1, models: [et330_av5, et330_av6, et340], note: Only ET series (Version 2 Revision 9 document).}
+  - {key: x.l1_current_thd, label: THD A L1, table: input, address: 130, type: s32, unit: '%', scale: 0.01, models: [et330_av5, et330_av6, et340], note: 'Only ET series, with THD calculation on (1106h); Version 2 Revision 9 document.'}
+  - {key: x.l2_current_thd, label: THD A L2, table: input, address: 132, type: s32, unit: '%', scale: 0.01, models: [et330_av5, et330_av6, et340], note: 'Only ET series, with THD calculation on (1106h); Version 2 Revision 9 document.'}
+  - {key: x.l3_current_thd, label: THD A L3, table: input, address: 134, type: s32, unit: '%', scale: 0.01, models: [et330_av5, et330_av6, et340], note: 'Only ET series, with THD calculation on (1106h); Version 2 Revision 9 document.'}
+  - {key: x.voltage_thd, label: THD V L-N sys, table: input, address: 136, type: s32, unit: '%', scale: 0.01, models: [et330_av5, et330_av6, et340], note: 'Mean of the three phase-to-neutral THD values. Only ET series, with THD calculation on (1106h); Version 2 Revision 9 document.'}
+  - {key: x.l1_voltage_thd, label: THD V L1-N, table: input, address: 138, type: s32, unit: '%', scale: 0.01, models: [et330_av5, et330_av6, et340], note: 'Only ET series, with THD calculation on (1106h); Version 2 Revision 9 document.'}
+  - {key: x.l2_voltage_thd, label: THD V L2-N, table: input, address: 140, type: s32, unit: '%', scale: 0.01, models: [et330_av5, et330_av6, et340], note: 'Only ET series, with THD calculation on (1106h); Version 2 Revision 9 document.'}
+  - {key: x.l3_voltage_thd, label: THD V L3-N, table: input, address: 142, type: s32, unit: '%', scale: 0.01, models: [et330_av5, et330_av6, et340], note: 'Only ET series, with THD calculation on (1106h); Version 2 Revision 9 document.'}
+
+  # Identification and settings
+  - {key: serial, label: Serial number (letters 1–7), table: input, address: 20480, type: str, length: 7, chars: low, poll: slow, note: The high byte of each register is not to be used.}
+  - {key: x.production_year, label: Production year, table: input, address: 20496, type: u16, poll: slow, note: Only meters made from October 2018.}
+  - {key: firmware, label: Version code, table: input, address: 770, type: u16, poll: slow, note: '0 = version A, 1 = B, …'}
+  - {key: x.revision_code, label: Revision code, table: input, address: 771, type: u16, poll: slow}
+  - {key: x.measuring_system, label: Measuring system, table: input, address: 4098, type: u16, enum: measuring_system, poll: slow, writable: true}
+  - {key: x.ct_ratio, label: Current transformer ratio, table: input, address: 4099, type: u32, scale: 0.1, poll: slow, writable: true, min: 1, max: 1000}
+  - {key: x.vt_ratio, label: Voltage transformer ratio, table: input, address: 4101, type: u32, scale: 0.1, poll: slow, writable: true, min: 1, max: 1000}
+  - {key: x.measurement_mode, label: Measurement mode selection, table: input, address: 4355, type: u16, enum: measurement_mode, poll: slow, writable: true}
+  - {key: x.wrong_connection, label: Wrong connection (installing help) status, table: input, address: 4357, type: u16, flags: wrong_connection, poll: slow}
+  - {key: x.thd_enabled, label: THD calculation enabling, table: input, address: 4358, type: u16, enum: off_on, poll: slow, writable: true, note: Default on; any value other than 1 counts as off. Version 2 Revision 9 document.}
+  - {key: x.rs485_address, label: RS485 instrument address, table: input, address: 8192, type: u16, poll: slow, writable: true, min: 1, max: 247}
+  - {key: x.rs485_baud, label: RS485 baud rate, table: input, address: 8193, type: u16, enum: baud, poll: slow, writable: true}
+  - {key: x.rs485_parity, label: RS485 parity, table: input, address: 8194, type: u16, enum: parity, poll: slow, writable: true}
+  - {key: x.rs485_stop_bits, label: RS485 stop bit, table: input, address: 8195, type: u16, enum: stop_bits, poll: slow, writable: true}
+  - {key: x.max_words, label: Max number of words readable with a single request, table: input, address: 8196, type: u16, poll: slow, note: Reads 50.}
+
+  # EM341 only (Version 2 Revision 9 document)
+  - {key: x.current_tariff, label: Current tariff (EM341), table: input, address: 4609, type: u16, enum: tariff_em341, poll: slow, models: [em341], note: Read only on the EM341; on the other models this register selects the tariff via serial communication.}
+  - {key: x.clock, label: 'Clock calendar (year, month, day, hour, minutes, seconds)', table: input, address: 25856, type: datetime, length: 6, datetime: {year: {register: 0}, month: {register: 1}, day: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, poll: slow, models: [em341], writable: true, note: 'To change the date or the time, write all three registers of that part one by one in order.'}
+  - {key: x.output_status, label: Output status, table: input, address: 25864, type: u16, flags: output_status, models: [em341]}
+  - {key: x.season, label: Current season, table: input, address: 25865, type: u16, enum: season, poll: slow, models: [em341]}
+  - {key: x.day_type, label: Current day type, table: input, address: 25866, type: u16, enum: day_type, poll: slow, models: [em341]}
+  - {key: x.time_slot, label: Current time slot, table: input, address: 25867, type: u16, enum: time_slot, poll: slow, models: [em341]}
+  - {key: x.import_l1, label: L1 Import, table: input, address: 64, type: s32, unit: kWh, scale: 0.1, verified: false, sources: [mbmd]}
+  - {key: x.import_l2, label: L2 Import, table: input, address: 66, type: s32, unit: kWh, scale: 0.1, verified: false, sources: [mbmd]}
+  - {key: x.import_l3, label: L3 Import, table: input, address: 68, type: s32, unit: kWh, scale: 0.1, verified: false, sources: [mbmd]}
+
+enums:
+  phase_sequence: {'-1': L1-L3-L2, '0': L1-L2-L3, '1': L1-L3-L2}
+  measuring_system: {'0': 3Pn, '1': 3P, '2': 2P}
+  measurement_mode: {'0': A (easy connection), '1': B (bidirectional)}
+  baud: {'1': '9600', '2': '19200', '3': '38400', '4': '57600', '5': '115200'}
+  parity: {'1': None, '2': Even}
+  stop_bits: {'0': '1', '1': '1', '2': '2'}
+  off_on: {'0': 'Off', '1': 'On'}
+  tariff_em341: {'0': Tariff 1, '1': Tariff 2, '2': Tariff 3, '3': Tariff 4}
+  season: {'0': Spring, '1': Summer, '2': Autumn, '3': Winter}
+  day_type: {'1': Working day, '2': Festive day, '3': Pre-festive day}
+  time_slot: {'0': Slot 1, '1': Slot 2, '2': Slot 3, '3': Slot 4, '4': Slot 5, '5': Slot 6}
+
+flags:
+  wrong_connection: {'0': Wrong voltage sequence, '1': Phase 1 inverted, '2': Phase 2 inverted, '3': Phase 3 inverted, '4': Phases 1 and 2 exchanged, '5': Phases 1 and 3 exchanged, '6': Phases 2 and 3 exchanged, '7': 'Phases 1, 2, 3 exchanged'}
+  output_status: {'0': Alarm 1 on, '1': Alarm 1 output closed, '2': Alarm 2 on, '3': Alarm 2 output closed}
+
+problems:
+  - {when: {key: x.wrong_connection, bit: 0}, kind: warning, text: 'Wrong wiring: wrong voltage sequence (bit 0)'}
+  - {when: {key: x.wrong_connection, bit: 1}, kind: warning, text: 'Wrong wiring: phase 1 inverted (bit 1)'}
+  - {when: {key: x.wrong_connection, bit: 2}, kind: warning, text: 'Wrong wiring: phase 2 inverted (bit 2)'}
+  - {when: {key: x.wrong_connection, bit: 3}, kind: warning, text: 'Wrong wiring: phase 3 inverted (bit 3)'}
+  - {when: {key: x.wrong_connection, bit: 4}, kind: warning, text: 'Wrong wiring: phases 1 and 2 exchanged (bit 4)'}
+  - {when: {key: x.wrong_connection, bit: 5}, kind: warning, text: 'Wrong wiring: phases 1 and 3 exchanged (bit 5)'}
+  - {when: {key: x.wrong_connection, bit: 6}, kind: warning, text: 'Wrong wiring: phases 2 and 3 exchanged (bit 6)'}
+  - {when: {key: x.wrong_connection, bit: 7}, kind: warning, text: 'Wrong wiring: phases 1, 2, 3 exchanged (bit 7)'}
+
+notes:
+- The addresses are the document's "physical address" (its 3xxxxx numbers minus 300001).
+- 32-bit integers are least significant word first; bytes within a register most significant first.
+- 'Not covered: identification codes 330 and 340, EM330 / EM340 engineering samples that send the most significant word first
+  (330 is listed in the Version 2 Revision 9 document).'
+- 'Overflow (display "EEE"): the most significant word of a variable reads 7FFFh; treat such values as not available.'
+- At most 50 registers per request (also readable at 2004h). The identification code 000Bh overlaps V L3-L1 and must be read
+  alone with length 1.
+- Measurement mode A (easy connection, PFA models) reports power and current always positive and kWh always increasing, so
+  export can't be seen. Use mode B (bidirectional, PFB models) at the grid connection.
+- With the measuring system 2P only L1 + L2 are in use.
+- 'RS485 defaults: address 1, 9600 baud, no parity, 1 stop bit.'
+- mbmd (type code CGEX3X0) detects the meter by reading L1 Voltage (input register 0, s32, word order little, scale 0.1);
+  its bus scan accepts a value within 10% of 110 or 230 V.
+- The driver's default meter type is PRODUCTION; OpenEMS doesn't say which way the device's own power value is positive, so
+  no direction is given.
+- OpenEMS has an 'Invert' option that negates the power values and swaps the two energy counters; the points here are the
+  reading with it off.
+- Identification as mbmd recognises the device (not checked against a document).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

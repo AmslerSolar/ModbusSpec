@@ -1,0 +1,161 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the B+G e-tech DRT428M series user manual with the Modbus register map for the DRT428M-2/3 (undated).
+
+modbusspec: 0
+id: bgetech-drt428m2
+manufacturer: B+G E-Tech
+name: DRT428M-2 / -3 bidirectional three-phase meter
+kind: meter
+
+sources:
+- title: B+G e-tech User Manual DRT428M Serie (with the Modbus register map for DRT428M-2/3)
+  version: undated (copy in OpenEMS at commit c044448d6346209e4aa8dae7f4bde08a676ad0ed)
+  url: https://github.com/OpenEMS/openems/blob/c044448d6346209e4aa8dae7f4bde08a676ad0ed/io.openems.edge.meter.bgetech/doc/DRT428M-Serie_manual-register.pdf
+  sha256: 9f1f041001a52374149558f56e0ce035665d933bd669ba9cc7b6b40ad5639806
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.meter.bgetech/src/io/openems/edge/meter/bgetech/MeterBgeTechDrt428M2Impl.java
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8E1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 0
+    type: bcd32
+  checks:
+  - table: holding
+    address: 11
+    type: u16
+    in:
+    - 1
+    - 5
+    - 9
+  - table: holding
+    address: 20
+    type: f32
+    range:
+    - 45
+    - 65
+
+
+points:
+  # Parameters and instantaneous values (function 03)
+  - {key: serial, label: Serial number, table: holding, address: 0, type: bcd32, poll: slow, note: 8 digits; also the IR address.}
+  - {key: x.modbus_id, label: Modbus ID, table: holding, address: 2, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Default 1. Written with function 06.}
+  - {key: x.baud_rate, label: Baud Rate, table: holding, address: 3, type: u16, writable: true, poll: slow, note: 300 … 9600 (default 9600); how the rate is coded in the register isn't stated.}
+  - {key: firmware, label: Software Version, table: holding, address: 4, type: f32, poll: slow, note: 'Float word order not stated; assumed most significant register first, as for all floats here.', verified: false}
+  - {key: x.hardware_version, label: Hardware Version, table: holding, address: 6, type: f32, poll: slow, verified: false}
+  - {key: x.s0_rate, label: S0 output rate, table: holding, address: 9, type: f32, unit: imp/kWh, writable: true, min: 1, max: 1000, poll: slow, note: '1, 10, 100 or 1000. Written with function 16.', verified: false}
+  - {key: x.combination_code, label: Combined Code, table: holding, address: 11, type: u16, enum: combination_code, writable: true, poll: slow}
+  - {key: x.scroll_time, label: Cycle time, table: holding, address: 13, type: bcd16, unit: s, writable: true, min: 1, max: 30, poll: slow}
+  - {key: l1_voltage, label: L1 Voltage, table: holding, address: 14, type: f32, unit: V, verified: false}
+  - {key: l2_voltage, label: L2 Voltage, table: holding, address: 16, type: f32, unit: V, verified: false}
+  - {key: l3_voltage, label: L3 Voltage, table: holding, address: 18, type: f32, unit: V, verified: false}
+  - {key: frequency, label: Grid Frequency, table: holding, address: 20, type: f32, unit: Hz, verified: false}
+  - {key: l1_current, label: L1 Current, table: holding, address: 22, type: f32, unit: A, verified: false}
+  - {key: l2_current, label: L2 Current, table: holding, address: 24, type: f32, unit: A, verified: false}
+  - {key: l3_current, label: L3 Current, table: holding, address: 26, type: f32, unit: A, verified: false}
+  - {key: grid_power, label: Total Active Power, table: holding, address: 28, type: f32, unit: W, scale: 1000, positive: import, note: Neither the unit nor the sign is stated. kW assumed (the display shows kW with three decimals); positive = import (forward) assumed., verified: false}
+  - {key: l1_power, label: L1 Active Power, table: holding, address: 30, type: f32, unit: W, scale: 1000, positive: import, note: Not stated in the document; assumed like the total., verified: false}
+  - {key: l2_power, label: L2 Active Power, table: holding, address: 32, type: f32, unit: W, scale: 1000, positive: import, note: Not stated in the document; assumed like the total., verified: false}
+  - {key: l3_power, label: L3 Active Power, table: holding, address: 34, type: f32, unit: W, scale: 1000, positive: import, note: Not stated in the document; assumed like the total., verified: false}
+  - {key: reactive_power, label: Total reactive power, table: holding, address: 36, type: f32, unit: var, scale: 1000, note: Unit not stated; kvar assumed., verified: false}
+  - {key: x.l1_reactive_power, label: L1 reactive power, table: holding, address: 38, type: f32, unit: var, scale: 1000, verified: false}
+  - {key: x.l2_reactive_power, label: L2 reactive power, table: holding, address: 40, type: f32, unit: var, scale: 1000, verified: false}
+  - {key: x.l3_reactive_power, label: L3 reactive power, table: holding, address: 42, type: f32, unit: var, scale: 1000, verified: false}
+  - {key: apparent_power, label: Total Apparent Power, table: holding, address: 44, type: f32, unit: VA, scale: 1000, note: Unit not stated; kVA assumed (as on the display)., conflicts: [{sources: [openems], scale: 1}], verified: false}
+  - {key: x.l1_apparent_power, label: L1 Apparent Power, table: holding, address: 46, type: f32, unit: VA, scale: 1000, conflicts: [{sources: [openems], scale: 1}], verified: false}
+  - {key: x.l2_apparent_power, label: L2 Apparent Power, table: holding, address: 48, type: f32, unit: VA, scale: 1000, conflicts: [{sources: [openems], scale: 1}], verified: false}
+  - {key: x.l3_apparent_power, label: L3 Apparent Power, table: holding, address: 50, type: f32, unit: VA, scale: 1000, conflicts: [{sources: [openems], scale: 1}], verified: false}
+  - {key: power_factor, label: Total Power Factor, table: holding, address: 52, type: f32, unit: '', verified: false}
+  - {key: x.l1_power_factor, label: Power Factor (L1), table: holding, address: 54, type: f32, unit: '', note: 'The document labels 0x0036 … 0x003A just "Power Factor"; L1, L2, L3 in that order assumed.', verified: false}
+  - {key: x.l2_power_factor, label: Power Factor (L2), table: holding, address: 56, type: f32, unit: '', verified: false}
+  - {key: x.l3_power_factor, label: Power Factor (L3), table: holding, address: 58, type: f32, unit: '', verified: false}
+  - {key: x.clock, label: Time, table: holding, address: 60, type: datetime, length: 4, datetime: {second: {register: 0, bits: [8, 15], bcd: true}, minute: {register: 0, bits: [0, 7], bcd: true}, hour: {register: 1, bits: [8, 15], bcd: true}, day: {register: 2, bits: [8, 15], bcd: true}, month: {register: 2, bits: [0, 7], bcd: true}, year: {register: 3, bits: [8, 15], bcd: true, offset: 2000}}, optional: true, writable: true, poll: slow, note: 'DRT428M-3 only. BCD bytes second, minute, hour, weekday, day, month, year, 00; the first byte of each pair taken as the high byte, and the year as years after 2000 (both assumed).', verified: false}
+
+  # Energy (function 03)
+  - {key: x.total_active_energy, label: Total Active Energy, table: holding, address: 256, type: f32, unit: kWh, poll: slow, note: Unit not stated; kWh assumed (as on the display). What it counts follows the combined code (0x000B)., conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l1_total_active_energy, label: L1 Total Active Energy, table: holding, address: 258, type: f32, unit: kWh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l2_total_active_energy, label: L2 Total Active Energy, table: holding, address: 260, type: f32, unit: kWh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l3_total_active_energy, label: L3 Total Active Energy, table: holding, address: 262, type: f32, unit: kWh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: grid_import_energy, label: Forward Active Energy, table: holding, address: 264, type: f32, unit: kWh, poll: slow, note: Unit not stated; kWh assumed. Forward = import (measuring mode 01 is called import only)., conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l1_import_energy, label: L1 Forward Active Energy, table: holding, address: 266, type: f32, unit: kWh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l2_import_energy, label: L2 Forward Active Energy, table: holding, address: 268, type: f32, unit: kWh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l3_import_energy, label: L3 Forward Active Energy, table: holding, address: 270, type: f32, unit: kWh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: grid_export_energy, label: Reverse Active Energy, table: holding, address: 272, type: f32, unit: kWh, poll: slow, note: Unit not stated; kWh assumed., conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l1_export_energy, label: L1 Reverse Active Energy, table: holding, address: 274, type: f32, unit: kWh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l2_export_energy, label: L2 Reverse Active Energy, table: holding, address: 276, type: f32, unit: kWh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l3_export_energy, label: L3 Reverse Active Energy, table: holding, address: 278, type: f32, unit: kWh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.total_reactive_energy, label: Total Reactive Energy, table: holding, address: 280, type: f32, unit: kvarh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.import_reactive_energy, label: Forward Reactive Energy, table: holding, address: 288, type: f32, unit: kvarh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.export_reactive_energy, label: Reverse Reactive Energy, table: holding, address: 296, type: f32, unit: kvarh, poll: slow, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.t1_total_active_energy, label: T1 Total Active Energy, table: holding, address: 304, type: f32, unit: kWh, poll: slow, optional: true, note: Tariff counters (T1 … T4) are for the DRT428M-3., conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.t2_total_active_energy, label: T2 Total Active Energy, table: holding, address: 316, type: f32, unit: kWh, poll: slow, optional: true, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.t3_total_active_energy, label: T3 Total Active Energy, table: holding, address: 328, type: f32, unit: kWh, poll: slow, optional: true, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.t4_total_active_energy, label: T4 Total Active Energy, table: holding, address: 340, type: f32, unit: kWh, poll: slow, optional: true, conflicts: [{sources: [openems], scale: 0.001}], verified: false}
+  - {key: x.l1_reactive_energy, label: L1 Reactive Energy, table: holding, address: 282, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.l2_reactive_energy, label: L2 Reactive Energy, table: holding, address: 284, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.l3_reactive_energy, label: L3 Reactive Energy, table: holding, address: 286, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.l1_forward_reactive_energy, label: L1 Forward Reactive Energy, table: holding, address: 290, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.l2_forward_reactive_energy, label: L2 Forward Reactive Energy, table: holding, address: 292, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.l3_forward_reactive_energy, label: L3 Forward Reactive Energy, table: holding, address: 294, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.l1_reverse_reactive_energy, label: L1 Reverse Reactive Energy, table: holding, address: 298, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.l2_reverse_reactive_energy, label: L2 Reverse Reactive Energy, table: holding, address: 300, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.l3_reverse_reactive_energy, label: L3 Reverse Reactive Energy, table: holding, address: 302, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t1_forward_active_energy, label: T1 Forward Active Energy, table: holding, address: 306, type: f32, unit: kWh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t1_reverse_active_energy, label: T1 Reverse Active Energy, table: holding, address: 308, type: f32, unit: kWh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t1_total_reactive_energy, label: T1 Total Reactive Energy, table: holding, address: 310, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t1_forward_reactive_energy, label: T1 Forward Reactive Energy, table: holding, address: 312, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t1_reverse_reactive_energy, label: T1 Reverse Reactive Energy, table: holding, address: 314, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t2_forward_active_energy, label: T2 Forward Active Energy, table: holding, address: 318, type: f32, unit: kWh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t2_reverse_active_energy, label: T2 Reverse Active Energy, table: holding, address: 320, type: f32, unit: kWh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t2_total_reactive_energy, label: T2 Total Reactive Energy, table: holding, address: 322, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t2_forward_reactive_energy, label: T2 Forward Reactive Energy, table: holding, address: 324, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t2_reverse_reactive_energy, label: T2 Reverse Reactive Energy, table: holding, address: 326, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t3_forward_active_energy, label: T3 Forward Active Energy, table: holding, address: 330, type: f32, unit: kWh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t3_reverse_active_energy, label: T3 Reverse Active Energy, table: holding, address: 332, type: f32, unit: kWh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t3_total_reactive_energy, label: T3 Total Reactive Energy, table: holding, address: 334, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t3_forward_reactive_energy, label: T3 Forward Reactive Energy, table: holding, address: 336, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t3_reverse_reactive_energy, label: T3 Reverse Reactive Energy, table: holding, address: 338, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t4_forward_active_energy, label: T4 Forward Active Energy, table: holding, address: 342, type: f32, unit: kWh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t4_reverse_active_energy, label: T4 Reverse Active Energy, table: holding, address: 344, type: f32, unit: kWh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t4_total_reactive_energy, label: T4 Total Reactive Energy, table: holding, address: 346, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t4_forward_reactive_energy, label: T4 Forward Reactive Energy, table: holding, address: 348, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+  - {key: x.t4_reverse_reactive_energy, label: T4 Reverse Reactive Energy, table: holding, address: 350, type: f32, unit: kvarh, scale: 0.001, sources: [openems], verified: false}
+
+enums:
+  combination_code: {'1': Forward only, '5': Forward + reverse, '9': Forward − reverse}
+
+notes:
+- 'Models: DRT428M-1 (infrared only, no Modbus), DRT428M-2 (RS485 Modbus) and DRT428M-3 (as -2, plus tariffs, holidays and
+  a clock). The register map is for the -2 and -3.'
+- 'Addresses: the document gives hex Modbus register addresses; they are used as they are (0-based). All registers are read
+  with function 03; its length column counts bytes, not registers.'
+- The document doesn't give units for the float values, the float word order or the power sign. Units are assumed as on the
+  display (V, A, Hz, kW, kvar, kVA, kWh, kvarh); readers should check them on a device.
+- 'Defaults: Modbus ID 1, 9600 baud, 8 data bits, even parity, 1 stop bit; 1200, 2400 and 4800 baud optional. Combined code
+  default 5 (forward + reverse).'
+- 'Left out: the per-phase reactive energy counters (0x011A … 0x012E), the tariff forward / reverse / reactive counters, the
+  holiday / weekend table numbers (0x000C), the season switch (0x0040), the CRC code (0x0041) and the tariff tables (0x0300
+  ff.).'
+- The driver's default meter type is CONSUMPTION_METERED; OpenEMS doesn't say which way the device's own power value is positive,
+  so no direction is given.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

@@ -1,0 +1,97 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the EKRA "Использование протокола Modbus в терминалах микропроцессорных серии ЭКРА 200"
+# (ЭКРА.00035-01 31 01, change 6, 2022-07).
+
+modbusspec: 0
+id: ekra-200
+manufacturer: EKRA
+name: EKRA 200 series protection and control terminals (and ШЭ111x / ШЭЭ 200 cabinets based on them)
+kind: other
+
+sources:
+- title: Использование протокола Modbus в терминалах микропроцессорных серии ЭКРА 200 для функций Modbus Server (TCP) и Modbus
+    Slave (RS485), ЭКРА.00035-01 31 01
+  version: Изменение 6, 2022-07
+  url: https://soft.ekra.ru/device/ekra-2xx/downloads/documents/modbus/Ispol'zovanie%20protokola%20ModBus.pdf
+  sha256: e50f0543757d9ada72ce2ee01087b378144ee761f676125d4eaf1d18eb7c787b
+- title: Использование протокола Modbus в терминалах микропроцессорных серии ЭКРА 200, ЭКРА.00035-01 31 01
+  version: Изменение 5, 2021-07
+  url: https://soft.ekra.ru/device/ekra-2xx/downloads/documents/modbus/Ispol'zovanie%20protokola%20ModBus_2.pdf
+  sha256: 0f02a27383a03fe0da1d63b8e58eb7328d0b6608bda11208c42b82b424fd4a63
+- title: Использование протокола Modbus в терминалах микропроцессорных серии ЭКРА 200, ЭКРА.00035-01 31 01
+  version: Изменение 4, 2020-06
+  url: https://soft.ekra.ru/device/ekra-2xx/downloads/documents/modbus/Ispol'zovanie%20protokola%20ModBus_3.pdf
+  sha256: b91a89a4829eee0be3681a3bc46acd3e9194f940047c49577ff4e39d462c2698
+- title: Использование протокола Modbus в терминалах микропроцессорных серии ЭКРА 200, ЭКРА.00035-01 31 01
+  version: Изменение 3, 2018-12-21
+  url: https://soft.ekra.ru/device/ekra-2xx/downloads/documents/modbus/Ispol'zovanie%20protokola%20ModBus_4.pdf
+  sha256: ff902d094a52fd6b7b21295ef3e4f5175df6d2d4092e0666a2eaedf39fea9013
+- title: Использование протокола Modbus в терминалах микропроцессорных серии ЭКРА 200, ЭКРА.00035-01 31 01
+  version: Изменение 2, 2016-09-30
+  url: https://soft.ekra.ru/device/ekra-2xx/downloads/documents/modbus/Ispol'zovanie%20protokola%20ModBus_5.pdf
+  sha256: a8c440cdce74b4995fc53fe19e1a7269b4e5c4c4d5eb13685c4a03233c7751ca
+- title: Использование протокола Modbus в терминалах микропроцессорных серии ЭКРА 200, ЭКРА.00035-01 31 01
+  version: 2015 (first edition)
+  url: https://soft.ekra.ru/device/ekra-2xx/downloads/documents/modbus/Ispol'zovanie%20protokola%20ModBus_6.pdf
+  sha256: 78126ee5906377e7ef9127f07fda502cf24860b997bfb492a73797ab2334f4c2
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Fixed control and event registers
+  - {key: x.time_sync, label: 'Time synchronisation (minute/second, day/hour, year/month, milliseconds)', table: holding, address: 4, type: datetime, length: 3, writable: true, write_multiple: true, poll: slow, optional: true, datetime: {minute: {register: 0, bits: [8, 15], bcd: true}, second: {register: 0, bits: [0, 7], bcd: true}, day: {register: 1, bits: [8, 15], bcd: true}, hour: {register: 1, bits: [0, 7], bcd: true}, year: {register: 2, bits: [8, 15], bcd: true, offset: 2000}, month: {register: 2, bits: [0, 7], bcd: true}}, verified: false, note: 'Written as four registers at 0x0004 (the fourth, 0x0007, is milliseconds 0-999 in binary). Reading it back is not described; assumed not readable. Synchronisation must be enabled in the terminal''s settings; with pulse (hardware) time sync, send the time one second ahead. Two-digit year counted from 2000.'}
+  - {key: x.recorder_reset_pointer, label: Reset pointer to the oldest event, table: holding, address: 8, type: u16, writable: true, write_multiple: true, poll: slow, note: Write 0 before reading the recorder for the first time.}
+  - {key: x.events_acknowledge, label: Acknowledge events read, table: holding, address: 9, type: u16, writable: true, poll: slow, note: Write 0 after reading the event buffer.}
+  - {key: x.remote_reset, label: Remote reset of signalling, table: holding, address: 10, type: u16, writable: true, write_multiple: true, poll: slow, note: 'Write 1: same as the cabinet''s alarm-reset button. Must be enabled in the terminal''s settings.'}
+  - {key: x.analog_format, label: Analog value format, table: holding, address: 11, type: u16, enum: analog_format, writable: true, poll: slow, note: 'Only for terminal firmware below 7.1.0.1; from 7.1.0.1 on, values are always absolute.'}
+  - {key: x.analog_refresh, label: Refresh analog measurements, table: holding, address: 139, type: u16, writable: true, write_multiple: true, poll: slow, note: Write 1 before reading the analog inputs; on Modbus TCP both in the same connection. Terminal firmware 6.0.1.0.136 and later.}
+  - {key: x.breaker1_command, label: Switching device 1 control, table: holding, address: 140, type: u16, enum: breaker_command, writable: true, poll: slow, note: 'Direct control. Switching device n is at 0x008B + n. The command can be blocked by configuration, control mode (direct or select-before-operate) or the cabinet''s binary inputs. Not in revisions before change 4.'}
+  - {key: x.breaker1_select, label: Switching device 1 select (select before operate), table: holding, address: 6522, type: u16, enum: breaker_select, writable: true, poll: slow, note: 'SBO mode: write the selection here, then the command to the control register. Device n is at 0x1979 + n. Reading returns the selected value, or 0 when the selection was blocked; a selection is dropped after 10 s. Not in revisions before change 4.'}
+  - {key: x.new_events, label: Number of new events, table: holding, address: 2316, type: u16, note: 'Events follow from 0x090D, 7 registers each, at most 100 (see notes).'}
+  # Analog inputs (project-dependent)
+  - {key: x.analog1_rms, label: Analog input 1 RMS value of the fundamental, table: holding, address: 19716, type: f32, word_order: little, optional: true, verified: false, note: 'First analog input of the terminal''s project (in the document''s example the current I Y, phase A). Which input sits here and its unit depend on the project; see notes.'}
+  - {key: x.analog1_angle, label: Analog input 1 angle, table: holding, address: 19718, type: f32, word_order: little, unit: °, optional: true, verified: false, note: Absolute angle; subtract a chosen reference input's angle and wrap to ±180° for a phase angle. Degrees assumed from the document's formula.}
+  - {key: x.analog1_frequency, label: Analog input 1 frequency, table: holding, address: 19720, type: f32, word_order: little, unit: Hz, optional: true, verified: false, note: Unit not stated; Hz assumed.}
+
+enums:
+  analog_format: {'0': Per unit of nominal, '1': Absolute (secondary), '2': Absolute in primary circuits}
+  breaker_command: {'1': Open, '2': Close}
+  breaker_select: {'0': Cancel selection, '1': Select for opening, '2': Select for closing}
+
+notes:
+- 'The register map of an EKRA 200 terminal is mostly project-specific: its signal lists are produced per project by the vendor''s
+  configuration software (report "Data description for Modbus"). This file holds only the registers the protocol document
+  fixes for every terminal; it applies to all EKRA 200 terminals except the EKRA 253 021 HF protection signalling terminals.'
+- Addresses are the document's 0-based register numbers (given in hex). Registers are read with function 03; writes use 06
+  or 16 as noted.
+- 'Analog inputs: from 0x4D04 on, six registers per input (RMS of the fundamental, angle, frequency), each an IEEE float with
+  the low word first; input n starts at 0x4D04 + 6 × (n − 1), up to 0x5103 at most. The document says these addresses can
+  differ per project.'
+- 'Event recorder: each event is 7 registers: BCD minute/second, day/hour, year/month, then milliseconds, group number (1-6),
+  event number within the group, and the bit state in the low byte. Algorithm: optionally write 0 to 0x0008 and read the signal
+  snapshot from 0x0BD5 (size per project), then repeatedly read the count at 0x090C, read that many events from 0x090D and
+  write 0 to 0x0009.'
+- 'Signal snapshot groups (bits packed into words, in group order): 1 terminal logic signals (2 words, firmware 7.1.0.0 and
+  later), 2 cabinet inputs, 3 receiving circuits, 4 protection enable/disable, 5 output circuits (sizes per project), 6 terminal
+  state (4 words: bit 0 in operation, bit 8 fault, bit 9 alarm). Because groups 2-5 vary in size, the terminal state word
+  has no fixed address and is not listed as a point.'
+- Function 17 (report slave id) returns the configuration file name, terminal name, serial number, firmware version and cabinet
+  name as text; it isn't expressible as registers, so the file has no identify section.
+- 'RS-485: 9600 to 115200 baud, 8 data bits, no parity, 1 stop bit; the default rate is not stated (9600 assumed). The TCP
+  port is not stated (502 assumed). Unit ids 1-247; from terminal firmware 7.1.0.8 on, Modbus TCP ignores the unit id.'

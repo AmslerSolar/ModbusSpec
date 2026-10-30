@@ -1,0 +1,60 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Seeed RS485 & 4-20mA Current pH Sensor User Manual, S-pH-01 (V1.0).
+
+modbusspec: 0
+id: seeed-ph
+manufacturer: Seeed Studio
+name: S-pH-01 pH sensor (soil / water), RS485
+kind: io
+
+sources:
+- title: RS485 & 4-20mA Current pH Sensor User Manual (S-pH-01)
+  version: V1.0
+  url: https://files.seeedstudio.com/wiki/Industrial_Grade_ph_Sensor/RS485&4-20mACurrentpHSensorUserManual-S-pH-01.pdf
+  sha256: 90fd0ff8b7ec302159b8b86f85ebd97f258123976c069e2099780da46b4b4a73
+  archive_url: https://web.archive.org/web/20231214232226/https://files.seeedstudio.com/wiki/Industrial_Grade_ph_Sensor/RS485&4-20mACurrentpHSensorUserManual-S-pH-01.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - ascii
+  serial:
+    baud: 9600
+    format: 8N1
+
+points:
+  - {key: x.ph, label: PH value, table: holding, address: 1, type: u16, scale: 0.01, note: 0–14.00 pH.}
+  - {key: x.medium_temperature, label: Temperature value, table: holding, address: 0, type: s16, unit: °C, scale: 0.01, note: 'Temperature at the probe, −40.00…80.00 °C.'}
+  - {key: x.ph_calibration_ad, label: PH calibration AD value, table: holding, address: 2, type: s16, poll: slow, note: 'Raw AD value used for calibration, −2000…2000. The table says UINT16, the examples show negative values in two''s complement; s16 is used.'}
+  # Calibration and settings
+  - {key: x.temperature_compensation, label: Temperature compensation enable, table: holding, address: 32, type: u16, enum: compensation, writable: true, poll: slow}
+  - {key: x.ph_calibration_401, label: PH calibration point 0 (pH = 4.01), table: holding, address: 48, type: s16, writable: true, min: -2000, max: 2000, poll: slow, note: AD value in a pH 4.01 buffer (two's complement).}
+  - {key: x.ph_calibration_700, label: PH calibration point 1 (pH = 7.00), table: holding, address: 49, type: s16, writable: true, min: -2000, max: 2000, poll: slow, note: AD value in a pH 7.00 buffer (two's complement).}
+  - {key: x.ph_calibration_1001, label: PH calibration point 2 (pH = 10.01), table: holding, address: 50, type: s16, writable: true, min: -2000, max: 2000, poll: slow, note: AD value in a pH 10.01 buffer (two's complement). The detail section calls it pH 7.01; the register table's 10.01 is taken.}
+  - {key: x.modbus_address, label: Modbus slave address, table: holding, address: 512, type: u16, writable: true, min: 0, max: 255, poll: slow, note: Default 1. Takes effect after a restart.}
+  - {key: x.baud_rate, label: Serial communication baud rate, table: holding, address: 513, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.protocol, label: Serial communication protocol, table: holding, address: 514, type: u16, enum: protocol, writable: true, poll: slow}
+  - {key: x.parity, label: Serial communication check digit, table: holding, address: 515, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: x.data_bits, label: Serial communication data bits, table: holding, address: 516, type: u16, enum: data_bits, writable: true, poll: slow}
+  - {key: x.stop_bits, label: Serial communication stop bit, table: holding, address: 517, type: u16, enum: stop_bits, writable: true, poll: slow}
+  - {key: x.response_delay, label: Serial communication delay response, table: holding, address: 518, type: u16, unit: ms, scale: 10, writable: true, poll: slow, note: Delay before answering; 0 = none.}
+  - {key: x.active_output_interval, label: Serial communication active output time interval, table: holding, address: 519, type: u16, unit: s, writable: true, poll: slow, note: The sensor sends data unasked at this interval; 0 = off (default). Only one device may be on the bus when it is on.}
+
+enums:
+  compensation: {'0': 'on', '1': 'off'}
+  baud_rate: {'0': 1200 bps, '1': 2400 bps, '2': 4800 bps, '3': 9600 bps, '4': 19200 bps, '5': 38400 bps}
+  protocol: {'0': Modbus RTU, '1': Modbus ASCII}
+  parity: {'0': none, '1': even, '2': odd}
+  data_bits: {'1': 8 data bits}
+  stop_bits: {'0': 1 stop bit, '1': 2 stop bits}
+
+notes:
+- Addresses are the document's hex register addresses (0-based protocol addresses). Read with function 03 or 04, write with
+  06 or 16.
+- Serial settings change after the sensor is powered on again. A button held for 3 s restores unit 1 and 9600 8N1.
+- The sensor also has a 4–20 mA output (pH = 14 × (mA − 4) / 16), not described here.
+- 'Temperature compensation: 0 turns it on, 1 turns it off (as the document states).'

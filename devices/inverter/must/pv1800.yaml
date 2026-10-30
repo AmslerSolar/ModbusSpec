@@ -1,0 +1,339 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the MUST PH1800 / PV1800 / EP1800 / PV3500 / EP3500 RS485 Modbus RTU communication protocol (1.4.15),
+# with the older PH / PV protocol 1.4.3 (2017-03-13) compared; English spreadsheets as kept in open-source repositories.
+
+modbusspec: 0
+id: must-pv1800
+manufacturer: MUST
+name: PV18 / PV19 (PV1800 / PV1900) off-grid inverters
+kind: inverter
+
+sources:
+- title: PH1800 PV1800 EP1800 PV3500 EP3500 RS485 Modbus RTU communication protocol
+  version: 1.4.15
+  url: https://github.com/softwarecrash/Solar2MQTT-ESP8266/blob/216a4bd46b42daf5976853e8241a3831e9f6f464/Protocol/ToDo/PH1800%20PV1800%20EP1800%20PV3500%20EP3500%20RS485%20Modbud%20RTU%20communication%20Protocol%201.4.15%20%281%29.xlsx
+  sha256: 91adc7413534b859c506aa59b633c7d3b9c0e1ed7941d6913b8c54a9f4d884cb
+- title: PH PV RS485 Modbus RTU communication protocol
+  version: 1.4.3 (2017-03-13)
+  url: https://github.com/vladyspavlov/esphome-must-inverter/blob/11946ecf313f72a2530fee8550418989694a45f6/docs/PH%20PV%20RS485%20Modbud%20RTU%20communication%20Protocol1.4.3%20%2020170313.x.xlsx
+  sha256: bf19c25d4a239537b8caa134058b7a5ac65b555dd82d1623d2d8ece36f750fdd
+- id: must-inverter
+  title: ha-must-inverter (Home Assistant integration)
+  url: https://github.com/mukaschultze/ha-must-inverter
+  license: MIT
+  commit: 9fd33151694ce05ac1aa20f4a6b51c8135a21021
+  path: custom_components/must_inverter/const.py, custom_components/must_inverter/mapper.py
+
+connection:
+  default_port: 502
+  default_unit: 4
+  transports:
+  - rtu
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 20002
+    type: u32
+  checks:
+  # machine type letters
+  - table: holding
+    address: 20000
+    type: str
+    length: 1
+    in:
+    - PH
+    - PV
+    - EP
+  # AC voltage grade
+  - table: holding
+    address: 25202
+    type: u16
+    in:
+    - 120
+    - 230
+
+models:
+  - {id: pv1900, name: PV1900 (PV19)}
+
+points:
+  # PV charger settings (10001 ff.)
+  - {key: x.charger_machine_type, label: Charger type of machine, table: holding, address: 10001, type: u16, poll: slow, note: The document names PC1600 here; how the value encodes it isn't stated.}
+  - {key: x.charger_serial, label: Charger serial number, table: holding, address: 10002, type: u32, poll: slow, note: 'High word 10002, low word 10003.'}
+  - {key: x.charger_hardware_version, label: Charger hardware version, table: holding, address: 10004, type: u16, poll: slow}
+  - {key: x.charger_software_version, label: Charger software version, table: holding, address: 10005, type: u16, poll: slow}
+  - {key: x.float_voltage, label: Float voltage, table: holding, address: 10103, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '48.0–58.4 V, default 54.0 V (1.4.3 calls this register the refloat voltage).', conflicts: [{sources: [must-inverter], type: s16, label: Float Voltage}]}
+  - {key: x.absorption_voltage, label: Absorption voltage, table: holding, address: 10104, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '48.0–58.4 V, default 56.4 V (1.4.3 calls this register the float voltage).', conflicts: [{sources: [must-inverter], type: s16, label: Absorption Voltage}]}
+  - {key: x.charger_battery_low_voltage, label: Battery low voltage, table: holding, address: 10105, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '34.0–44.0 V, default 34.0 V (PV and PH models).', conflicts: [{sources: [must-inverter], type: s16, label: Battery Low Voltage}]}
+  - {key: x.charger_battery_high_voltage, label: Battery high voltage, table: holding, address: 10107, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '58.0–60.0 V, default 60.0 V (PV and PH models).', conflicts: [{sources: [must-inverter], type: s16, label: Battery High Voltage}]}
+  - {key: x.pv_max_charger_current, label: PV max charger current, table: holding, address: 10108, type: u16, unit: A, scale: 0.1, writable: true, poll: slow, note: 0–80.0 A (PV and PH models)., conflicts: [{sources: [must-inverter], type: s16, label: Max Charger Current}]}
+  - {key: x.battery_type, label: Battery type, table: holding, address: 10110, type: u16, enum: battery_type, writable: true, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Battery Type}]}
+  - {key: x.battery_capacity, label: Battery Ah, table: holding, address: 10111, type: u16, unit: Ah, writable: true, min: 0, max: 900, poll: slow, note: Default 100 Ah., conflicts: [{sources: [must-inverter], type: s16, label: Battery Capacity (Ah)}]}
+  - {key: x.battery_equalization_enable, label: Battery equalization enable, table: holding, address: 10118, type: u16, enum: off_on, writable: true, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Battery Equalization}]}
+  - {key: x.battery_equalization_voltage, label: Battery equalization voltage, table: holding, address: 10119, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: 'Default 58.4 V (48 V), 29.2 V (24 V), 14.6 V (12 V).', conflicts: [{sources: [must-inverter], type: s16, label: Battery Equalization Voltage}]}
+  - {key: x.battery_equalization_time, label: Battery equalized time, table: holding, address: 10121, type: u16, unit: min, writable: true, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Battery Equalization Time}]}
+  - {key: x.battery_equalization_timeout, label: Battery equalized timeout, table: holding, address: 10122, type: u16, unit: min, writable: true, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Battery Equalization Timeout}]}
+  - {key: x.battery_equalization_interval, label: Equalization interval, table: holding, address: 10123, type: u16, unit: d, writable: true, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Battery Equalization Interval}]}
+  # PV charger live values (15201 ff.)
+  - {key: x.charger_workstate, label: Charger workstate, table: holding, address: 15201, type: u16, enum: charger_workstate, conflicts: [{sources: [must-inverter], type: s16, label: Charger Workstate}]}
+  - {key: x.mppt_state, label: MPPT state, table: holding, address: 15202, type: u16, enum: mppt_state, conflicts: [{sources: [must-inverter], type: s16, label: MPPT State}]}
+  - {key: x.charging_state, label: Charging state, table: holding, address: 15203, type: u16, enum: charging_state, conflicts: [{sources: [must-inverter], type: s16, label: Charging State}]}
+  - {key: x.pv_voltage, label: PV voltage, table: holding, address: 15205, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [must-inverter], type: s16, label: PV Voltage}]}
+  - {key: x.charger_battery_voltage, label: Battery voltage (charger), table: holding, address: 15206, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [must-inverter], type: s16, label: Battery Voltage}]}
+  - {key: x.charger_current, label: Charger current, table: holding, address: 15207, type: u16, unit: A, scale: 0.1, conflicts: [{sources: [must-inverter], type: s16, label: Charger Current}]}
+  - {key: pv_power, label: Charger power, table: holding, address: 15208, type: u16, unit: W, note: Power of the PV charger (0–5000 W)., conflicts: [{sources: [must-inverter], type: s16, label: Charger Power}]}
+  - {key: x.charger_radiator_temperature, label: Charger radiator temperature, table: holding, address: 15209, type: s16, unit: °C}
+  - {key: x.external_temperature, label: External temperature, table: holding, address: 15210, type: s16, unit: °C}
+  - {key: x.charger_battery_relay, label: Battery relay, table: holding, address: 15211, type: u16, enum: relay, conflicts: [{sources: [must-inverter], type: s16, label: Relay Battery}]}
+  - {key: x.charger_pv_relay, label: PV relay, table: holding, address: 15212, type: u16, enum: relay, conflicts: [{sources: [must-inverter], type: s16, label: Relay PV}]}
+  - {key: x.charger_error, label: Charger error message, table: holding, address: 15213, type: u16, flags: charger_error}
+  - {key: x.charger_warning, label: Charger warning message, table: holding, address: 15214, type: u16, flags: charger_warning}
+  - {key: x.charger_battery_voltage_grade, label: Battery voltage grade (charger), table: holding, address: 15215, type: u16, unit: V, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Battery Voltage Grade}]}
+  - {key: x.charger_rated_current, label: Charger rated current, table: holding, address: 15216, type: u16, unit: A, scale: 0.1, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Rated Current}]}
+  - {key: x.pv_energy_high, label: Accumulated PV power high, table: holding, address: 15217, type: u16, unit: kWh, scale: 1000, poll: slow}
+  - {key: x.pv_energy_low, label: Accumulated PV power low, table: holding, address: 15218, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.accumulated_days, label: Accumulated day, table: holding, address: 15219, type: u16, unit: d, poll: slow, conflicts: [{sources: [must-inverter], unit: h, label: Accumulated Time (hours)}]}
+  - {key: x.accumulated_hours, label: Accumulated hour, table: holding, address: 15220, type: u16, unit: h, poll: slow, conflicts: [{sources: [must-inverter], unit: min, label: Accumulated Time (minutes)}]}
+  - {key: x.accumulated_minutes, label: Accumulated minute, table: holding, address: 15221, type: u16, unit: min, poll: slow, conflicts: [{sources: [must-inverter], unit: s, label: Accumulated Time (seconds)}]}
+  # Inverter identity and settings (20000 ff.)
+  - {key: x.machine_type_letters, label: Type of machine high, table: holding, address: 20000, type: str, length: 1, poll: slow, note: 'PH, EP or PV.'}
+  - {key: x.machine_type_number, label: Type of machine low, table: holding, address: 20001, type: u16, poll: slow, note: '1800, 3000, …'}
+  - {key: serial, label: Serial number, table: holding, address: 20002, type: u32, poll: slow, note: 'High word 20002, low word 20003; the same number is also at 25269/25270 (read-only).'}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 20004, type: u16, poll: slow}
+  - {key: firmware, label: Software version, table: holding, address: 20005, type: u16, poll: slow}
+  - {key: x.protocol_version, label: Communication protocol edition, table: holding, address: 20006, type: u16, poll: slow, note: 1.04.15 for this document. Not in 1.4.3.}
+  - {key: x.offgrid_work_enable, label: Inverter offgrid work enable, table: holding, address: 20101, type: u16, enum: off_on, writable: true, poll: slow, note: 1 = output stays on when the grid is lost., conflicts: [{sources: [must-inverter], type: s16, label: Offgrid Work}]}
+  - {key: x.output_voltage_set, label: Inverter output voltage set, table: holding, address: 20102, type: u16, unit: V, scale: 0.1, writable: true, min: 220, max: 240, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Output Voltage}]}
+  - {key: x.output_frequency_set, label: Inverter output frequency set, table: holding, address: 20103, type: u16, unit: Hz, scale: 0.01, writable: true, poll: slow, note: 50.00 or 60.00 Hz., conflicts: [{sources: [must-inverter], type: s16, label: Output Frequency}]}
+  - {key: x.search_mode_enable, label: Inverter search mode enable, table: holding, address: 20104, type: u16, enum: off_on, writable: true, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Power Saving Mode}]}
+  - {key: x.discharge_to_grid_enable, label: Inverter discharger to grid enable, table: holding, address: 20108, type: u16, enum: off_on, writable: true, poll: slow, note: 48 V models only., conflicts: [{sources: [must-inverter], type: s16, label: Discharger To Grid}]}
+  - {key: x.energy_use_mode, label: Energy use mode, table: holding, address: 20109, type: u16, enum: energy_use_mode, writable: true, poll: slow, note: 'Names for PV and PH models; EP models use 1 = BAU, 3 = UTI, 4 = BOU (see notes).', conflicts: [{sources: [must-inverter], type: s16, label: Energy Use Mode}]}
+  - {key: x.grid_protect_standard, label: Grid protect standard, table: holding, address: 20111, type: u16, enum: grid_protect_standard, writable: true, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Grid Protect Standard}]}
+  - {key: x.solar_use_aim, label: Solar use aim, table: holding, address: 20112, type: u16, enum: solar_use_aim, writable: true, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Solar Use Aim}]}
+  - {key: x.max_discharge_current, label: Inverter max discharger current, table: holding, address: 20113, type: u16, unit: A, scale: 0.1, writable: true, poll: slow, note: 'AC current, 1.0–21.7 A; 48 V models only.', conflicts: [{sources: [must-inverter], type: s16, label: Max Discharger Current}]}
+  - {key: x.battery_stop_discharging_voltage, label: Battery stop discharging voltage, table: holding, address: 20118, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '44.0–58.0 V, default 46.0 V.', conflicts: [{sources: [must-inverter], type: s16, label: Battery Stop Discharging Voltage}]}
+  - {key: x.battery_stop_charging_voltage, label: Battery stop charging voltage, table: holding, address: 20119, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '44.0–58.0 V, default 54.0 V.', conflicts: [{sources: [must-inverter], type: s16, label: Battery Stop Charging Voltage}]}
+  - {key: x.grid_max_charger_current, label: Grid max charger current set, table: holding, address: 20125, type: u16, unit: A, scale: 0.1, writable: true, poll: slow, note: 'DC current, 1.0–80.0 A, default 60.0 A.', conflicts: [{sources: [must-inverter], type: s16, label: Grid Max Charger Current}]}
+  - {key: x.battery_low_voltage, label: Battery low voltage, table: holding, address: 20127, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '40.0–48.0 V, default 40.8 V.', conflicts: [{sources: [must-inverter], type: s16, label: Battery Low Voltage (Inverter)}]}
+  - {key: x.battery_high_voltage, label: Battery high voltage, table: holding, address: 20128, type: u16, unit: V, scale: 0.1, writable: true, poll: slow, note: '58.0–60.0 V, default 60.0 V.', conflicts: [{sources: [must-inverter], type: s16, label: Battery High Voltage (Inverter)}]}
+  - {key: x.max_combine_charger_current, label: Max combine charger current, table: holding, address: 20132, type: u16, unit: A, scale: 0.1, writable: true, poll: slow, note: 'DC current, 1.0–140.0 A, default 60.0 A (PV and PH models).', conflicts: [{sources: [must-inverter], type: s16, label: Max Combine Charger Current}]}
+  - {key: x.system_setting, label: System setting, table: holding, address: 20142, type: u16, flags: system_setting, writable: true, poll: slow}
+  - {key: x.charger_source_priority, label: Charger source priority, table: holding, address: 20143, type: u16, enum: charger_source_priority, writable: true, poll: slow, note: 'Names for PV and PH models; on EP models 2 = utility charging on, 3 = off.', conflicts: [{sources: [must-inverter], type: s16, label: Charger Source Priority}]}
+  - {key: x.solar_power_balance, label: Solar power balance, table: holding, address: 20144, type: u16, enum: solar_power_balance, writable: true, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Solar Power Balance}]}
+  # Inverter live values (25201 ff.)
+  - {key: state, label: Work state, table: holding, address: 25201, type: u16, enum: work_state, conflicts: [{sources: [must-inverter], type: s16, label: Work State}]}
+  - {key: x.ac_voltage_grade, label: AC voltage grade, table: holding, address: 25202, type: u16, unit: V, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: AC Voltage Grade}]}
+  - {key: x.rated_power_va, label: Rated power (VA), table: holding, address: 25203, type: u16, unit: VA, poll: slow, conflicts: [{sources: [must-inverter], type: s16, label: Rated Power}]}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 25205, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [must-inverter], type: s16, label: Battery Voltage (Inverter)}]}
+  - {key: x.inverter_voltage, label: Inverter voltage, table: holding, address: 25206, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [must-inverter], type: s16, label: Inverter Voltage}]}
+  - {key: x.grid_voltage, label: Grid voltage, table: holding, address: 25207, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [must-inverter], type: s16, label: Grid Voltage}]}
+  - {key: x.bus_voltage, label: Bus voltage, table: holding, address: 25208, type: u16, unit: V, scale: 0.1, conflicts: [{sources: [must-inverter], type: s16, label: Bus Voltage}]}
+  - {key: x.control_current, label: Control current, table: holding, address: 25209, type: s16, unit: A, scale: 0.1}
+  - {key: x.inverter_current, label: Inverter current, table: holding, address: 25210, type: s16, unit: A, scale: 0.1}
+  - {key: x.grid_current, label: Grid current, table: holding, address: 25211, type: s16, unit: A, scale: 0.1}
+  - {key: x.load_current, label: Load current, table: holding, address: 25212, type: u16, unit: A, scale: 0.1, conflicts: [{sources: [must-inverter], type: s16, label: Load Current}]}
+  - {key: x.inverter_power, label: PInverter, table: holding, address: 25213, type: s16, unit: W, verified: false, note: Direction not stated in the document; signed assumed.}
+  - {key: x.grid_power, label: PGrid, table: holding, address: 25214, type: s16, unit: W, verified: false, note: Direction not stated in the document (buy and sell counters suggest both are possible); signed assumed.}
+  - {key: load_power, label: PLoad, table: holding, address: 25215, type: u16, unit: W, conflicts: [{sources: [must-inverter], type: s16, label: P Load}]}
+  - {key: x.load_percent, label: Load percent, table: holding, address: 25216, type: u16, unit: '%', scale: 0.01, verified: false, note: The document gives the unit as 0.01; read as 0.01 % steps (not checked). 1.4.3 marks the register as new., conflicts: [{sources: [must-inverter], type: s16, scale: 1, label: Load Percent}]}
+  - {key: x.inverter_apparent_power, label: SInverter, table: holding, address: 25217, type: s16, unit: VA}
+  - {key: x.grid_apparent_power, label: SGrid, table: holding, address: 25218, type: s16, unit: VA}
+  - {key: apparent_power, label: SLoad, table: holding, address: 25219, type: u16, unit: VA, conflicts: [{sources: [must-inverter], type: s16, label: S Load}]}
+  - {key: x.inverter_reactive_power, label: QInverter, table: holding, address: 25221, type: s16, unit: var}
+  - {key: x.grid_reactive_power, label: QGrid, table: holding, address: 25222, type: s16, unit: var}
+  - {key: reactive_power, label: QLoad, table: holding, address: 25223, type: s16, unit: var}
+  - {key: x.inverter_frequency, label: Inverter frequency, table: holding, address: 25225, type: u16, unit: Hz, scale: 0.01, conflicts: [{sources: [must-inverter], type: s16, label: Inverter Frequency}]}
+  - {key: frequency, label: Grid frequency, table: holding, address: 25226, type: u16, unit: Hz, scale: 0.01, conflicts: [{sources: [must-inverter], type: s16, label: Grid Frequency}]}
+  - {key: x.inverter_max_number, label: Inverter max number, table: holding, address: 25229, type: u16, poll: slow}
+  - {key: x.combine_type, label: Combine type, table: holding, address: 25230, type: u16, poll: slow}
+  - {key: x.inverter_number, label: Inverter number, table: holding, address: 25231, type: u16, poll: slow}
+  - {key: temperature, label: AC radiator temperature, table: holding, address: 25233, type: s16, unit: °C}
+  - {key: x.transformer_temperature, label: Transformer temperature, table: holding, address: 25234, type: s16, unit: °C}
+  - {key: x.dc_radiator_temperature, label: DC radiator temperature, table: holding, address: 25235, type: s16, unit: °C}
+  - {key: x.inverter_relay, label: Inverter relay state, table: holding, address: 25237, type: u16, enum: relay, conflicts: [{sources: [must-inverter], type: s16, label: Relay Inverter}]}
+  - {key: x.grid_relay, label: Grid relay state, table: holding, address: 25238, type: u16, enum: relay, conflicts: [{sources: [must-inverter], type: s16, label: Relay Grid}]}
+  - {key: x.load_relay, label: Load relay state, table: holding, address: 25239, type: u16, enum: relay, conflicts: [{sources: [must-inverter], type: s16, label: Relay Load}]}
+  - {key: x.n_line_relay, label: N line relay state, table: holding, address: 25240, type: u16, enum: relay, conflicts: [{sources: [must-inverter], type: s16, label: Relay N Line}]}
+  - {key: x.dc_relay, label: DC relay state, table: holding, address: 25241, type: u16, enum: relay, conflicts: [{sources: [must-inverter], type: s16, label: Relay DC}]}
+  - {key: x.earth_relay, label: Earth relay state, table: holding, address: 25242, type: u16, enum: relay, conflicts: [{sources: [must-inverter], type: s16, label: Relay Earth}]}
+  - {key: x.charge_energy_high, label: Accumulated charger power high, table: holding, address: 25245, type: u16, unit: kWh, scale: 1000, poll: slow}
+  - {key: x.charge_energy_low, label: Accumulated charger power low, table: holding, address: 25246, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.discharge_energy_high, label: Accumulated discharger power high, table: holding, address: 25247, type: u16, unit: kWh, scale: 1000, poll: slow}
+  - {key: x.discharge_energy_low, label: Accumulated discharger power low, table: holding, address: 25248, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.buy_energy_high, label: Accumulated buy power high, table: holding, address: 25249, type: u16, unit: kWh, scale: 1000, poll: slow}
+  - {key: x.buy_energy_low, label: Accumulated buy power low, table: holding, address: 25250, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.sell_energy_high, label: Accumulated sell power high, table: holding, address: 25251, type: u16, unit: kWh, scale: 1000, poll: slow}
+  - {key: x.sell_energy_low, label: Accumulated sell power low, table: holding, address: 25252, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.load_energy_high, label: Accumulated load power high, table: holding, address: 25253, type: u16, unit: kWh, scale: 1000, poll: slow}
+  - {key: x.load_energy_low, label: Accumulated load power low, table: holding, address: 25254, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.self_use_energy_high, label: Accumulated self_use power high, table: holding, address: 25255, type: u16, unit: kWh, scale: 1000, poll: slow}
+  - {key: x.self_use_energy_low, label: Accumulated self_use power low, table: holding, address: 25256, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.pv_sell_energy_high, label: Accumulated PV_sell power high, table: holding, address: 25257, type: u16, unit: kWh, scale: 1000, poll: slow}
+  - {key: x.pv_sell_energy_low, label: Accumulated PV_sell power low, table: holding, address: 25258, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.grid_charge_energy_high, label: Accumulated grid_charger power high, table: holding, address: 25259, type: u16, unit: kWh, scale: 1000, poll: slow}
+  - {key: x.grid_charge_energy_low, label: Accumulated grid_charger power low, table: holding, address: 25260, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: x.inverter_error_1, label: Error message 1, table: holding, address: 25261, type: u16, flags: inverter_error_1}
+  - {key: x.inverter_error_2, label: Error message 2, table: holding, address: 25262, type: u16, flags: inverter_error_2}
+  - {key: x.inverter_error_3, label: Error message 3, table: holding, address: 25263, type: u16, note: The document refers to a table for this word but doesn't give one.}
+  - {key: x.inverter_warning_1, label: Warning message 1, table: holding, address: 25265, type: u16, flags: inverter_warning_1}
+  - {key: x.battery_power, label: Batt power, table: holding, address: 25273, type: s16, unit: W, verified: false, note: Direction not stated in the document; signed assumed.}
+  - {key: x.battery_current, label: Batt current, table: holding, address: 25274, type: s16, unit: A, verified: false, note: Whole amperes. Direction not stated in the document; signed assumed.}
+  - {key: x.battery_voltage_grade, label: Batt voltage grade, table: holding, address: 25275, type: u16, unit: V, poll: slow, note: '12, 24 or 48. Not in 1.4.3.'}
+  - {key: x.rated_power, label: Rated power (W), table: holding, address: 25277, type: u16, unit: W, poll: slow, note: Not in 1.4.3., conflicts: [{sources: [must-inverter], type: s16, label: Rated Power Watts}]}
+  - {key: x.protocol_version_display, label: Communication protocol edition, table: holding, address: 25278, type: u16, poll: slow, note: Not in 1.4.3.}
+  - {key: x.arrow_flags, label: Arrow flag, table: holding, address: 25279, type: u16, flags: arrow_flags, note: Energy-flow arrows of the display. Not in 1.4.3.}
+  - {key: x.battery_flow, label: Machine-battery arrow, table: holding, address: 25279, type: u16, bits: [6, 7], enum: battery_flow}
+  - {key: x.grid_flow, label: Machine-grid arrow, table: holding, address: 25279, type: u16, bits: [8, 9], enum: grid_flow}
+  - {key: battery_soc, label: Battery State Of Charge, table: holding, address: 113, type: u16, unit: '%', models: [pv1900], verified: false, sources: [must-inverter]}
+  - {key: battery_soh, label: Battery State Of Health, table: holding, address: 114, type: u16, unit: '%', models: [pv1900], verified: false, sources: [must-inverter]}
+  - {key: x.charger_work_enable, label: Charger, table: holding, address: 10101, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.absorb_voltage, label: Absorb Voltage, table: holding, address: 10102, type: s16, unit: V, scale: 0.1, verified: false, sources: [must-inverter]}
+  - {key: x.absorb_charger_current, label: Absorb Charger Current, table: holding, address: 10109, type: s16, unit: A, scale: 0.1, verified: false, sources: [must-inverter]}
+  - {key: x.remove_the_accumulated_data, label: Remove Accumulated Data, table: holding, address: 10112, type: s16, writable: true, note: The integration writes 1 here to trigger the action., verified: false, sources: [must-inverter]}
+  - {key: x.battery_equalization_immediately, label: Battery Equalization Immediately, table: holding, address: 10124, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.pv2_charger_current, label: PV2 Charger Current, table: holding, address: 16207, type: u16, unit: A, scale: 0.1, models: [pv1900], verified: false, sources: [must-inverter]}
+  - {key: x.pv2_charger_power, label: PV2 Charger Power, table: holding, address: 16208, type: u16, unit: W, models: [pv1900], verified: false, sources: [must-inverter]}
+  - {key: x.inverter_battery_voltage_c, label: Calibration Inverter Battery Voltage, table: holding, address: 20009, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.inverter_voltage_c, label: Calibration Inverter Voltage, table: holding, address: 20010, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.grid_voltage_c, label: Calibration Grid Voltage, table: holding, address: 20011, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.bus_voltage_c, label: Calibration Bus Voltage, table: holding, address: 20012, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.control_current_c, label: Calibration Control Current, table: holding, address: 20013, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.inverter_current_c, label: Calibration Inverter Current, table: holding, address: 20014, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.grid_current_c, label: Calibration Grid Current, table: holding, address: 20015, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.load_current_c, label: Calibration Load Current, table: holding, address: 20016, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.inverter_ongrid_work_enable, label: Ongrid Work, table: holding, address: 20105, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.inverter_charger_from_grid_enable, label: Charger From Grid, table: holding, address: 20106, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.inverter_discharger_enable, label: Discharger, table: holding, address: 20107, type: s16, writable: true, verified: false, sources: [must-inverter]}
+  - {key: x.inverter_remove_the_accumulated_data, label: Remove Accumulated Data (Inverter), table: holding, address: 20213, type: u16, writable: true, note: The integration writes 1 here to trigger the action., verified: false, sources: [must-inverter]}
+
+derived:
+  - {key: pv_energy, label: Accumulated PV energy, unit: kWh, sum: [{key: x.pv_energy_high}, {key: x.pv_energy_low}]}
+  - {key: x.battery_charge_energy, label: Accumulated charger energy, unit: kWh, sum: [{key: x.charge_energy_high}, {key: x.charge_energy_low}]}
+  - {key: x.battery_discharge_energy, label: Accumulated discharger energy, unit: kWh, sum: [{key: x.discharge_energy_high}, {key: x.discharge_energy_low}]}
+  - {key: grid_import_energy, label: Accumulated buy energy, unit: kWh, sum: [{key: x.buy_energy_high}, {key: x.buy_energy_low}]}
+  - {key: grid_export_energy, label: Accumulated sell energy, unit: kWh, sum: [{key: x.sell_energy_high}, {key: x.sell_energy_low}]}
+  - {key: x.load_energy, label: Accumulated load energy, unit: kWh, sum: [{key: x.load_energy_high}, {key: x.load_energy_low}]}
+  - {key: x.self_use_energy, label: Accumulated self-use energy, unit: kWh, sum: [{key: x.self_use_energy_high}, {key: x.self_use_energy_low}]}
+  - {key: x.pv_sell_energy, label: Accumulated PV sell energy, unit: kWh, sum: [{key: x.pv_sell_energy_high}, {key: x.pv_sell_energy_low}]}
+  - {key: x.grid_charge_energy, label: Accumulated grid charger energy, unit: kWh, sum: [{key: x.grid_charge_energy_high}, {key: x.grid_charge_energy_low}]}
+  - {key: x.accumulated_time, label: Accumulated time, unit: min, sum: [{key: x.accumulated_days, factor: 1440}, {key: x.accumulated_hours, factor: 60}, {key: x.accumulated_minutes}]}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  relay: {'0': Disconnected, '1': Connected}
+  battery_type: {'0': Not chosen, '1': User defined, '2': Lithium, '3': Sealed lead, '4': AGM, '5': Gel, '6': Flooded}
+  charger_workstate: {'0': Initialization, '1': Self-test, '2': Work, '3': Stop}
+  mppt_state: {'0': Stop, '1': MPPT, '2': Current limiting}
+  charging_state: {'0': Stop, '1': Absorb charge, '2': Float charge, '3': Equalization charge}
+  energy_use_mode: {'1': 'SBU (solar, battery, utility)', '2': 'SUB (solar, utility, battery)', '3': UTI (utility), '4': SOL (solar)}
+  grid_protect_standard: {'0': VDE 4105, '1': UPS, '2': Home, '3': Generator}
+  solar_use_aim: {'0': 'LBU (load, battery, utility)', '1': 'BLU (battery, load, utility)'}
+  charger_source_priority: {'0': Solar first, '2': Solar and utility, '3': Only solar}
+  solar_power_balance: {'0': SBD, '1': SBE}
+  work_state: {'0': Power on, '1': Self-test, '2': Off-grid, '3': Grid-tie, '4': Bypass, '5': Stop, '6': Grid charging}
+  battery_flow: {'0': Disconnected, '1': Inverter to battery, '2': Battery to inverter, '3': Connected}
+  grid_flow: {'0': Disconnected, '1': Inverter to grid, '2': Grid to inverter, '3': Connected}
+
+flags:
+  inverter_error_1: {'0': Fan locked while inverter off, '1': Transformer over temperature, '2': Battery voltage too high, '3': Battery voltage too low, '4': Output short circuit, '5': Output voltage high, '6': Overload timeout, '7': Bus voltage too high, '8': Bus soft start failed, '9': Main relay failed, '10': Output voltage sensor error, '11': Grid voltage sensor error, '12': Output current sensor error, '13': Grid current sensor error, '14': Load current sensor error, '15': Grid overcurrent}
+  inverter_error_2: {'0': Radiator over temperature, '1': Solar charger battery voltage class error, '2': Solar charger current sensor error, '3': Solar charger current uncontrollable, '4': Grid voltage low, '5': Grid voltage high, '6': Grid under frequency, '7': Grid over frequency, '8': Overcurrent protection, '9': Bus voltage too low, '10': Inverter soft start failed, '11': DC voltage in AC output, '12': Battery disconnected, '13': Control current sensor error, '14': Output voltage too low}
+  inverter_warning_1: {'0': Fan locked while inverter on, '1': Fan 2 locked while inverter on, '2': Battery over-charged, '3': Low battery, '4': Overload, '5': Output power derating, '6': 'Solar charger stopped, low battery', '7': 'Solar charger stopped, high PV voltage', '8': 'Solar charger stopped, overload', '9': Solar charger over temperature, '10': PV charger communication error}
+  charger_error: {'0': Hardware protection, '1': Overcurrent, '2': Current sensor error, '3': Over temperature, '4': PV voltage too high, '5': PV voltage too low, '6': Battery voltage too high, '7': Battery voltage too low, '8': Current uncontrollable, '9': Parameter error}
+  charger_warning: {'0': Fan error}
+  system_setting: {'0': Overload restart forbidden, '1': Over temperature restart forbidden, '2': Overload bypass forbidden, '3': Automatic page turning forbidden, '4': Buzzer on grid events (PV1800 only), '5': Buzzer forbidden (PV1800 only), '6': LCD backlight on, '7': Fault recording forbidden}
+  arrow_flags: {'0': PV present, '1': Load present, '2': Battery present, '3': Grid present, '4': PV to inverter, '5': Inverter to load}
+
+problems:
+  - {when: {key: x.inverter_error_1, bit: 0}, kind: fault, text: Fan locked while inverter off (inverter error 1 bit 0)}
+  - {when: {key: x.inverter_error_1, bit: 1}, kind: fault, text: Transformer over temperature (inverter error 1 bit 1)}
+  - {when: {key: x.inverter_error_1, bit: 2}, kind: fault, text: Battery voltage too high (inverter error 1 bit 2)}
+  - {when: {key: x.inverter_error_1, bit: 3}, kind: fault, text: Battery voltage too low (inverter error 1 bit 3)}
+  - {when: {key: x.inverter_error_1, bit: 4}, kind: fault, text: Output short circuit (inverter error 1 bit 4)}
+  - {when: {key: x.inverter_error_1, bit: 5}, kind: fault, text: Output voltage high (inverter error 1 bit 5)}
+  - {when: {key: x.inverter_error_1, bit: 6}, kind: fault, text: Overload timeout (inverter error 1 bit 6)}
+  - {when: {key: x.inverter_error_1, bit: 7}, kind: fault, text: Bus voltage too high (inverter error 1 bit 7)}
+  - {when: {key: x.inverter_error_1, bit: 8}, kind: fault, text: Bus soft start failed (inverter error 1 bit 8)}
+  - {when: {key: x.inverter_error_1, bit: 9}, kind: fault, text: Main relay failed (inverter error 1 bit 9)}
+  - {when: {key: x.inverter_error_1, bit: 10}, kind: fault, text: Output voltage sensor error (inverter error 1 bit 10)}
+  - {when: {key: x.inverter_error_1, bit: 11}, kind: fault, text: Grid voltage sensor error (inverter error 1 bit 11)}
+  - {when: {key: x.inverter_error_1, bit: 12}, kind: fault, text: Output current sensor error (inverter error 1 bit 12)}
+  - {when: {key: x.inverter_error_1, bit: 13}, kind: fault, text: Grid current sensor error (inverter error 1 bit 13)}
+  - {when: {key: x.inverter_error_1, bit: 14}, kind: fault, text: Load current sensor error (inverter error 1 bit 14)}
+  - {when: {key: x.inverter_error_1, bit: 15}, kind: fault, text: Grid overcurrent (inverter error 1 bit 15)}
+  - {when: {key: x.inverter_error_2, bit: 0}, kind: fault, text: Radiator over temperature (inverter error 2 bit 0)}
+  - {when: {key: x.inverter_error_2, bit: 1}, kind: fault, text: Solar charger battery voltage class error (inverter error 2 bit 1)}
+  - {when: {key: x.inverter_error_2, bit: 2}, kind: fault, text: Solar charger current sensor error (inverter error 2 bit 2)}
+  - {when: {key: x.inverter_error_2, bit: 3}, kind: fault, text: Solar charger current uncontrollable (inverter error 2 bit 3)}
+  - {when: {key: x.inverter_error_2, bit: 4}, kind: fault, text: Grid voltage low (inverter error 2 bit 4)}
+  - {when: {key: x.inverter_error_2, bit: 5}, kind: fault, text: Grid voltage high (inverter error 2 bit 5)}
+  - {when: {key: x.inverter_error_2, bit: 6}, kind: fault, text: Grid under frequency (inverter error 2 bit 6)}
+  - {when: {key: x.inverter_error_2, bit: 7}, kind: fault, text: Grid over frequency (inverter error 2 bit 7)}
+  - {when: {key: x.inverter_error_2, bit: 8}, kind: fault, text: Overcurrent protection (inverter error 2 bit 8)}
+  - {when: {key: x.inverter_error_2, bit: 9}, kind: fault, text: Bus voltage too low (inverter error 2 bit 9)}
+  - {when: {key: x.inverter_error_2, bit: 10}, kind: fault, text: Inverter soft start failed (inverter error 2 bit 10)}
+  - {when: {key: x.inverter_error_2, bit: 11}, kind: fault, text: DC voltage in AC output (inverter error 2 bit 11)}
+  - {when: {key: x.inverter_error_2, bit: 12}, kind: fault, text: Battery disconnected (inverter error 2 bit 12)}
+  - {when: {key: x.inverter_error_2, bit: 13}, kind: fault, text: Control current sensor error (inverter error 2 bit 13)}
+  - {when: {key: x.inverter_error_2, bit: 14}, kind: fault, text: Output voltage too low (inverter error 2 bit 14)}
+  - {when: {key: x.inverter_error_3, not: 0}, kind: fault, text: 'Inverter error 3 (0x{value:X})'}
+  - {when: {key: x.inverter_warning_1, bit: 0}, kind: warning, text: Fan locked while inverter on (inverter warning 1 bit 0)}
+  - {when: {key: x.inverter_warning_1, bit: 1}, kind: warning, text: Fan 2 locked while inverter on (inverter warning 1 bit 1)}
+  - {when: {key: x.inverter_warning_1, bit: 2}, kind: warning, text: Battery over-charged (inverter warning 1 bit 2)}
+  - {when: {key: x.inverter_warning_1, bit: 3}, kind: warning, text: Low battery (inverter warning 1 bit 3)}
+  - {when: {key: x.inverter_warning_1, bit: 4}, kind: warning, text: Overload (inverter warning 1 bit 4)}
+  - {when: {key: x.inverter_warning_1, bit: 5}, kind: warning, text: Output power derating (inverter warning 1 bit 5)}
+  - {when: {key: x.inverter_warning_1, bit: 6}, kind: warning, text: 'Solar charger stopped, low battery (inverter warning 1 bit 6)'}
+  - {when: {key: x.inverter_warning_1, bit: 7}, kind: warning, text: 'Solar charger stopped, high PV voltage (inverter warning 1 bit 7)'}
+  - {when: {key: x.inverter_warning_1, bit: 8}, kind: warning, text: 'Solar charger stopped, overload (inverter warning 1 bit 8)'}
+  - {when: {key: x.inverter_warning_1, bit: 9}, kind: warning, text: Solar charger over temperature (inverter warning 1 bit 9)}
+  - {when: {key: x.inverter_warning_1, bit: 10}, kind: warning, text: PV charger communication error (inverter warning 1 bit 10)}
+  - {when: {key: x.charger_error, bit: 0}, kind: fault, text: Hardware protection (charger error bit 0)}
+  - {when: {key: x.charger_error, bit: 1}, kind: fault, text: Overcurrent (charger error bit 1)}
+  - {when: {key: x.charger_error, bit: 2}, kind: fault, text: Current sensor error (charger error bit 2)}
+  - {when: {key: x.charger_error, bit: 3}, kind: fault, text: Over temperature (charger error bit 3)}
+  - {when: {key: x.charger_error, bit: 4}, kind: fault, text: PV voltage too high (charger error bit 4)}
+  - {when: {key: x.charger_error, bit: 5}, kind: fault, text: PV voltage too low (charger error bit 5)}
+  - {when: {key: x.charger_error, bit: 6}, kind: fault, text: Battery voltage too high (charger error bit 6)}
+  - {when: {key: x.charger_error, bit: 7}, kind: fault, text: Battery voltage too low (charger error bit 7)}
+  - {when: {key: x.charger_error, bit: 8}, kind: fault, text: Current uncontrollable (charger error bit 8)}
+  - {when: {key: x.charger_error, bit: 9}, kind: fault, text: Parameter error (charger error bit 9)}
+  - {when: {key: x.charger_warning, bit: 0}, kind: warning, text: Charger fan error (charger warning bit 0)}
+  - {when: {key: state, equals: 2}, kind: backup_mode, text: Running off-grid}
+
+notes:
+- Addresses are the documents' decimal register numbers, used as protocol addresses unchanged (holding registers, function
+  03). The PV charger part (10001 ff., 15201 ff.) and the inverter part (20000 ff., 25201 ff.) both answer on unit id 4.
+- Serial settings aren't stated in either document.
+- Signedness of the registers isn't stated; values that can go negative (powers, currents of the inverter and grid side, temperatures)
+  are read signed, the rest unsigned (assumed).
+- The energy counters are split into a high word in 1000 kWh and a low word in 0.1 kWh; the derived values add both.
+- 'EP models name the energy use modes differently: 48 V: 1 = BAU, 3 = UTI, 4 = BOU; 12 / 24 V: 1 = BU, 3 = UTI. 12 and 24
+  V PV / PH models have no SUB (2). Solar use aim on EP models: 0 = LB, 1 = LU.'
+- 'Left out: calibration coefficients (10006–10008, 20009–20016), the read-only copies of serial number and versions (25269–25272),
+  Equalization activate now (10124), Remove accumulated data (10112, 20213) and Reset parameters (20214), warning message
+  2 (all bits reserved).'
+- 'Version 1.4.3 (2017) differs: 10101 charger enable, 10102 absorb voltage and 10109 absorb charge current; 20105–20107 on-grid
+  / grid charge / discharge enables, 20110 time mode, 20114–20117 and 20120 limits, 20126 absorb charge current, 20129–20131
+  battery type, Ah and low return voltage, 20133–20140 charge / discharge time windows, 20161–20193 grid-code settings, 20201–20207
+  clock and 20209–20210 force charge / discharge exist only there. It has battery types 0–2 only at 10110 (0 none, 1 lead
+  acid, 2 lithium), energy use modes 0–4 (PL, FL, FS, UPS, PO; newer: 0 SUB, 1 SBU, 3 UTI), no grid charging work state (6)
+  and no equalization charging state (3).'
+- 1.4.3 gives the machine type at 20001 only (PH1000 / PH3000 / PH1800); 1.4.15 splits it into letters (20000) and number
+  (20001).
+- The model (PV1800 or PV1900) is chosen in the integration's settings or taken from the machine type at 20000-20001 (two
+  ASCII characters and a number). The PV1900 adds battery SOC/SOH (113-114) and a second PV charger (16207-16208); on it 15207-15208
+  are the PV1 charger current and power.
+- 'ha-must-inverter reads in blocks 10101-10124, 15201-15221, 20000-20016, 20101-20214 and 25201-25279. It warns that reading
+  10009-10100 or 20016-20100 in one request made the inverter shut down and the charger stop until a full power cycle: don''t
+  read across those gaps.'
+- The inverter error bit table in ha-must-inverter is one entry short (a missing comma joins bit 15 of 25261 and bit 0 of
+  25262), so the integration only decodes 25261. The two texts are split again here and 25262 gets the remaining bits.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

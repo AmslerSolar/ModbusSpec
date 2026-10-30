@@ -1,0 +1,114 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the MENNEKES Description: access to AMTRON with HCC3 via MODBUS-TCP (v01, 2021-06-25).
+
+modbusspec: 0
+id: mennekes-amtron-hcc3
+manufacturer: Mennekes
+name: AMTRON wallboxes with HCC3 controller
+kind: charger
+
+sources:
+- title: 'Description: access to AMTRON® with HCC3 via MODBUS-TCP'
+  version: v01 (2021-06-25)
+  url: https://update.mennekes.de/hcc3/1.13/Description%20Modbus_AMTRON%20HCC3_v01_2021-06-25_en.pdf
+  sha256: 4672c75ab8857f33534af78558bb7314f690522d62a086aba7b9c4ffbffa5ae4
+  archive_url: https://web.archive.org/web/20210725024915/https://update.mennekes.de/hcc3/1.13/Description%20Modbus_AMTRON%20HCC3_v01_2021-06-25_en.pdf
+
+connection:
+  default_port: 502
+  default_unit: 255
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 779
+    type: u32
+
+points:
+  # Input registers (function 04)
+  - {key: temperature, label: HMI Temperature Internal, table: input, address: 768, type: s16, unit: °C, note: 'Panel temperature inside the wallbox, −55…125 °C.'}
+  - {key: x.external_temperature, label: HMI Temperature External, table: input, address: 769, type: s16, unit: °C, note: −30…100 °C.}
+  - {key: x.cp_state, label: CP State, table: input, address: 770, type: u16, enum: cp_state}
+  - {key: x.pp_state, label: PP State, table: input, address: 771, type: u16, enum: pp_state}
+  - {key: error_code, label: HCC3 Error Code, table: input, address: 772, type: u16, enum: error_code}
+  - {key: state, label: AMTRON State, table: input, address: 773, type: u16, enum: amtron_state}
+  - {key: x.operation_mode, label: AMTRON Operation Mode, table: input, address: 774, type: u16, enum: operation_mode, poll: slow}
+  - {key: x.connector_type, label: Connector Type, table: input, address: 775, type: u16, enum: connector_type, poll: slow}
+  - {key: x.phases, label: AMTRON No. of Phases, table: input, address: 776, type: u16, enum: phases, poll: slow}
+  - {key: x.rated_current, label: AMTRON Rated Current, table: input, address: 777, type: u16, unit: A, poll: slow, note: 0 or 6–32 A.}
+  - {key: x.installation_current, label: AMTRON Installation Current, table: input, address: 778, type: u16, unit: A, poll: slow, note: 0 or 6–32 A.}
+  - {key: serial, label: Serial number, table: input, address: 779, type: u32, poll: slow, note: '1–9 digits; low word in 0x030B, high word in 0x030C.'}
+  - {key: session_energy, label: Charging session meter count, table: input, address: 781, type: u32, unit: kWh, scale: 0.001, note: Counted in Wh; low word first. Depends on the AMTRON version.}
+  - {key: consumer_power, label: Actual power consumption, table: input, address: 783, type: u32, unit: W, positive: consumption, note: 'Average power derived from the delivered energy; meant for display only, can overshoot. Only with a built-in energy meter. Low word first.'}
+  - {key: x.wallbox_name, label: AMTRON Wallbox Name, table: input, address: 785, type: str, length: 11, poll: slow, note: 'Up to 22 bytes, ended by a null byte. The document gives the range 0x0311–0x031C but 22 bytes fill 11 registers (up to 0x031B).'}
+  - {key: x.t1_max_current, label: Max Current T1, table: input, address: 797, type: u16, unit: A, poll: slow, note: Tariff 1; 0 or 6–32 A.}
+  - {key: x.t1_start_hour, label: Start hour T1, table: input, address: 798, type: u16, unit: h, poll: slow}
+  - {key: x.t1_start_minute, label: Start minute T1, table: input, address: 799, type: u16, unit: min, poll: slow}
+  - {key: x.t1_price, label: Price T1, table: input, address: 800, type: u16, unit: ct/kWh, scale: 0.1, poll: slow, note: 'Euro cents per kWh, 0–999.'}
+  - {key: x.t2_max_current, label: Max Current T2, table: input, address: 801, type: u16, unit: A, poll: slow, note: Tariff 2; 0 or 6–32 A.}
+  - {key: x.t2_start_hour, label: Start hour T2, table: input, address: 802, type: u16, unit: h, poll: slow}
+  - {key: x.t2_start_minute, label: Start minute T2, table: input, address: 803, type: u16, unit: min, poll: slow}
+  - {key: x.t2_price, label: Price T2, table: input, address: 804, type: u16, unit: ct/kWh, scale: 0.1, poll: slow, note: 'Euro cents per kWh, 0–999.'}
+  - {key: x.planned_min_current, label: Planned min current, table: input, address: 805, type: u16, unit: A, note: Per phase; 0 or 6–32 A.}
+  - {key: x.planned_max_current, label: Planned max current, table: input, address: 806, type: u16, unit: A, note: Per phase; 0 or 6–32 A.}
+  - {key: x.planned_min_power, label: Planned min power, table: input, address: 807, type: u16, unit: W, note: 230 V × minimum current per phase × vehicle phases; 0 or 1380–8970 W.}
+  - {key: x.planned_max_power, label: Planned max power, table: input, address: 808, type: u16, unit: W, note: 230 V × maximum current per phase × vehicle phases; 0 or 1380–22080 W.}
+
+  # Holding registers (function 03 / 06)
+  - {key: x.customer_current_limit, label: Customer Current Limitation, table: holding, address: 1024, type: u16, unit: A, writable: true, note: '0 or 6–32 A, bounded by the rated and installation current. The Charge App can change it too; the last write wins.'}
+  - {key: x.change_charge_state, label: Change charge state, table: holding, address: 1025, type: u16, enum: charge_command, writable: true, write_only: true, note: Command register.}
+
+  # Discrete inputs (function 02)
+  - {key: x.di_error_input, label: 'Digital input: Error Input', table: discrete, address: 512, type: bool}
+  - {key: x.di_mirror_contact, label: 'Digital input: Mirror Contact', table: discrete, address: 513, type: bool}
+  - {key: x.di_socket_locking, label: 'Digital input: Socket locking', table: discrete, address: 514, type: bool}
+  - {key: x.do_shunt_trip, label: 'Digital output: Shunt trip', table: discrete, address: 515, type: bool}
+  - {key: x.contactor_closed, label: 'Digital output: Contactor', table: discrete, address: 516, type: bool, note: 1 = contactor closed.}
+  - {key: x.do_socket_locking, label: 'Digital output: Socket locking', table: discrete, address: 517, type: bool}
+  - {key: x.temperature_sensor_installed, label: Temperature Sensor Installed, table: discrete, address: 518, type: bool, poll: slow}
+  - {key: x.local_fuses_installed, label: Local Fuses Installed, table: discrete, address: 519, type: bool, poll: slow}
+  - {key: x.energy_manager_installed, label: Energy Manager Installed, table: discrete, address: 520, type: bool, poll: slow}
+  - {key: x.tariff_switch_connected, label: External Tariff Switch Connected, table: discrete, address: 521, type: bool, poll: slow}
+  - {key: x.monitoring_relay_1phase, label: Monitoring Relay Wired to 1 Phase Only, table: discrete, address: 522, type: bool, poll: slow}
+  - {key: x.rfid_authorization, label: RFID Authorization, table: discrete, address: 523, type: bool, poll: slow}
+  - {key: x.power_fail_continue, label: Power Fail Continue, table: discrete, address: 524, type: bool, poll: slow}
+  - {key: x.autostart_charging, label: Autostart Charging, table: discrete, address: 525, type: bool, poll: slow}
+  - {key: x.stop_button, label: Stop Button, table: discrete, address: 526, type: bool, poll: slow}
+  - {key: x.color_schema, label: Color Schema, table: discrete, address: 527, type: bool, poll: slow, note: '0: idle blue, charging green; 1: idle green, charging blue (waiting white, error red in both).'}
+  - {key: x.rfid_beep, label: RFID Beep, table: discrete, address: 528, type: bool, poll: slow}
+  - {key: x.wlan_enabled, label: WLAN Communication, table: discrete, address: 529, type: bool, poll: slow}
+  - {key: x.summer_time, label: Currently Summer, table: discrete, address: 530, type: bool, poll: slow, note: 1 = time offset +1 h.}
+  - {key: x.ev_wake_up, label: EV Wake-Up, table: discrete, address: 531, type: bool, poll: slow}
+
+  # Coils (function 01 / 05)
+  - {key: x.reboot, label: Reboot AMTRON, table: coil, address: 264, type: bool, writable: true, write_only: true, note: Write 1 to reboot.}
+
+enums:
+  cp_state: {'0': Illegal / bad, '1': A1, '2': A2, '3': B1, '4': B2, '5': C1, '6': C2, '7': D1, '8': D2}
+  pp_state: {'0': Illegal / bad, '1': Open, '2': 13 A, '3': 20 A, '4': 32 A}
+  error_code: {'0': No error, '10': Installation fault, '11': Controller fault, '12': Misconfiguration, '13': Overtemperature, '14': Mirror contactor error, '15': Invalid device time, '16': Energy manager connection error, '30': Device startup, '31': Internal test not passed, '32': HMI no connection, '50': Badly plugged cable, '51': Wrong cable, '52': Defect cable, '100': ACU communication error (SCU mode only), '101': Not polled by ACU (SCU mode only), '102': Maintenance (SCU mode only), '103': Disabled (SCU mode only), '255': Unknown error}
+  amtron_state: {'0': Idle, '1': Standby (authorize), '2': Standby (connect), '3': Charging, '4': Paused, '5': Terminated, '6': Error}
+  operation_mode: {'1': Remote, '2': Time-managed, '3': External switch}
+  connector_type: {'0': Unknown, '1': Cable type 1, '2': Cable type 2, '3': Socket with shutter, '4': Socket with flip-top}
+  phases: {'0': Unknown, '1': 1 phase, '3': 3 phases}
+  charge_command: {'1': Pause, '2': Continue, '3': Terminate, '4': Start without UID}
+
+problems:
+  - {when: {key: state, equals: 6}, kind: fault, text: Wallbox error (state 6)}
+  - {when: {key: error_code, not_in: [0, 30]}, kind: fault, text: 'Wallbox error {value}: {text}'}
+
+notes:
+- 'Addresses are the document''s hexadecimal data addresses, which are 0-based protocol addresses (its Modicon numbers are
+  these + 1 with the table prefix: 10001, 30001, 40001).'
+- The Modbus TCP server has to be enabled in the service interface. It is off in the operation modes Energy Manager and SCU.
+  It takes one connection at a time and closes it after 30 s; keepalive is not supported.
+- 32-bit values are stored low word first (low register at the lower address).
+- Error code 30 (device startup) is not reported as a fault.

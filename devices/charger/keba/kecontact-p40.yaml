@@ -1,0 +1,99 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the KEBA KeContact P40, P40 Pro Modbus TCP Programmers Guide (V 1.03, 08.2026).
+
+modbusspec: 0
+id: keba-kecontact-p40
+manufacturer: KEBA
+name: KeContact P40 / P40 Pro wallbox
+kind: charger
+
+sources:
+- title: KeContact P40, P40 Pro Modbus TCP Programmers Guide
+  version: 1.03 (08.2026)
+  url: https://www.keba.com/download/x/e9c9ced3ac/kecontactp40modbustcp_pgen.pdf
+  sha256: b4e74df1c2f6025c6021999a262157890c7b7715ae772da032b69fc0624d0315
+
+connection:
+  default_port: 502
+  default_unit: 255
+  transports:
+  - tcp
+  limits:
+    max_registers: 2
+    min_interval_ms: 500
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 1014
+    type: u32
+  checks:
+  - table: holding
+    address: 1016
+    type: u32
+    range:
+    - 4000000
+    - 4999999
+  - table: holding
+    address: 1000
+    type: u32
+    range:
+    - 0
+    - 5
+
+points:
+  - {key: state, label: Charging state, table: holding, address: 1000, type: u32, enum: charging_state}
+  - {key: x.cable_state, label: Cable state, table: holding, address: 1004, type: u32, enum: cable_state}
+  - {key: error_code, label: EVSE error code, table: holding, address: 1006, type: u32, note: Decimal; shown while the charging state is 4 (error).}
+  - {key: l1_current, label: Charging current phase 1, table: holding, address: 1008, type: u32, unit: A, scale: 0.001}
+  - {key: l2_current, label: Charging current phase 2, table: holding, address: 1010, type: u32, unit: A, scale: 0.001}
+  - {key: l3_current, label: Charging current phase 3, table: holding, address: 1012, type: u32, unit: A, scale: 0.001}
+  - {key: consumer_power, label: Active power, table: holding, address: 1020, type: u32, unit: W, scale: 0.001, positive: consumption}
+  - {key: session_energy, label: Charged energy (session), table: holding, address: 1502, type: u32, unit: kWh, scale: 0.0001, note: 0.1 Wh steps; software below 1.2.1 sends whole Wh here (known bug).}
+  - {key: consumer_energy, label: Total energy, table: holding, address: 1036, type: u32, unit: kWh, scale: 0.0001, poll: slow, note: 0.1 Wh steps; software below 1.2.1 sends whole Wh here (known bug).}
+  - {key: l1_voltage, label: Voltage phase 1, table: holding, address: 1040, type: u32, unit: V, poll: slow}
+  - {key: l2_voltage, label: Voltage phase 2, table: holding, address: 1042, type: u32, unit: V, poll: slow}
+  - {key: l3_voltage, label: Voltage phase 3, table: holding, address: 1044, type: u32, unit: V, poll: slow}
+  - {key: power_factor, label: Power factor, table: holding, address: 1046, type: u32, unit: '', scale: 0.001, poll: slow, note: Sent in 0.1 % (928 = 92.8 %).}
+  - {key: x.max_charging_current, label: Max. charging current, table: holding, address: 1100, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: x.max_supported_current, label: Max. supported current, table: holding, address: 1110, type: u32, unit: A, scale: 0.001, poll: slow, note: 'Lowest of the installer current setting, cable coding and temperature derating.'}
+  - {key: x.fast_charging, label: Fast charging state, table: holding, address: 1200, type: u32, enum: fast_charging, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 1014, type: u32, poll: slow}
+  - {key: x.product_type, label: Product type and features, table: holding, address: 1016, type: u32, poll: slow, note: 'Decimal digits: family (4 = P40), device current (1 = 16 A, 2 = 32 A), connector (1 = cable, 2 = socket), phases (1 = 1-phase, 2 = 3-phase, 3 = 3/1 switching, 4 = rotation), metering (0 none, 1 energy meter, 2 MID, 3 MessEV), RFID (0/1), button (0/1).'}
+  - {key: firmware, label: Software package version, table: holding, address: 1018, type: u32, poll: slow, note: 'Decimal, two digits each for major / medium / minor without the dots (10000 = 1.0.0).'}
+  - {key: x.hw_revision_device, label: Hardware revision device, table: holding, address: 1700, type: u32, poll: slow}
+  - {key: x.hw_revision_ms10, label: Hardware revision KC-MS10, table: holding, address: 1702, type: u32, poll: slow}
+  - {key: x.rfid_tag, label: RFID tag, table: holding, address: 1500, type: u32, poll: slow, note: 'First 4 bytes of the RFID card''s UID, shown as hex; only when the session was authorised by card and RFID reading over Modbus is enabled.'}
+  - {key: x.phase_switching_source, label: Phase switching source, table: holding, address: 1550, type: u32, enum: phase_switching_source, poll: slow}
+  - {key: x.phase_switching_state, label: Phase switching state, table: holding, address: 1552, type: u32, enum: phase_switching_state, poll: slow}
+  - {key: x.failsafe_current, label: Failsafe current setting, table: holding, address: 1600, type: u32, unit: A, scale: 0.001, poll: slow}
+  - {key: x.failsafe_timeout, label: Failsafe timeout setting, table: holding, address: 1602, type: u32, unit: s, poll: slow}
+
+enums:
+  charging_state: {'0': Starting, '1': Not ready, '2': 'Ready, waiting for car', '3': Charging, '4': Error, '5': Interrupted (temperature / suspended)}
+  cable_state: {'0': No cable, '1': Cable at station, '3': 'Cable at station, locked (cable variant - always)', '5': Cable at station and car, '7': 'Cable at station and car, locked (cable variant - no lock)'}
+  fast_charging: {'0': 'Off', '1': On (current not controllable over Modbus)}
+  phase_switching_source: {'0': None, '1': OCPP, '2': REST API, '3': Modbus TCP}
+  phase_switching_state: {'1': Single-phase charging, '3': Three-phase charging possible}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Charging station error (code {value})'}
+  - {when: {key: state, equals: 4}, kind: fault, text: Charging station error (state 4)}
+
+notes:
+- Modbus TCP is off by default; enable it in the KEBA eMobility App or over OCPP. Port (default 502) and unit id (default
+  255) can be changed there or over the REST API.
+- Every readable value is a UINT32 over two registers; one value per request, at most every 0.5 s. Addresses count from 0
+  as the guide states.
+- The guide gives no word order; most significant word first is assumed (not checked on a device).
+- 'Write-only registers (FC6, UINT16, not points here): 5004 charging current in mA (0 = suspend, 6000–32000), 5010 energy
+  limit in 10 Wh (0 = clear), 5012 unlock plug (0), 5014 enable (1) / disable (0), 5050 phase switching source (0–3), 5052
+  phase switch (0 = 1 phase, 1 = 3 phases), 5016 failsafe current in mA, 5018 failsafe timeout in s (0 = off, 5–600), 5200
+  fast charging on (1). Writes at most every 5 s.'
+- Reading the RFID tag (1500) has to be enabled separately on the station.

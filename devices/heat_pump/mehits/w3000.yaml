@@ -1,0 +1,230 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the MEHITS W3000+ (software TA22) Interface Manual (SM_W3000+_TA22_00_04_26_EN), section 8
+# "Interfacing with BMS (Modbus RTU)".
+
+modbusspec: 0
+id: mehits-w3000
+manufacturer: MEHITS
+name: W3000+ controller for chillers and heat pumps (software TA22 and later, Modbus RTU card)
+kind: heat_pump
+
+sources:
+- title: W3000+ Version TA22 Interface Manual (SM_W3000+_TA22_00_04_26_EN)
+  version: SM_W3000+_TA22_00_04_26_EN
+  url: https://alklima.nl/service-en-support/downloads/bedieningshandleiding/modbus-rs485-registerlijst-mehp-ib.pdf
+  sha256: 7d43339a2188fcf803dfde4bbff2b7ce2414cbad64041516b13846149e1406ba
+
+connection:
+  default_port: 502
+  default_unit: 11
+  transports:
+  - rtu
+  serial:
+    baud: 19200
+    format: 8N2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # software release "TA"
+  - table: input
+    address: 131
+    type: u16
+    equals: 2001
+  # version 22 or later, revision
+  - table: input
+    address: 132
+    type: u16
+    range:
+    - 2200
+    - 9999
+  # unit type
+  - table: input
+    address: 133
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+    - 10
+    - 11
+    - 14
+    - 15
+    - 21
+    - 25
+
+points:
+  # Coils (function 01, write 05 / 15)
+  - {key: x.unit_on, label: Unit status, table: coil, address: 1, type: bool}
+  - {key: x.evaporator_pump_1, label: Evaporator pump 1 status, table: coil, address: 3, type: bool, optional: true}
+  - {key: x.evaporator_pump_2, label: Evaporator pump 2 status, table: coil, address: 4, type: bool, optional: true}
+  - {key: x.recuperator_pump, label: Recuperator pump status, table: coil, address: 5, type: bool, optional: true}
+  - {key: x.condenser_pump, label: Condenser pump status, table: coil, address: 6, type: bool, optional: true}
+  - {key: x.bms_on_off, label: On/Off command by BMS, table: coil, address: 8, type: bool, writable: true, note: Needs on/off from the supervisor enabled on the controller.}
+  - {key: x.system_on_off, label: System adjustment on/off command, table: coil, address: 31, type: bool, writable: true, optional: true, note: Units with DHW only.}
+  - {key: x.dhw_on_off, label: DHW adjustment on/off command, table: coil, address: 32, type: bool, writable: true, optional: true, note: Units with DHW only.}
+
+  # Registers (function 04, write 06 / 16): analogue variables
+  - {key: x.cooling_setpoint, label: Chiller temperature setpoint, table: input, address: 1, type: s16, unit: °C, scale: 0.1, writable: true, poll: slow, invalid: [-999, -888]}
+  - {key: x.heating_setpoint, label: Heat pump temperature setpoint, table: input, address: 2, type: s16, unit: °C, scale: 0.1, writable: true, poll: slow, invalid: [-999, -888]}
+  - {key: x.dhw_setpoint, label: Recovery / DHW setpoint, table: input, address: 3, type: s16, unit: °C, scale: 0.1, writable: true, poll: slow, invalid: [-999, -888]}
+  - {key: x.active_setpoint, label: Active principle setpoint, table: input, address: 4, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888]}
+  - {key: x.recovery_active_setpoint, label: Recovery setpoint active, table: input, address: 5, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888]}
+  - {key: x.evaporator_inlet_temperature, label: Inlet temperature of evaporator, table: input, address: 6, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888]}
+  - {key: x.evaporator_outlet_temperature, label: Evaporator outlet temperature (average), table: input, address: 7, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888]}
+  - {key: x.condenser_inlet_temperature, label: Condenser inlet temperature, table: input, address: 8, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888]}
+  - {key: x.condenser_outlet_temperature, label: Condenser outlet temperature (average), table: input, address: 9, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888]}
+  - {key: x.recuperator_inlet_temperature, label: Recuperator inlet temperature / DHW storage tank temperature, table: input, address: 10, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888]}
+  - {key: x.recuperator_outlet_temperature, label: Recuperator outlet temperature, table: input, address: 11, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888]}
+  - {key: x.high_pressure_1, label: High pressure transducer 1, table: input, address: 12, type: s16, unit: bar, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.high_pressure_2, label: High pressure transducer 2, table: input, address: 13, type: s16, unit: bar, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.high_pressure_3, label: High pressure transducer 3, table: input, address: 14, type: s16, unit: bar, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.high_pressure_4, label: High pressure transducer 4, table: input, address: 15, type: s16, unit: bar, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.low_pressure_1, label: Low pressure transducer 1, table: input, address: 16, type: s16, unit: bar, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.low_pressure_2, label: Low pressure transducer 2, table: input, address: 17, type: s16, unit: bar, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.low_pressure_3, label: Low pressure transducer 3, table: input, address: 18, type: s16, unit: bar, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.low_pressure_4, label: Low pressure transducer 4, table: input, address: 19, type: s16, unit: bar, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.outdoor_temperature, label: External air temperature, table: input, address: 20, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888]}
+  - {key: x.optional_probe_temperature, label: Optional probe temperature, table: input, address: 21, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.freecooling_inlet_temperature, label: Freecooling inlet temperature, table: input, address: 22, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.evaporator_differential_pressure, label: Differential pressure transducer on hydraulic side of evaporator, table: input, address: 23, type: s16, unit: kPa, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.compressor_1_discharge_temperature, label: Compressor 1 discharge temperature, table: input, address: 25, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.compressor_2_discharge_temperature, label: Compressor 2 discharge temperature, table: input, address: 26, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.compressor_3_discharge_temperature, label: Compressor 3 discharge temperature, table: input, address: 27, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.compressor_4_discharge_temperature, label: Compressor 4 discharge temperature, table: input, address: 28, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.compressor_5_discharge_temperature, label: Compressor 5 discharge temperature, table: input, address: 29, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.compressor_6_discharge_temperature, label: Compressor 6 discharge temperature, table: input, address: 30, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.compressor_7_discharge_temperature, label: Compressor 7 discharge temperature, table: input, address: 31, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.compressor_8_discharge_temperature, label: Compressor 8 discharge temperature, table: input, address: 32, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.storage_tank_setpoint, label: Plant storage tank setpoint enabled, table: input, address: 33, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+  - {key: x.storage_tank_temperature, label: Plant storage tank temperature, table: input, address: 34, type: s16, unit: °C, scale: 0.1, invalid: [-999, -888], optional: true}
+
+  # Registers: whole (integer) variables
+  - {key: x.software_release, label: Software version, table: input, address: 131, type: u16, poll: slow, note: 'Two letters as two-digit numbers (A = 01 … Z = 26): 2001 = TA.'}
+  - {key: firmware, label: Software version (revision), table: input, address: 132, type: u16, poll: slow, note: 'Version × 100 + revision: 2200 = version 22, revision 00 (TA22r00 with register 131).'}
+  - {key: x.unit_type, label: Unit type configuration, table: input, address: 133, type: u16, enum: unit_type, poll: slow}
+  - {key: x.circuits, label: No. circuits, table: input, address: 134, type: u16, poll: slow}
+  - {key: x.compressors, label: No. compressors, table: input, address: 135, type: u16, poll: slow}
+  - {key: x.compressor_type, label: Type of compressors, table: input, address: 137, type: u16, enum: compressor_type, poll: slow}
+  - {key: x.configuration_1, label: Unit configuration status 1, table: input, address: 138, type: u16, flags: configuration_1, poll: slow}
+  - {key: x.configuration_2, label: Unit configuration status 2, table: input, address: 139, type: u16, flags: configuration_2, poll: slow}
+  - {key: x.timing_status, label: Unit timing status, table: input, address: 141, type: u16, enum: timing_status}
+  - {key: x.operating_mode, label: Operating mode, table: input, address: 142, type: u16, enum: operating_mode, writable: true, note: 'Which values apply depends on the unit type (chiller: 3; chiller + freecooling: 7, 8; chiller + recovery: 2, 3; heat pump: 3, 4; energy raiser: 0–3; heat pump with recovery: 10–16). Writing needs mode change from the supervisor enabled.'}
+  - {key: x.compressor_1_status, label: Compressor 1 status, table: input, address: 143, type: u16, flags: compressor_status, note: Bits as listed in compressor_status.}
+  - {key: x.compressor_2_status, label: Compressor 2 status, table: input, address: 144, type: u16, flags: compressor_status, optional: true}
+  - {key: x.compressor_3_status, label: Compressor 3 status, table: input, address: 145, type: u16, flags: compressor_status, optional: true}
+  - {key: x.compressor_4_status, label: Compressor 4 status, table: input, address: 146, type: u16, flags: compressor_status, optional: true}
+  - {key: x.compressor_5_status, label: Compressor 5 status, table: input, address: 147, type: u16, flags: compressor_status, optional: true}
+  - {key: x.compressor_6_status, label: Compressor 6 status, table: input, address: 148, type: u16, flags: compressor_status, optional: true}
+  - {key: x.compressor_7_status, label: Compressor 7 status, table: input, address: 149, type: u16, flags: compressor_status, optional: true}
+  - {key: x.compressor_8_status, label: Compressor 8 status, table: input, address: 150, type: u16, flags: compressor_status, optional: true}
+  - {key: x.compressor_hours_avg_thousands, label: Average hours compressors (thousands), table: input, address: 151, type: u16, unit: h, scale: 1000, poll: slow}
+  - {key: x.compressor_hours_avg_units, label: Average hours compressors (units), table: input, address: 152, type: u16, unit: h, poll: slow}
+  - {key: x.clock, label: Date and time, table: input, address: 153, type: datetime, length: 2, poll: slow, datetime: {year: {register: 0, bits: [0, 11]}, month: {register: 0, bits: [12, 15]}, day: {register: 1, bits: [0, 4]}, hour: {register: 1, bits: [5, 9]}, minute: {register: 1, bits: [10, 15]}}, note: 'Year in bits 0–11 and month in bits 12–15 of 153; day bits 0–4, hour 5–9, minute 10–15 of 154. To set: coil 9 = 1, write both registers, coil 9 = 0.'}
+  - {key: x.pump_code, label: Pump code, table: input, address: 155, type: u16, flags: pump_code}
+  - {key: x.function_status, label: Flash operating mode, table: input, address: 156, type: u16, flags: function_status}
+  - {key: state, label: Unit status, table: input, address: 158, type: u16, enum: unit_status}
+  - {key: error_code, label: Active alarm code (with greater priority), table: input, address: 160, type: u16, verified: false, note: The alarm codes aren't listed in this document; 0 = no alarm is assumed.}
+  - {key: x.cooling_demand, label: Chiller temperature controller request, table: input, address: 162, type: s16, unit: '%', optional: true}
+  - {key: x.cooling_power_active, label: Active power of chiller thermoregulator, table: input, address: 163, type: s16, unit: '%', optional: true}
+  - {key: x.heating_demand, label: Heat pump temperature controller request, table: input, address: 165, type: s16, unit: '%', optional: true}
+  - {key: x.heating_power_active, label: Active power of heat pump thermoregulator, table: input, address: 166, type: s16, unit: '%', optional: true}
+  - {key: x.compressor_1_hours_thousands, label: Compressor 1 hours (thousands), table: input, address: 182, type: u16, unit: h, scale: 1000, poll: slow}
+  - {key: x.compressor_1_hours_units, label: Compressor 1 hours (units), table: input, address: 183, type: u16, unit: h, poll: slow}
+  - {key: x.watchdog, label: Watchdog, table: input, address: 242, type: u16, writable: true, note: 'With "supervision with watchdog" set, the supervisor must change this value at least every 2 minutes; otherwise the unit counts the link as lost.'}
+
+  # Network analyser (optional energy meter on the unit's supply)
+  - {key: l1_voltage, label: 'Network analyser: line 1 - N voltage', table: input, address: 254, type: s16, unit: V, optional: true}
+  - {key: l2_voltage, label: 'Network analyser: line 2 - N voltage', table: input, address: 255, type: s16, unit: V, optional: true}
+  - {key: l3_voltage, label: 'Network analyser: line 3 - N voltage', table: input, address: 256, type: s16, unit: V, optional: true}
+  - {key: l1_current, label: 'Network analyser: line 1 current', table: input, address: 260, type: s16, unit: A, scale: 0.1, optional: true}
+  - {key: l2_current, label: 'Network analyser: line 2 current', table: input, address: 261, type: s16, unit: A, scale: 0.1, optional: true}
+  - {key: l3_current, label: 'Network analyser: line 3 current', table: input, address: 262, type: s16, unit: A, scale: 0.1, optional: true}
+  - {key: power_factor, label: 'Network analyser: power factor', table: input, address: 264, type: s16, unit: '', scale: 0.001, optional: true}
+  - {key: l1_power, label: 'Network analyser: line 1 power', table: input, address: 265, type: s16, unit: W, scale: 100, positive: consumption, verified: false, optional: true, note: Raw value in 0.1 kW. The sign isn't stated; consumption is assumed.}
+  - {key: l2_power, label: 'Network analyser: line 2 power', table: input, address: 266, type: s16, unit: W, scale: 100, positive: consumption, verified: false, optional: true}
+  - {key: l3_power, label: 'Network analyser: line 3 power', table: input, address: 267, type: s16, unit: W, scale: 100, positive: consumption, verified: false, optional: true}
+  - {key: x.analyser_power, label: 'Network analyser: total capacity', table: input, address: 268, type: s16, unit: kW, scale: 0.1, optional: true}
+  - {key: x.analyser_energy_millions, label: 'Network analyser: energy (millions)', table: input, address: 269, type: u16, unit: kWh, scale: 1000000, optional: true, poll: slow}
+  - {key: x.analyser_energy_thousands, label: 'Network analyser: energy (thousands)', table: input, address: 270, type: u16, unit: kWh, scale: 1000, optional: true, poll: slow}
+  - {key: x.analyser_energy_units, label: 'Network analyser: energy (units)', table: input, address: 271, type: u16, unit: kWh, optional: true, poll: slow}
+  - {key: x.max_input_current_setpoint, label: Setpoint from BMS of the maximum permitted input current, table: input, address: 283, type: s16, unit: A, writable: true, poll: slow, optional: true}
+
+  # Thermal power analyser
+  - {key: x.evaporator_flow, label: 'Thermal power analyser: evaporator flow rate', table: input, address: 284, type: s16, unit: m³/h, scale: 0.1, optional: true}
+  - {key: x.thermal_power, label: 'Thermal power analyser: calculated thermal power', table: input, address: 288, type: s16, unit: kW, optional: true}
+
+  # Alarms and performance
+  - {key: x.active_alarm_1, label: 'Active alarm [01] (highest priority of 10)', table: input, address: 345, type: u16, note: 345–354 list up to 10 active alarms by priority; the codes aren't listed in this document.}
+  - {key: x.power_produced_mw, label: Unit power produced (MW), table: input, address: 375, type: s16, unit: kW, scale: 1000, optional: true}
+  - {key: x.power_produced_kw, label: Unit power produced (kW), table: input, address: 376, type: s16, unit: kW, scale: 0.1, optional: true}
+  - {key: x.power_absorbed_mw, label: Unit power absorbed (MW), table: input, address: 377, type: s16, unit: W, scale: 1000000, optional: true}
+  - {key: x.power_absorbed_kw, label: Unit power absorbed (kW), table: input, address: 378, type: s16, unit: W, scale: 100, optional: true}
+  - {key: x.efficiency, label: Instantaneous efficiency (EER / COP / DHW COP), table: input, address: 379, type: s16, unit: '', scale: 0.01, optional: true}
+  - {key: x.energy_produced_today_mwh, label: 'Current day: total energy produced (MWh)', table: input, address: 392, type: u16, unit: kWh, scale: 1000, optional: true, poll: slow}
+  - {key: x.energy_produced_today_kwh, label: 'Current day: total energy produced (kWh)', table: input, address: 393, type: u16, unit: kWh, scale: 0.1, optional: true, poll: slow}
+  - {key: x.energy_absorbed_today_mwh, label: 'Current day: total absorbed energy (MWh)', table: input, address: 394, type: u16, unit: kWh, scale: 1000, optional: true, poll: slow}
+  - {key: x.energy_absorbed_today_kwh, label: 'Current day: total absorbed energy (kWh)', table: input, address: 395, type: u16, unit: kWh, scale: 0.1, optional: true, poll: slow}
+  - {key: x.shutdown_status, label: Shutdown status, table: input, address: 654, type: u16, flags: shutdown_status, optional: true}
+
+derived:
+  - {key: x.compressor_hours_avg, label: Average compressor hours, unit: h, sum: [{key: x.compressor_hours_avg_thousands}, {key: x.compressor_hours_avg_units}]}
+  - {key: x.compressor_1_hours, label: Compressor 1 hours, unit: h, sum: [{key: x.compressor_1_hours_thousands}, {key: x.compressor_1_hours_units}]}
+  - {key: consumer_energy, label: 'Network analyser: energy', unit: kWh, sum: [{key: x.analyser_energy_millions}, {key: x.analyser_energy_thousands}, {key: x.analyser_energy_units}]}
+  - {key: consumer_power, label: Unit power absorbed, unit: W, positive: consumption, sum: [{key: x.power_absorbed_mw}, {key: x.power_absorbed_kw}], note: MW part plus kW part (0.1 kW steps).}
+  - {key: x.power_produced, label: Unit power produced, unit: kW, sum: [{key: x.power_produced_mw}, {key: x.power_produced_kw}]}
+  - {key: x.energy_produced_today, label: 'Current day: total energy produced', unit: kWh, sum: [{key: x.energy_produced_today_mwh}, {key: x.energy_produced_today_kwh}]}
+  - {key: x.energy_absorbed_today, label: 'Current day: total absorbed energy', unit: kWh, sum: [{key: x.energy_absorbed_today_mwh}, {key: x.energy_absorbed_today_kwh}]}
+
+enums:
+  unit_type: {'0': Chiller, '1': Chiller + recovery, '2': Chiller + free cooling, '10': Heat pump, '11': Heat pump + recovery, '14': Heat pump + DHW, '15': +2P module, '21': Energy raiser, '25': Energy raiser and +2P module}
+  compressor_type: {'0': Centrifugal, '1': Hermetic, '2': Alternative (reciprocating), '3': Screw}
+  timing_status: {'0': Unit off, '1': Unit timing, '3': Unit at full power, '4': Switching off, '5': Timing of compressors, '6': Pump timing, '8': Unit off from alarm}
+  operating_mode: {'0': Auto, '1': Recovery, '2': Chiller + recovery, '3': Chiller, '4': Heat pump, '7': Chiller, '8': Chiller + free cooling, '10': Summer auto, '11': Summer recovery, '12': Summer chiller + recovery, '13': Summer chiller, '14': Winter heat pump, '15': Winter recovery, '16': Winter auto}
+  unit_status: {'0': On from keyboard, '1': On from digital input, '2': On from time bands, '3': On from KIPlink, '4': On from supervisor, '5': On from sequencer, '6': On from Manager 3000, '7': On from ClimaPRO, '8': On LAN, '9': On Manager+, '10': On Plant Manager C1, '11': On Master-Client, '12': On Group Manager C1, '20': Off from alarm, '21': Off from ClimaPRO, '22': Off from Manager 3000, '23': Off from sequencer, '24': Off from supervisor, '25': Off from KIPlink, '26': Off from time bands, '27': Off from digital input, '28': Off from keyboard, '29': Off from deselection of compressors, '30': Shutdown, '31': Standby, '32': Off LAN, '33': Off Manager+, '34': Off Master-Client, '35': Off Plant Manager C1, '36': Off unit lock, '37': Off Group Manager C1}
+
+flags:
+  configuration_1: {'0': Heat pump enabled, '1': Quick Mind enabled, '2': Control on outlet (clear = inlet), '3': Free cooling enabled, '11': Recovery enabled}
+  configuration_2: {'0': Time bands enabled, '1': Pumpdown enabled, '2': Setpoint modification enabled, '3': Water cooled (clear = air cooled), '4': Sequencer enabled, '5': DHW enabled, '6': Anti-legionella enabled, '7': +2P module enabled}
+  compressor_status: {'0': Not configured, '1': Enabled, '2': 'On', '3': Pump-down active, '4': Alarm active, '5': On with 3 steps (start for screw and centrifugal compressors), '6': On with 2 steps, '7': On with 1 step, '8': On whole, '9': Chiller, '10': Heat pump, '11': Recovery, '12': Defrost, '13': Free cooling, '14': Dripping, '15': Request}
+  pump_code: {'0': Pump 1 enabled, '1': Pump 2 enabled, '2': Recovery pump enabled, '3': DHW pump enabled, '4': Condenser pump enabled, '6': Pumps 1 and 2 stopped by machine or hydraulic circuit alarms, '7': Recovery pump stopped by machine or hydraulic circuit alarms, '8': Pump 1 in alarm, '9': Pump 2 in alarm, '10': Recovery pump in alarm, '11': DHW pump in alarm, '12': Condenser pump in alarm, '13': Condenser antifreeze or flow alarm, '14': Unit no longer available (stopped by alarm), '15': Unit in alarm but with pumps requested}
+  function_status: {'0': Anti-legionella function active, '1': Sniffer function on pumps enabled, '2': Unit start delay after power failure, '3': Thermoregulator on hold / timing, '4': Fast Restart enabled, '5': +2P module enabled, '7': Power limitation enabled, '8': Antifreeze limitation active, '9': High temperature pressure switch control, '10': Defrost enabled, '11': Energy storage, '12': Drip phase active in at least one circuit, '13': Maximum forcing of at least one circuit, '14': Minimum forcing of at least one circuit, '15': Producing DHW}
+  shutdown_status: {'0': Unit shut down, '1': Circuit 1 shut down, '2': Circuit 2 shut down, '3': Circuit 3 shut down, '4': Circuit 4 shut down}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Unit alarm (code {value})'}
+  - {when: {key: state, equals: 20}, kind: fault, text: Unit off from alarm}
+  - {when: {key: x.pump_code, bit: 8}, kind: fault, text: Pump 1 in alarm}
+  - {when: {key: x.pump_code, bit: 9}, kind: fault, text: Pump 2 in alarm}
+  - {when: {key: x.pump_code, bit: 10}, kind: fault, text: Recovery pump in alarm}
+  - {when: {key: x.pump_code, bit: 11}, kind: fault, text: DHW pump in alarm}
+  - {when: {key: x.pump_code, bit: 12}, kind: fault, text: Condenser pump in alarm}
+  - {when: {key: x.pump_code, bit: 13}, kind: fault, text: Condenser antifreeze or flow alarm}
+  - {when: {key: x.compressor_1_status, bit: 4}, kind: fault, text: Compressor 1 alarm}
+
+notes:
+- 'Coils (C) are read with function 01 and written with 05 / 15; registers (R) are read with function 04 and written with
+  06 / 16. The addresses are the document''s, used as protocol addresses: address 0 of each table is not used, and the watchdog
+  the text calls "40243" is register 242. Integer ("whole") variables start at 129 (whole 1), so compressor 2 status, whole
+  16, is 144.'
+- 'Serial line: 1200–19200 bit/s selectable (19200 shown in the example), 8 data bits, no parity, 2 stop bits; unit id 1–200,
+  default 11. On/off and mode changes from the supervisor must be enabled in the user menu.'
+- 'Analogue values carry one decimal (raw × 0.1); a probe in alarm reads −999 and a probe or parameter not configured −888.
+  Negative raw values of bit-coded registers are the same 16 bits read as signed: add 65536.'
+- Most values exist only on units with the matching equipment or option, or need a controller parameter enabled; such points
+  are marked optional.
+- The power and energy figures are split into a MW / MWh (or GWh) part and a kW / kWh part with one decimal; the derived values
+  add them up. The document doesn't say whether the kW part runs only up to 999.9.
+- The document's table jumps from 428 to 531 and from 624 to 628 in the monthly / yearly energy blocks and lists 662 twice;
+  those energy history registers are left out anyway.
+- 'Left out: centrifugal and inverter compressor details (40–128, 174–239), compressors 2–8 hours, pressure transducers beyond
+  the ones listed, thermoregulator limits, ATS, energy meter configuration coils, multi-unit (Master-Client) status, residential
+  zone functions (356–362), the per-line apparent / reactive power, the day / month / year energy and efficiency history (380–725
+  except the current-day totals).'
+- The Modbus over IP card (section 9 of the manual) and the multi-manager variant use a different register layout (e.g. software
+  version at 5005) that isn't described here; this file is for the Modbus RTU serial card.

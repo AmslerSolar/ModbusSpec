@@ -1,0 +1,202 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Morningstar ProStar PWM MODBUS Specification (v2.0, 22 March 2017).
+
+modbusspec: 0
+id: morningstar-prostar-pwm
+manufacturer: Morningstar
+name: ProStar PWM solar charge controller (PS-PWM-15 / -30, M variants)
+kind: inverter
+
+sources:
+- title: ProStar PWM MODBUS Specification (MS-001838)
+  version: 2.0 (22 March 2017)
+  url: https://www.morningstarcorp.com/wp-content/uploads/technical-doc-prostar-modbus-specification-en.pdf
+  sha256: bd034a69400790bfa76b0c17805a4929b26f2d973e9856318b89b8a758ed8aae
+  archive_url: https://web.archive.org/web/20250616193057/https://www.morningstarcorp.com/wp-content/uploads/technical-doc-prostar-modbus-specification-en.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N2
+  input_equals_holding: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # battery voltage multiplier
+  - table: holding
+    address: 1
+    type: u16
+    in:
+    - 1
+    - 2
+  # charge state
+  - table: holding
+    address: 33
+    type: u16
+    range:
+    - 0
+    - 8
+  # load state
+  - table: holding
+    address: 46
+    type: u16
+    range:
+    - 0
+    - 7
+
+points:
+  # RAM, updated continuously (0x0000 ff.)
+  - {key: firmware, label: Software Version, table: holding, address: 0, type: bcd16, poll: slow, note: 'BCD: version 12 reads 0x0012.'}
+  - {key: x.voltage_multiplier, label: Battery Voltage Settings multiplier, table: holding, address: 1, type: u16, poll: slow, note: '1 = 12 V system, 2 = 24 V system (voltage settings are stored for 12 V and multiplied by this).'}
+  # Measurements, IEEE half-precision floats
+  - {key: x.array_current, label: Array Current, table: holding, address: 17, type: f16, unit: A}
+  - {key: battery_voltage, label: Battery Terminal Voltage, table: holding, address: 18, type: f16, unit: V}
+  - {key: x.array_voltage, label: Array Voltage, table: holding, address: 19, type: f16, unit: V}
+  - {key: x.load_voltage, label: Load Voltage, table: holding, address: 20, type: f16, unit: V}
+  - {key: x.load_current, label: Load Current, table: holding, address: 22, type: f16, unit: A}
+  - {key: x.battery_sense_voltage, label: Battery Sense Voltage, table: holding, address: 23, type: f16, unit: V}
+  - {key: x.battery_voltage_60s, label: 'Battery Voltage, slow filter (60 s)', table: holding, address: 24, type: f16, unit: V}
+  - {key: x.battery_net_current, label: 'Battery Current (net), slow filter (60 s)', table: holding, address: 25, type: f16, unit: A, note: The document doesn't say which direction is positive.}
+  - {key: temperature, label: Heatsink Temperature, table: holding, address: 26, type: f16, unit: °C}
+  - {key: battery_temperature, label: Battery Temperature, table: holding, address: 27, type: f16, unit: °C, note: 'The remote temperature sensor when connected, else the local ambient sensor.'}
+  - {key: x.ambient_temperature, label: Ambient (local) Temperature, table: holding, address: 28, type: f16, unit: °C}
+  - {key: x.remote_sensor_temperature, label: Remote Temperature Sensor, table: holding, address: 29, type: f16, unit: °C}
+  - {key: x.battery_voltage_25s, label: 'Battery Voltage, slow filter (25 s)', table: holding, address: 35, type: f16, unit: V}
+  - {key: x.regulator_target_voltage, label: Battery Regulator Reference Voltage, table: holding, address: 36, type: f16, unit: V}
+  - {key: x.lvd_voltage, label: Load Current Compensated LVD Voltage, table: holding, address: 48, type: f16, unit: V}
+  - {key: x.load_hvd_voltage, label: Load HVD Voltage, table: holding, address: 49, type: f16, unit: V}
+  - {key: x.battery_voltage_min_daily, label: Minimum Battery Voltage (daily), table: holding, address: 65, type: f16, unit: V, poll: slow}
+  - {key: x.battery_voltage_max_daily, label: Maximum Battery Voltage (daily), table: holding, address: 66, type: f16, unit: V, poll: slow}
+  - {key: x.charge_ah_daily, label: Ah Charge (daily), table: holding, address: 67, type: f16, unit: Ah, poll: slow}
+  - {key: x.load_ah_daily, label: Ah Load (daily), table: holding, address: 68, type: f16, unit: Ah, poll: slow}
+  - {key: x.array_voltage_max_daily, label: Maximum Array Voltage (daily), table: holding, address: 76, type: f16, unit: V, poll: slow}
+  - {key: state, label: Charge State, table: holding, address: 33, type: u16, enum: charge_state}
+  - {key: x.array_faults, label: Array Fault Bitfield, table: holding, address: 34, type: u16, flags: array_faults}
+  - {key: x.charge_ah_resettable, label: Ah Charge Resettable, table: holding, address: 38, type: u32, unit: Ah, scale: 0.1, poll: slow}
+  - {key: x.charge_ah_total, label: Ah Charge Total, table: holding, address: 40, type: u32, unit: Ah, scale: 0.1, poll: slow}
+  - {key: x.charge_kwh_resettable, label: kWh Charge Resettable, table: holding, address: 42, type: u16, unit: kWh, scale: 0.1, poll: slow}
+  - {key: pv_energy, label: kWh Charge Total, table: holding, address: 43, type: u16, unit: kWh, scale: 0.1, poll: slow, verified: false, note: Energy charged into the battery from the array. A single 16-bit register (overflow behaviour not stated); it can be cleared with coil 0x0018.}
+  - {key: x.load_state, label: Load State, table: holding, address: 46, type: u16, enum: load_state}
+  - {key: x.load_faults, label: Load Fault Bitfield, table: holding, address: 47, type: u16, flags: load_faults}
+  - {key: x.load_ah_resettable, label: Ah Load Resettable, table: holding, address: 50, type: u32, unit: Ah, scale: 0.1, poll: slow}
+  - {key: x.load_ah_total, label: Ah Load Total, table: holding, address: 52, type: u32, unit: Ah, scale: 0.1, poll: slow}
+  - {key: x.hourmeter, label: Hourmeter, table: holding, address: 54, type: u32, unit: h, poll: slow}
+  - {key: x.alarms, label: Alarm Bitfield, table: holding, address: 56, type: u32, flags: alarms}
+  - {key: x.dip_switches, label: DIP Switch Settings at Power On, table: holding, address: 58, type: u16, flags: dip_switches, poll: slow}
+  - {key: x.soc_led_state, label: SOC LED State, table: holding, address: 59, type: u16, enum: led_state}
+  - {key: x.array_faults_today, label: Array Fault Bitfield (daily), table: holding, address: 69, type: u16, flags: array_faults, poll: slow, note: Faults seen today (sticky until the daily reset at night).}
+  - {key: x.load_faults_today, label: Load Fault Bitfield (daily), table: holding, address: 70, type: u16, flags: load_faults, poll: slow}
+  - {key: x.alarms_today, label: Alarm Bitfield (daily), table: holding, address: 71, type: u32, flags: alarms, poll: slow}
+  - {key: x.absorption_time_today, label: Time in Absorption (daily), table: holding, address: 73, type: u16, unit: s, poll: slow}
+  - {key: x.equalize_time_today, label: Time in Equalization (daily), table: holding, address: 74, type: u16, unit: s, poll: slow}
+  - {key: x.float_time_today, label: Time in Float (daily), table: holding, address: 75, type: u16, unit: s, poll: slow}
+  - {key: x.charge_led_state, label: Charge Status LED State, table: holding, address: 77, type: u16, enum: led_state}
+  - {key: x.lighting_load_on, label: Lighting should be on, table: holding, address: 78, type: u16, note: In lighting mode non-zero means the load is on.}
+
+  # EEPROM settings (0xE000 ff., written with function 06)
+  - {key: x.regulation_voltage, label: Regulation Voltage @ 25 °C, table: holding, address: 57344, type: f16, unit: V, writable: true, persistent: true, poll: slow, note: Charge voltage settings are stored for a 12 V battery and multiplied by 0x0001 on 24 V systems.}
+  - {key: x.float_voltage, label: Float Voltage @ 25 °C, table: holding, address: 57345, type: f16, unit: V, writable: true, persistent: true, poll: slow, note: 0 disables float.}
+  - {key: x.equalize_voltage, label: Equalize Voltage @ 25 °C, table: holding, address: 57351, type: f16, unit: V, writable: true, persistent: true, poll: slow, note: 0 disables equalize.}
+  - {key: x.hvd_voltage, label: High Voltage Disconnect @ 25 °C, table: holding, address: 57371, type: f16, unit: V, writable: true, persistent: true, poll: slow}
+  - {key: x.hvr_voltage, label: High Voltage Reconnect, table: holding, address: 57372, type: f16, unit: V, writable: true, persistent: true, poll: slow}
+  - {key: x.lvd_setting, label: Low Voltage Disconnect, table: holding, address: 57378, type: f16, unit: V, writable: true, persistent: true, poll: slow}
+  - {key: x.lvr_setting, label: Low Voltage Reconnect, table: holding, address: 57379, type: f16, unit: V, writable: true, persistent: true, poll: slow}
+  - {key: x.charge_current_limit, label: Charge Current Limit, table: holding, address: 57400, type: f16, unit: A, writable: true, persistent: true, poll: slow, note: '0–15 A on 15 A models, 0–30 A on 30 A models.'}
+  - {key: x.absorption_time, label: Time Before Entering Float (Absorption Time), table: holding, address: 57346, type: u16, unit: s, writable: true, min: 0, max: 65535, persistent: true, poll: slow}
+  - {key: x.equalize_interval, label: Days Between EQ Cycles, table: holding, address: 57352, type: u16, unit: d, writable: true, min: 0, max: 255, persistent: true, poll: slow}
+  - {key: x.modbus_id, label: Modbus ID, table: holding, address: 57396, type: u16, writable: true, min: 1, max: 247, persistent: true, poll: slow}
+  - {key: x.meterbus_id, label: Meterbus ID, table: holding, address: 57397, type: u16, writable: true, min: 1, max: 15, persistent: true, poll: slow, note: Better left alone.}
+  # EEPROM, read only (low word first)
+  - {key: x.eeprom_hourmeter, label: Hourmeter (EEPROM), table: holding, address: 57408, type: u32, unit: h, word_order: little, poll: slow, note: Written to EEPROM once every 24 h.}
+  - {key: x.days_since_equalize, label: Time Since Last Equalize, table: holding, address: 57423, type: u16, unit: d, poll: slow}
+
+  # Coils (function 01 / 05)
+  - {key: x.equalize, label: Equalize triggered, table: coil, address: 0, type: bool, writable: true, note: Starts an equalize charge if the battery type and DIP switches allow it.}
+  - {key: x.load_disconnect, label: Load disconnect, table: coil, address: 1, type: bool, writable: true, note: 1 keeps the load off until cleared.}
+  - {key: x.charge_disconnect, label: Charge disconnect, table: coil, address: 2, type: bool, writable: true, note: 1 stops charging until cleared.}
+  - {key: x.clear_faults, label: Clear Faults, table: coil, address: 20, type: bool, writable: true}
+  - {key: x.clear_alarms, label: Clear Alarms, table: coil, address: 21, type: bool, writable: true}
+
+enums:
+  charge_state: {'0': Start, '1': Night check, '2': Disconnect, '3': Night, '4': Fault, '5': Bulk, '6': Absorption, '7': Float, '8': Equalize}
+  load_state: {'0': Start, '1': Load on, '2': LVD warning, '3': LVD, '4': Fault, '5': Disconnect, '6': Load off, '7': Override}
+  led_state: {'0': Start, '1': Start 2, '2': Branch, '3': Equalize (fast green blink), '4': Float (slow green blink), '5': 'Absorption (green blink, 1 Hz)', '6': Green, '7': Green / yellow, '8': Yellow, '9': Yellow / red, '10': Blinking red, '11': Red, '12': R-Y-G error, '13': R/Y-G error, '14': R/G-Y error, '15': R-Y error, '16': R-G error, '17': R/Y-G/Y error, '18': G/Y/R error, '19': G/Y/R ×2, '20': 'Off', '21': G/Y/R ×2 – green ×2, '22': G/Y/R ×2 – red ×2}
+
+flags:
+  array_faults: {'0': Overcurrent phase 1, '1': FET(s) shorted, '2': Software bug, '3': Battery HVD (high voltage disconnect), '4': Array HVD (high voltage disconnect), '5': EEPROM setting edit (reset required), '6': RTS shorted, '7': 'RTS was valid, now disconnected', '8': Local temperature sensor failed, '9': Battery LVD (low voltage disconnect), '10': DIP switch changed (excl. DIP 8), '11': Processor supply fault}
+  load_faults: {'0': External short circuit, '1': Overcurrent, '2': FET(s) shorted, '3': Software bug, '4': High voltage disconnect, '5': Heatsink over-temperature, '6': DIP switch changed (excl. DIP 8), '7': EEPROM setting edit (reset required), '8': FP10 fault, '9': Processor supply fault}
+  alarms: {'0': RTS open, '1': RTS shorted, '2': RTS disconnected, '3': Heatsink temperature sensor open, '4': Heatsink temperature sensor shorted, '5': Heatsink hot (temperature limiting), '6': Current limit, '7': Current offset, '8': Battery sense out of range, '9': Battery sense disconnected, '10': Uncalibrated, '11': Battery temperature out of range, '12': FP10 supply out of range, '13': FET open, '14': Array current offset, '15': Load current offset, '16': 3 V supply out of range, '19': Reset, '20': LVD, '21': Log timeout, '22': EEPROM access failure}
+  dip_switches: {'0': Switch 1, '1': Switch 2, '2': Switch 3, '3': Switch 4, '4': Switch 5, '5': Switch 6, '6': Switch 7, '7': Switch 8}
+
+problems:
+  - {when: {key: state, equals: 4}, kind: fault, text: Charger fault}
+  - {when: {key: x.load_state, equals: 4}, kind: fault, text: Load output fault}
+  - {when: {key: x.load_state, in: [2, 3]}, kind: warning, text: 'Load low-voltage disconnect: {text}'}
+  - {when: {key: x.array_faults, bit: 0}, kind: fault, text: Array overcurrent (array fault bit 0)}
+  - {when: {key: x.array_faults, bit: 1}, kind: fault, text: Array FET(s) shorted (array fault bit 1)}
+  - {when: {key: x.array_faults, bit: 2}, kind: fault, text: Software bug (array fault bit 2)}
+  - {when: {key: x.array_faults, bit: 3}, kind: fault, text: Battery high voltage disconnect (array fault bit 3)}
+  - {when: {key: x.array_faults, bit: 4}, kind: fault, text: Array high voltage disconnect (array fault bit 4)}
+  - {when: {key: x.array_faults, bit: 5}, kind: fault, text: 'EEPROM setting changed, reset required (array fault bit 5)'}
+  - {when: {key: x.array_faults, bit: 6}, kind: fault, text: Remote temperature sensor shorted (array fault bit 6)}
+  - {when: {key: x.array_faults, bit: 7}, kind: fault, text: Remote temperature sensor disconnected (array fault bit 7)}
+  - {when: {key: x.array_faults, bit: 8}, kind: fault, text: Local temperature sensor failed (array fault bit 8)}
+  - {when: {key: x.array_faults, bit: 9}, kind: fault, text: Battery low voltage disconnect (array fault bit 9)}
+  - {when: {key: x.array_faults, bit: 10}, kind: fault, text: DIP switch changed (array fault bit 10)}
+  - {when: {key: x.array_faults, bit: 11}, kind: fault, text: Processor supply fault (array fault bit 11)}
+  - {when: {key: x.load_faults, bit: 0}, kind: fault, text: Load short circuit (load fault bit 0)}
+  - {when: {key: x.load_faults, bit: 1}, kind: fault, text: Load overcurrent (load fault bit 1)}
+  - {when: {key: x.load_faults, bit: 2}, kind: fault, text: Load FET(s) shorted (load fault bit 2)}
+  - {when: {key: x.load_faults, bit: 3}, kind: fault, text: Software bug (load fault bit 3)}
+  - {when: {key: x.load_faults, bit: 4}, kind: fault, text: Load high voltage disconnect (load fault bit 4)}
+  - {when: {key: x.load_faults, bit: 5}, kind: fault, text: Heatsink over-temperature (load fault bit 5)}
+  - {when: {key: x.load_faults, bit: 6}, kind: fault, text: DIP switch changed (load fault bit 6)}
+  - {when: {key: x.load_faults, bit: 7}, kind: fault, text: 'EEPROM setting changed, reset required (load fault bit 7)'}
+  - {when: {key: x.load_faults, bit: 8}, kind: fault, text: FP10 fault (load fault bit 8)}
+  - {when: {key: x.load_faults, bit: 9}, kind: fault, text: Processor supply fault (load fault bit 9)}
+  - {when: {key: x.alarms, bit: 0}, kind: warning, text: Remote temperature sensor open (alarm bit 0)}
+  - {when: {key: x.alarms, bit: 1}, kind: warning, text: Remote temperature sensor shorted (alarm bit 1)}
+  - {when: {key: x.alarms, bit: 2}, kind: warning, text: Remote temperature sensor disconnected (alarm bit 2)}
+  - {when: {key: x.alarms, bit: 3}, kind: warning, text: Heatsink temperature sensor open (alarm bit 3)}
+  - {when: {key: x.alarms, bit: 4}, kind: warning, text: Heatsink temperature sensor shorted (alarm bit 4)}
+  - {when: {key: x.alarms, bit: 5}, kind: warning, text: 'Heatsink hot, output limited (alarm bit 5)'}
+  - {when: {key: x.alarms, bit: 6}, kind: warning, text: Current limit (alarm bit 6)}
+  - {when: {key: x.alarms, bit: 7}, kind: warning, text: Current offset (alarm bit 7)}
+  - {when: {key: x.alarms, bit: 8}, kind: warning, text: Battery sense out of range (alarm bit 8)}
+  - {when: {key: x.alarms, bit: 9}, kind: warning, text: Battery sense disconnected (alarm bit 9)}
+  - {when: {key: x.alarms, bit: 10}, kind: warning, text: Uncalibrated (alarm bit 10)}
+  - {when: {key: x.alarms, bit: 11}, kind: warning, text: Battery temperature out of range (alarm bit 11)}
+  - {when: {key: x.alarms, bit: 12}, kind: warning, text: FP10 supply out of range (alarm bit 12)}
+  - {when: {key: x.alarms, bit: 13}, kind: warning, text: FET open (alarm bit 13)}
+  - {when: {key: x.alarms, bit: 14}, kind: warning, text: Array current offset (alarm bit 14)}
+  - {when: {key: x.alarms, bit: 15}, kind: warning, text: Load current offset (alarm bit 15)}
+  - {when: {key: x.alarms, bit: 16}, kind: warning, text: 3 V supply out of range (alarm bit 16)}
+  - {when: {key: x.alarms, bit: 20}, kind: warning, text: Low voltage disconnect (alarm bit 20)}
+  - {when: {key: x.alarms, bit: 21}, kind: warning, text: Log timeout (alarm bit 21)}
+  - {when: {key: x.alarms, bit: 22}, kind: warning, text: EEPROM access failure (alarm bit 22)}
+
+notes:
+- 'The controller speaks Modbus RTU on its RJ-11 MeterBus port through Morningstar''s MeterBus-to-serial converter (MSC, RS-232):
+  9600 baud, no parity, 8 data bits, 2 stop bits; default address 1. Port 502 is for a gateway.'
+- Addresses are the PDU (0-based) addresses the document lists; its logical addresses are one higher (EEPROM 0xE000 = 57345).
+- The RAM registers are readable with function 03 and 04. Two-register RAM values are high word first; the read-only EEPROM
+  copies (0xE040 ff.) are low word first.
+- Most measurements and the voltage settings are IEEE 754 half-precision floats (f16). Of the settings (0xE000 ff.) only the
+  main charge and load limits are listed; the internal supply voltages 0x0004–0x000A, the temperature foldback limits and
+  the LED thresholds are left out.
+- Fault and alarm bits latch until cleared with coils 0x0014 / 0x0015 or a reset; any EEPROM write raises an "EEPROM setting
+  edit" fault that needs a controller reset (coil 0x00FF).
+- The model (PS-PWM-15, -15M, -30, -30M) is only available through Modbus function 0x2B (read device identification), which
+  this format doesn't describe; there is no serial number register. The identify checks are plausibility checks only.
+- Left out the internal supply and gate-drive voltages, the 256-day log (0x8000–0x8FFF), the other coils (counter clears,
+  EEPROM update, lighting test, factory reset, reset) and the remaining EEPROM settings and copies.

@@ -1,0 +1,185 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Riello's Guida di riferimento per protocollo MODBUS — Central Inverter (IT2037A, rev. 03).
+
+modbusspec: 0
+id: riello-central
+manufacturer: Riello Solartech
+name: Central inverters (Sirio Central Station family)
+kind: inverter
+
+sources:
+- title: Guida di riferimento per protocollo MODBUS — Central Inverter (IT2037A)
+  version: rev. 03 (30/03/2023)
+  url: https://www.riello-solartech.it/storage/2026/03/it2037a-rev03-modbus-protocol-reference-guidearal300323pasi.pdf
+  sha256: 13d84c9598333f892ec19dd243f6589e6a37382f6a860f788c4fa4c3d4f6bf5b
+  archive_url: https://web.archive.org/web/20260618114136/https://www.riello-solartech.it/storage/2026/03/it2037a-rev03-modbus-protocol-reference-guidearal300323pasi.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+  limits:
+    max_registers: 47
+    max_gap: 4
+  input_equals_holding: true
+
+encoding:
+  byte_order: detect
+  word_order: big
+  # phase number: 1 or 3 in ASCII
+  detect:
+    table: holding
+    address: 79
+    type: u16
+    in:
+    - 49
+    - 51
+
+identify:
+  serial:
+    table: holding
+    address: 88
+    type: str
+    length: 8
+  checks:
+  # "1" / "3", either byte order
+  - table: holding
+    address: 79
+    type: u16
+    in:
+    - 49
+    - 51
+    - 12544
+    - 13056
+  # VA rating, ASCII digits
+  - table: holding
+    address: 80
+    type: str
+    length: 3
+    printable: true
+  # serial number
+  - table: holding
+    address: 88
+    type: str
+    length: 8
+    printable: true
+
+models:
+  - {id: single_phase, name: Single-phase, match: {table: holding, address: 79, type: u16, equals: 49}}
+  - {id: three_phase, name: Three-phase, match: {table: holding, address: 79, type: u16, equals: 51}}
+
+points:
+  # Alarms and status (registers 7–9)
+  - {key: x.alarm_word_7, label: Alarms (register 7), table: holding, address: 6, type: u16, flags: alarms_7, verified: false, note: 'Register number read from the table layout (its header says 1÷6); bits renumbered from the document''s 1…16 to 0…15, assuming bit 1 = least significant.'}
+  - {key: x.alarm_word_8, label: Alarms (register 8), table: holding, address: 7, type: u16, flags: alarms_8, verified: false, note: 'As register 7: register number and bit numbering assumed.'}
+  - {key: x.status_flags, label: Status flags (register 9), table: holding, address: 8, type: u16, flags: status_9, verified: false, note: 'As register 7: register number and bit numbering assumed. Flags from firmware 1.2.5 (remote control 1.3.0).'}
+  # Measures (registers 11–53)
+  - {key: temperature, label: Temp, table: holding, address: 10, type: s16, unit: °C, scale: 0.1, invalid: [-1], verified: false, note: The document doesn't say whether it is signed; assumed signed.}
+  - {key: x.pv1_voltage, label: Vpv1, table: holding, address: 11, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.pv2_voltage, label: Vpv2, table: holding, address: 12, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.pv3_voltage, label: Vpv3, table: holding, address: 13, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: x.pv1_current, label: Ipv1, table: holding, address: 14, type: u16, unit: A, scale: 0.1, invalid: [65535], note: The document's unit reads "01.A"; 0.1 A like Ipv2/Ipv3.}
+  - {key: x.pv2_current, label: Ipv2, table: holding, address: 15, type: u16, unit: A, scale: 0.1, invalid: [65535]}
+  - {key: x.pv3_current, label: Ipv3, table: holding, address: 16, type: u16, unit: A, scale: 0.1, invalid: [65535]}
+  - {key: l1_current, label: Iac_R, table: holding, address: 17, type: u16, unit: A, scale: 0.1, invalid: [65535]}
+  - {key: l2_current, label: Iac_S, table: holding, address: 18, type: u16, unit: A, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: l3_current, label: Iac_T, table: holding, address: 19, type: u16, unit: A, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: l1_voltage, label: Vac_R, table: holding, address: 20, type: u16, unit: V, scale: 0.1, invalid: [65535]}
+  - {key: l2_voltage, label: Vac_S, table: holding, address: 21, type: u16, unit: V, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: l3_voltage, label: Vac_T, table: holding, address: 22, type: u16, unit: V, scale: 0.1, invalid: [65535], models: [three_phase]}
+  - {key: frequency, label: Fac, table: holding, address: 23, type: u16, unit: Hz, scale: 0.01, invalid: [65535]}
+  - {key: l1_power, label: Pac_R, table: holding, address: 24, type: u16, unit: W, scale: 10, positive: export, invalid: [65535], note: Power fed into the grid; assumed unsigned (the document doesn't say).}
+  - {key: l2_power, label: Pac_S, table: holding, address: 25, type: u16, unit: W, scale: 10, positive: export, invalid: [65535], models: [three_phase]}
+  - {key: l3_power, label: Pac_T, table: holding, address: 26, type: u16, unit: W, scale: 10, positive: export, invalid: [65535], models: [three_phase]}
+  - {key: x.l1_grid_impedance, label: Zac_R, table: holding, address: 27, type: u16, unit: mΩ, invalid: [65535], poll: slow}
+  - {key: x.l2_grid_impedance, label: Zac_S, table: holding, address: 28, type: u16, unit: mΩ, invalid: [65535], models: [three_phase], poll: slow}
+  - {key: x.l3_grid_impedance, label: Zac_T, table: holding, address: 29, type: u16, unit: mΩ, invalid: [65535], models: [three_phase], poll: slow}
+  - {key: pv_energy, label: E-Total, table: holding, address: 30, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295], poll: slow}
+  - {key: x.operating_hours, label: h-Total, table: holding, address: 32, type: u32, unit: h, invalid: [4294967295], poll: slow}
+  - {key: state, label: Mode, table: holding, address: 34, type: u16, invalid: [65535], note: The document gives no value table; shown as a number.}
+  - {key: x.fault_grid_voltage, label: GVFaultValue, table: holding, address: 35, type: u16, unit: V, scale: 0.1, invalid: [65535], poll: slow}
+  - {key: x.fault_grid_frequency, label: GFFaultValue, table: holding, address: 36, type: u16, unit: Hz, scale: 0.01, invalid: [65535], poll: slow}
+  - {key: x.fault_grid_impedance, label: GZFaultValue, table: holding, address: 37, type: u16, unit: Ω, scale: 0.001, invalid: [65535], poll: slow}
+  - {key: x.fault_temperature, label: TmpFaultValue, table: holding, address: 38, type: s16, unit: °C, scale: 0.1, invalid: [-1], poll: slow, verified: false, note: Signedness not stated; read as signed like Temp.}
+  - {key: x.fault_pv_voltage, label: PVFaultValue, table: holding, address: 39, type: u16, unit: V, scale: 0.1, invalid: [65535], poll: slow}
+  - {key: x.fault_leakage_current, label: GFCIFaultValue, table: holding, address: 40, type: u16, unit: A, scale: 0.001, invalid: [65535], poll: slow}
+  - {key: x.l1_reactive_power, label: PowReactive R, table: holding, address: 41, type: s16, unit: var, scale: 10, invalid: [-1], verified: false, note: Firmware ≥ 1.2.5. Signedness not stated; assumed signed.}
+  - {key: x.l2_reactive_power, label: PowReactive S, table: holding, address: 42, type: s16, unit: var, scale: 10, invalid: [-1], models: [three_phase], verified: false, note: Firmware ≥ 1.2.5. Read as signed (not stated).}
+  - {key: x.l3_reactive_power, label: PowReactive T, table: holding, address: 43, type: s16, unit: var, scale: 10, invalid: [-1], models: [three_phase], verified: false, note: Firmware ≥ 1.2.5. Read as signed (not stated).}
+  - {key: pv_energy_today, label: DAILY_ENERGY, table: holding, address: 48, type: u32, unit: kWh, scale: 0.1, invalid: [4294967295], note: Firmware ≥ 1.2.5.}
+  - {key: x.max_deliverable_power, label: MAX_PERC, table: holding, address: 50, type: u16, unit: '%', invalid: [65535], poll: slow, note: Firmware ≥ 1.2.6.}
+  - {key: x.pv_isolation_resistance, label: RES_ISOL_PV, table: holding, address: 51, type: u16, unit: kΩ, invalid: [65535], poll: slow, note: Firmware ≥ 1.3.0.}
+  - {key: x.pv_voltage_unbalance, label: PV_VOLT_UMB, table: holding, address: 52, type: u16, unit: '%', invalid: [65535], poll: slow, note: DC voltage unbalance against earth; firmware ≥ 1.3.0.}
+  # Identification (registers 80–112, ASCII, two characters per register)
+  - {key: x.phase_number, label: Phase number, table: holding, address: 79, type: u16, enum: phase_number, poll: slow}
+  - {key: x.va_rating, label: VA rating, table: holding, address: 80, type: str, length: 3, poll: slow, note: 'Six ASCII digits in VA, e.g. "001000" = 1 kVA.'}
+  - {key: x.nominal_pv_voltage, label: Nom_Vpv, table: holding, address: 83, type: str, length: 2, poll: slow, note: 'Four ASCII digits in 0.1 V, e.g. "3600" = 360.0 V.'}
+  - {key: firmware, label: Firmware Ver., table: holding, address: 85, type: str, length: 3, poll: slow}
+  - {key: serial, label: Serial number, table: holding, address: 88, type: str, length: 8, poll: slow}
+  - {key: x.model_name, label: Model Name, table: holding, address: 96, type: str, length: 8, poll: slow}
+  - {key: x.manufacturer, label: Manufacturer, table: holding, address: 104, type: str, length: 8, poll: slow}
+
+derived:
+  - {key: x.ac_power, label: AC power (Σ Pac), unit: W, positive: export, models: [three_phase], sum: [{key: l1_power}, {key: l2_power}, {key: l3_power}], note: Sum of the phases; on single-phase models Pac_R is the AC power.}
+
+enums:
+  phase_number: {'49': Single-phase, '51': Three-phase}
+
+flags:
+  alarms_7: {'1': Grid voltage out of range (master), '2': PV isolation failure, '3': AC current offset failure, '4': ENS measurement mismatch, '5': ENS grid impedance mismatch, '6': ENS grid frequency mismatch, '7': ENS grid voltage mismatch, '9': Relay failure, '11': Grid impedance out of range (master), '13': Grid frequency out of range (master), '14': EEPROM failure, '15': Master-slave communication failed}
+  alarms_8: {'0': GFCI sensor failure, '1': DC injection sensor fault, '2': 2.5 V reference fault, '3': ENS DC injection mismatch, '4': ENS GFCI mismatch, '5': DC bus voltage too low, '6': DC bus voltage too high, '7': Device fault, '8': Grid impedance change (ΔZ), '9': No grid, '10': Leakage current too high, '11': DC bus failure, '13': Over-temperature, '14': Self-test failed, '15': PV voltage too high}
+  status_9: {'0': DC box active, '1': Q(P) active, '2': Characterisation updated, '3': Commands via slot 1, '4': Commands via slot 2, '5': Commands via RS232-2, '6': Commands via Ethernet, '7': Remote control active}
+
+problems:
+  - {when: {key: x.alarm_word_7, bit: 15}, kind: fault, text: Master-slave communication failed (alarm 7 bit 16)}
+  - {when: {key: x.alarm_word_7, bit: 14}, kind: fault, text: EEPROM failure (alarm 7 bit 15)}
+  - {when: {key: x.alarm_word_7, bit: 13}, kind: mains_lost, text: Grid frequency out of range (master) (alarm 7 bit 14)}
+  - {when: {key: x.alarm_word_7, bit: 11}, kind: fault, text: Grid impedance out of range (master) (alarm 7 bit 12)}
+  - {when: {key: x.alarm_word_7, bit: 9}, kind: fault, text: Relay failure (alarm 7 bit 10)}
+  - {when: {key: x.alarm_word_7, bit: 7}, kind: fault, text: ENS grid voltage mismatch (alarm 7 bit 8)}
+  - {when: {key: x.alarm_word_7, bit: 6}, kind: fault, text: ENS grid frequency mismatch (alarm 7 bit 7)}
+  - {when: {key: x.alarm_word_7, bit: 5}, kind: fault, text: ENS grid impedance mismatch (alarm 7 bit 6)}
+  - {when: {key: x.alarm_word_7, bit: 4}, kind: fault, text: ENS measurement mismatch (alarm 7 bit 5)}
+  - {when: {key: x.alarm_word_7, bit: 3}, kind: fault, text: AC current offset failure (alarm 7 bit 4)}
+  - {when: {key: x.alarm_word_7, bit: 2}, kind: fault, text: PV isolation failure (alarm 7 bit 3)}
+  - {when: {key: x.alarm_word_7, bit: 1}, kind: mains_lost, text: Grid voltage out of range (master) (alarm 7 bit 2)}
+  - {when: {key: x.alarm_word_8, bit: 15}, kind: fault, text: PV voltage too high (alarm 8 bit 16)}
+  - {when: {key: x.alarm_word_8, bit: 14}, kind: fault, text: Self-test failed (alarm 8 bit 15)}
+  - {when: {key: x.alarm_word_8, bit: 13}, kind: warning, text: Over-temperature (alarm 8 bit 14)}
+  - {when: {key: x.alarm_word_8, bit: 11}, kind: fault, text: DC bus failure (alarm 8 bit 12)}
+  - {when: {key: x.alarm_word_8, bit: 10}, kind: fault, text: Leakage current too high (alarm 8 bit 11)}
+  - {when: {key: x.alarm_word_8, bit: 9}, kind: mains_lost, text: No grid (alarm 8 bit 10)}
+  - {when: {key: x.alarm_word_8, bit: 8}, kind: fault, text: Grid impedance change (ΔZ) (alarm 8 bit 9)}
+  - {when: {key: x.alarm_word_8, bit: 7}, kind: fault, text: Device fault (alarm 8 bit 8)}
+  - {when: {key: x.alarm_word_8, bit: 6}, kind: fault, text: DC bus voltage too high (alarm 8 bit 7)}
+  - {when: {key: x.alarm_word_8, bit: 5}, kind: fault, text: DC bus voltage too low (alarm 8 bit 6)}
+  - {when: {key: x.alarm_word_8, bit: 4}, kind: fault, text: ENS GFCI mismatch (alarm 8 bit 5)}
+  - {when: {key: x.alarm_word_8, bit: 3}, kind: fault, text: ENS DC injection mismatch (alarm 8 bit 4)}
+  - {when: {key: x.alarm_word_8, bit: 2}, kind: fault, text: 2.5 V reference fault (alarm 8 bit 3)}
+  - {when: {key: x.alarm_word_8, bit: 1}, kind: fault, text: DC injection sensor fault (alarm 8 bit 2)}
+  - {when: {key: x.alarm_word_8, bit: 0}, kind: fault, text: GFCI sensor failure (alarm 8 bit 1)}
+
+notes:
+- Modbus RTU (RS-485 slots 1 and 2, RS-232 COM-2, 9600 bit/s) and Modbus/TCP. Registers are read with function 03 (holding).
+- The document numbers registers from 1 and doesn't state the address base. Addresses here are register − 1 (unverified).
+  To find out, try register 80 (phase number, 0x0031 / 0x0033) at address 79 first, then at 80, and use whichever answers
+  with a valid value.
+- Byte order isn't stated for the central inverter. If the phase number (document register 80) reads 0x3100 / 0x3300, the
+  inverter sends LSByte first (as the document describes for the String Box) and every register must be byte-swapped; readers
+  detect this.
+- 0xFFFF in any register means "value not available" (stated); an all-ones 32-bit pair presumably means the same (not stated).
+  Signed points list it as −1.
+- Registers 42–53 need firmware 1.2.5 or later; if a request for 7–53 is rejected, read 7–9, 11–41 and 42–53 separately (older
+  firmware refuses 42–53).
+- 'There is no DC power register: PV power can be computed as Σ Vpv × Ipv of the PV inputs (else the AC power, derived above).
+  The inverter doesn''t measure the grid connection.'
+- Default unit id (1) and TCP port (502) aren't stated in the document.
+- 'The alarm-word bit numbering is uncertain: the tables count bits 1–16, while the Power Reducer section refers to "bit 0
+  of register 8" for the write-inhibit state, which no table lists. This file takes bit 1 as the least significant bit.'
+- The String Box (a separate RTU device with its own map, mappatura-modbus-sb-en) isn't covered.

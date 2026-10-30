@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the RAPIX application note APN-RAPIX-007 Using RAPIX with Modbus (rev. 09, 16 Dec 2025).
+
+modbusspec: 0
+id: ozuno-rapix
+manufacturer: Ozuno
+name: RAPIX lighting control (Zone Controller as Modbus TCP server)
+kind: other
+
+sources:
+- title: APN-RAPIX-007 Using RAPIX with Modbus
+  version: 09 (16 Dec 2025)
+  url: https://more-lighting.co.uk/docs/application-notes/APN-RAPIX-007-Using-RAPIX-with-Modbus.pdf
+  sha256: 5c09c51399922ac36212802c350eae01e3c0b3c9a6aed3fb41de3d4ebd186413
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # System and zone 1 at the default object numbers; zone n is at the zone 1 address + n − 1
+  - {key: x.system_status, label: Zone 0 error status (whole system), table: holding, address: 1999, type: u16, flags: zone_status, note: Object number 2000 at the default setting (zone 1 status = 2001); 0 = everything OK.}
+  - {key: x.zone1_status, label: Zone 1 error status, table: holding, address: 2000, type: u16, flags: zone_status, note: Object number 2001; zone n at 2000 + n.}
+  - {key: x.zone1_level, label: Zone 1 level, table: holding, address: 0, type: u16, writable: true, note: 'Object number 1; zone n at n − 1. Scale set in the integrator software: 0–1, 0–100, 0–254 (DALI), 0–255 or 0–65535 (default); 0 = off. Reads the target level by default (or the current average level, if so set).'}
+  - {key: x.zone1_on, label: Zone 1 on/off state, table: coil, address: 0, type: bool, writable: true, note: Coil number 1; zone n at n − 1.}
+  - {key: x.fade_time, label: Zone Fade Time, table: holding, address: 999, type: u16, unit: s, writable: true, min: 0, max: 65535, note: Object number 1000; fade time for all following zone level changes; 0 (instant) after start-up.}
+  - {key: x.scene1, label: Scene 1, table: coil, address: 3000, type: bool, writable: true, note: Object number 3001 (coil or holding register); scene n at 3000 + n − 1. 1 = scene set.}
+  - {key: x.operating_property_0, label: Operating Property 0, table: holding, address: 3999, type: u16, writable: true, note: Object number 4000; property n at 3999 + n.}
+  - {key: x.flag_0_0, label: Flag Group 0 Flag 0, table: coil, address: 4999, type: bool, writable: true, note: Object number 5000 (coil or holding register); 10 flags per group by default.}
+
+flags:
+  zone_status: {'0': Level unknown, '1': Lamp failure, '2': Device failure, '3': Device missing, '4': DALI line failure, '5': Zone controller communication failure, '6': Emergency device failure, '7': Device address conflict, '15': Occupied}
+
+problems:
+  - {when: {key: x.system_status, bit: 1}, kind: warning, text: Lamp failure}
+  - {when: {key: x.system_status, bit: 2}, kind: warning, text: Lighting device failure}
+  - {when: {key: x.system_status, bit: 3}, kind: warning, text: Lighting device missing}
+  - {when: {key: x.system_status, bit: 4}, kind: fault, text: DALI line failure}
+  - {when: {key: x.system_status, bit: 5}, kind: fault, text: Zone controller not communicating}
+  - {when: {key: x.system_status, bit: 6}, kind: warning, text: Emergency lighting device failure}
+  - {when: {key: x.system_status, bit: 7}, kind: warning, text: DALI address conflict}
+
+notes:
+- RAPIX is made by Ozuno; the note is distributed by More Solutions (More Lighting). Any Zone Controller of the mesh can serve
+  the whole system; one Modbus master connection per controller, and up to two controllers can have Modbus enabled.
+- Only coils and holding registers are supported (functions 1, 3, 5, 6, 15, 16). Registers are 16-bit unsigned, big-endian.
+- 'All object numbers are configurable in the RAPIX Integrator software. Addresses here assume the defaults: object number
+  N at protocol address N − 1, zone 1 level at 1, fade time 1000, zone 1 status 2001, scene 1 at 3001, operating property
+  0 at 4000, flag group 0 at 5000, zone 1 colour at 10001. The address offset itself is configurable too.'
+- 'Zone colour (default 10001 ff., two registers per zone, read and written together) is left out: its layout depends on the
+  colour type in the top bits.'
+- Bit 0 (level unknown) is not necessarily an error and bit 15 (occupied) is optional; neither is reported as a problem.
+- 'Poll sparingly: the note warns about the Zone Controller''s CPU load.'

@@ -1,0 +1,121 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+
+modbusspec: 0
+id: ferroamp-energyhub
+manufacturer: Ferroamp
+name: EnergyHub
+kind: inverter
+
+sources:
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/ferroamp-energyhub.yaml
+- id: ferroamp-modbus
+  title: ferroamp-modbus (Home Assistant integration)
+  url: https://github.com/danielolsson100/ferroamp-modbus
+  license: MIT
+  commit: 8ed33909406ec2d56ffb7e7290e111eada8ae4ab
+  path: custom_components/ferroamp_modbus/const.py, custom_components/ferroamp_modbus/hub.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  word_order: little
+
+defaults:
+  verified: false
+  sources:
+  - ferroamp-modbus
+
+points:
+  - {key: x.batterymode_6000, label: Battery mode control (write), table: holding, address: 6000, type: u16, writable: true, note: 'evcc writes battery mode normal: 0; battery mode hold: 1; battery mode charge: 1.', sources: [evcc, ferroamp-modbus]}
+  - {key: x.batterymode_6064, label: Battery mode control (write), table: holding, address: 6064, type: f32, unit: W, scale: 1000, writable: true, note: 'evcc writes battery mode normal: 0; battery mode hold: 0; battery mode charge: a value from the user''s settings.', sources: [evcc, ferroamp-modbus]}
+  - {key: x.limit_import, label: Limit Import, table: holding, address: 8000, type: u16, writable: true, note: '1 = on, 0 = off; takes effect after writing 0 and then 1 to holding 8006. Reads back at input 8000.'}
+  - {key: x.import_threshold, label: Import Threshold, table: holding, address: 8002, type: f32, unit: W, writable: true, note: Takes effect after writing 0 and then 1 to holding 8006. Reads back at input 8002.}
+  - {key: x.apply_import_threshold, label: Apply Import Threshold, table: holding, address: 8006, type: u16, writable: true, note: A change to 1 applies the values just written; leave it at 1 for a while (the project says resetting it at once cancels the change).}
+  - {key: x.limit_export, label: Limit Export, table: holding, address: 8010, type: u16, writable: true, note: '1 = on, 0 = off; takes effect after writing 0 and then 1 to holding 8016. Reads back at input 8010.'}
+  - {key: x.export_threshold, label: Export Threshold, table: holding, address: 8012, type: f32, unit: W, writable: true, note: Takes effect after writing 0 and then 1 to holding 8016. Reads back at input 8012.}
+  - {key: x.apply_export_threshold, label: Apply Export Threshold, table: holding, address: 8016, type: u16, writable: true, note: A change to 1 applies the values just written; leave it at 1 for a while (the project says resetting it at once cancels the change).}
+  - {key: x.modbus_major_version_1, label: Modbus Major Version 1, table: input, address: 1004, type: u16}
+  - {key: x.modbus_major_version_2, label: Modbus Major Version 2, table: input, address: 1008, type: u16}
+  - {key: x.inverter_status, label: Inverter Status, table: input, address: 2000, type: u16}
+  - {key: frequency, label: Grid Frequency, table: input, address: 2016, type: f32, unit: Hz}
+  - {key: l1_voltage, label: Grid L1 voltage, table: input, address: 2032, type: f32, unit: V, sources: [evcc, ferroamp-modbus]}
+  - {key: l2_voltage, label: Grid L2 voltage, table: input, address: 2036, type: f32, unit: V, sources: [evcc, ferroamp-modbus]}
+  - {key: l3_voltage, label: Grid L3 voltage, table: input, address: 2040, type: f32, unit: V, sources: [evcc, ferroamp-modbus]}
+  - {key: x.energy_to_dc_nanogrid, label: Energy To DC-Nanogrid, table: input, address: 2064, type: f32, unit: kWh}
+  - {key: x.energy_from_dc_nanogrid, label: Energy From DC-Nanogrid, table: input, address: 2068, type: f32, unit: kWh}
+  - {key: x.inverter_active_power, label: Inverter Active Power, table: input, address: 2100, type: f32, unit: W, scale: 1000}
+  - {key: x.inverter_reactive_power, label: Inverter Reactive Power, table: input, address: 2104, type: f32, unit: var, scale: 1000}
+  - {key: x.inverter_apparent_power, label: Inverter Apparent Power, table: input, address: 2108, type: f32, unit: VA, scale: 1000}
+  - {key: x.inverter_active_current_l1, label: Inverter Active Current L1, table: input, address: 2112, type: f32, unit: A}
+  - {key: x.inverter_active_current_l2, label: Inverter Active Current L2, table: input, address: 2116, type: f32, unit: A}
+  - {key: x.inverter_active_current_l3, label: Inverter Active Current L3, table: input, address: 2120, type: f32, unit: A}
+  - {key: x.inverter_reactive_current_l1, label: Inverter Reactive Current L1, table: input, address: 2124, type: f32, unit: A}
+  - {key: x.inverter_reactive_current_l2, label: Inverter Reactive Current L2, table: input, address: 2128, type: f32, unit: A}
+  - {key: x.inverter_reactive_current_l3, label: Inverter Reactive Current L3, table: input, address: 2132, type: f32, unit: A}
+  - {key: x.inverter_rms_current_l1, label: Inverter RMS Current L1, table: input, address: 2136, type: f32, unit: A}
+  - {key: x.inverter_rms_current_l2, label: Inverter RMS Current L2, table: input, address: 2140, type: f32, unit: A}
+  - {key: x.inverter_rms_current_l3, label: Inverter RMS Current L3, table: input, address: 2144, type: f32, unit: A}
+  - {key: grid_export_energy, label: Grid return energy, table: input, address: 3064, type: f32, unit: kWh, sources: [evcc, ferroamp-modbus]}
+  - {key: grid_import_energy, label: Grid energy, table: input, address: 3068, type: f32, unit: kWh, sources: [evcc, ferroamp-modbus]}
+  - {key: grid_power, label: Grid power, table: input, address: 3100, type: f32, unit: W, scale: 1000, positive: import, sources: [evcc, ferroamp-modbus]}
+  - {key: x.grid_reactive_power, label: Grid Reactive Power, table: input, address: 3104, type: f32, unit: var, scale: 1000}
+  - {key: x.grid_apparent_power, label: Grid Apparent Power, table: input, address: 3108, type: f32, unit: VA, scale: 1000}
+  - {key: l1_current, label: Grid L1 current, table: input, address: 3112, type: f32, unit: A, sources: [evcc, ferroamp-modbus]}
+  - {key: l2_current, label: Grid L2 current, table: input, address: 3116, type: f32, unit: A, sources: [evcc, ferroamp-modbus]}
+  - {key: l3_current, label: Grid L3 current, table: input, address: 3120, type: f32, unit: A, sources: [evcc, ferroamp-modbus]}
+  - {key: x.grid_reactive_current_l1, label: Grid Reactive Current L1, table: input, address: 3124, type: f32, unit: A}
+  - {key: x.grid_reactive_current_l2, label: Grid Reactive Current L2, table: input, address: 3128, type: f32, unit: A}
+  - {key: x.grid_reactive_current_l3, label: Grid Reactive Current L3, table: input, address: 3132, type: f32, unit: A}
+  - {key: x.grid_rms_current_l1, label: Grid RMS Current L1, table: input, address: 3136, type: f32, unit: A}
+  - {key: x.grid_rms_current_l2, label: Grid RMS Current L2, table: input, address: 3140, type: f32, unit: A}
+  - {key: x.grid_rms_current_l3, label: Grid RMS Current L3, table: input, address: 3144, type: f32, unit: A}
+  - {key: x.load_production_energy, label: Load Production Energy, table: input, address: 4064, type: f32, unit: kWh}
+  - {key: x.load_consumption_energy, label: Load Consumption Energy, table: input, address: 4068, type: f32, unit: kWh}
+  - {key: load_power, label: Load Active Power, table: input, address: 4100, type: f32, unit: W, scale: 1000}
+  - {key: x.load_reactive_power, label: Load Reactive Power, table: input, address: 4104, type: f32, unit: var, scale: 1000}
+  - {key: x.load_active_current_l1, label: Load Active Current L1, table: input, address: 4112, type: f32, unit: A}
+  - {key: x.load_active_current_l2, label: Load Active Current L2, table: input, address: 4116, type: f32, unit: A}
+  - {key: x.load_active_current_l3, label: Load Active Current L3, table: input, address: 4120, type: f32, unit: A}
+  - {key: x.load_reactive_current_l1, label: Load Reactive Current L1, table: input, address: 4124, type: f32, unit: A}
+  - {key: x.load_reactive_current_l2, label: Load Reactive Current L2, table: input, address: 4128, type: f32, unit: A}
+  - {key: x.load_reactive_current_l3, label: Load Reactive Current L3, table: input, address: 4132, type: f32, unit: A}
+  - {key: x.num_idle_ssos, label: Number Of Idle SSOs, table: input, address: 5000, type: u16}
+  - {key: x.num_running_ssos, label: Number Of Running SSOs, table: input, address: 5002, type: u16}
+  - {key: x.num_faulty_ssos, label: Number Of Faulty SSOs, table: input, address: 5004, type: u16}
+  - {key: pv_energy, label: PV energy, table: input, address: 5064, type: f32, unit: kWh, sources: [evcc, ferroamp-modbus]}
+  - {key: pv_power, label: PV power, table: input, address: 5100, type: f32, unit: W, scale: 1000, sources: [evcc, ferroamp-modbus]}
+  - {key: x.num_idle_batteries, label: Number Of Idle Batteries, table: input, address: 6000, type: u16}
+  - {key: x.num_running_batteries, label: Number Of Running Batteries, table: input, address: 6002, type: u16}
+  - {key: x.num_faulty_batteries, label: Number Of Faulty Batteries, table: input, address: 6004, type: u16}
+  - {key: x.battery_capacity, label: Battery capacity, table: input, address: 6008, type: f32, unit: kWh, sources: [evcc, ferroamp-modbus]}
+  - {key: battery_soh, label: State Of Health, table: input, address: 6012, type: f32, unit: '%'}
+  - {key: battery_soc, label: Battery state of charge, table: input, address: 6016, type: f32, unit: '%', sources: [evcc, ferroamp-modbus]}
+  - {key: x.battery_returnenergy, label: Battery return energy, table: input, address: 6064, type: f32, unit: kWh, sources: [evcc, ferroamp-modbus]}
+  - {key: x.battery_energy, label: Battery energy, table: input, address: 6068, type: f32, unit: kWh, sources: [evcc, ferroamp-modbus]}
+  - {key: battery_power, label: Battery power, table: input, address: 6100, type: f32, unit: W, scale: 1000, positive: discharge, sources: [evcc], conflicts: [{sources: [ferroamp-modbus], positive: charge}]}
+  - {key: x.battery_mode_system_value, label: Battery Mode System Value, table: input, address: 6104, type: u16}
+  - {key: x.battery_power_reference_system_value, label: Battery Power Reference System Value, table: input, address: 6106, type: f32, unit: W, scale: 1000}
+  - {key: x.limit_import_active, label: Limit Import System Value, table: input, address: 8000, type: u16, note: '0 = off, anything else = on.'}
+  - {key: x.import_threshold_system_value, label: Import Threshold System Value, table: input, address: 8002, type: f32, unit: W, note: Import limit in force. Set it by writing holding 8002 (f32) and then 1 to holding 8006.}
+  - {key: x.limit_export_active, label: Limit Export System Value, table: input, address: 8010, type: u16, note: '0 = off, anything else = on.'}
+  - {key: x.export_threshold_system_value, label: Export Threshold System Value, table: input, address: 8012, type: f32, unit: W, note: Export limit in force. Set it by writing holding 8012 (f32) and then 1 to holding 8016.}
+  - {key: x.dc_link_voltage_positive, label: DC Link Voltage Positive, table: input, address: 9000, type: f32, unit: V, note: 'Not in the manufacturer''s Modbus description, according to the project.'}
+  - {key: x.dc_link_voltage_negative, label: DC Link Voltage Negative, table: input, address: 9004, type: f32, unit: V, note: 'Not in the manufacturer''s Modbus description, according to the project.'}
+  - {key: x.dc_link_voltage, label: DC Link Voltage, table: input, address: 9008, type: f32, unit: V, note: 'Not in the manufacturer''s Modbus description, according to the project.'}
+
+notes:
+- 'evcc template `ferroamp-energyhub` (grid, pv, battery) lists: Ferroamp EnergyHub.'
+- Modbus TCP has to be enabled on the EnergyHub. The project sends no unit id and says the EnergyHub ignores it.
+- The project advises against controlling the battery over Modbus and MQTT at the same time.
+- Taken from open-source projects (see sources); not checked against manufacturer documents.

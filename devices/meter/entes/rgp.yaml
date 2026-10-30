@@ -1,0 +1,191 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Entes RGXX register table (RGP register map, undated; file uploaded 2024-09-05).
+
+modbusspec: 0
+id: entes-rgp
+manufacturer: Entes
+name: RGP reactive power control relays (RGP-9S / -12S / -9SW / -12SW / -12SR / -12SRW / -15SR / -15SRW)
+kind: meter
+
+sources:
+- title: Entes RGXX Register table (RGP register map)
+  version: undated (uploaded 2024-09-05)
+  url: https://www.entes.com.tr/uploads/files/1725523482-rgp_register_map.pdf
+  sha256: 4958580f5a5ebae336f00a032c7e9cf674d83685f645050a092eef1c172f8053
+  archive_url: https://web.archive.org/web/20260123051105/https://www.entes.com.tr/uploads/files/1725523858-rgp_register_map.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: holding
+    address: 60418
+    type: u32
+  checks:
+  # measured frequency
+  - table: holding
+    address: 32
+    type: f32
+    range:
+    - 40
+    - 70
+
+defaults:
+  verified: false
+
+points:
+  # Measurements (0 ff.); all floats in two registers
+  - {key: l1_voltage, label: Voltage L1-N, table: holding, address: 0, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage L2-N, table: holding, address: 2, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage L3-N, table: holding, address: 4, type: f32, unit: V}
+  - {key: x.voltage_l1_l2, label: Voltage L1-L2, table: holding, address: 8, type: f32, unit: V}
+  - {key: x.voltage_l2_l3, label: Voltage L2-L3, table: holding, address: 10, type: f32, unit: V}
+  - {key: x.voltage_l3_l1, label: Voltage L3-L1, table: holding, address: 12, type: f32, unit: V}
+  - {key: l1_current, label: Current L1, table: holding, address: 14, type: f32, unit: A, scale: 0.001, note: The relay gives currents in mA.}
+  - {key: l2_current, label: Current L2, table: holding, address: 16, type: f32, unit: A, scale: 0.001}
+  - {key: l3_current, label: Current L3, table: holding, address: 18, type: f32, unit: A, scale: 0.001}
+  - {key: x.neutral_current, label: Neutral current (IL1 + IL2 + IL3), table: holding, address: 22, type: f32, unit: A, scale: 0.001}
+  - {key: frequency, label: Measured frequency, table: holding, address: 32, type: f32, unit: Hz}
+  - {key: l1_power, label: Active power L1-N, table: holding, address: 34, type: f32, unit: W, positive: import, note: 'Sign not stated in the document; assumed positive = import (consumption), as the separate import / export totals suggest.'}
+  - {key: l2_power, label: Active power L2-N, table: holding, address: 36, type: f32, unit: W, positive: import}
+  - {key: l3_power, label: Active power L3-N, table: holding, address: 38, type: f32, unit: W, positive: import}
+  - {key: x.import_power, label: Total import active power, table: holding, address: 42, type: f32, unit: W}
+  - {key: x.export_power, label: Total export active power, table: holding, address: 44, type: f32, unit: W}
+  - {key: x.total_active_power, label: Total active power, table: holding, address: 46, type: f32, unit: W, note: Sign not stated; the grid power below is taken from the import and export registers instead.}
+  - {key: x.reactive_power_l1, label: Reactive power L1, table: holding, address: 48, type: f32, unit: var}
+  - {key: x.reactive_power_l2, label: Reactive power L2, table: holding, address: 50, type: f32, unit: var}
+  - {key: x.reactive_power_l3, label: Reactive power L3, table: holding, address: 52, type: f32, unit: var}
+  - {key: reactive_power, label: Total reactive power, table: holding, address: 64, type: f32, unit: var}
+  - {key: apparent_power, label: Total apparent power, table: holding, address: 78, type: f32, unit: VA}
+  - {key: x.power_factor_l1, label: Power factor L1, table: holding, address: 126, type: f32, unit: ''}
+  - {key: x.power_factor_l2, label: Power factor L2, table: holding, address: 128, type: f32, unit: ''}
+  - {key: x.power_factor_l3, label: Power factor L3, table: holding, address: 130, type: f32, unit: ''}
+  - {key: power_factor, label: Total power factor, table: holding, address: 138, type: f32, unit: ''}
+  - {key: x.cos_phi, label: Total cos phi, table: holding, address: 152, type: f32, unit: ''}
+  - {key: x.rotation_field, label: Rotation field, table: holding, address: 154, type: s32, enum: rotation_field, note: The document gives the type as uint but lists −1 (left); read as signed.}
+  - {key: x.voltage_unbalance, label: Voltage unbalance, table: holding, address: 156, type: f32, unit: '%'}
+  - {key: temperature, label: Internal temperature, table: holding, address: 184, type: f32, unit: °C}
+  - {key: x.svc_power_l1, label: L1 SVC power, table: holding, address: 194, type: f32, unit: var, note: 'Only on models with an SVC (shunt reactor) output, not on all variants.'}
+  - {key: x.svc_power_l2, label: L2 SVC power, table: holding, address: 196, type: f32, unit: var}
+  - {key: x.svc_power_l3, label: L3 SVC power, table: holding, address: 198, type: f32, unit: var}
+  # Energies (1024 ff.), read only; 64-bit counters in Wh / varh
+  - {key: grid_import_energy, label: Import active energy, table: holding, address: 1024, type: u64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: grid_export_energy, label: Export active energy, table: holding, address: 1028, type: u64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.import_inductive_energy, label: Import inductive reactive energy, table: holding, address: 1032, type: u64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.import_capacitive_energy, label: Import capacitive reactive energy, table: holding, address: 1036, type: u64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.export_inductive_energy, label: Export inductive reactive energy, table: holding, address: 1040, type: u64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.export_capacitive_energy, label: Export capacitive reactive energy, table: holding, address: 1044, type: u64, unit: kvarh, scale: 0.001, poll: slow}
+  - {key: x.generator_import_energy, label: Generator import active energy, table: holding, address: 1056, type: u64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.generator_export_energy, label: Generator export active energy, table: holding, address: 1060, type: u64, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.inductive_energy_rate, label: Inductive energy rate, table: holding, address: 1064, type: f32, unit: '%', scale: 100, poll: slow}
+  - {key: x.capacitive_energy_rate, label: Capacitive energy rate, table: holding, address: 1066, type: f32, unit: '%', scale: 100, poll: slow}
+  # THD (3072 ff.)
+  - {key: x.thd_voltage_l1, label: Total harmonic distortion VL1, table: holding, address: 3078, type: f32, unit: '%', scale: 100}
+  - {key: x.thd_voltage_l2, label: Total harmonic distortion VL2, table: holding, address: 3080, type: f32, unit: '%', scale: 100}
+  - {key: x.thd_voltage_l3, label: Total harmonic distortion VL3, table: holding, address: 3082, type: f32, unit: '%', scale: 100}
+  - {key: x.thd_current_l1, label: Total harmonic distortion IL1, table: holding, address: 3086, type: f32, unit: '%', scale: 100}
+  - {key: x.thd_current_l2, label: Total harmonic distortion IL2, table: holding, address: 3088, type: f32, unit: '%', scale: 100}
+  - {key: x.thd_current_l3, label: Total harmonic distortion IL3, table: holding, address: 3090, type: f32, unit: '%', scale: 100}
+  # Alarm and step status (3200 ff.)
+  - {key: x.step_status, label: Step status, table: holding, address: 3200, type: u32, note: Bit 0 = step 1 … bit 19 = step 20; 1 = step switched in.}
+  - {key: x.system_alarms, label: System alarm bits, table: holding, address: 3202, type: u32, flags: system_alarms}
+  - {key: x.user_alarms, label: User alarm bits, table: holding, address: 3204, type: u32, note: 'Bits 0–7 user alarm 1–8 high trip, 8–15 low trip, 16–23 high peak, 24–31 low peak.'}
+  - {key: x.compensation_alarms, label: Compensation alarm bits, table: holding, address: 3206, type: u32, flags: compensation_alarms}
+  - {key: x.step_value_loss, label: Step value loss bits, table: holding, address: 3212, type: u32, note: Bit n = step n + 1.}
+  - {key: x.switch_life, label: Switch life bits, table: holding, address: 3214, type: u32, note: Bit n = step n + 1.}
+  - {key: x.compensation_warnings, label: Compensation warning bits, table: holding, address: 3224, type: u32, flags: compensation_warnings}
+  # Setup (16384 ff.)
+  - {key: x.ct_primary, label: Current transformer primary value, table: holding, address: 16392, type: f32, unit: A, writable: true, min: 0, max: 9999, poll: slow}
+  - {key: x.ct_secondary, label: Current transformer secondary value, table: holding, address: 16394, type: u32, enum: ct_secondary, writable: true, poll: slow}
+  - {key: x.nominal_frequency, label: System nominal frequency, table: holding, address: 16404, type: u32, enum: nominal_frequency, writable: true, poll: slow}
+  - {key: x.modbus_address, label: Modbus / JBUS address, table: holding, address: 16424, type: u32, writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 16426, type: u32, enum: baud_rate, writable: true, poll: slow, note: 'An index into the table, not the rate itself.'}
+  - {key: x.parity, label: Parity, table: holding, address: 16428, type: u32, enum: parity, writable: true, poll: slow}
+  - {key: x.clock, label: Unix time, table: holding, address: 16986, type: u32, epoch: {start: '1970-01-01', unit: s}, writable: true, poll: slow}
+  - {key: x.compensation_mode, label: Mode, table: holding, address: 17890, type: u32, enum: compensation_mode, writable: true, poll: slow}
+  - {key: x.target_cos_phi, label: Target cos phi, table: holding, address: 17910, type: f32, unit: '', writable: true, min: -1, max: 1, poll: slow}
+  - {key: x.target_cos_phi_generator, label: Target cos phi for generator, table: holding, address: 17914, type: f32, unit: '', writable: true, min: -1, max: 1, poll: slow}
+  # Device information (60416 ff.)
+  - {key: x.device_id, label: Device ID, table: holding, address: 60416, type: u16, poll: slow, note: The values per model aren't listed.}
+  - {key: serial, label: Serial number, table: holding, address: 60418, type: u32, poll: slow}
+  - {key: firmware, label: Software version, table: holding, address: 60420, type: u32, poll: slow}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 60422, type: u32, poll: slow}
+  - {key: x.modbus_table_version, label: Modbus table version, table: holding, address: 60424, type: u32, poll: slow}
+
+derived:
+  - {key: grid_power, label: Grid power, unit: W, positive: export, sum: [{key: x.export_power}, {key: x.import_power, factor: -1}], note: 'Export minus import, from the separate totals; positive = export when the relay measures at the grid connection.'}
+
+enums:
+  rotation_field: {'1': Right, '0': None, '-1': Left}
+  ct_secondary: {'0': 1 A, '1': 5 A}
+  nominal_frequency: {'0': 50 Hz, '1': 60 Hz}
+  baud_rate: {'0': '2400', '1': '4800', '2': '9600', '3': '19200', '4': '38400', '5': '57600', '6': '115200', '7': '256000'}
+  parity: {'0': None, '1': Odd, '2': Even}
+  compensation_mode: {'0': Standard, '1': Eco, '2': Aggressive}
+
+flags:
+  system_alarms: {'0': L1 phase loss, '1': L2 phase loss, '2': L3 phase loss, '3': Neutral loss, '4': Wrong phase angle, '5': Inverse phase sequence, '6': L1 current connection loss, '7': L2 current connection loss, '8': L3 current connection loss, '9': L1 compensation current connection loss, '10': L2 compensation current connection loss, '11': L3 compensation current connection loss, '12': Overvoltage, '13': Undervoltage, '14': Overcurrent, '15': Undercurrent, '16': Voltage THD too high, '17': Current THD too high, '18': Overtemperature, '19': SVC thermal, '22': Battery exhausted, '23': Clock reset, '24': Custom alarm 1, '25': Custom alarm 2, '26': Custom alarm 3}
+  compensation_alarms: {'0': Capacitive rate exceeded, '1': Inductive rate exceeded, '2': Over compensation, '3': Under compensation, '4': Insufficient capacitor steps, '5': Insufficient inductor steps, '6': Insufficient single-phase capacitor steps, '7': Wrong step order, '8': Step fuse open, '9': Switch welded, '10': Step temperature limit exceeded, '11': Step value loss, '12': Switch life, '14': Wrong step order for phase, '15': Wrong step order for phase, '16': Wrong step order for phase}
+  compensation_warnings: {'0': Capacitive rate warning, '1': Inductive rate warning, '2': Over compensation warning, '3': Under compensation warning, '10': Step temperature warning, '11': Step value loss warning, '12': Switch life warning}
+
+problems:
+  - {when: {key: x.system_alarms, bit: 0}, kind: warning, text: L1 phase loss (alarm bit 0)}
+  - {when: {key: x.system_alarms, bit: 1}, kind: warning, text: L2 phase loss (alarm bit 1)}
+  - {when: {key: x.system_alarms, bit: 2}, kind: warning, text: L3 phase loss (alarm bit 2)}
+  - {when: {key: x.system_alarms, bit: 3}, kind: warning, text: Neutral loss (alarm bit 3)}
+  - {when: {key: x.system_alarms, bit: 4}, kind: warning, text: Wrong phase angle (alarm bit 4)}
+  - {when: {key: x.system_alarms, bit: 5}, kind: warning, text: Inverse phase sequence (alarm bit 5)}
+  - {when: {key: x.system_alarms, bit: 6}, kind: warning, text: L1 current connection loss (alarm bit 6)}
+  - {when: {key: x.system_alarms, bit: 7}, kind: warning, text: L2 current connection loss (alarm bit 7)}
+  - {when: {key: x.system_alarms, bit: 8}, kind: warning, text: L3 current connection loss (alarm bit 8)}
+  - {when: {key: x.system_alarms, bit: 9}, kind: warning, text: L1 compensation current connection loss (alarm bit 9)}
+  - {when: {key: x.system_alarms, bit: 10}, kind: warning, text: L2 compensation current connection loss (alarm bit 10)}
+  - {when: {key: x.system_alarms, bit: 11}, kind: warning, text: L3 compensation current connection loss (alarm bit 11)}
+  - {when: {key: x.system_alarms, bit: 12}, kind: warning, text: Overvoltage (alarm bit 12)}
+  - {when: {key: x.system_alarms, bit: 13}, kind: warning, text: Undervoltage (alarm bit 13)}
+  - {when: {key: x.system_alarms, bit: 14}, kind: warning, text: Overcurrent (alarm bit 14)}
+  - {when: {key: x.system_alarms, bit: 15}, kind: warning, text: Undercurrent (alarm bit 15)}
+  - {when: {key: x.system_alarms, bit: 16}, kind: warning, text: Voltage THD too high (alarm bit 16)}
+  - {when: {key: x.system_alarms, bit: 17}, kind: warning, text: Current THD too high (alarm bit 17)}
+  - {when: {key: x.system_alarms, bit: 18}, kind: fault, text: Overtemperature (alarm bit 18)}
+  - {when: {key: x.system_alarms, bit: 19}, kind: fault, text: SVC thermal alarm (alarm bit 19)}
+  - {when: {key: x.system_alarms, bit: 22}, kind: warning, text: Clock battery exhausted (alarm bit 22)}
+  - {when: {key: x.system_alarms, bit: 23}, kind: warning, text: Clock reset (alarm bit 23)}
+  - {when: {key: x.compensation_alarms, bit: 0}, kind: warning, text: Capacitive rate exceeded (compensation alarm bit 0)}
+  - {when: {key: x.compensation_alarms, bit: 1}, kind: warning, text: Inductive rate exceeded (compensation alarm bit 1)}
+  - {when: {key: x.compensation_alarms, bit: 2}, kind: warning, text: Over compensation (compensation alarm bit 2)}
+  - {when: {key: x.compensation_alarms, bit: 3}, kind: warning, text: Under compensation (compensation alarm bit 3)}
+  - {when: {key: x.compensation_alarms, bit: 4}, kind: warning, text: Insufficient capacitor steps (compensation alarm bit 4)}
+  - {when: {key: x.compensation_alarms, bit: 5}, kind: warning, text: Insufficient inductor steps (compensation alarm bit 5)}
+  - {when: {key: x.compensation_alarms, bit: 6}, kind: warning, text: Insufficient single-phase capacitor steps (compensation alarm bit 6)}
+  - {when: {key: x.compensation_alarms, bit: 7}, kind: warning, text: Wrong step order (compensation alarm bit 7)}
+  - {when: {key: x.compensation_alarms, bit: 8}, kind: fault, text: Step fuse open (compensation alarm bit 8)}
+  - {when: {key: x.compensation_alarms, bit: 9}, kind: fault, text: Switch welded (compensation alarm bit 9)}
+  - {when: {key: x.compensation_alarms, bit: 10}, kind: fault, text: Step temperature limit exceeded (compensation alarm bit 10)}
+  - {when: {key: x.compensation_alarms, bit: 11}, kind: warning, text: Step value loss (compensation alarm bit 11)}
+  - {when: {key: x.compensation_alarms, bit: 12}, kind: warning, text: Switch life reached (compensation alarm bit 12)}
+
+notes:
+- All registers are holding registers (function 03); addresses are the document's decimal addresses, which are 0-based. Every
+  32-bit value is two registers, the energy counters (ulong) four.
+- 'Not stated in the document; assumed: big-endian byte and word order for floats and 32 / 64-bit integers, and the default
+  serial settings (address, baud rate and parity are setup registers 16424–16428). Every point is therefore unverified.'
+- The document has one availability column per model (RGP-9SW, -12SW, -9S, -12SR, -12S, -15SRW, -12SRW, -15SR); the points
+  here are listed for all models except the SVC values, which only some have.
+- 'Percent values with multiplier 100 come as fractions (0.05 = 5 %): scale 100.'
+- The RGP is a reactive power (power factor) controller with a built-in three-phase measurement; 'import' and 'export' refer
+  to its measuring point.
+- 'Left out: one-cycle (512 ff.) and ten-cycle (768 ff.) copies of the measurements, quadrant and per-phase apparent powers,
+  phase angles, min / max / demand values with time stamps (2048 ff.), harmonics per order (4096 ff., 8192 ff., 9216 ff.),
+  per-step records and counters (10240 ff., 14080 ff.), alarm source details (3328 ff.), event and profile logs, writable
+  energy presets (1536 ff.), per-step setup (17408 ff.), user alarm setup and the step coils (12288 ff.).'

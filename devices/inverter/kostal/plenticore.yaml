@@ -1,0 +1,302 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the KOSTAL Interface description MODBUS (TCP) & SunSpec for PIKO IQ / PLENTICORE (2.9).
+# KOSTAL's own register map only; the SunSpec models from 40003 on are not part of this file.
+
+modbusspec: 0
+id: kostal-plenticore
+manufacturer: KOSTAL
+name: PLENTICORE plus / BI / MP and PIKO IQ (KOSTAL register map)
+kind: inverter
+
+sources:
+- title: KOSTAL Interface description MODBUS (TCP) & SunSpec with control information (PIKO IQ / PLENTICORE)
+  version: 2.9 (17.07.2026), DOC02308910-0020
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/kostal-ksem-inverter.yaml, templates/definition/meter/kostal-plenticore-gen2.yaml
+- id: openems
+  title: OpenEMS Edge (open energy management system)
+  url: https://github.com/OpenEMS/openems
+  license: EPL-2.0
+  commit: 25b4c2dd47e5566039ba280a3490b3d944079435
+  path: io.openems.edge.kostal
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/kostal/kostal_plenticore
+- id: smarthomeng
+  title: SmartHomeNG plugins
+  url: https://github.com/smarthomeNG/plugins
+  license: GPL-3.0-or-later
+  commit: 0176a8684934aab9a52f905cdea80f8410200c2f
+  path: kostalmodbus/inverter.py
+- id: sunspec2
+  title: ha-sunspec2 (Home Assistant integration)
+  url: https://github.com/hilman2/ha-sunspec2
+  license: MIT
+  commit: 2efb4dd6e51e55a5f07d960f56a6281831eb58de
+  path: custom_components/sunspec2/vendors/__init__.py, custom_components/sunspec2/vendors/kostal.py, custom_components/sunspec2/vendors/profile.py
+
+connection:
+  default_port: 1502
+  default_unit: 71
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+    max_gap: 16
+
+encoding:
+  byte_order: big
+  word_order: detect
+  # MODBUS Byte Order
+  detect:
+    table: holding
+    address: 5
+    type: u16
+    word_orders:
+      '0': little
+      '1': big
+
+identify:
+  serial:
+    table: holding
+    address: 14
+    type: str
+    length: 8
+  checks:
+  - table: holding
+    address: 40000
+    type: u32
+    equals: 1400204883
+    word_order: big
+  - table: holding
+    address: 40004
+    type: str
+    length: 16
+    prefix: KOSTAL
+  - - table: holding
+      address: 40020
+      type: str
+      length: 16
+      prefix: PLENTICORE
+    - table: holding
+      address: 40020
+      type: str
+      length: 16
+      prefix: PIKO IQ
+
+points:
+  # Interface settings and identity
+  - {key: x.byte_order, label: MODBUS Byte Order, table: holding, address: 5, type: u16, enum: byte_order, writable: true, poll: slow, note: 'Says the word order of the 32-bit values: 0 = CDAB (low word first, default), 1 = ABCD. Read it before anything else.'}
+  - {key: x.article_number, label: Inverter article number, table: holding, address: 6, type: str, length: 8, poll: slow}
+  - {key: serial, label: Inverter serial number, table: holding, address: 14, type: str, length: 8, poll: slow}
+  - {key: x.bidirectional_converters, label: Number of bidirectional converter, table: holding, address: 30, type: u16, poll: slow}
+  - {key: x.ac_phases, label: Number of AC phases, table: holding, address: 32, type: u16, poll: slow}
+  - {key: x.pv_strings, label: Number of PV strings, table: holding, address: 34, type: u16, poll: slow, note: With a battery on DC3 this is 2.}
+  - {key: x.hardware_version, label: Hardware-Version, table: holding, address: 36, type: u32, poll: slow, note: The table says U16 over 2 registers; read as one 32-bit value., conflicts: [{sources: [smarthomeng], type: u16}]}
+  - {key: firmware, label: Software-Version Maincontroller (MC), table: holding, address: 38, type: str, length: 8, poll: slow}
+  - {key: x.software_ioc, label: Software-Version IO-Controller (IOC), table: holding, address: 46, type: str, length: 8, poll: slow}
+  - {key: x.power_id, label: Power-ID, table: holding, address: 54, type: u32, poll: slow, conflicts: [{sources: [smarthomeng], type: u16}]}
+  - {key: x.software_version, label: Overall software version (UI / SW), table: holding, address: 58, type: str, length: 13, poll: slow, note: 'Only PLENTICORE plus G2 and PLENTICORE (MP, BI) G3.'}
+  - {key: x.max_power, label: Inverter Max Power, table: holding, address: 531, type: u16, unit: W, scale_exponent_from: {table: holding, address: 532, type: s16}, poll: slow, conflicts: [{sources: [openems], unit: VA, label: Max apparent power}]}
+  - {key: x.manufacturer, label: Inverter Manufacturer, table: holding, address: 535, type: str, length: 16, poll: slow}
+  - {key: x.serial_sunspec, label: Inverter Serial Number, table: holding, address: 559, type: str, length: 16, poll: slow}
+  - {key: x.product_name, label: Productname, table: holding, address: 768, type: str, length: 32, poll: slow, note: e.g. "PLENTICORE plus".}
+  - {key: x.power_class, label: Power class, table: holding, address: 800, type: str, length: 32, poll: slow, note: e.g. "10".}
+  - {key: x.mdc_role, label: MDC role, table: holding, address: 1545, type: s16, enum: mdc_role, poll: slow, note: Multi Device Control; PLENTICORE G3 from SW 3.06.10.}
+
+  # Inverter state and AC side
+  - {key: state, label: Inverter state, table: holding, address: 56, type: u32, enum: inverter_state}
+  - {key: temperature, label: Temperature of controller PCB, table: holding, address: 98, type: f32, unit: °C}
+  - {key: x.total_dc_power, label: Total DC power, table: holding, address: 100, type: f32, unit: W}
+  - {key: x.energy_manager_state, label: State of energy manager, table: holding, address: 104, type: u32, enum: energy_manager}
+  - {key: x.isolation_resistance, label: Isolation resistance, table: holding, address: 120, type: f32, unit: Ω}
+  - {key: x.power_limit_evu, label: Power limit from EVU, table: holding, address: 122, type: f32, unit: '%'}
+  - {key: x.worktime, label: Worktime, table: holding, address: 144, type: f32, unit: s, poll: slow}
+  - {key: power_factor, label: Actual cos φ, table: holding, address: 150, type: f32, unit: ''}
+  - {key: frequency, label: Grid frequency, table: holding, address: 152, type: f32, unit: Hz}
+  - {key: l1_current, label: Current Phase 1, table: holding, address: 154, type: f32, unit: A}
+  - {key: l1_power, label: Active power Phase 1, table: holding, address: 156, type: f32, unit: W, positive: export, verified: false, note: No sign in the document; taken as the inverter's output (positive = feeding out).}
+  - {key: l1_voltage, label: Voltage Phase 1, table: holding, address: 158, type: f32, unit: V}
+  - {key: l2_current, label: Current Phase 2, table: holding, address: 160, type: f32, unit: A}
+  - {key: l2_power, label: Active power Phase 2, table: holding, address: 162, type: f32, unit: W, positive: export, verified: false, note: No sign in the document; taken as the inverter's output (positive = feeding out).}
+  - {key: l2_voltage, label: Voltage Phase 2, table: holding, address: 164, type: f32, unit: V}
+  - {key: l3_current, label: Current Phase 3, table: holding, address: 166, type: f32, unit: A}
+  - {key: l3_power, label: Active power Phase 3, table: holding, address: 168, type: f32, unit: W, positive: export, verified: false, note: No sign in the document; taken as the inverter's output (positive = feeding out).}
+  - {key: l3_voltage, label: Voltage Phase 3, table: holding, address: 170, type: f32, unit: V}
+  - {key: x.ac_active_power, label: Total AC active power, table: holding, address: 172, type: f32, unit: W, note: No sign in the document.}
+  - {key: reactive_power, label: Total AC reactive power, table: holding, address: 174, type: f32, unit: var}
+  - {key: apparent_power, label: Total AC apparent power, table: holding, address: 178, type: f32, unit: VA}
+  - {key: x.generation_power, label: Inverter Generation Power (actual), table: holding, address: 575, type: s16, unit: W, scale_exponent_from: {table: holding, address: 576, type: s16}, conflicts: [{sources: [openwb, smarthomeng], label: Inverter power}]}
+
+  # Home consumption (energy flow)
+  - {key: x.home_consumption_battery, label: Home own consumption from battery, table: holding, address: 106, type: f32, unit: W}
+  - {key: x.home_consumption_grid, label: Home own consumption from grid, table: holding, address: 108, type: f32, unit: W}
+  - {key: x.home_consumption_pv, label: Home own consumption from PV, table: holding, address: 116, type: f32, unit: W}
+  - {key: x.home_consumption_battery_total, label: Total home consumption Battery, table: holding, address: 110, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.home_consumption_grid_total, label: Total home consumption Grid, table: holding, address: 112, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.home_consumption_pv_total, label: Total home consumption PV, table: holding, address: 114, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.home_consumption_total, label: Total home consumption, table: holding, address: 118, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.self_consumption_rate, label: Total home consumption rate, table: holding, address: 124, type: f32, unit: '%'}
+
+  # PV
+  - {key: pv_power, label: Total DC power (sum of all PV inputs), table: holding, address: 1066, type: f32, unit: W}
+  - {key: x.dc1_current, label: Current DC1, table: holding, address: 258, type: f32, unit: A}
+  - {key: x.dc1_power, label: Power DC1, table: holding, address: 260, type: f32, unit: W}
+  - {key: x.dc1_voltage, label: Voltage DC1, table: holding, address: 266, type: f32, unit: V}
+  - {key: x.dc2_current, label: Current DC2, table: holding, address: 268, type: f32, unit: A}
+  - {key: x.dc2_power, label: Power DC2, table: holding, address: 270, type: f32, unit: W}
+  - {key: x.dc2_voltage, label: Voltage DC2, table: holding, address: 276, type: f32, unit: V}
+  - {key: x.dc3_current, label: Current DC3, table: holding, address: 278, type: f32, unit: A}
+  - {key: x.dc3_power, label: Power DC3, table: holding, address: 280, type: f32, unit: W}
+  - {key: x.dc3_voltage, label: Voltage DC3, table: holding, address: 286, type: f32, unit: V}
+  - {key: pv_energy, label: Total yield, table: holding, address: 320, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: pv_energy_today, label: Daily yield, table: holding, address: 322, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.yearly_yield, label: Yearly yield, table: holding, address: 324, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.monthly_yield, label: Monthly yield, table: holding, address: 326, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.generation_energy, label: Generation Energy, table: holding, address: 577, type: u32, unit: kWh, scale: 0.001, scale_exponent_from: {table: holding, address: 579, type: s16}, poll: slow, conflicts: [{sources: [smarthomeng], word_order: little}]}
+  - {key: x.dc_pv_energy, label: Total DC PV energy (sum of all PV inputs), table: holding, address: 1056, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.pv1_energy, label: Total DC energy from PV1, table: holding, address: 1058, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.pv2_energy, label: Total DC energy from PV2, table: holding, address: 1060, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.pv3_energy, label: Total DC energy from PV3, table: holding, address: 1062, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.ac_energy_to_grid, label: Total energy AC-side to grid, table: holding, address: 1064, type: f32, unit: kWh, scale: 0.001, poll: slow, note: 'The inverter''s total AC output energy, not the energy exported at the grid connection (that would need the meter).'}
+
+  # Battery (answers only with a battery type set in 588)
+  - {key: x.battery_type, label: Battery Type, table: holding, address: 588, type: u16, enum: battery_type, poll: slow, note: '0 = no battery. The list ends with 0x10000 M-TEC (PLENTICORE G3 only), which doesn''t fit this 16-bit register; how it is sent is not stated.'}
+  - {key: x.battery_charge_current, label: Battery charge current, table: holding, address: 190, type: f32, unit: A}
+  - {key: x.battery_cycles, label: Number of battery cycles, table: holding, address: 194, type: f32, poll: slow}
+  - {key: battery_current, label: Actual battery charge (-) / discharge (+) current, table: holding, address: 200, type: f32, unit: A, positive: discharge}
+  - {key: x.pssb_fuse_state, label: PSSB fuse state, table: holding, address: 202, type: f32, enum: pssb_fuse_state}
+  - {key: x.battery_ready, label: Battery ready flag, table: holding, address: 208, type: f32}
+  - {key: x.battery_soc_float, label: Act. state of Charge SoC, table: holding, address: 210, type: f32, unit: '%'}
+  - {key: battery_temperature, label: Battery temperature, table: holding, address: 214, type: f32, unit: °C}
+  - {key: battery_voltage, label: Battery voltage, table: holding, address: 216, type: f32, unit: V}
+  - {key: x.battery_gross_capacity, label: Battery gross capacity, table: holding, address: 512, type: u32, unit: Ah, poll: slow}
+  - {key: battery_soc, label: Battery actual SOC, table: holding, address: 514, type: u16, unit: '%', conflicts: [{sources: [openwb], type: s16, label: Battery state of charge}]}
+  - {key: x.battery_manufacturer, label: Battery Manufacturer, table: holding, address: 517, type: str, length: 8, poll: slow}
+  - {key: x.battery_serial, label: Battery Serial Number, table: holding, address: 527, type: u32, poll: slow}
+  - {key: x.battery_work_capacity_u32, label: Work Capacity, table: holding, address: 529, type: u32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.battery_power, label: Actual battery charge/discharge power, table: holding, address: 582, type: s16, unit: W, verified: false, note: No sign in the document. Its magnitude can be combined with the direction from 200 (charge − / discharge +).}
+  - {key: x.battery_firmware, label: Battery Firmware, table: holding, address: 586, type: u32, poll: slow}
+  - {key: x.battery_work_capacity, label: Battery work capacity, table: holding, address: 1068, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.battery_serial_number, label: Battery serial number, table: holding, address: 1070, type: u32, poll: slow, note: Newer register; 527 is the older one.}
+  - {key: x.battery_max_charge_power, label: Maximum charge power limit (read-out from battery), table: holding, address: 1076, type: f32, unit: W, poll: slow}
+  - {key: x.battery_max_discharge_power, label: Maximum discharge power limit (read-out from battery), table: holding, address: 1078, type: f32, unit: W, poll: slow}
+  - {key: x.battery_management_mode, label: Battery management mode, table: holding, address: 1080, type: u16, enum: battery_management_mode, poll: slow, note: U8 in the low byte.}
+  - {key: x.battery_dc_charge_energy, label: Total DC charge energy (DC-side to battery), table: holding, address: 1046, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.battery_dc_discharge_energy, label: Total DC discharge energy (DC-side from battery), table: holding, address: 1048, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.battery_ac_charge_energy, label: Total AC charge energy (AC-side to battery), table: holding, address: 1050, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.battery_ac_discharge_energy, label: Total AC discharge energy (battery to grid), table: holding, address: 1052, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.battery_ac_charge_energy_grid, label: Total AC charge energy (grid to battery), table: holding, address: 1054, type: f32, unit: kWh, scale: 0.001, poll: slow}
+
+  # Energy meter (powermeter) connected to this inverter
+  - {key: x.sensor_type, label: Installed sensor type, table: holding, address: 1082, type: u16, enum: sensor_type, poll: slow, note: U8 in the low byte; 0xFF = no sensor.}
+  - {key: x.meter_cos_phi, label: Cos φ (powermeter), table: holding, address: 218, type: f32}
+  - {key: x.meter_frequency, label: Frequency (powermeter), table: holding, address: 220, type: f32, unit: Hz}
+  - {key: x.meter_l1_current, label: Current phase 1 (powermeter), table: holding, address: 222, type: f32, unit: A}
+  - {key: x.meter_l1_power, label: Active power phase 1 (powermeter), table: holding, address: 224, type: f32, unit: W, note: No sign stated for the phases.}
+  - {key: x.meter_l1_reactive_power, label: Reactive power phase 1 (powermeter), table: holding, address: 226, type: f32, unit: var}
+  - {key: x.meter_l1_apparent_power, label: Apparent power phase 1 (powermeter), table: holding, address: 228, type: f32, unit: VA}
+  - {key: x.meter_l1_voltage, label: Voltage phase 1 (powermeter), table: holding, address: 230, type: f32, unit: V}
+  - {key: x.meter_l2_current, label: Current phase 2 (powermeter), table: holding, address: 232, type: f32, unit: A}
+  - {key: x.meter_l2_power, label: Active power phase 2 (powermeter), table: holding, address: 234, type: f32, unit: W, note: No sign stated for the phases.}
+  - {key: x.meter_l2_reactive_power, label: Reactive power phase 2 (powermeter), table: holding, address: 236, type: f32, unit: var}
+  - {key: x.meter_l2_apparent_power, label: Apparent power phase 2 (powermeter), table: holding, address: 238, type: f32, unit: VA}
+  - {key: x.meter_l2_voltage, label: Voltage phase 2 (powermeter), table: holding, address: 240, type: f32, unit: V}
+  - {key: x.meter_l3_current, label: Current phase 3 (powermeter), table: holding, address: 242, type: f32, unit: A}
+  - {key: x.meter_l3_power, label: Active power phase 3 (powermeter), table: holding, address: 244, type: f32, unit: W, note: No sign stated for the phases.}
+  - {key: x.meter_l3_reactive_power, label: Reactive power phase 3 (powermeter), table: holding, address: 246, type: f32, unit: var}
+  - {key: x.meter_l3_apparent_power, label: Apparent power phase 3 (powermeter), table: holding, address: 248, type: f32, unit: VA}
+  - {key: x.meter_l3_voltage, label: Voltage phase 3 (powermeter), table: holding, address: 250, type: f32, unit: V}
+  - {key: grid_power, label: Total active power (powermeter), table: holding, address: 252, type: f32, unit: W, positive: import, note: 'With the sensor at the grid connection (position 2): positive = drawn from the grid, negative = feed-in. With the sensor at the home consumption (position 1) it is house consumption (+) / generation (−) instead; the registers don''t tell the position; position 2 is assumed.'}
+  - {key: x.meter_reactive_power, label: Total reactive power (powermeter), table: holding, address: 254, type: f32, unit: var}
+  - {key: x.meter_apparent_power, label: Total apparent power (powermeter), table: holding, address: 256, type: f32, unit: VA}
+
+  # Multi Device Control plant totals (host only)
+  - {key: x.plant_soc, label: 'Plant state of charge (SoC), capacity-weighted', table: holding, address: 1547, type: f32, unit: '%'}
+  - {key: x.plant_battery_power, label: Plant total battery power (sum), table: holding, address: 1549, type: f32, unit: W, positive: discharge, note: 'Negative = charging, positive = discharging.'}
+  - {key: x.plant_pv_power, label: Plant total PV power (sum), table: holding, address: 1551, type: f32, unit: W}
+  - {key: x.plant_ac_power, label: Plant total inverter AC active power (sum), table: holding, address: 1553, type: f32, unit: W}
+  - {key: x.plant_external_production, label: Plant total external produced power (sum), table: holding, address: 1555, type: f32, unit: kWh, scale: 0.001, poll: slow, note: 'Called power, but the unit is Wh; shown as energy.'}
+  - {key: x.inverter_network_name, label: Inverter Network Name, table: holding, address: 384, type: str, length: 32, verified: false, sources: [smarthomeng]}
+  - {key: x.ip_address, label: IP-address, table: holding, address: 420, type: str, length: 8, verified: false, sources: [smarthomeng]}
+  - {key: x.ip_subnetmask, label: IP-subnetmask, table: holding, address: 428, type: str, length: 8, verified: false, sources: [smarthomeng]}
+  - {key: x.ip_gateway, label: IP-gateway, table: holding, address: 436, type: str, length: 8, verified: false, sources: [smarthomeng]}
+  - {key: x.ip_dns1, label: IP-DNS1, table: holding, address: 446, type: str, length: 8, verified: false, sources: [smarthomeng]}
+  - {key: x.ip_dns2, label: IP-DNS2, table: holding, address: 454, type: str, length: 8, verified: false, sources: [smarthomeng]}
+  - {key: x.firmware_maincontroller_mc, label: Firmware Maincontroller (MC), table: holding, address: 515, type: u32, verified: false, sources: [smarthomeng], word_order: little}
+  - {key: x.battery_model_id, label: Battery Model ID, table: holding, address: 525, type: u32, verified: false, sources: [smarthomeng], word_order: little}
+  - {key: x.charge_power, label: Charge power, table: holding, address: 1034, type: f32, unit: W, writable: true, verified: false, sources: [openems, openwb, sunspec2], word_order: little}
+  - {key: x.batterymode_1038, label: Battery mode control (write), table: holding, address: 1038, type: f32, unit: W, writable: true, note: 'evcc writes battery mode holdcharge: 0.', verified: false, sources: [evcc, openems, sunspec2], word_order: little}
+  - {key: x.batterymode_1040, label: Battery mode control (write), table: holding, address: 1040, type: f32, unit: W, writable: true, note: 'evcc writes battery mode hold: 0.', verified: false, sources: [evcc, openems, sunspec2], word_order: little}
+  - {key: x.battery_min_soc, label: Battery minimum state of charge, table: holding, address: 1042, type: f32, unit: '%', writable: true, note: The project reads this only while 588 is above 0., verified: false, sources: [sunspec2], word_order: little}
+  - {key: x.battery_max_soc, label: Battery maximum state of charge, table: holding, address: 1044, type: f32, unit: '%', writable: true, note: The project reads this only while 588 is above 0., verified: false, sources: [sunspec2], word_order: little}
+  - {key: x.battery_limitation_charge_power, label: Battery held charge power limit, table: holding, address: 1280, type: f32, unit: W, writable: true, note: Held in RAM; may be written cyclically. The project reads this only while 588 is above 0., verified: false, sources: [sunspec2], word_order: little}
+  - {key: x.battery_limitation_discharge_power, label: Battery held discharge power limit, table: holding, address: 1282, type: f32, unit: W, writable: true, note: Held in RAM; may be written cyclically. The project reads this only while 588 is above 0., verified: false, sources: [sunspec2], word_order: little}
+  - {key: x.battery_fallback_charge_power, label: Battery charge power after fallback, table: holding, address: 1284, type: f32, unit: W, writable: true, note: Held in RAM; may be written cyclically. The project reads this only while 588 is above 0., verified: false, sources: [sunspec2], word_order: little}
+  - {key: x.battery_fallback_discharge_power, label: Battery discharge power after fallback, table: holding, address: 1286, type: f32, unit: W, writable: true, note: Held in RAM; may be written cyclically. The project reads this only while 588 is above 0., verified: false, sources: [sunspec2], word_order: little}
+  - {key: x.battery_fallback_time, label: Battery time until fallback, table: holding, address: 1288, type: u32, unit: s, invalid: [4294967295], writable: true, note: Held in RAM; may be written cyclically. The project reads this only while 588 is above 0., verified: false, sources: [sunspec2], word_order: little}
+
+enums:
+  byte_order: {'0': Little-endian (CDAB), '1': Big-endian (ABCD)}
+  inverter_state: {'0': 'Off', '1': Init, '2': Isolation measurement, '3': Grid check, '4': Start-up, '6': Feed-in, '7': Throttled, '8': External switch off, '9': Update, '10': Standby, '11': Grid sync, '12': Grid pre-check, '13': Grid switch off, '14': Overheating, '15': Shutdown, '16': Improper DC voltage, '17': ESB (emergency power), '18': Unknown}
+  energy_manager: {'0': Idle, '2': Emergency battery charge, '8': Winter mode step 1, '16': Winter mode step 2}
+  battery_type: {'0': No battery, '2': PIKO Battery Li, '4': BYD, '8': BMZ, '16': AXIstorage Li SH, '64': LG, '512': Pylontech, '1024': AXIstorage Li SV, '4096': Dyness, '8192': VARTA, '16384': ZYC, '32768': HELIVOR, '65536': M-TEC (PLENTICORE G3 only)}
+  sensor_type: {'0': SDM 630, '1': B-Control EM-300 LR, '3': KSEM, '4': KEM-C, '5': KEM-P, '6': KEM MP-P, '255': No sensor}
+  battery_management_mode: {'0': No external battery management, '1': External via digital I/O, '2': External via Modbus}
+  mdc_role: {'-1': Not available, '0': 'Off', '1': Client, '2': Host}
+  pssb_fuse_state: {'0': Fuse fail, '1': Fuse ok, '255': Unchecked}
+
+problems:
+  - {when: {key: state, equals: 14}, kind: warning, text: Overheating (state 14)}
+  - {when: {key: state, equals: 17}, kind: backup_mode, text: Emergency power mode (state 17)}
+  - {when: {key: x.pssb_fuse_state, equals: 0}, kind: fault, text: Battery fuse failed (PSSB)}
+
+notes:
+- Modbus TCP on port 1502, unit id 71 (changeable), function 03 only, 1–125 registers per request; addresses are 0-based.
+  Modbus has to be switched on in the inverter.
+- 'Word order: 32-bit values (floats, and as assumed also U32) are low word first (CDAB) from the factory; the inverter can
+  be set to ABCD. Register 5 says which (0 = CDAB, 1 = ABCD); the document links it to the float registers only; applying
+  it to U32 integers is an assumption. Readers take the order from register 5, which also works at night (0 Hz).'
+- The map has gaps (e.g. 102, 176, 180–189). Registers the inverter rejects when read on their own are missing on that model
+  or firmware.
+- The battery registers answer only when a battery is set (588 ≠ 0). The PSSB fuse fault applies only then. Whether a meter
+  is connected comes from 1082 (0xFF = none), else from the meter reporting a frequency (220).
+- 'Signs from the document: 200 battery current positive = discharge; 252 meter power positive = drawn from the grid (sensor
+  at the grid connection); 1549 plant battery power positive = discharge. Not stated: 582 battery power, the AC phase powers
+  and 172 total AC power.'
+- Home consumption is 116 + 106 + 108 (from PV, battery and grid), on the inverter with the meter only.
+- 'Multi Device Control: every inverter answers on its own address; the host (1545 = 2) also reports plant totals 1547–1555
+  (PLENTICORE G3 from SW 3.06.10).'
+- 'The inverter state is the only status: there are no error registers. States 13 (grid switch off) and 16 (improper DC voltage)
+  aren''t explained and aren''t reported as problems.'
+- Not for the PIKO CI, which has a different map under the same product-name register (see kostal-piko-ci).
+- Identification as sunspec2 recognises the device (not checked against a document).
+- 'evcc template `kostal-ksem-inverter` (grid) lists: Kostal Smart Energy Meter (via inverter).'
+- 'evcc template `kostal-plenticore-gen2` (pv, battery) lists: Kostal Plenticore Hybrid.'
+- The template has the option `endianness` (default little); points used only with another value say so in their note.
+- evcc also reads SunSpec model values for this template (not included here).
+- The grid meter values (220…255) are those OpenEMS reads through the inverter; it reads them low word first with its 'word-wrap'
+  setting (taken here, as for the inverter's other values) and high word first without it. Its other grid-meter mode reads
+  a KOSTAL Smart Energy Meter directly (not included).
+- The project reads every value with function 03 on unit 71; 32-bit values low word first. Port 1502 is the one its README
+  configures.
+- SmartHomeNG plugin kostalmodbus.
+- Modbus is off from the factory and is switched on in the inverter. KOSTAL's own 32-bit registers are low word first from
+  the factory (CDAB); the inverter can be switched to ABCD, which these addresses don't follow.
+- Not for the PIKO CI, which has its own register map.
+- The battery registers (202…, 1034…, 1046…, 1068…, 1280…) answer only when a battery type is set in 588.
+- The battery limitation 1280…1283 has to be written again within the fallback time (1288, at least 30 s), else the fallback
+  values apply. Registers 1280…1289 are held in RAM.
+- The DC power setpoint (1034) is only used while external battery management is set to Modbus in the inverter's menu (see
+  1080).
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

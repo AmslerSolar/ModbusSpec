@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the INSTART FCI-TCP/IP expansion board manual for FCI frequency converters (11/2023).
+
+modbusspec: 0
+id: instart-fci
+manufacturer: INSTART
+name: FCI frequency converters (FCI-TCP/IP Modbus TCP board)
+kind: other
+
+sources:
+- title: INSTART FCI-TCP/IP expansion board for Modbus TCP/IP in the FCI series, operating manual
+  version: INST-R/TCP-FCI-11/2023
+  url: https://www.instart-info.ru/upload/iblock/85c/1hozb321osi0pb8arnjqtn8xmgaogxe7/Instruktsiya_ModbusTCP_IP_11.2023_2.pdf
+  sha256: a506e18429e1b751c864669eeec8c440cedc5b7713cfdf46ac0c0529577cdf35
+  archive_url: https://web.archive.org/web/20260119144112/https://instart-info.ru/upload/iblock/85c/1hozb321osi0pb8arnjqtn8xmgaogxe7/Instruktsiya_ModbusTCP_IP_11.2023_2.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Monitoring (function 03)
+  - {key: state, label: Converter run status, table: holding, address: 45056, type: u16, enum: run_status}
+  - {key: error_code, label: Converter fault, table: holding, address: 45057, type: u16, enum: fault}
+  # Control (function 06)
+  - {key: x.command, label: Control command, table: holding, address: 40960, type: u16, enum: command, writable: true, write_only: true, note: Takes effect when start / stop is set to Modbus TCP (P0.0.03 = 2).}
+  - {key: x.frequency_setpoint, label: Frequency setpoint, table: holding, address: 40961, type: u16, unit: '%', scale: 0.01, writable: true, min: 0, max: 100, persistent: false, note: Share of the maximum frequency. Used when the frequency source is Modbus TCP (P0.0.04 = 9).}
+  - {key: x.output_terminals, label: Output terminals, table: holding, address: 40962, type: u16, flags: output_terminals, writable: true, note: Relay outputs T1 / T2 follow this register only with P2.0.29 = 20; YO1 needs the I/O expansion board.}
+  - {key: x.analog_output_fm1, label: Analog output FM1, table: holding, address: 40963, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100, note: With P2.0.33 = 12.}
+  - {key: x.analog_output_a004, label: Analog output (second), table: holding, address: 40964, type: u16, unit: '%', scale: 0.1, writable: true, min: 0, max: 100, note: With P2.0.34 = 12. The document names it FM1 as well.}
+  - {key: x.fmp_output, label: FMP pulse output, table: holding, address: 40965, type: u16, unit: '%', scale: 0.003051850947599719, writable: true, min: 0, max: 100, verified: false, note: 0–0x7FFF = 0–100.00 %; scale derived from that range. Only when YO/FMP is used as FMP (P2.1.20 = 0).}
+  - {key: x.pid_reference, label: PID reference, table: holding, address: 40976, type: u16, writable: true, note: 0 up to the value of P4.0.04; with P4.0.00 = 5.}
+  - {key: x.pid_feedback, label: PID feedback, table: holding, address: 40977, type: u16, writable: true, note: 0 up to the value of P4.0.04; with P4.0.02 = 5.}
+
+enums:
+  run_status: {'1': Running forward, '2': Running reverse, '3': Stopped}
+  command: {'1': Run forward, '2': Run reverse, '3': Jog forward, '4': Jog reverse, '5': Coast to stop, '6': Ramp to stop, '7': Fault reset}
+  fault: {'0': No fault, '1': Overcurrent at constant speed, '2': Overcurrent during acceleration, '3': Overcurrent during deceleration, '4': Overvoltage at constant speed, '5': Overvoltage during acceleration, '6': Overvoltage during deceleration, '7': Power module fault, '8': Undervoltage, '9': Converter overload, '10': Motor overload, '11': Input phase loss, '12': Output phase loss, '13': External fault, '14': Communication fault, '15': Converter overheating, '16': Converter hardware fault, '17': Motor short to ground, '18': Motor identification error, '19': No load, '20': PID feedback lost, '21': User fault 1, '22': User fault 2, '23': Total power-on time reached, '24': Total running time reached, '25': Encoder fault, '26': Parameter read / write fault, '27': Motor overheating, '28': Large speed deviation, '29': Motor overspeed, '30': Initial position error, '31': Test failed, '32': Contactor, '33': Test error, '34': Timeout, '35': Motor switched while running, '36': 24 V supply fault, '37': Power supply fault, '39': Output short-circuit current, '40': Buffering error}
+
+flags:
+  output_terminals: {'0': YO1, '1': YO1 (second bit; the document lists YO1 twice), '2': Relay T1, '3': Relay T2, '4': YO (YO/FMP used as YO)}
+
+problems:
+  - {when: {key: error_code, not: 0}, kind: fault, text: 'Frequency converter fault {value}: {text}'}
+
+notes:
+- Modbus TCP on the FCI-TCP/IP board; the converter itself has no Ethernet port. Port 502 (fixed). The IP address is 192.168.<P4.1.08>.<P4.1.09>,
+  default 192.168.2.100; changes take effect after a restart. The document's example uses unit id 9 and doesn't state a default
+  unit id; 1 is assumed.
+- Addresses are the register numbers as the document gives them in hex (A001h is also given as 40961 decimal), used as protocol
+  addresses unchanged.
+- Parameters P1–P8 are read / write, P9 read-only. A parameter Pg.s.nn is at address 0xgsNN (group and subgroup as hex digits,
+  NN = nn in hex), e.g. P2.1.12 = 0x210C; this writes to EEPROM. Add 4 to the high hex digit to write to RAM only (P2.1.12
+  → 0x250C), for values written often. The parameter list itself is not in this document; the P9 monitoring parameters (output
+  frequency, current, voltage …) are left out for that reason.
+- 'Function codes: 03 to read, 06 to write.'

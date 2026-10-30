@@ -1,0 +1,197 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Testo Modbus-Adapter für testo 350, Bedienungsanleitung (0970 3570 de 02, 03.2026),
+# cross-checked with the French edition (Mode d'emploi) of the same manual.
+
+modbusspec: 0
+id: testo-350
+manufacturer: Testo
+name: testo 350 flue gas analyser with Modbus adapter
+kind: other
+
+sources:
+- title: Modbus-Adapter für testo 350, Bedienungsanleitung
+  version: 0970 3570 de 02, 03.2026
+  url: https://static.testo.com/image/upload/Instruction-manual-and-Software/Instruction-manuals/Modbus-adapter-for-testo-350-de-Bedienungsanleitung.pdf
+  sha256: d59eb5bd8934ba1f4c1bea2538f99ad318effee951c66d0adb9dea1a4d63ddd8
+- title: Adaptateur Modbus pour testo 350, Mode d'emploi
+  version: '03.2026'
+  url: https://static.testo.com/image/upload/Instruction-manual-and-Software/Instruction-manuals/Modbus-adapter-for-testo-350-fr-Mode-d-emploi.pdf
+  sha256: 5d9d445f8a3dbe705351d603483989f859f573ce2b6f87ecc0f0353c92f7ea31
+
+connection:
+  default_port: 502
+  default_unit: 3
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+    max_gap: 0
+    min_interval_ms: 10
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 4097
+    type: u32
+  checks:
+  - table: input
+    address: 4096
+    type: u16
+    equals: 350
+
+points:
+  # Identity
+  - {key: x.device_type, label: Device type, table: input, address: 4096, type: u16, poll: slow, note: Always 350 (0x015E) on a testo 350.}
+  - {key: serial, label: Device serial number, table: input, address: 4097, type: u32, poll: slow}
+  - {key: x.firmware_major, label: Firmware version (major), table: input, address: 4099, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.firmware_minor, label: Firmware version (minor), table: input, address: 4099, type: u16, bits: [0, 7], poll: slow}
+
+  # Measuring system state and settings
+  - {key: x.application, label: Measurement application, table: input, address: 8192, type: u16, enum: application, writable: true, poll: slow}
+  - {key: x.measurement_type, label: Measurement type, table: input, address: 8193, type: u16, enum: measurement_type, writable: true, poll: slow, note: Only single (spot) measurements; measurement programs are not reachable over Modbus.}
+  - {key: state, label: Measurement status, table: input, address: 8194, type: u16, enum: measurement_state, writable: true, poll: fast, note: 'Reading gives the state of the current measurement. Writing sends a command instead: 0 start, 1 stop and save, 2 cancel, 3 zero (skipped if already done), 4 rinse until clean, 6 forced zero, 7 endless rinse, 9 forced zero of the pressure sensor during a measurement; 5 and 8 are blocked.'}
+  - {key: x.fuel_id, label: Fuel ID, table: input, address: 8195, type: u16, enum: fuel, writable: true, poll: slow, note: The fuel names listed are those of US instruments; other country versions have further fuels (not listed in the document). Read back after writing to confirm.}
+  - {key: x.fresh_air_valve, label: Fresh air valve, table: input, address: 8196, type: u16, enum: fresh_air_valve, writable: true, poll: slow, note: 'Normally switched by the instrument. Write only 0 or 1, and only when the read state is not 2 (switching not allowed).'}
+  - {key: x.standby, label: Standby, table: input, address: 8198, type: u16, enum: standby, writable: true, poll: slow, note: 1 = standby on mains (battery charging) or switched off on battery; 0 = operate (needs mains; at least 5 s without Modbus afterwards).}
+  - {key: x.cxhy_sensor_on, label: CxHy sensor on/off, table: input, address: 9547, type: u16, enum: on_off, writable: true, poll: slow, note: Switching the sensor on starts a zeroing; wait for it and check for errors before starting a measurement.}
+
+  # Measured values ("ViewValues"): up to 25 slots in display order. What a slot holds depends on the measurement
+  # and the user's settings: read the slot's ident and unit before reading values.
+  - {key: x.view_value_count, label: Number of ViewValues, table: input, address: 12288, type: u16, poll: slow}
+  - {key: x.view_value_1_id, label: 'ViewValue[0] ident', table: input, address: 12544, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_1, label: 'ViewValue[0] value', table: input, address: 12800, type: f32, poll: fast}
+  - {key: x.view_value_1_unit, label: 'ViewValue[0] unit', table: input, address: 13312, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_2_id, label: 'ViewValue[1] ident', table: input, address: 12546, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_2, label: 'ViewValue[1] value', table: input, address: 12802, type: f32, poll: fast}
+  - {key: x.view_value_2_unit, label: 'ViewValue[1] unit', table: input, address: 13313, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_3_id, label: 'ViewValue[2] ident', table: input, address: 12548, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_3, label: 'ViewValue[2] value', table: input, address: 12804, type: f32, poll: fast}
+  - {key: x.view_value_3_unit, label: 'ViewValue[2] unit', table: input, address: 13314, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_4_id, label: 'ViewValue[3] ident', table: input, address: 12550, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_4, label: 'ViewValue[3] value', table: input, address: 12806, type: f32, poll: fast}
+  - {key: x.view_value_4_unit, label: 'ViewValue[3] unit', table: input, address: 13315, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_5_id, label: 'ViewValue[4] ident', table: input, address: 12552, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_5, label: 'ViewValue[4] value', table: input, address: 12808, type: f32, poll: fast}
+  - {key: x.view_value_5_unit, label: 'ViewValue[4] unit', table: input, address: 13316, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_6_id, label: 'ViewValue[5] ident', table: input, address: 12554, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_6, label: 'ViewValue[5] value', table: input, address: 12810, type: f32, poll: fast}
+  - {key: x.view_value_6_unit, label: 'ViewValue[5] unit', table: input, address: 13317, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_7_id, label: 'ViewValue[6] ident', table: input, address: 12556, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_7, label: 'ViewValue[6] value', table: input, address: 12812, type: f32, poll: fast}
+  - {key: x.view_value_7_unit, label: 'ViewValue[6] unit', table: input, address: 13318, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_8_id, label: 'ViewValue[7] ident', table: input, address: 12558, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_8, label: 'ViewValue[7] value', table: input, address: 12814, type: f32, poll: fast}
+  - {key: x.view_value_8_unit, label: 'ViewValue[7] unit', table: input, address: 13319, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_9_id, label: 'ViewValue[8] ident', table: input, address: 12560, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_9, label: 'ViewValue[8] value', table: input, address: 12816, type: f32, poll: fast}
+  - {key: x.view_value_9_unit, label: 'ViewValue[8] unit', table: input, address: 13320, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_10_id, label: 'ViewValue[9] ident', table: input, address: 12562, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_10, label: 'ViewValue[9] value', table: input, address: 12818, type: f32, poll: fast}
+  - {key: x.view_value_10_unit, label: 'ViewValue[9] unit', table: input, address: 13321, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_11_id, label: 'ViewValue[10] ident', table: input, address: 12564, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_11, label: 'ViewValue[10] value', table: input, address: 12820, type: f32, poll: fast}
+  - {key: x.view_value_11_unit, label: 'ViewValue[10] unit', table: input, address: 13322, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_12_id, label: 'ViewValue[11] ident', table: input, address: 12566, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_12, label: 'ViewValue[11] value', table: input, address: 12822, type: f32, poll: fast}
+  - {key: x.view_value_12_unit, label: 'ViewValue[11] unit', table: input, address: 13323, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_13_id, label: 'ViewValue[12] ident', table: input, address: 12568, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_13, label: 'ViewValue[12] value', table: input, address: 12824, type: f32, poll: fast}
+  - {key: x.view_value_13_unit, label: 'ViewValue[12] unit', table: input, address: 13324, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_14_id, label: 'ViewValue[13] ident', table: input, address: 12570, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_14, label: 'ViewValue[13] value', table: input, address: 12826, type: f32, poll: fast}
+  - {key: x.view_value_14_unit, label: 'ViewValue[13] unit', table: input, address: 13325, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_15_id, label: 'ViewValue[14] ident', table: input, address: 12572, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_15, label: 'ViewValue[14] value', table: input, address: 12828, type: f32, poll: fast}
+  - {key: x.view_value_15_unit, label: 'ViewValue[14] unit', table: input, address: 13326, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_16_id, label: 'ViewValue[15] ident', table: input, address: 12574, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_16, label: 'ViewValue[15] value', table: input, address: 12830, type: f32, poll: fast}
+  - {key: x.view_value_16_unit, label: 'ViewValue[15] unit', table: input, address: 13327, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_17_id, label: 'ViewValue[16] ident', table: input, address: 12576, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_17, label: 'ViewValue[16] value', table: input, address: 12832, type: f32, poll: fast}
+  - {key: x.view_value_17_unit, label: 'ViewValue[16] unit', table: input, address: 13328, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_18_id, label: 'ViewValue[17] ident', table: input, address: 12578, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_18, label: 'ViewValue[17] value', table: input, address: 12834, type: f32, poll: fast}
+  - {key: x.view_value_18_unit, label: 'ViewValue[17] unit', table: input, address: 13329, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_19_id, label: 'ViewValue[18] ident', table: input, address: 12580, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_19, label: 'ViewValue[18] value', table: input, address: 12836, type: f32, poll: fast}
+  - {key: x.view_value_19_unit, label: 'ViewValue[18] unit', table: input, address: 13330, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_20_id, label: 'ViewValue[19] ident', table: input, address: 12582, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_20, label: 'ViewValue[19] value', table: input, address: 12838, type: f32, poll: fast}
+  - {key: x.view_value_20_unit, label: 'ViewValue[19] unit', table: input, address: 13331, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_21_id, label: 'ViewValue[20] ident', table: input, address: 12584, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_21, label: 'ViewValue[20] value', table: input, address: 12840, type: f32, poll: fast}
+  - {key: x.view_value_21_unit, label: 'ViewValue[20] unit', table: input, address: 13332, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_22_id, label: 'ViewValue[21] ident', table: input, address: 12586, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_22, label: 'ViewValue[21] value', table: input, address: 12842, type: f32, poll: fast}
+  - {key: x.view_value_22_unit, label: 'ViewValue[21] unit', table: input, address: 13333, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_23_id, label: 'ViewValue[22] ident', table: input, address: 12588, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_23, label: 'ViewValue[22] value', table: input, address: 12844, type: f32, poll: fast}
+  - {key: x.view_value_23_unit, label: 'ViewValue[22] unit', table: input, address: 13334, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_24_id, label: 'ViewValue[23] ident', table: input, address: 12590, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_24, label: 'ViewValue[23] value', table: input, address: 12846, type: f32, poll: fast}
+  - {key: x.view_value_24_unit, label: 'ViewValue[23] unit', table: input, address: 13335, type: u16, enum: unit, invalid: [65535], poll: slow}
+  - {key: x.view_value_25_id, label: 'ViewValue[24] ident', table: input, address: 12592, type: u32, enum: value_id, invalid: [4294967295], poll: slow}
+  - {key: x.view_value_25, label: 'ViewValue[24] value', table: input, address: 12848, type: f32, poll: fast}
+  - {key: x.view_value_25_unit, label: 'ViewValue[24] unit', table: input, address: 13336, type: u16, enum: unit, invalid: [65535], poll: slow}
+
+  # Messages (errors, warnings, information), most severe first
+  - {key: x.message_count, label: Number of active messages, table: input, address: 16384, type: u16, poll: fast}
+  - {key: x.message_1, label: Message 1, table: input, address: 16385, type: u16, poll: fast, note: 'Coded word: bits 0–7 error number, bits 8–10 group (device messages) or sensor position (sensor messages), bits 11–12 category, bit 15 set = sensor message. For device messages group and number together give the error code (e.g. group 0, number 0x14 = sensor defective). 0 when no message is active.'}
+  - {key: x.message_1_category, label: Message 1 category, table: input, address: 16385, type: u16, bits: [11, 12], enum: message_category, poll: fast}
+  - {key: x.message_1_sensor, label: Message 1 is a sensor message, table: input, address: 16385, type: u16, bits: [15, 15], poll: fast}
+  - {key: x.message_2, label: Message 2, table: input, address: 16386, type: u16, poll: fast}
+  - {key: x.message_3, label: Message 3, table: input, address: 16387, type: u16, poll: fast}
+  - {key: x.message_4, label: Message 4, table: input, address: 16388, type: u16, poll: fast}
+  - {key: x.message_5, label: Message 5, table: input, address: 16389, type: u16, poll: fast}
+  - {key: x.message_6, label: Message 6, table: input, address: 16390, type: u16, poll: fast}
+  - {key: x.message_7, label: Message 7, table: input, address: 16391, type: u16, poll: fast}
+  - {key: x.message_8, label: Message 8, table: input, address: 16392, type: u16, poll: fast}
+  - {key: x.message_9, label: Message 9, table: input, address: 16393, type: u16, poll: fast}
+  - {key: x.message_10, label: Message 10, table: input, address: 16394, type: u16, poll: fast}
+  - {key: x.message_text, label: Message text (ASCII), table: input, address: 16400, type: str, length: 60, poll: slow, verified: false, note: 'The document lists 0x4010…0x401A with 60 registers (120 characters) of text each, the message wrapped in a C-style comment (/* … */). How the further addresses select further messages is not clear from the document; assumed that a 60-register read at 0x4010 gives the first message''s text.'}
+
+enums:
+  application: {'0': Burner, '1': Turbine, '2': Engine lambda > 1, '3': Engine lambda ≤ 1, '4': User-defined}
+  measurement_type: {'1': Flue gas, '2': Differential pressure, '3': Draught, '4': Flue gas before/after catalytic converter, '5': Flue gas m/s, '6': Flue gas delta p}
+  measurement_state: {'0': Measurement not initialised, '1': Idle, '2': Measuring, '3': Zeroing, '4': Rinsing, '5': 'Zeroing, then starting automatically', '6': Dead time, '7': Stabilisation, '8': Program waiting for zeroing confirmation, '9': Program waiting for ramp-up confirmation, '10': Program waiting for test start confirmation, '11': Program waiting for rinse confirmation, '12': Program waiting for exit confirmation}
+  fuel: {'9000': Natural gas, '9001': Propane, '9002': Butane, '9003': Oil No. 2, '9004': Oil No. 5, '9005': Oil No. 6, '9006': Kerosene, '9007': Diesel, '9008': Gasoline, '9009': Anthracite coal, '9010': Bituminous coal, '9011': Distillate No. 1, '9012': Wood 10 % moisture, '9013': Wood 20 % moisture, '9014': Wood 30 % moisture, '9015': Wood 40 % moisture, '9016': Bark 15 % moisture, '9017': Bark 30 % moisture, '9018': Bark 45 % moisture, '9019': Bark 60 % moisture, '9020': Bagasse, '9021': Heavy oil, '9022': Light oil, '9023': Diesel, '9024': LPG, '9025': Natural gas (Mexico), '9026': Bioheat 5, '9027': Bioheat 12, '9028': Bioheat 20, '9029': Bioheat 15, '9030': Gas Natural (Mex.), '9031': Oil No. 4, '9032': Bioheat 10, '99': Test gas, '65': User-defined fuel 1, '66': User-defined fuel 2}
+  fresh_air_valve: {'0': Fresh air to the gas path, '1': Gas probe to the gas path, '2': Switching not allowed}
+  standby: {'0': Operating, '1': Standby}
+  on_off: {'0': 'Off', '1': 'On'}
+  message_category: {'0': Info, '1': Warning, '2': Error, '3': Internal}
+  unit: {'1': °C, '2': °F, '3': '%RH', '4': '%', '5': m/s, '22': Lambda, '23': mbar, '24': hPa, '25': psi, '44': ppm CO2, '77': m³/h, '82': mm H2O, '99': Channel not configured, '130': Vol. %, '131': ppm, '133': bar, '136': mg/kWh}
+  value_id: {'257': Flue gas temperature (AT), '258': Combustion air temperature (VT), '259': Analyser box temperature (GT), '267': Ambient temperature, '769': Draught, '770': Differential pressure, '771': Absolute pressure, '772': Fine draught, '778': External draught, '779': External differential pressure, '292': Flue gas temperature mean, '293': Combustion air temperature mean, '2331': O2 mean, '2305': O2, '2306': CO, '2307': Ambient CO, '2308': CO undiluted, '2309': H2, '2310': 'NO', '2311': NO2, '2312': SO2, '2313': CO2, '2314': CxHy, '2315': H2S, '135810': Lambda, '135809': Excess air, '133397': NOx, '137734': 'NO, O2-referenced', '137730': 'CO, O2-referenced', '137735': 'NO2, O2-referenced', '137736': 'SO2, O2-referenced', '137749': 'NOx, O2-referenced', '1281': Pump flow, '1537': Battery voltage, '2321': CO2 measured, '133634': CO mass flow, '133653': NOx mass flow, '133639': NO2 mass flow, '133640': SO2 mass flow, '133643': H2S mass flow, '133649': CO2 (IR) mass flow, '2317': CO2 max (fuel-specific), '2316': O2 reference (fuel-specific)}
+
+problems:
+  - {when: {key: x.message_1_category, equals: 2}, kind: fault, text: Analyser error (see the active messages)}
+  - {when: {key: x.message_1_category, equals: 1}, kind: warning, text: Analyser warning}
+
+notes:
+- 'The testo 350 analyser box speaks Modbus RTU through the testo Modbus adapter (RS485 on screw terminals, powered from the
+  instrument''s probe socket; the adapter must be the last device on the bus). 9600 baud 8N1, fixed. All data are input registers:
+  read with function 04 (function 03 is not supported). The document gives 0-based hex register addresses, used here as they
+  are. The unit id is the testo bus address (3 when none is set; restart the analyser box after changing it). Answers take
+  up to 400 ms; leave at least 10 ms between frames. Without a Control Unit attached a watchdog switches the instrument off
+  (battery) or to standby (mains) when no Modbus command arrives for 60 s.'
+- 'Measured values are a list of up to 25 "ViewValues" whose content depends on the selected measurement and display settings:
+  each slot has an ident (0x3100…, enum value_id; the document says more idents exist on request), a float value (0x3200…)
+  and a unit code (0x3400…, enum unit; 0xFFFF or 99 = slot not used). Unused slots read 0xFFFFFFFF (NaN). A value that cannot
+  be shown reads a raw code instead of a float: 0x81 over range, 0x82 under range, 0x83 out of range, 0x84 defect, 0x85 not
+  yet available, 0x86 sensor waking up (as floats these are tiny denormal numbers, ~1e-43), 0xFFFFFFFF other.'
+- 'Not included: the recommended display resolution per slot (0x3500…0x3518, exponent of the last digit in the low byte, 0x80
+  = unused), the dilution factor per slot (0x3600…0x3631, f32), and the write-only registers 0x2008 (dilution setting, needs
+  the fresh-air valve and range extension options) and 0x4020 (write 0x5A to acknowledge the bias-voltage warning after a
+  mains interruption).'
+- Messages 0x4001…0x400A list up to ten active messages, most severe first; the problems use the first one's category (2 =
+  error, the instrument no longer works; 1 = warning). The document's code tables for device and gas sensor errors are not
+  reproduced; the instrument's own message text is at 0x4010.

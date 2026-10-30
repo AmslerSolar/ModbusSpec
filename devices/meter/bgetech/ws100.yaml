@@ -1,0 +1,135 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the B+G e-tech WS100-19xx series data sheet (04.2026).
+
+modbusspec: 0
+id: bgetech-ws100
+manufacturer: B+G E-Tech
+name: WS100 single-phase energy meter
+kind: meter
+
+sources:
+- title: B+G e-tech WS100-19xx Serie, Datenblatt (with Modbus register map)
+  version: '04.2026'
+  url: https://data.stromzähler.eu/manuals/bg_ws100serie_de.pdf
+  sha256: ef2a226e3c1599c9aad9b672462d48a39ddd76443d8f3667f2b31309ee5bd286
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/bgetech-ws100.yaml
+- id: mbmd
+  title: mbmd (ModBus Measurement Daemon, meter definitions used by evcc)
+  url: https://github.com/volkszaehler/mbmd
+  license: BSD-3-Clause
+  commit: af19f17edbe0c8fa404813d70428d620db44a622
+  path: meters/rs485/ws100.go
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 266
+    type: s16
+    range:
+    - 450
+    - 650
+  - table: holding
+    address: 4111
+    type: u16
+    in:
+    - 1
+    - 2
+    - 3
+    - 4
+
+points:
+  # Instantaneous values
+  - {key: l1_voltage, label: Voltage, table: holding, address: 256, type: s32, unit: V, scale: 0.001, conflicts: [{sources: [mbmd], type: u32}]}
+  - {key: l1_current, label: Current, table: holding, address: 258, type: s32, unit: A, scale: 0.001, note: Signed like the active power (forward / reverse).}
+  - {key: grid_power, label: Active power, table: holding, address: 260, type: s32, unit: W, positive: import, verified: false, note: The document says the value carries the sign of forward / reverse flow and calls forward energy import (current from L-in to L-out); that forward is the positive sign is not spelled out. Assumed positive = import.}
+  - {key: apparent_power, label: Apparent power, table: holding, address: 262, type: s32, unit: VA, conflicts: [{sources: [mbmd], type: u32, label: Apparent Power}]}
+  - {key: reactive_power, label: Reactive power, table: holding, address: 264, type: s32, unit: var, note: Signed (forward / reverse).}
+  - {key: frequency, label: Frequency, table: holding, address: 266, type: s16, unit: Hz, scale: 0.1, conflicts: [{sources: [mbmd], type: u16}]}
+  - {key: power_factor, label: Power factor, table: holding, address: 267, type: s16, unit: '', scale: 0.001, note: Signed like the active power.}
+
+  # Energy counters
+  - {key: grid_import_energy, label: Total forward active energy, table: holding, address: 270, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.import_energy_t1, label: T1 total forward active energy, table: holding, address: 272, type: s32, unit: kWh, scale: 0.01, poll: slow, note: Without tariffs (all but the WS100-19L3) T1 equals the total and T2 … T4 read 0.}
+  - {key: x.import_energy_t2, label: T2 total forward active energy, table: holding, address: 274, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.import_energy_t3, label: T3 total forward active energy, table: holding, address: 276, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.import_energy_t4, label: T4 total forward active energy, table: holding, address: 278, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_export_energy, label: Total reverse active energy, table: holding, address: 280, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.export_energy_t1, label: T1 total reverse active energy, table: holding, address: 282, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.export_energy_t2, label: T2 total reverse active energy, table: holding, address: 284, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.export_energy_t3, label: T3 total reverse active energy, table: holding, address: 286, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.export_energy_t4, label: T4 total reverse active energy, table: holding, address: 288, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.total_active_energy, label: Total active energy, table: holding, address: 290, type: s32, unit: kWh, scale: 0.01, poll: slow, note: What it counts follows the combination code (holding 0x100F); import + export by default., conflicts: [{sources: [mbmd], type: u32, label: Total Sum}]}
+  - {key: x.import_reactive_energy, label: Total forward reactive energy, table: holding, address: 300, type: s32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.export_reactive_energy, label: Total reverse reactive energy, table: holding, address: 310, type: s32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.total_reactive_energy, label: Total reactive energy, table: holding, address: 320, type: s32, unit: kvarh, scale: 0.01, poll: slow, note: Follows the combination code like the active total.}
+  - {key: x.resettable_active_energy, label: Resettable total active energy, table: holding, address: 370, type: s32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.resettable_reactive_energy, label: Resettable total reactive energy, table: holding, address: 372, type: s32, unit: kvarh, scale: 0.01, poll: slow}
+
+  # Demand
+  - {key: x.import_power_demand, label: Forward active demand, table: holding, address: 374, type: s32, unit: W, scale: 0.1, poll: slow}
+  - {key: x.max_import_power_demand, label: Forward maximum active demand, table: holding, address: 376, type: s32, unit: W, scale: 0.1, poll: slow}
+  - {key: x.export_power_demand, label: Reverse active demand, table: holding, address: 378, type: s32, unit: W, scale: 0.1, poll: slow}
+  - {key: x.max_export_power_demand, label: Reverse maximum active demand, table: holding, address: 380, type: s32, unit: W, scale: 0.1, poll: slow}
+
+  # Meter parameters
+  - {key: x.serial_high, label: Serial number (digits 1-4), table: holding, address: 4096, type: bcd16, poll: slow}
+  - {key: x.serial_low, label: Serial number (digits 5-12), table: holding, address: 4097, type: bcd32, poll: slow}
+  - {key: x.modbus_id, label: Modbus ID, table: holding, address: 4099, type: u16, writable: true, min: 1, max: 247, poll: slow}
+  - {key: firmware, label: FW version, table: holding, address: 4100, type: u16, poll: slow, note: E.g. 101 = V101.}
+  - {key: x.hardware_version, label: HW version, table: holding, address: 4101, type: u16, poll: slow}
+  - {key: x.firmware_checksum, label: FW checksum, table: holding, address: 4102, type: u16, poll: slow, note: Shown in hex (the CRC on the data sheet).}
+  - {key: x.clock, label: Time, table: holding, address: 4103, type: datetime, length: 4, datetime: {year: {register: 0, bits: [0, 7], bcd: true, offset: 2000}, month: {register: 1, bits: [8, 15], bcd: true}, day: {register: 1, bits: [0, 7], bcd: true}, hour: {register: 2, bits: [0, 7], bcd: true}, minute: {register: 3, bits: [8, 15], bcd: true}, second: {register: 3, bits: [0, 7], bcd: true}}, optional: true, writable: true, poll: slow, verified: false, note: 'WS100-19L3 (tariff version) only. Bytes 00, year, month, day, weekday, hour, minute, second; the document gives the order but not the coding. BCD assumed, as the DS100 series of the same maker documents it.'}
+  - {key: x.scroll_time, label: Cycle display time, table: holding, address: 4107, type: u16, unit: s, writable: true, min: 0, max: 99, poll: slow, note: 0 = the display doesn't scroll.}
+  - {key: x.baud_rate, label: RS485 baud rate, table: holding, address: 4108, type: u16, enum: baud_rate, writable: true, poll: slow, note: 'An index into the table; only 9600, 19200, 38400 and 115200 are supported.'}
+  - {key: x.parity, label: RS485 parity, table: holding, address: 4109, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: x.stop_bits, label: RS485 stop bits, table: holding, address: 4110, type: u16, writable: true, min: 1, max: 2, poll: slow}
+  - {key: x.combination_code, label: Combined code, table: holding, address: 4111, type: u16, enum: combination_code, writable: true, poll: slow, note: Sets what the total active and reactive energy count.}
+  - {key: x.demand_mode, label: Demand mode, table: holding, address: 4112, type: u16, enum: demand_mode, writable: true, poll: slow}
+  - {key: x.demand_period, label: Demand cycle, table: holding, address: 4113, type: u16, unit: min, writable: true, min: 1, max: 30, poll: slow, note: Default 15.}
+  - {key: x.clear_energy, label: Clear energy, table: holding, address: 8194, type: u16, writable: true, write_only: true, note: 'Bit 12 clears the resettable total active energy, bit 13 the resettable total reactive energy.'}
+
+derived:
+  - {key: serial, label: Serial number, sum: [{key: x.serial_high, factor: 100000000}, {key: x.serial_low}], note: '12 BCD digits in three registers, most significant first (also the DLT645 address).'}
+
+enums:
+  baud_rate: {'1': '300', '2': '600', '3': '1200', '4': '2400', '5': '4800', '6': '9600', '7': '19200', '8': '38400', '9': '115200'}
+  parity: {'0': None, '1': Odd, '2': Even}
+  combination_code: {'1': Total = import, '2': Total = export, '3': Total = import + export, '4': Total = import − export}
+  demand_mode: {'0': Interval, '1': Sliding}
+
+notes:
+- 'Models: WS100-1942 (S0 outputs only, no Modbus), WS100-1943 (RS485 Modbus / DLT645) and WS100-19L3 (as 1943, plus tariffs
+  and a real-time clock). The register map is for the 1943 and 19L3.'
+- 'Addresses: the document gives hex Modbus register addresses; they are used as they are (0-based).'
+- 'Function code: the document doesn''t say which one reads the registers; holding registers (function 03) assumed. Settings
+  are written with function 16 (0x10), several registers at once where the document asks for it (serial number, time).'
+- 'Scaling: the document writes each value as INT32 or INT16 with (integer digits + decimal digits), e.g. INT32(3+3) for the
+  voltage = 0.001 V per step; the scales here follow from that.'
+- 'Defaults: Modbus ID 1, 9600 baud, no parity, 1 stop bit; combination code 3 (import + export); demand cycle 15 min.'
+- 'Left out: the per-tariff and per-quadrant reactive energy counters (0x0142 … 0x0170), the reactive demand values (0x0180
+  … 0x0186), the display list and password (0x1012, 0x1016), the running-time and timing-current registers (0x1018, 0x101A),
+  the maximum-demand clear register (0x2003) and the tariff tables (0x1700 ff.).'
+- 'evcc template `bgetech-ws100` (grid, pv, charge) lists: B+GE-TECH WS100.'
+- mbmd (type code WS100) detects the meter by reading Voltage (holding register 256, u32, scale 0.001); its bus scan accepts
+  a value within 10% of 110 or 230 V.
+- Identification as mbmd recognises the device (not checked against a document).

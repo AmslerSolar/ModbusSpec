@@ -1,0 +1,81 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the VEDA MC MCD5 Modbus Communication manual (2022-10-07).
+
+modbusspec: 0
+id: vedamc-mcd5
+manufacturer: VEDA MC
+name: MCD5 soft starter
+kind: other
+
+sources:
+- title: MCD5. Modbus Communication manual
+  version: '2022-10-07'
+  url: https://gekoms.org/wp-content/uploads/2025/01/veda-mcd5-modbus.pdf
+  sha256: cdec8b0995e313e83d373fcda6389eef8a673be8fb985e7066b240d470d65a40
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 4800
+    format: 8N2
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # Status and operating data
+  - {key: state, label: System status, table: holding, address: 12289, type: u16, bits: [0, 7], enum: state, poll: fast}
+  - {key: error_code, label: Fault code, table: holding, address: 12289, type: u16, bits: [8, 15], enum: alarm, poll: fast, note: 'Valid when the status is 6 (fault): e.g. 0x0106 = Er01 running overcurrent.'}
+  - {key: x.average_current, label: Average current, table: holding, address: 8194, type: u16, unit: A, poll: fast, verified: false}
+  - {key: l1_current, label: A current, table: holding, address: 8195, type: u16, unit: A, poll: fast, verified: false}
+  - {key: l2_current, label: B current, table: holding, address: 8196, type: u16, unit: A, poll: fast, verified: false}
+  - {key: l3_current, label: C current, table: holding, address: 8197, type: u16, unit: A, poll: fast, verified: false}
+  - {key: x.input_voltage, label: Input voltage, table: holding, address: 8198, type: u16, unit: V, poll: fast, verified: false}
+  - {key: x.output_voltage, label: Output voltage, table: holding, address: 8199, type: u16, unit: V, poll: fast, verified: false}
+  - {key: temperature, label: Module temperature, table: holding, address: 8200, type: u16, unit: °C, poll: fast, verified: false, note: Unit given as degree; °C assumed.}
+  # Control (write-only)
+  - {key: x.command, label: Control command, table: holding, address: 8192, type: u16, enum: command, writable: true, write_only: true, poll: slow, note: Function 06.}
+  # Parameters (F-nn at address nn)
+  - {key: x.start_mode, label: F-00 Start mode, table: holding, address: 0, type: u16, enum: start_mode, writable: true, poll: slow}
+  - {key: x.soft_start_time, label: F-01 Soft start time, table: holding, address: 1, type: u16, unit: s, writable: true, min: 0, max: 120, poll: slow, note: Default 10 s.}
+  - {key: x.soft_stop_time, label: F-02 Soft stop time, table: holding, address: 2, type: u16, unit: s, writable: true, min: 0, max: 120, poll: slow, note: Default 0 s.}
+  - {key: x.start_voltage, label: F-03 Start voltage, table: holding, address: 3, type: u16, unit: '%', writable: true, min: 20, max: 75, poll: slow, note: Default 25 %.}
+  - {key: x.current_limit, label: F-04 Current limit, table: holding, address: 4, type: u16, unit: '%', writable: true, min: 150, max: 600, poll: slow, note: Default 350 %.}
+  - {key: x.overcurrent_protection, label: F-11 Over current protection value, table: holding, address: 11, type: u16, unit: '%', writable: true, min: 0, max: 400, poll: slow, note: Default 150 %; 0 disables it.}
+  - {key: x.overload_protection, label: F-12 Overload protection, table: holding, address: 12, type: u16, writable: true, min: 0, max: 4, poll: slow, note: Default 3; the levels are in the soft starter's manual.}
+  - {key: x.overvoltage_protection, label: F-16 Overvoltage protection, table: holding, address: 16, type: u16, unit: V, writable: true, poll: slow, note: Default 480 V; 0 disables it.}
+  - {key: x.undervoltage_protection, label: F-17 Undervoltage protection, table: holding, address: 17, type: u16, unit: V, writable: true, poll: slow, note: Default 280 V; 0 disables it.}
+  - {key: x.scr_overtemperature, label: F-19 SCR over temperature, table: holding, address: 19, type: u16, unit: °C, writable: true, min: 0, max: 90, poll: slow, note: Default 85 °C; 0 disables it.}
+  - {key: x.modbus_address, label: F-24 Communication address, table: holding, address: 24, type: u16, writable: true, poll: slow}
+  - {key: x.baud, label: F-25 Baud rate, table: holding, address: 25, type: u16, enum: baud, writable: true, poll: slow}
+  - {key: x.parity, label: F-26 Parity, table: holding, address: 26, type: u16, enum: parity, writable: true, poll: slow}
+  - {key: x.motor_current, label: F-34 Motor current FLA, table: holding, address: 34, type: u16, unit: A, writable: true, min: 1, max: 9999, poll: slow, note: Default the soft starter's rated current.}
+
+enums:
+  state: {'0': Stopped, '2': Soft start, '3': Running, '5': Soft stop, '6': Fault, '7': Test}
+  alarm: {'1': Er01 running overcurrent, '2': Er02 module overtemperature, '3': Er03 start-up timeout, '4': Er04 system phase loss, '5': Er05 power supply overvoltage, '6': Er06 power supply undervoltage, '7': Er07 overload protection, '8': Er08 imbalance}
+  command: {'33': Start, '34': Stop, '35': Reset}
+  start_mode: {'0': Current ramp, '1': Current limit, '2': Voltage ramp}
+  baud: {'0': '4800', '1': '9600', '2': '19200'}
+  parity: {'0': None (2 stop bits), '1': Odd (1 stop bit), '2': Even (1 stop bit)}
+
+problems:
+  - {when: {key: state, equals: 6}, kind: fault, text: 'Soft starter fault ({value}); see the fault code'}
+
+notes:
+- The parameter table heads the addresses as decimal but prints them as 0x00nn; parameter F-nn is at address nn (decimal),
+  which fits the stated range 0x0000…0x0023 for F-00…F-35. F-10 (kick start times) is printed with the same address as F-09;
+  it is assumed at 10 and left out.
+- Read with function 03, write with 06 (no broadcast). After writing a parameter, wait about 1 s before the next request;
+  frequent queries slow the answers down.
+- 'Serial defaults: 4800 baud, 8 data bits, no parity, which means 2 stop bits (1 stop bit with odd or even parity). Unit
+  id 1.'
+- The scaling of the operating data (currents, voltages, temperature) is not stated; whole units are assumed.
+- 'Left out: further protection and kick start parameters (F-07…F-10, F-13, F-18, F-20, F-21), F-23 delayed start, F-27 X1
+  input, F-30 analog output, F-32 initialisation, F-33 language, F-35 password.'

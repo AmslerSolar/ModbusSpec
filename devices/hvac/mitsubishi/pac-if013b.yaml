@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Mitsubishi Electric PAC-IF013B-E / PAC-SIF013B-E Interface Modbus manual (September 2015).
+
+modbusspec: 0
+id: mitsubishi-pac-if013b
+manufacturer: Mitsubishi Electric
+name: PAC-IF013B-E / PAC-SIF013B-E interface (outdoor unit to air handling unit)
+kind: hvac
+
+sources:
+- title: Mitsubishi Electric Interface PAC-IF013B-E / PAC-SIF013B-E Modbus manual (RG79F084H01)
+  version: September 2015
+  url: https://alklima.nl/service-en-support/downloads/bedieningshandleiding/modbus-handleiding-pac-if013-b-e.pdf
+  sha256: ab54f3fbab4801c1fc1b73c9b88d6ce147508bf1526b7e788718c53cdbab545c
+  archive_url: https://web.archive.org/web/20260614195309/https://alklima.nl/service-en-support/downloads/bedieningshandleiding/bedieningshandleiding-pac-if013-b-e.pdf
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 1200
+    format: 8O1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # refrigerant address of the outdoor unit
+  - table: input
+    address: 9
+    type: u16
+    range:
+    - 0
+    - 15
+  # the same, in the holding table
+  - table: holding
+    address: 7
+    type: u16
+    range:
+    - 0
+    - 15
+  # step status
+  - table: holding
+    address: 6
+    type: u16
+    range:
+    - 0
+    - 12
+
+points:
+  # Coil
+  - {key: x.drive_on_off_coil, label: Drive ON/OFF, table: coil, address: 0, type: bool, enum: off_on, writable: true, note: Only in the auto step mode systems (5 and 7); a value other than 0 or 1 is discarded.}
+  # Input registers (function 04)
+  - {key: x.hex_inlet_air_temperature, label: 'TH11: heat exchanger inlet air temperature', table: input, address: 0, type: s16, unit: °C, scale: 0.1, invalid: [-999, 999], note: '−39 … 88.5 °C in 0.5 °C steps. Raw −999 (0xFC19) = thermistor open, 999 (0x03E7) = thermistor short.'}
+  - {key: x.target_air_temperature, label: 'TH1: target air temperature', table: input, address: 1, type: s16, unit: °C, scale: 0.1, invalid: [-999, 999]}
+  - {key: x.two_phase_temperature, label: 'TH5: 2-phase temperature', table: input, address: 2, type: s16, unit: °C, scale: 0.1, invalid: [-999, 999]}
+  - {key: x.liquid_temperature, label: 'TH2: refrigerant liquid temperature', table: input, address: 3, type: s16, unit: °C, scale: 0.1, invalid: [-999, 999]}
+  - {key: x.outdoor_temperature, label: 'TH7: outdoor temperature', table: input, address: 4, type: s16, unit: °C, scale: 0.1, note: '−15 … 46 °C in 1 °C steps, sent as temperature × 10.'}
+  - {key: x.error_code_hex, label: Error code (hex), table: input, address: 6, type: u16, poll: slow, note: 0x8000 = no error; otherwise the code's digits read as hex (code 5101 = 0x5101). Same code as register 7.}
+  - {key: error_code, label: Error code (decimal), table: input, address: 7, type: u16, enum: error_code, note: 8000 = no error; otherwise the error code (Table 6).}
+  - {key: x.external_outputs, label: External outputs OUT1 … OUT8, table: input, address: 8, type: u16, flags: external_outputs}
+  - {key: x.refrigerant_address, label: Ref. address, table: input, address: 9, type: u16, poll: slow, note: 'Refrigerant address of the outdoor unit, 0 … 15.'}
+  - {key: x.comms_counter, label: Modbus comms counter, table: input, address: 10, type: u16, note: +1 per valid Modbus command received; wraps after 65535.}
+  # Holding registers (function 03, write 06 / 16)
+  - {key: x.capacity_request, label: Capacity request (from local controller), table: holding, address: 0, type: u16, enum: capacity_step, writable: true, note: 'Manual step mode systems (1–4, 6) only. 0 = drive off, any other value = drive on; 12 (auto) can only be read. A sub interface in intelligent multiple outdoor unit control reads 12.'}
+  - {key: x.drive_mode, label: Drive mode, table: holding, address: 1, type: u16, enum: drive_mode, writable: true}
+  - {key: x.temperature_setpoint, label: Temperature setpoint, table: holding, address: 2, type: u16, unit: °C, scale: 0.1, writable: true, note: 'Auto step mode systems (5, 7) only. Cooling 12 … 30 °C, heating and auto change over 17 … 28 °C, in 1 °C steps (a fraction is rounded down).'}
+  - {key: x.drive_on_off, label: Drive ON/OFF, table: holding, address: 3, type: u16, enum: off_on, writable: true, note: 'Auto step mode systems (5, 7) only.'}
+  - {key: x.error_code_hex_holding, label: Error code (hex), table: holding, address: 4, type: u16, poll: slow, note: Read only; as input register 6.}
+  - {key: x.error_code_holding, label: Error code (decimal), table: holding, address: 5, type: u16, enum: error_code, poll: slow, note: Read only; as input register 7.}
+  - {key: state, label: Step status, table: holding, address: 6, type: u16, enum: capacity_step, note: 'Read only. With intelligent multiple outdoor unit control: the capacity step of this interface''s share.'}
+  - {key: x.refrigerant_address_holding, label: Ref. address, table: holding, address: 7, type: u16, poll: slow}
+  - {key: x.comms_counter_holding, label: Modbus comms counter, table: holding, address: 8, type: u16}
+
+enums:
+  off_on: {'0': 'Off', '1': 'On'}
+  drive_mode: {'1': Heating, '3': Cooling, '7': Fan, '8': Auto change over}
+  capacity_step: {'0': 'Off', '1': Step 1 (minimum), '2': Step 2, '3': Step 3, '4': Step 4, '5': Step 5, '6': Step 6, '7': Step 7, '8': Step 8, '9': Step 9, '10': Step 10, '11': Step 11 (maximum), '12': Auto step mode}
+  error_code: {'8000': No error, '5101': P1, '5102': P2, '1503': P6 (freezing), '1504': P6 (overheating), '5103': P9, '6831': E0 or E4, '6834': E0 or E4, '6201': E1, '6202': E2, '6832': E3 or E5, '6833': E3 or E5, '6840': E6, '6843': E6, '6842': E7, '404': Fb, '1514': PL, '5111': PU, '7130': EE}
+
+flags:
+  external_outputs: {'0': 'OUT1: on/off', '1': 'OUT2: error', '2': 'OUT3: compressor', '3': 'OUT4: defrost', '4': 'OUT5: cooling mode', '5': 'OUT6: heating mode', '6': 'OUT7: self protection', '7': 'OUT8: predefrost'}
+
+problems:
+  - {when: {key: error_code, not: 8000}, kind: fault, text: 'Error {value} ({text})'}
+  - {when: {key: x.external_outputs, bit: 6}, kind: warning, text: Self protection active (OUT7)}
+
+notes:
+- Addresses are the 0-based protocol addresses the manual lists; its Modicon references (00001, 30001, 40001) are these +
+  1.
+- Modbus RTU on RS-485 (terminal TB63, no termination resistor on the board), up to 31 interfaces. Unit id 1 … 31, baud rate
+  (1200 … 57600), parity (odd, even, none) and stop bits (1 or 2) are set with DIP switches SW3 and SW4; all switches off
+  gives unit 1, 1200 baud, odd parity, 1 stop bit, which is the setting given under `connection`. The factory switch positions
+  are in the installation manual, not here.
+- 'What can be written depends on the system: in manual step mode (systems 1–4, 6) the controller sends the capacity step
+  (40001) and drive mode, and must not send setpoint or drive on/off; in auto step mode (systems 5, 7) it sends drive on/off,
+  drive mode and setpoint, and must not send a capacity request. Systems 6 and 7 are monitoring only.'
+- 'Poll regularly (10 s is recommended, at most 10 minutes apart): after 10 minutes without a query, drive on/off falls back
+  to the remote controller. Leave at least 1 minute between operation commands. The interface answers about 50 ms after a
+  request.'
+- 'Error codes: the manual''s Table 6 maps the Modbus code to the remote controller code; meanings are in the installation
+  manual.'
+- Port 502 is only for a Modbus TCP gateway on the RS-485 line; the manual names none.

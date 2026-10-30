@@ -1,0 +1,507 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Lambda Wärmepumpen Modbus Beschreibung und Protokoll (13.02.2025).
+
+modbusspec: 0
+id: lambda-eu-l
+manufacturer: Lambda
+name: EU-L Series
+kind: heat_pump
+
+sources:
+- title: Lambda Wärmepumpen Modbus Beschreibung und Protokoll
+  version: '2025-02-13'
+  url: https://lambda-wp.at/wp-content/uploads/2025/02/Modbus-Beschreibung-und-Protokoll.pdf
+  sha256: 61756ee9073e5570c089726abf3f6688e84b70b54ade5b5e66bf20f2f79d44c3
+  archive_url: https://web.archive.org/web/20251223131727/https://lambda-wp.at/wp-content/uploads/2025/02/Modbus-Beschreibung-und-Protokoll.pdf
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/charger/lambda-zewotherm.yaml
+- id: lambda-heat-pumps
+  title: lambda_heat_pumps (Home Assistant integration)
+  url: https://github.com/GuidoJeuken-6512/lambda_heat_pumps
+  license: MIT
+  commit: 5ad6cd0af293e02596306276341f1f2791104e5b
+  path: custom_components/lambda_heat_pumps/const_sensor.py, custom_components/lambda_heat_pumps/const_base.py, custom_components/lambda_heat_pumps/const_mapping.py
+- id: openhab
+  title: openHAB add-ons (Modbus bindings)
+  url: https://github.com/openhab/openhab-addons
+  license: EPL-2.0
+  commit: 391d63d8597d9b5b535ee83c85f557cad4fba2c7
+  path: bundles/org.openhab.binding.modbus.lambda/src/main/java/org/openhab/binding/modbus/lambda/internal/handler, bundles/org.openhab.binding.modbus.lambda/src/main/java/org/openhab/binding/modbus/lambda/internal/parser
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/consumers/lambda_/lambda_/consumer.py, packages/modules/smarthome/lambda_/watt.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # General: ambient (0 ff.)
+  - {key: x.ambient_error_number, label: Ambient error number, table: holding, address: 0, type: s16, note: 0 = no error.}
+  - {key: x.ambient_operating_state, label: Ambient operating state, table: holding, address: 1, type: u16, enum: main_ambient_operating_state}
+  - {key: x.ambient_temperature, label: Actual ambient temperature, table: holding, address: 2, type: s16, unit: °C, scale: 0.1, writable: true, min: -50, max: 80, note: Can be written when the Modbus client is set as the outdoor temperature source.}
+  - {key: x.ambient_temperature_1h, label: Average ambient temperature 1 h, table: holding, address: 3, type: s16, unit: °C, scale: 0.1}
+  - {key: x.ambient_temperature_calculated, label: Calculated ambient temperature, table: holding, address: 4, type: s16, unit: °C, scale: 0.1}
+  # General: E-Manager (100 ff.)
+  - {key: x.emgr_error_number, label: E-Manager error number, table: holding, address: 100, type: s16, note: 0 = no error.}
+  - {key: x.emgr_operating_state, label: E-Manager operating state, table: holding, address: 101, type: u16, enum: main_e_manager_operating_state}
+  - {key: x.setmaxpower_102, label: Actual power (input or excess), table: holding, address: 102, type: s16, unit: W, writable: true, note: 'Input power as UINT16 (0 … 65535 W) or excess power as INT16 (−32768 … 32767 W), by the E-Manager setting; signed taken. Used when the Modbus client is the PV surplus source; values written to registers 00 … 49 of a module must be refreshed within 5 min.', verified: false}
+  - {key: consumer_power, label: Actual power consumption, table: holding, address: 103, type: s16, unit: W, positive: consumption, note: All configured heat pumps together.}
+  - {key: x.emgr_power_consumption_setpoint, label: Power consumption setpoint, table: holding, address: 104, type: s16, unit: W, note: Sum for all heat pumps.}
+  # Heat pump 1 (1000 ff.; heat pump 2 at 1100, 3 at 1200)
+  - {key: x.hp1_error_state, label: Hp error state, table: holding, address: 1000, type: u16, enum: hp_error_state}
+  - {key: x.hp1_error_number, label: Hp error number, table: holding, address: 1001, type: s16, note: Cycles through all active error numbers (1 … 99).}
+  - {key: x.hp1_state, label: Hp state, table: holding, address: 1002, type: u16, enum: hp_state}
+  - {key: state, label: Operating state, table: holding, address: 1003, type: u16, enum: hp_operating_state}
+  - {key: x.hp1_flow_line_temperature, label: T-flow, table: holding, address: 1004, type: s16, unit: °C, scale: 0.01}
+  - {key: x.hp1_return_line_temperature, label: T-return, table: holding, address: 1005, type: s16, unit: °C, scale: 0.01}
+  - {key: x.hp1_volume_flow_heat_sink, label: Vol. sink, table: holding, address: 1006, type: s16, unit: l/min, scale: 0.01, conflicts: [{sources: [lambda-heat-pumps], unit: l/h, scale: 1, label: HP1 Volume Flow Heat Sink}]}
+  - {key: x.hp1_energy_source_inlet_temperature, label: T-EQin, table: holding, address: 1007, type: s16, unit: °C, scale: 0.01}
+  - {key: x.hp1_energy_source_outlet_temperature, label: T-EQout, table: holding, address: 1008, type: s16, unit: °C, scale: 0.01}
+  - {key: x.hp1_volume_flow_energy_source, label: Vol. source, table: holding, address: 1009, type: s16, unit: l/min, scale: 0.01}
+  - {key: x.hp1_compressor_unit_rating, label: Compressor-Rating, table: holding, address: 1010, type: u16, unit: '%', scale: 0.01}
+  - {key: x.hp1_actual_heating_capacity, label: Qp heating, table: holding, address: 1011, type: s16, unit: W, scale: 100}
+  - {key: x.power_1012, label: FI power consumption, table: holding, address: 1012, type: s16, unit: W, note: Power drawn by the frequency inverter of this heat pump.}
+  - {key: x.hp1_cop, label: COP, table: holding, address: 1013, type: s16, scale: 0.01, note: The document gives the unit as 0.01 %; read as a plain number × 0.01.}
+  - {key: x.heat_pump_request_password, label: Modbus request release password, table: holding, address: 1014, type: u16, writable: true, note: Releases the request registers 1015 … 1018; at most 10 tries.}
+  - {key: x.hp1_request_type, label: Request type, table: holding, address: 1015, type: s16, enum: hp_request_type, writable: true}
+  - {key: x.hp1_requested_flow_line_temperature, label: Request flow line temp, table: holding, address: 1016, type: s16, unit: °C, scale: 0.1, writable: true, min: 0, max: 70}
+  - {key: x.hp1_requested_return_line_temperature, label: Request return line temp, table: holding, address: 1017, type: s16, unit: °C, scale: 0.1, writable: true, min: 0, max: 65}
+  - {key: x.hp1_requested_flow_to_return_line_temperature_difference, label: Request heat sink temp. diff, table: holding, address: 1018, type: s16, unit: K, scale: 0.1, writable: true, min: 0, max: 35, conflicts: [{sources: [lambda-heat-pumps], unit: °C, label: HP1 Requested Flow to Return Line Temperature Difference}]}
+  - {key: x.hp1_relais_state_2nd_heating_stage, label: Relais state for 2nd heating stage, table: holding, address: 1019, type: s16, enum: hp_relais_state_2nd_heating_stage, note: 1 = the NO relay of the 2nd heating stage is on.}
+  - {key: consumer_energy, label: Statistic VdA E since last reset, table: holding, address: 1020, type: s32, unit: kWh, scale: 0.001, poll: slow, note: Electrical energy of the compressor unit since the last statistics reset (not lifetime). Word order not stated; high word first assumed., verified: false}
+  - {key: x.hp1_compressor_thermal_energy_output_accumulated, label: Statistic VdA Q since last reset, table: holding, address: 1022, type: s32, unit: kWh, scale: 0.001, poll: slow, note: Thermal energy of the compressor unit since the last statistics reset. Word order not stated; high word first assumed., verified: false}
+  # Boiler 1 (2000 ff.; up to 5, every 100)
+  - {key: x.boil1_error_number, label: Boiler error number, table: holding, address: 2000, type: s16, optional: true, note: 0 = no error.}
+  - {key: x.boil1_operating_state, label: Boiler operating state, table: holding, address: 2001, type: u16, enum: boil_operating_state, optional: true}
+  - {key: x.temp, label: Boiler actual high temp., table: holding, address: 2002, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.temp_2003, label: Boiler actual low temp., table: holding, address: 2003, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.limittemp, label: 'Set.: Maximum boiler temp.', table: holding, address: 2050, type: s16, unit: °C, scale: 0.1, writable: true, min: 25, max: 65, persistent: true, optional: true, poll: slow}
+  # Buffer 1 (3000 ff.; up to 5, every 100)
+  - {key: x.buff1_error_number, label: Buffer error number, table: holding, address: 3000, type: s16, optional: true, note: 0 = no error.}
+  - {key: x.buff1_operating_state, label: Buffer operating state, table: holding, address: 3001, type: u16, enum: buff_operating_state, optional: true}
+  - {key: x.temp_3002, label: Buffer actual high temp., table: holding, address: 3002, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.temp_3003, label: Buffer actual low temp., table: holding, address: 3003, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.buff1_buffer_temperature_high_setpoint, label: Modbus buffer temp. high, table: holding, address: 3004, type: s16, unit: °C, scale: 0.1, writable: true, min: 0, max: 90, optional: true, note: Buffer temperature supplied over Modbus.}
+  - {key: x.buff1_request_type, label: Buffer request type, table: holding, address: 3005, type: s16, enum: buff_request_type, writable: true, optional: true, note: −1 ends a Modbus request at once.}
+  - {key: x.buff1_request_flow_line_temp_setpoint, label: Request flow line temp. setpoint, table: holding, address: 3006, type: s16, unit: °C, scale: 0.1, writable: true, min: 0, max: 65, optional: true, note: A valid value is required.}
+  - {key: x.buff1_request_return_line_temp_setpoint, label: Request return line temp. setpoint, table: holding, address: 3007, type: s16, unit: °C, scale: 0.1, writable: true, min: 0, max: 60, optional: true, note: A valid value is required.}
+  - {key: x.buff1_request_heat_sink_temp_diff_setpoint, label: Request heat sink temp. diff setpoint, table: holding, address: 3008, type: s16, unit: K, scale: 0.1, writable: true, min: 0, max: 35, optional: true, note: A valid value is required.}
+  - {key: x.buff1_modbus_request_heating_capacity, label: Modbus request heating capacity, table: holding, address: 3009, type: s16, unit: W, scale: 100, writable: true, min: 0, max: 25500, optional: true, note: Optional.}
+  - {key: x.limittemp_3050, label: 'Set.: Maximum buffer temp.', table: holding, address: 3050, type: s16, unit: °C, scale: 0.1, writable: true, min: 25, max: 65, persistent: true, optional: true, poll: slow}
+  # Solar 1 (4000 ff.; up to 2, every 100)
+  - {key: x.sol1_error_number, label: Solar error number, table: holding, address: 4000, type: s16, optional: true, note: 0 = no error.}
+  - {key: x.sol1_operating_state, label: Solar operating state, table: holding, address: 4001, type: u16, enum: sol_operating_state, optional: true}
+  - {key: x.sol1_collector_temperature, label: Collector temp., table: holding, address: 4002, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.sol1_storage_temperature, label: Buffer 1 temp., table: holding, address: 4003, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.sol1_buffer2_temperature, label: Buffer 2 temp., table: holding, address: 4004, type: s16, unit: °C, scale: 0.1, optional: true, conflicts: [{sources: [lambda-heat-pumps], unit: W, scale: 100, label: SOL1 Power Current}]}
+  - {key: x.sol1_maximum_buffer_temperature, label: 'Set.: Maximum buffer temp.', table: holding, address: 4050, type: s16, unit: °C, scale: 0.1, writable: true, min: 25, max: 90, persistent: true, optional: true, poll: slow}
+  - {key: x.sol1_buffer_changeover_temperature, label: 'Set.: Buffer changeover temp.', table: holding, address: 4051, type: s16, unit: °C, scale: 0.1, writable: true, min: 25, max: 90, persistent: true, optional: true, poll: slow}
+  # Heating circuit 1 (5000 ff.; up to 12, every 100)
+  - {key: x.hc1_error_number, label: Heating circuit error number, table: holding, address: 5000, type: s16, optional: true, note: 0 = no error.}
+  - {key: x.hc1_operating_state, label: Heating circuit operating state, table: holding, address: 5001, type: u16, enum: hc_operating_state, optional: true}
+  - {key: x.hc1_flow_line_temperature, label: Flow line temp., table: holding, address: 5002, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.hc1_return_line_temperature, label: Return line temp., table: holding, address: 5003, type: s16, unit: °C, scale: 0.1, optional: true}
+  - {key: x.hc1_room_device_temperature, label: Room device temp., table: holding, address: 5004, type: s16, unit: °C, scale: 0.1, writable: true, min: -29.9, max: 99.9, optional: true, note: Can be written when the Modbus client is the room sensor source.}
+  - {key: x.hc1_set_flow_line_temperature, label: Setpoint flow line temp., table: holding, address: 5005, type: s16, unit: °C, scale: 0.1, writable: true, min: 15, max: 65, optional: true}
+  - {key: x.hc1_operating_mode, label: Operating mode, table: holding, address: 5006, type: s16, enum: hc_operating_mode, writable: true, optional: true, note: Manual (1) and floor-dry (7) can only be read.}
+  - {key: x.hc1_set_flow_line_offset_temperature, label: 'Set.: Offset flow line temp. setpoint', table: holding, address: 5050, type: s16, unit: K, scale: 0.1, writable: true, min: -10, max: 10, persistent: true, optional: true, poll: slow, conflicts: [{sources: [lambda-heat-pumps, openhab], unit: °C, label: HC1 Set Flow Line Offset Temperature}]}
+  - {key: x.hc1_target_room_temperature, label: 'Set.: Setpoint room heating temp.', table: holding, address: 5051, type: s16, unit: °C, scale: 0.1, writable: true, min: 15, max: 40, persistent: true, optional: true, poll: slow}
+  - {key: x.hc1_set_cooling_mode_room_temperature, label: 'Set.: Setpoint room cooling temp.', table: holding, address: 5052, type: s16, unit: °C, scale: 0.1, writable: true, min: 15, max: 40, persistent: true, optional: true, poll: slow}
+  - {key: x.hp1_config_parameter_24, label: HP1 Unknown Parameter (R1024), table: holding, address: 1024, type: u16, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_vda_rating, label: HP1 VdA Rating, table: holding, address: 1025, type: u16, unit: '%', scale: 0.01, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_hot_gas_temperature, label: HP1 Hot Gas Temperature, table: holding, address: 1026, type: s16, unit: °C, scale: 0.01, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_subcooling_temperature, label: HP1 Subcooling Temperature, table: holding, address: 1027, type: s16, unit: °C, scale: 0.01, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_suction_gas_temperature, label: HP1 Suction Gas Temperature, table: holding, address: 1028, type: s16, unit: °C, scale: 0.01, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_condensation_temperature, label: HP1 Condensation Temperature, table: holding, address: 1029, type: s16, unit: °C, scale: 0.01, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_evaporation_temperature, label: HP1 Evaporation Temperature, table: holding, address: 1030, type: s16, unit: °C, scale: 0.01, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_eqm_rating, label: HP1 EqM Rating, table: holding, address: 1031, type: u16, unit: '%', scale: 0.01, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_expansion_valve_opening_angle, label: HP1 Expansion Valve Opening Angle, table: holding, address: 1032, type: u16, unit: '%', scale: 0.01, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_config_parameter_33, label: HP1 Unknown Parameter (R1033), table: holding, address: 1033, type: u16, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_config_parameter_50, label: HP1 Unknown Parameter (R1050), table: holding, address: 1050, type: u16, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_dhw_output_power_15c, label: HP1 DHW Output Power at 15°C, table: holding, address: 1051, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_heating_min_output_power_15c, label: HP1 Heating Min Output Power at 15°C, table: holding, address: 1052, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_heating_max_output_power_15c, label: HP1 Heating Max Output Power at 15°C, table: holding, address: 1053, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_heating_min_output_power_0c, label: HP1 Heating Min Output Power at 0°C, table: holding, address: 1054, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_heating_max_output_power_0c, label: HP1 Heating Max Output Power at 0°C, table: holding, address: 1055, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_heating_min_output_power_minus15c, label: HP1 Heating Min Output Power at -15°C, table: holding, address: 1056, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_heating_max_output_power_minus15c, label: HP1 Heating Max Output Power at -15°C, table: holding, address: 1057, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_cooling_min_output_power, label: HP1 Cooling Min Output Power, table: holding, address: 1058, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_cooling_max_output_power, label: HP1 Cooling Max Output Power, table: holding, address: 1059, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp1_config_parameter_60, label: HP1 Unknown Parameter (R1060), table: holding, address: 1060, type: u16, note: Heat pump 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_error_state, label: HP2 Error State, table: holding, address: 1100, type: u16, enum: evcc_hp_error_state, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_error_number, label: HP2 Error Number, table: holding, address: 1101, type: s16, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_state, label: HP2 State, table: holding, address: 1102, type: u16, enum: evcc_hp_state, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_operating_state, label: HP2 Operating State, table: holding, address: 1103, type: u16, enum: evcc_hp_operating_state, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_flow_line_temperature, label: HP2 Flow Line Temperature, table: holding, address: 1104, type: s16, unit: °C, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_return_line_temperature, label: HP2 Return Line Temperature, table: holding, address: 1105, type: s16, unit: °C, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_volume_flow_heat_sink, label: HP2 Volume Flow Heat Sink, table: holding, address: 1106, type: s16, unit: l/h, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_energy_source_inlet_temperature, label: HP2 Energy Source Inlet Temperature, table: holding, address: 1107, type: s16, unit: °C, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_energy_source_outlet_temperature, label: HP2 Energy Source Outlet Temperature, table: holding, address: 1108, type: s16, unit: °C, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_volume_flow_energy_source, label: HP2 Volume Flow Energy Source, table: holding, address: 1109, type: s16, unit: l/min, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_compressor_unit_rating, label: HP2 Compressor Unit Rating, table: holding, address: 1110, type: u16, unit: '%', scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_actual_heating_capacity, label: HP2 Actual Heating Capacity, table: holding, address: 1111, type: s16, unit: W, scale: 100, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_inverter_power_consumption, label: HP2 Inverter Power Consumption, table: holding, address: 1112, type: s16, unit: W, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_cop, label: HP2 COP, table: holding, address: 1113, type: s16, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_request_type, label: HP2 Request-Type, table: holding, address: 1115, type: s16, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_requested_flow_line_temperature, label: HP2 Requested Flow Line Temperature, table: holding, address: 1116, type: s16, unit: °C, scale: 0.1, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_requested_return_line_temperature, label: HP2 Requested Return Line Temperature, table: holding, address: 1117, type: s16, unit: °C, scale: 0.1, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_requested_flow_to_return_line_temperature_difference, label: HP2 Requested Flow to Return Line Temperature Difference, table: holding, address: 1118, type: s16, unit: °C, scale: 0.1, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_relais_state_2nd_heating_stage, label: HP2 Relais State 2nd Heating Stage, table: holding, address: 1119, type: s16, enum: hp_relais_state_2nd_heating_stage, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_compressor_power_consumption_accumulated, label: HP2 Compressor Power Consumption Accumulated, table: holding, address: 1120, type: s32, unit: kWh, scale: 0.001, note: Heat pump 2. Word order depends on the firmware (see device notes)., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_compressor_thermal_energy_output_accumulated, label: HP2 Compressor Thermal Energy Output Accumulated, table: holding, address: 1122, type: s32, unit: kWh, scale: 0.001, note: Heat pump 2. Word order depends on the firmware (see device notes)., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_config_parameter_24, label: HP2 Unknown Parameter (R1024), table: holding, address: 1124, type: u16, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_vda_rating, label: HP2 VdA Rating, table: holding, address: 1125, type: u16, unit: '%', scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_hot_gas_temperature, label: HP2 Hot Gas Temperature, table: holding, address: 1126, type: s16, unit: °C, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_subcooling_temperature, label: HP2 Subcooling Temperature, table: holding, address: 1127, type: s16, unit: °C, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_suction_gas_temperature, label: HP2 Suction Gas Temperature, table: holding, address: 1128, type: s16, unit: °C, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_condensation_temperature, label: HP2 Condensation Temperature, table: holding, address: 1129, type: s16, unit: °C, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_evaporation_temperature, label: HP2 Evaporation Temperature, table: holding, address: 1130, type: s16, unit: °C, scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_eqm_rating, label: HP2 EqM Rating, table: holding, address: 1131, type: u16, unit: '%', scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_expansion_valve_opening_angle, label: HP2 Expansion Valve Opening Angle, table: holding, address: 1132, type: u16, unit: '%', scale: 0.01, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_config_parameter_33, label: HP2 Unknown Parameter (R1033), table: holding, address: 1133, type: u16, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_config_parameter_50, label: HP2 Unknown Parameter (R1050), table: holding, address: 1150, type: u16, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_dhw_output_power_15c, label: HP2 DHW Output Power at 15°C, table: holding, address: 1151, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_heating_min_output_power_15c, label: HP2 Heating Min Output Power at 15°C, table: holding, address: 1152, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_heating_max_output_power_15c, label: HP2 Heating Max Output Power at 15°C, table: holding, address: 1153, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_heating_min_output_power_0c, label: HP2 Heating Min Output Power at 0°C, table: holding, address: 1154, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_heating_max_output_power_0c, label: HP2 Heating Max Output Power at 0°C, table: holding, address: 1155, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_heating_min_output_power_minus15c, label: HP2 Heating Min Output Power at -15°C, table: holding, address: 1156, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_heating_max_output_power_minus15c, label: HP2 Heating Max Output Power at -15°C, table: holding, address: 1157, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_cooling_min_output_power, label: HP2 Cooling Min Output Power, table: holding, address: 1158, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_cooling_max_output_power, label: HP2 Cooling Max Output Power, table: holding, address: 1159, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp2_config_parameter_60, label: HP2 Unknown Parameter (R1060), table: holding, address: 1160, type: u16, note: Heat pump 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_error_state, label: HP3 Error State, table: holding, address: 1200, type: u16, enum: evcc_hp_error_state, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_error_number, label: HP3 Error Number, table: holding, address: 1201, type: s16, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_state, label: HP3 State, table: holding, address: 1202, type: u16, enum: evcc_hp_state, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_operating_state, label: HP3 Operating State, table: holding, address: 1203, type: u16, enum: evcc_hp_operating_state, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_flow_line_temperature, label: HP3 Flow Line Temperature, table: holding, address: 1204, type: s16, unit: °C, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_return_line_temperature, label: HP3 Return Line Temperature, table: holding, address: 1205, type: s16, unit: °C, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_volume_flow_heat_sink, label: HP3 Volume Flow Heat Sink, table: holding, address: 1206, type: s16, unit: l/h, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_energy_source_inlet_temperature, label: HP3 Energy Source Inlet Temperature, table: holding, address: 1207, type: s16, unit: °C, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_energy_source_outlet_temperature, label: HP3 Energy Source Outlet Temperature, table: holding, address: 1208, type: s16, unit: °C, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_volume_flow_energy_source, label: HP3 Volume Flow Energy Source, table: holding, address: 1209, type: s16, unit: l/min, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_compressor_unit_rating, label: HP3 Compressor Unit Rating, table: holding, address: 1210, type: u16, unit: '%', scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_actual_heating_capacity, label: HP3 Actual Heating Capacity, table: holding, address: 1211, type: s16, unit: W, scale: 100, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_inverter_power_consumption, label: HP3 Inverter Power Consumption, table: holding, address: 1212, type: s16, unit: W, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_cop, label: HP3 COP, table: holding, address: 1213, type: s16, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_request_type, label: HP3 Request-Type, table: holding, address: 1215, type: s16, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_requested_flow_line_temperature, label: HP3 Requested Flow Line Temperature, table: holding, address: 1216, type: s16, unit: °C, scale: 0.1, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_requested_return_line_temperature, label: HP3 Requested Return Line Temperature, table: holding, address: 1217, type: s16, unit: °C, scale: 0.1, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_requested_flow_to_return_line_temperature_difference, label: HP3 Requested Flow to Return Line Temperature Difference, table: holding, address: 1218, type: s16, unit: °C, scale: 0.1, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_relais_state_2nd_heating_stage, label: HP3 Relais State 2nd Heating Stage, table: holding, address: 1219, type: s16, enum: hp_relais_state_2nd_heating_stage, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_compressor_power_consumption_accumulated, label: HP3 Compressor Power Consumption Accumulated, table: holding, address: 1220, type: s32, unit: kWh, scale: 0.001, note: Heat pump 3. Word order depends on the firmware (see device notes)., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_compressor_thermal_energy_output_accumulated, label: HP3 Compressor Thermal Energy Output Accumulated, table: holding, address: 1222, type: s32, unit: kWh, scale: 0.001, note: Heat pump 3. Word order depends on the firmware (see device notes)., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_config_parameter_24, label: HP3 Unknown Parameter (R1024), table: holding, address: 1224, type: u16, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_vda_rating, label: HP3 VdA Rating, table: holding, address: 1225, type: u16, unit: '%', scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_hot_gas_temperature, label: HP3 Hot Gas Temperature, table: holding, address: 1226, type: s16, unit: °C, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_subcooling_temperature, label: HP3 Subcooling Temperature, table: holding, address: 1227, type: s16, unit: °C, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_suction_gas_temperature, label: HP3 Suction Gas Temperature, table: holding, address: 1228, type: s16, unit: °C, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_condensation_temperature, label: HP3 Condensation Temperature, table: holding, address: 1229, type: s16, unit: °C, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_evaporation_temperature, label: HP3 Evaporation Temperature, table: holding, address: 1230, type: s16, unit: °C, scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_eqm_rating, label: HP3 EqM Rating, table: holding, address: 1231, type: u16, unit: '%', scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_expansion_valve_opening_angle, label: HP3 Expansion Valve Opening Angle, table: holding, address: 1232, type: u16, unit: '%', scale: 0.01, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_config_parameter_33, label: HP3 Unknown Parameter (R1033), table: holding, address: 1233, type: u16, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_config_parameter_50, label: HP3 Unknown Parameter (R1050), table: holding, address: 1250, type: u16, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_dhw_output_power_15c, label: HP3 DHW Output Power at 15°C, table: holding, address: 1251, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_heating_min_output_power_15c, label: HP3 Heating Min Output Power at 15°C, table: holding, address: 1252, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_heating_max_output_power_15c, label: HP3 Heating Max Output Power at 15°C, table: holding, address: 1253, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_heating_min_output_power_0c, label: HP3 Heating Min Output Power at 0°C, table: holding, address: 1254, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_heating_max_output_power_0c, label: HP3 Heating Max Output Power at 0°C, table: holding, address: 1255, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_heating_min_output_power_minus15c, label: HP3 Heating Min Output Power at -15°C, table: holding, address: 1256, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_heating_max_output_power_minus15c, label: HP3 Heating Max Output Power at -15°C, table: holding, address: 1257, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_cooling_min_output_power, label: HP3 Cooling Min Output Power, table: holding, address: 1258, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_cooling_max_output_power, label: HP3 Cooling Max Output Power, table: holding, address: 1259, type: u16, unit: W, scale: 100, writable: true, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hp3_config_parameter_60, label: HP3 Unknown Parameter (R1060), table: holding, address: 1260, type: u16, note: Heat pump 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil1_actual_circulation_temperature, label: BOIL1 Actual Circulation Temperature, table: holding, address: 2004, type: s16, unit: °C, scale: 0.1, note: Boiler 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil1_actual_circulation_pump_state, label: BOIL1 Circulation Pump State, table: holding, address: 2005, type: s16, enum: boil_circulation_pump_state, note: Boiler 1., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil2_error_number, label: BOIL2 Error Number, table: holding, address: 2100, type: s16, note: Boiler 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil2_operating_state, label: BOIL2 Operating State, table: holding, address: 2101, type: u16, enum: evcc_boil_operating_state, note: Boiler 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil2_actual_high_temperature, label: BOIL2 Actual High Temperature, table: holding, address: 2102, type: s16, unit: °C, scale: 0.1, note: Boiler 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil2_actual_low_temperature, label: BOIL2 Actual Low Temperature, table: holding, address: 2103, type: s16, unit: °C, scale: 0.1, note: Boiler 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil2_actual_circulation_temperature, label: BOIL2 Actual Circulation Temperature, table: holding, address: 2104, type: s16, unit: °C, scale: 0.1, note: Boiler 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil2_actual_circulation_pump_state, label: BOIL2 Circulation Pump State, table: holding, address: 2105, type: s16, enum: boil_circulation_pump_state, note: Boiler 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil2_target_high_temperature, label: BOIL2 Target High Temperature, table: holding, address: 2150, type: s16, unit: °C, scale: 0.1, writable: true, note: Boiler 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil3_error_number, label: BOIL3 Error Number, table: holding, address: 2200, type: s16, note: Boiler 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil3_operating_state, label: BOIL3 Operating State, table: holding, address: 2201, type: u16, enum: evcc_boil_operating_state, note: Boiler 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil3_actual_high_temperature, label: BOIL3 Actual High Temperature, table: holding, address: 2202, type: s16, unit: °C, scale: 0.1, note: Boiler 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil3_actual_low_temperature, label: BOIL3 Actual Low Temperature, table: holding, address: 2203, type: s16, unit: °C, scale: 0.1, note: Boiler 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil3_actual_circulation_temperature, label: BOIL3 Actual Circulation Temperature, table: holding, address: 2204, type: s16, unit: °C, scale: 0.1, note: Boiler 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil3_actual_circulation_pump_state, label: BOIL3 Circulation Pump State, table: holding, address: 2205, type: s16, enum: boil_circulation_pump_state, note: Boiler 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil3_target_high_temperature, label: BOIL3 Target High Temperature, table: holding, address: 2250, type: s16, unit: °C, scale: 0.1, writable: true, note: Boiler 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil4_error_number, label: BOIL4 Error Number, table: holding, address: 2300, type: s16, note: Boiler 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil4_operating_state, label: BOIL4 Operating State, table: holding, address: 2301, type: u16, enum: evcc_boil_operating_state, note: Boiler 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil4_actual_high_temperature, label: BOIL4 Actual High Temperature, table: holding, address: 2302, type: s16, unit: °C, scale: 0.1, note: Boiler 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil4_actual_low_temperature, label: BOIL4 Actual Low Temperature, table: holding, address: 2303, type: s16, unit: °C, scale: 0.1, note: Boiler 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil4_actual_circulation_temperature, label: BOIL4 Actual Circulation Temperature, table: holding, address: 2304, type: s16, unit: °C, scale: 0.1, note: Boiler 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil4_actual_circulation_pump_state, label: BOIL4 Circulation Pump State, table: holding, address: 2305, type: s16, enum: boil_circulation_pump_state, note: Boiler 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil4_target_high_temperature, label: BOIL4 Target High Temperature, table: holding, address: 2350, type: s16, unit: °C, scale: 0.1, writable: true, note: Boiler 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil5_error_number, label: BOIL5 Error Number, table: holding, address: 2400, type: s16, note: Boiler 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil5_operating_state, label: BOIL5 Operating State, table: holding, address: 2401, type: u16, enum: evcc_boil_operating_state, note: Boiler 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil5_actual_high_temperature, label: BOIL5 Actual High Temperature, table: holding, address: 2402, type: s16, unit: °C, scale: 0.1, note: Boiler 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil5_actual_low_temperature, label: BOIL5 Actual Low Temperature, table: holding, address: 2403, type: s16, unit: °C, scale: 0.1, note: Boiler 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil5_actual_circulation_temperature, label: BOIL5 Actual Circulation Temperature, table: holding, address: 2404, type: s16, unit: °C, scale: 0.1, note: Boiler 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil5_actual_circulation_pump_state, label: BOIL5 Circulation Pump State, table: holding, address: 2405, type: s16, enum: boil_circulation_pump_state, note: Boiler 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.boil5_target_high_temperature, label: BOIL5 Target High Temperature, table: holding, address: 2450, type: s16, unit: °C, scale: 0.1, writable: true, note: Boiler 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_error_number, label: BUFF2 Error Number, table: holding, address: 3100, type: s16, note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_operating_state, label: BUFF2 Operating State, table: holding, address: 3101, type: u16, enum: evcc_buff_operating_state, note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_actual_high_temperature, label: BUFF2 Actual High Temperature, table: holding, address: 3102, type: s16, unit: °C, scale: 0.1, note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_actual_low_temperature, label: BUFF2 Actual Low Temperature, table: holding, address: 3103, type: s16, unit: °C, scale: 0.1, note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_buffer_temperature_high_setpoint, label: BUFF2 Buffer High Temperature Setpoint, table: holding, address: 3104, type: s16, unit: °C, scale: 0.1, writable: true, note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_request_type, label: BUFF2 Request Type, table: holding, address: 3105, type: s16, enum: evcc_buff_request_type, invalid: [-1], note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_request_flow_line_temp_setpoint, label: BUFF2 Flow Line Temperature Setpoint, table: holding, address: 3106, type: s16, unit: °C, scale: 0.1, invalid: [-1], note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_request_return_line_temp_setpoint, label: BUFF2 Return Line Temperature Setpoint, table: holding, address: 3107, type: s16, unit: °C, scale: 0.1, invalid: [-1], note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_request_heat_sink_temp_diff_setpoint, label: BUFF2 Heat Sink Temperature Difference Setpoint, table: holding, address: 3108, type: s16, unit: K, scale: 0.1, invalid: [-1], note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_modbus_request_heating_capacity, label: BUFF2 Requested Heating Capacity, table: holding, address: 3109, type: s16, unit: W, scale: 100, invalid: [-1], note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff2_maximum_buffer_temp, label: BUFF2 Maximum Temperature, table: holding, address: 3150, type: s16, unit: °C, scale: 0.1, writable: true, note: Buffer 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_error_number, label: BUFF3 Error Number, table: holding, address: 3200, type: s16, note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_operating_state, label: BUFF3 Operating State, table: holding, address: 3201, type: u16, enum: evcc_buff_operating_state, note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_actual_high_temperature, label: BUFF3 Actual High Temperature, table: holding, address: 3202, type: s16, unit: °C, scale: 0.1, note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_actual_low_temperature, label: BUFF3 Actual Low Temperature, table: holding, address: 3203, type: s16, unit: °C, scale: 0.1, note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_buffer_temperature_high_setpoint, label: BUFF3 Buffer High Temperature Setpoint, table: holding, address: 3204, type: s16, unit: °C, scale: 0.1, writable: true, note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_request_type, label: BUFF3 Request Type, table: holding, address: 3205, type: s16, enum: evcc_buff_request_type, invalid: [-1], note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_request_flow_line_temp_setpoint, label: BUFF3 Flow Line Temperature Setpoint, table: holding, address: 3206, type: s16, unit: °C, scale: 0.1, invalid: [-1], note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_request_return_line_temp_setpoint, label: BUFF3 Return Line Temperature Setpoint, table: holding, address: 3207, type: s16, unit: °C, scale: 0.1, invalid: [-1], note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_request_heat_sink_temp_diff_setpoint, label: BUFF3 Heat Sink Temperature Difference Setpoint, table: holding, address: 3208, type: s16, unit: K, scale: 0.1, invalid: [-1], note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_modbus_request_heating_capacity, label: BUFF3 Requested Heating Capacity, table: holding, address: 3209, type: s16, unit: W, scale: 100, invalid: [-1], note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff3_maximum_buffer_temp, label: BUFF3 Maximum Temperature, table: holding, address: 3250, type: s16, unit: °C, scale: 0.1, writable: true, note: Buffer 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_error_number, label: BUFF4 Error Number, table: holding, address: 3300, type: s16, note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_operating_state, label: BUFF4 Operating State, table: holding, address: 3301, type: u16, enum: evcc_buff_operating_state, note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_actual_high_temperature, label: BUFF4 Actual High Temperature, table: holding, address: 3302, type: s16, unit: °C, scale: 0.1, note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_actual_low_temperature, label: BUFF4 Actual Low Temperature, table: holding, address: 3303, type: s16, unit: °C, scale: 0.1, note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_buffer_temperature_high_setpoint, label: BUFF4 Buffer High Temperature Setpoint, table: holding, address: 3304, type: s16, unit: °C, scale: 0.1, writable: true, note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_request_type, label: BUFF4 Request Type, table: holding, address: 3305, type: s16, enum: evcc_buff_request_type, invalid: [-1], note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_request_flow_line_temp_setpoint, label: BUFF4 Flow Line Temperature Setpoint, table: holding, address: 3306, type: s16, unit: °C, scale: 0.1, invalid: [-1], note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_request_return_line_temp_setpoint, label: BUFF4 Return Line Temperature Setpoint, table: holding, address: 3307, type: s16, unit: °C, scale: 0.1, invalid: [-1], note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_request_heat_sink_temp_diff_setpoint, label: BUFF4 Heat Sink Temperature Difference Setpoint, table: holding, address: 3308, type: s16, unit: K, scale: 0.1, invalid: [-1], note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_modbus_request_heating_capacity, label: BUFF4 Requested Heating Capacity, table: holding, address: 3309, type: s16, unit: W, scale: 100, invalid: [-1], note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff4_maximum_buffer_temp, label: BUFF4 Maximum Temperature, table: holding, address: 3350, type: s16, unit: °C, scale: 0.1, writable: true, note: Buffer 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_error_number, label: BUFF5 Error Number, table: holding, address: 3400, type: s16, note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_operating_state, label: BUFF5 Operating State, table: holding, address: 3401, type: u16, enum: evcc_buff_operating_state, note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_actual_high_temperature, label: BUFF5 Actual High Temperature, table: holding, address: 3402, type: s16, unit: °C, scale: 0.1, note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_actual_low_temperature, label: BUFF5 Actual Low Temperature, table: holding, address: 3403, type: s16, unit: °C, scale: 0.1, note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_buffer_temperature_high_setpoint, label: BUFF5 Buffer High Temperature Setpoint, table: holding, address: 3404, type: s16, unit: °C, scale: 0.1, writable: true, note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_request_type, label: BUFF5 Request Type, table: holding, address: 3405, type: s16, enum: evcc_buff_request_type, invalid: [-1], note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_request_flow_line_temp_setpoint, label: BUFF5 Flow Line Temperature Setpoint, table: holding, address: 3406, type: s16, unit: °C, scale: 0.1, invalid: [-1], note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_request_return_line_temp_setpoint, label: BUFF5 Return Line Temperature Setpoint, table: holding, address: 3407, type: s16, unit: °C, scale: 0.1, invalid: [-1], note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_request_heat_sink_temp_diff_setpoint, label: BUFF5 Heat Sink Temperature Difference Setpoint, table: holding, address: 3408, type: s16, unit: K, scale: 0.1, invalid: [-1], note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_modbus_request_heating_capacity, label: BUFF5 Requested Heating Capacity, table: holding, address: 3409, type: s16, unit: W, scale: 100, invalid: [-1], note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.buff5_maximum_buffer_temp, label: BUFF5 Maximum Temperature, table: holding, address: 3450, type: s16, unit: °C, scale: 0.1, writable: true, note: Buffer 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.sol1_energy_total, label: SOL1 Energy Total, table: holding, address: 4005, type: s32, unit: kWh, note: Solar 1. Word order depends on the firmware (see device notes)., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.sol2_error_number, label: SOL2 Error Number, table: holding, address: 4100, type: s16, note: Solar 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.sol2_operating_state, label: SOL2 Operating State, table: holding, address: 4101, type: u16, enum: evcc_sol_operating_state, note: Solar 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.sol2_collector_temperature, label: SOL2 Collector Temperature, table: holding, address: 4102, type: s16, unit: °C, scale: 0.1, note: Solar 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.sol2_storage_temperature, label: SOL2 Storage Temperature, table: holding, address: 4103, type: s16, unit: °C, scale: 0.1, note: Solar 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.sol2_power_current, label: SOL2 Power Current, table: holding, address: 4104, type: s16, unit: W, scale: 100, note: Solar 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.sol2_energy_total, label: SOL2 Energy Total, table: holding, address: 4105, type: s32, unit: kWh, note: Solar 2. Word order depends on the firmware (see device notes)., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.sol2_maximum_buffer_temperature, label: SOL2 Maximum Buffer Temperature, table: holding, address: 4150, type: s16, unit: °C, scale: 0.1, writable: true, note: Solar 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.sol2_buffer_changeover_temperature, label: SOL2 Buffer Changeover Temperature, table: holding, address: 4151, type: s16, unit: °C, scale: 0.1, writable: true, note: Solar 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc1_flow_line_temperature_setpoint, label: HC1 Flow Line Temperature Setpoint, table: holding, address: 5007, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 1., sources: [lambda-heat-pumps, openhab], verified: false}
+  - {key: x.hc2_error_number, label: HC2 Error Number, table: holding, address: 5100, type: s16, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_operating_state, label: HC2 Operating State, table: holding, address: 5101, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_flow_line_temperature, label: HC2 Flow Line Temperature, table: holding, address: 5102, type: s16, unit: °C, scale: 0.1, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_return_line_temperature, label: HC2 Return Line Temperature, table: holding, address: 5103, type: s16, unit: °C, scale: 0.1, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_room_device_temperature, label: HC2 Room Device Temperature, table: holding, address: 5104, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_set_flow_line_temperature, label: HC2 Set Flow Line Temperature, table: holding, address: 5105, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_operating_mode, label: HC2 Operating Mode, table: holding, address: 5106, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_flow_line_temperature_setpoint, label: HC2 Flow Line Temperature Setpoint, table: holding, address: 5107, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_set_flow_line_offset_temperature, label: HC2 Set Flow Line Offset Temperature, table: holding, address: 5150, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_target_room_temperature, label: HC2 Target Room Temperature, table: holding, address: 5151, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc2_set_cooling_mode_room_temperature, label: HC2 Set Cooling Mode Room Temperature, table: holding, address: 5152, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 2., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_error_number, label: HC3 Error Number, table: holding, address: 5200, type: s16, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_operating_state, label: HC3 Operating State, table: holding, address: 5201, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_flow_line_temperature, label: HC3 Flow Line Temperature, table: holding, address: 5202, type: s16, unit: °C, scale: 0.1, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_return_line_temperature, label: HC3 Return Line Temperature, table: holding, address: 5203, type: s16, unit: °C, scale: 0.1, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_room_device_temperature, label: HC3 Room Device Temperature, table: holding, address: 5204, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_set_flow_line_temperature, label: HC3 Set Flow Line Temperature, table: holding, address: 5205, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_operating_mode, label: HC3 Operating Mode, table: holding, address: 5206, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_flow_line_temperature_setpoint, label: HC3 Flow Line Temperature Setpoint, table: holding, address: 5207, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_set_flow_line_offset_temperature, label: HC3 Set Flow Line Offset Temperature, table: holding, address: 5250, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_target_room_temperature, label: HC3 Target Room Temperature, table: holding, address: 5251, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc3_set_cooling_mode_room_temperature, label: HC3 Set Cooling Mode Room Temperature, table: holding, address: 5252, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 3., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_error_number, label: HC4 Error Number, table: holding, address: 5300, type: s16, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_operating_state, label: HC4 Operating State, table: holding, address: 5301, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_flow_line_temperature, label: HC4 Flow Line Temperature, table: holding, address: 5302, type: s16, unit: °C, scale: 0.1, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_return_line_temperature, label: HC4 Return Line Temperature, table: holding, address: 5303, type: s16, unit: °C, scale: 0.1, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_room_device_temperature, label: HC4 Room Device Temperature, table: holding, address: 5304, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_set_flow_line_temperature, label: HC4 Set Flow Line Temperature, table: holding, address: 5305, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_operating_mode, label: HC4 Operating Mode, table: holding, address: 5306, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_flow_line_temperature_setpoint, label: HC4 Flow Line Temperature Setpoint, table: holding, address: 5307, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_set_flow_line_offset_temperature, label: HC4 Set Flow Line Offset Temperature, table: holding, address: 5350, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_target_room_temperature, label: HC4 Target Room Temperature, table: holding, address: 5351, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc4_set_cooling_mode_room_temperature, label: HC4 Set Cooling Mode Room Temperature, table: holding, address: 5352, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 4., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_error_number, label: HC5 Error Number, table: holding, address: 5400, type: s16, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_operating_state, label: HC5 Operating State, table: holding, address: 5401, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_flow_line_temperature, label: HC5 Flow Line Temperature, table: holding, address: 5402, type: s16, unit: °C, scale: 0.1, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_return_line_temperature, label: HC5 Return Line Temperature, table: holding, address: 5403, type: s16, unit: °C, scale: 0.1, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_room_device_temperature, label: HC5 Room Device Temperature, table: holding, address: 5404, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_set_flow_line_temperature, label: HC5 Set Flow Line Temperature, table: holding, address: 5405, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_operating_mode, label: HC5 Operating Mode, table: holding, address: 5406, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_flow_line_temperature_setpoint, label: HC5 Flow Line Temperature Setpoint, table: holding, address: 5407, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_set_flow_line_offset_temperature, label: HC5 Set Flow Line Offset Temperature, table: holding, address: 5450, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_target_room_temperature, label: HC5 Target Room Temperature, table: holding, address: 5451, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc5_set_cooling_mode_room_temperature, label: HC5 Set Cooling Mode Room Temperature, table: holding, address: 5452, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 5., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_error_number, label: HC6 Error Number, table: holding, address: 5500, type: s16, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_operating_state, label: HC6 Operating State, table: holding, address: 5501, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_flow_line_temperature, label: HC6 Flow Line Temperature, table: holding, address: 5502, type: s16, unit: °C, scale: 0.1, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_return_line_temperature, label: HC6 Return Line Temperature, table: holding, address: 5503, type: s16, unit: °C, scale: 0.1, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_room_device_temperature, label: HC6 Room Device Temperature, table: holding, address: 5504, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_set_flow_line_temperature, label: HC6 Set Flow Line Temperature, table: holding, address: 5505, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_operating_mode, label: HC6 Operating Mode, table: holding, address: 5506, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_flow_line_temperature_setpoint, label: HC6 Flow Line Temperature Setpoint, table: holding, address: 5507, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_set_flow_line_offset_temperature, label: HC6 Set Flow Line Offset Temperature, table: holding, address: 5550, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_target_room_temperature, label: HC6 Target Room Temperature, table: holding, address: 5551, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc6_set_cooling_mode_room_temperature, label: HC6 Set Cooling Mode Room Temperature, table: holding, address: 5552, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 6., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_error_number, label: HC7 Error Number, table: holding, address: 5600, type: s16, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_operating_state, label: HC7 Operating State, table: holding, address: 5601, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_flow_line_temperature, label: HC7 Flow Line Temperature, table: holding, address: 5602, type: s16, unit: °C, scale: 0.1, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_return_line_temperature, label: HC7 Return Line Temperature, table: holding, address: 5603, type: s16, unit: °C, scale: 0.1, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_room_device_temperature, label: HC7 Room Device Temperature, table: holding, address: 5604, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_set_flow_line_temperature, label: HC7 Set Flow Line Temperature, table: holding, address: 5605, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_operating_mode, label: HC7 Operating Mode, table: holding, address: 5606, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_flow_line_temperature_setpoint, label: HC7 Flow Line Temperature Setpoint, table: holding, address: 5607, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_set_flow_line_offset_temperature, label: HC7 Set Flow Line Offset Temperature, table: holding, address: 5650, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_target_room_temperature, label: HC7 Target Room Temperature, table: holding, address: 5651, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc7_set_cooling_mode_room_temperature, label: HC7 Set Cooling Mode Room Temperature, table: holding, address: 5652, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 7., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_error_number, label: HC8 Error Number, table: holding, address: 5700, type: s16, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_operating_state, label: HC8 Operating State, table: holding, address: 5701, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_flow_line_temperature, label: HC8 Flow Line Temperature, table: holding, address: 5702, type: s16, unit: °C, scale: 0.1, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_return_line_temperature, label: HC8 Return Line Temperature, table: holding, address: 5703, type: s16, unit: °C, scale: 0.1, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_room_device_temperature, label: HC8 Room Device Temperature, table: holding, address: 5704, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_set_flow_line_temperature, label: HC8 Set Flow Line Temperature, table: holding, address: 5705, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_operating_mode, label: HC8 Operating Mode, table: holding, address: 5706, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_flow_line_temperature_setpoint, label: HC8 Flow Line Temperature Setpoint, table: holding, address: 5707, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_set_flow_line_offset_temperature, label: HC8 Set Flow Line Offset Temperature, table: holding, address: 5750, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_target_room_temperature, label: HC8 Target Room Temperature, table: holding, address: 5751, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc8_set_cooling_mode_room_temperature, label: HC8 Set Cooling Mode Room Temperature, table: holding, address: 5752, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 8., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_error_number, label: HC9 Error Number, table: holding, address: 5800, type: s16, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_operating_state, label: HC9 Operating State, table: holding, address: 5801, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_flow_line_temperature, label: HC9 Flow Line Temperature, table: holding, address: 5802, type: s16, unit: °C, scale: 0.1, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_return_line_temperature, label: HC9 Return Line Temperature, table: holding, address: 5803, type: s16, unit: °C, scale: 0.1, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_room_device_temperature, label: HC9 Room Device Temperature, table: holding, address: 5804, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_set_flow_line_temperature, label: HC9 Set Flow Line Temperature, table: holding, address: 5805, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_operating_mode, label: HC9 Operating Mode, table: holding, address: 5806, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_flow_line_temperature_setpoint, label: HC9 Flow Line Temperature Setpoint, table: holding, address: 5807, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_set_flow_line_offset_temperature, label: HC9 Set Flow Line Offset Temperature, table: holding, address: 5850, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_target_room_temperature, label: HC9 Target Room Temperature, table: holding, address: 5851, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc9_set_cooling_mode_room_temperature, label: HC9 Set Cooling Mode Room Temperature, table: holding, address: 5852, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 9., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_error_number, label: HC10 Error Number, table: holding, address: 5900, type: s16, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_operating_state, label: HC10 Operating State, table: holding, address: 5901, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_flow_line_temperature, label: HC10 Flow Line Temperature, table: holding, address: 5902, type: s16, unit: °C, scale: 0.1, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_return_line_temperature, label: HC10 Return Line Temperature, table: holding, address: 5903, type: s16, unit: °C, scale: 0.1, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_room_device_temperature, label: HC10 Room Device Temperature, table: holding, address: 5904, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_set_flow_line_temperature, label: HC10 Set Flow Line Temperature, table: holding, address: 5905, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_operating_mode, label: HC10 Operating Mode, table: holding, address: 5906, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_flow_line_temperature_setpoint, label: HC10 Flow Line Temperature Setpoint, table: holding, address: 5907, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_set_flow_line_offset_temperature, label: HC10 Set Flow Line Offset Temperature, table: holding, address: 5950, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_target_room_temperature, label: HC10 Target Room Temperature, table: holding, address: 5951, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc10_set_cooling_mode_room_temperature, label: HC10 Set Cooling Mode Room Temperature, table: holding, address: 5952, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 10., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_error_number, label: HC11 Error Number, table: holding, address: 6000, type: s16, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_operating_state, label: HC11 Operating State, table: holding, address: 6001, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_flow_line_temperature, label: HC11 Flow Line Temperature, table: holding, address: 6002, type: s16, unit: °C, scale: 0.1, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_return_line_temperature, label: HC11 Return Line Temperature, table: holding, address: 6003, type: s16, unit: °C, scale: 0.1, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_room_device_temperature, label: HC11 Room Device Temperature, table: holding, address: 6004, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_set_flow_line_temperature, label: HC11 Set Flow Line Temperature, table: holding, address: 6005, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_operating_mode, label: HC11 Operating Mode, table: holding, address: 6006, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_flow_line_temperature_setpoint, label: HC11 Flow Line Temperature Setpoint, table: holding, address: 6007, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_set_flow_line_offset_temperature, label: HC11 Set Flow Line Offset Temperature, table: holding, address: 6050, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_target_room_temperature, label: HC11 Target Room Temperature, table: holding, address: 6051, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc11_set_cooling_mode_room_temperature, label: HC11 Set Cooling Mode Room Temperature, table: holding, address: 6052, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 11., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_error_number, label: HC12 Error Number, table: holding, address: 6100, type: s16, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_operating_state, label: HC12 Operating State, table: holding, address: 6101, type: u16, enum: evcc_hc_operating_state, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_flow_line_temperature, label: HC12 Flow Line Temperature, table: holding, address: 6102, type: s16, unit: °C, scale: 0.1, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_return_line_temperature, label: HC12 Return Line Temperature, table: holding, address: 6103, type: s16, unit: °C, scale: 0.1, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_room_device_temperature, label: HC12 Room Device Temperature, table: holding, address: 6104, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_set_flow_line_temperature, label: HC12 Set Flow Line Temperature, table: holding, address: 6105, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_operating_mode, label: HC12 Operating Mode, table: holding, address: 6106, type: s16, enum: evcc_hc_operating_mode, invalid: [-1], writable: true, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_flow_line_temperature_setpoint, label: HC12 Flow Line Temperature Setpoint, table: holding, address: 6107, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_set_flow_line_offset_temperature, label: HC12 Set Flow Line Offset Temperature, table: holding, address: 6150, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_target_room_temperature, label: HC12 Target Room Temperature, table: holding, address: 6151, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+  - {key: x.hc12_set_cooling_mode_room_temperature, label: HC12 Set Cooling Mode Room Temperature, table: holding, address: 6152, type: s16, unit: °C, scale: 0.1, writable: true, note: Heating circuit 12., verified: false, sources: [lambda-heat-pumps]}
+
+enums:
+  main_ambient_operating_state: {'0': 'Off', '1': Automatic, '2': Manual, '3': Error}
+  main_e_manager_operating_state: {'0': 'Off', '1': Automatic, '2': Manual, '3': Error, '4': Offline}
+  hp_error_state: {'0': None, '1': Message, '2': Warning, '3': Alarm, '4': Fault}
+  hp_state: {'0': Init, '1': Reference, '2': Restart block, '3': Ready, '4': Start pumps, '5': Start compressor, '6': Pre-regulation, '7': Regulation, '8': Not used, '9': Cooling, '10': Defrosting, '20': Stopping, '30': Fault lock, '31': Alarm block, '40': Error reset}
+  hp_operating_state: {'0': Standby, '1': Central heating, '2': Domestic hot water, '3': Central cooling, '4': Circulate, '5': Defrost, '6': 'Off', '7': Frost, '8': Standby frost, '9': Not used, '10': Summer, '11': Holiday, '12': Error, '13': Warning, '14': Info message, '15': Time block, '16': Release block, '17': Min. temperature block, '18': Firmware download}
+  hp_request_type: {'0': No request, '1': Flow pump circulation, '2': Central heating, '3': Central cooling, '4': Domestic hot water}
+  hp_relais_state_2nd_heating_stage: {'0': 'Off', '1': 'On'}
+  boil_operating_state: {'0': Standby, '1': Domestic hot water, '2': Legionella, '3': Summer, '4': Frost, '5': Holiday, '6': Priority stop, '7': Error, '8': 'Off', '9': Prompt DHW, '10': Trailing stop, '11': Temperature lock, '12': Standby frost}
+  buff_operating_state: {'0': Standby, '1': Heating, '2': Cooling, '3': Summer, '4': Frost, '5': Holiday, '6': Priority stop, '7': Error, '8': 'Off', '9': Standby frost}
+  buff_request_type: {'-1': Invalid request, '0': No request, '1': Flow pump circulation, '2': Central heating, '3': Central cooling}
+  sol_operating_state: {'0': Standby, '1': Heating, '2': Error, '3': 'Off'}
+  hc_operating_state: {'0': Heating, '1': Eco, '2': Cooling, '3': Floor dry, '4': Frost, '5': Max. temperature, '6': Error, '7': Service, '8': Holiday, '9': CH summer, '10': CC winter, '11': Priority stop, '12': 'Off', '13': Release off, '14': Time off, '15': Standby, '16': Standby heating, '17': Standby eco, '18': Standby cooling, '19': Standby frost, '20': Standby floor dry}
+  hc_operating_mode: {'0': 'Off', '1': Manual, '2': Automatic, '3': Auto heating, '4': Auto cooling, '5': Frost, '6': Summer, '7': Floor dry}
+  evcc_hp_error_state: {'0': NONE, '1': MESSAGE, '2': WARNING, '3': ALARM, '4': FAULT}
+  evcc_hp_state: {'0': INIT, '1': REFERENCE, '2': RESTART-BLOCK, '3': READY, '4': START PUMPS, '5': START COMPRESSOR, '6': PRE-REGULATION, '7': REGULATION, '8': Not Used, '9': COOLING, '10': DEFROSTING, '20': STOPPING, '30': FAULT-LOCK, '31': ALARM-BLOCK, '40': ERROR-RESET}
+  evcc_hp_operating_state: {'0': STBY, '1': CH, '2': DHW, '3': CC, '4': CIRCULATE, '5': DEFROST, '6': 'OFF', '7': FROST, '8': STBY-FROST, '9': Not used, '10': SUMMER, '11': HOLIDAY, '12': ERROR, '13': WARNING, '14': INFO-MESSAGE, '15': TIME-BLOCK, '16': RELEASE-BLOCK, '17': MINTEMP-BLOCK, '18': FIRMWARE-DOWNLOAD}
+  evcc_boil_operating_state: {'0': STBY, '1': DHW, '2': LEGIO, '3': SUMMER, '4': FROST, '5': HOLIDAY, '6': PRIO-STOP, '7': ERROR, '8': 'OFF', '9': PROMPT-DHW, '10': TRAILING-STOP, '11': TEMP-LOCK, '12': STBY-FROST}
+  boil_circulation_pump_state: {'0': 'Off', '1': 'On'}
+  evcc_buff_operating_state: {'0': STBY, '1': HEATING, '2': COOLING, '3': SUMMER, '4': FROST, '5': HOLIDAY, '6': PRIO-STOP, '7': ERROR, '8': 'OFF', '9': STBY-FROST}
+  evcc_buff_request_type: {'-1': INVALID REQUEST, '0': NO REQUEST, '1': FLOW PUMP CIRCULATION, '2': CENTRAL HEATING, '3': CENTRAL COOLING}
+  evcc_sol_operating_state: {'0': STBY, '1': HEATING, '2': ERROR, '3': 'OFF'}
+  evcc_hc_operating_state: {'0': HEATING, '1': ECO, '2': COOLING, '3': FLOORDRY, '4': FROST, '5': MAX-TEMP, '6': ERROR, '7': SERVICE, '8': HOLIDAY, '9': CH-SUMMER, '10': CC-WINTER, '11': PRIO-STOP, '12': 'OFF', '13': RELEASE-OFF, '14': TIME-OFF, '15': STBY, '16': STBY-HEATING, '17': STBY-ECO, '18': STBY-COOLING, '19': STBY-FROST, '20': STBY-FLOORDRY}
+  evcc_hc_operating_mode: {'-1': Unknown, '0': 'OFF', '1': MANUAL, '2': AUTOMATIK, '3': AUTO-HEATING, '4': AUTO-COOLING, '5': FROST, '6': SUMMER, '7': FLOOR-DRY}
+
+problems:
+  - {when: {key: x.hp1_error_state, equals: 2}, kind: warning, text: 'Heat pump warning (error state {value})'}
+  - {when: {key: x.hp1_error_state, in: [3, 4]}, kind: fault, text: 'Heat pump {text} (error state {value})'}
+  - {when: {key: x.ambient_error_number, not: 0}, kind: warning, text: 'Ambient module error {value}'}
+  - {when: {key: x.emgr_error_number, not: 0}, kind: warning, text: 'E-Manager error {value}'}
+
+notes:
+- Modbus TCP on port 502, unit id 1, up to 16 clients; keep the connection open (opening one per request disturbs the controller).
+  The controller closes a connection after 1 min without requests. RS485 on the display unit; 9600 8N1, slave id 1 are the
+  values shown in the document's configuration example.
+- Reads only with function 03 (read holding registers).
+- 'Register = index × 1000 + subindex × 100 + number: index 0 general (subindex 0 ambient, 1 E-Manager), 1 heat pump (1 …
+  3), 2 boiler (1 … 5), 3 buffer (1 … 5), 4 solar (1 … 2), 5 heating circuit (1 … 12). The subindex follows the order in which
+  modules of that type are configured. Only the first instance of each module is listed; the others are 100 registers further
+  on. Modules that aren''t configured are marked optional.'
+- Numbers 00 … 49 written over Modbus must be refreshed regularly (timeout 5 min), else the controller falls back to a default;
+  numbers 50 and above are stored permanently.
+- The document names no heat pump series; the id follows the existing Lambda file. Addresses are taken as given; that they
+  are 0-based protocol addresses is not stated, and the projects read them that way.
+- 'evcc template `lambda-zewotherm` (single device) lists: Lambda EU-L Series; Zewotherm EU-L Series.'
+- The template has the option `excess` (default plus); points used only with another value say so in their note.
+- The template has the option `firmware` (default <1.1.3); points used only with another value say so in their note.
+- The template has the option `tempsource` (default unset); points used only with another value say so in their note.
+- 'Module blocks: heat pump n at 1000 + 100 × (n − 1) (up to 3), boiler at 2000 (up to 5), buffer at 3000 (up to 5), solar
+  at 4000 (up to 2), heating circuit at 5000 (up to 12); within a block the relative address is the same for every instance.
+  lambda_heat_pumps finds the installed modules by reading the first register of each block: a block that answers without
+  an error is present.'
+- '32-bit values: lambda_heat_pumps reads the high word first up to firmware V0.0.9-3K and the low word first from V0.0.10-3K
+  on (configurable). The encoding here says high word first.'
+- The integration writes the PV surplus (or E-manager power) into register 102; it offers unsigned (only positive) and signed
+  variants.
+- 'lambda_heat_pumps reads some registers one at a time because batch reads gave wrong values: the 32-bit counters at 1n20-1n23,
+  1n50-1n60, and 5n07.'
+- The Lambda controller needs a 1-minute Modbus timeout; lambda_heat_pumps polls every 30 s on unit id 1.
+- The binding reads every block with function 03. Heat pumps, boilers, buffers, solar modules and heating circuits repeat
+  every 100 registers (subindex); only the first instance of each is listed.
+- Taken from the openHAB binding (see sources); not checked against manufacturer documents.
+- The E-Manager must be set to the data source "Modbus Client" on the heat pump itself before it uses register 102.
+- Taken from openWB 2 (open-source); not checked against manufacturer documents.
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

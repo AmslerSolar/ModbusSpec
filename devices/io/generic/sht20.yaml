@@ -1,0 +1,64 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the unbranded "Temperature and humidity transmitter SHT20 sensor Modbus RS485" sheet (no version).
+
+modbusspec: 0
+id: generic-sht20
+manufacturer: Generic
+name: SHT20 temperature / humidity sensor (XY-MD01 / XY-MD02)
+kind: io
+
+sources:
+- title: Temperature and humidity transmitter SHT20 sensor Modbus RS485 (unbranded, copy on bizkit.ru)
+  version: no version (2018)
+  url: https://www.bizkit.ru/wp-content/uploads/2018/11/Temperature-and-humidity-transmitter-SHT20-sensor-Modbus-RS485.pdf
+  sha256: 3dd90d79a170634151a7586d4308e028ffefa7732e5b5b59e809ae10ce04c96a
+  archive_url: https://web.archive.org/web/20240510131921/https://www.bizkit.ru/wp-content/uploads/2018/11/Temperature-and-humidity-transmitter-SHT20-sensor-Modbus-RS485.pdf
+- id: sht20
+  title: sht20 (Home Assistant integration)
+  url: https://github.com/remmob/sht20
+  license: MIT
+  commit: 5759205a34cf71a1ef16602a11bab1f41feb0a0c
+  path: custom_components/sht20/device.py, custom_components/sht20/const.py, custom_components/sht20/sensor.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  - tcp
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.temperature, label: Temperature, table: input, address: 1, type: s16, unit: °C, scale: 0.1, conflicts: [{sources: [sht20], scale: 0.01}]}
+  - {key: x.humidity, label: Humidity, table: input, address: 2, type: u16, unit: '%', scale: 0.1, conflicts: [{sources: [sht20], scale: 0.01}]}
+  # Settings
+  - {key: x.modbus_address, label: Device Address, table: holding, address: 257, type: u16, writable: true, min: 1, max: 247, poll: slow, note: Default 1.}
+  - {key: x.baud_rate, label: Baud Rate, table: holding, address: 258, type: u16, enum: baud_rate, writable: true, poll: slow, verified: false, note: 'The register table gives codes 0–2, but the document''s own write example puts the rate itself (0x2580 = 9600) into this register; which form the sensor takes is unclear.'}
+  - {key: x.temperature_correction, label: Temperature correction, table: holding, address: 259, type: s16, unit: °C, scale: 0.1, writable: true, min: -10, max: 10, poll: slow, verified: false, note: Signed type assumed from the range.}
+  - {key: x.humidity_correction, label: Humidity correction, table: holding, address: 260, type: s16, unit: '%', scale: 0.1, writable: true, min: -10, max: 10, poll: slow, verified: false, note: Signed type assumed from the range.}
+
+enums:
+  baud_rate: {'0': 9600 bps, '1': 14400 bps, '2': 19200 bps}
+
+notes:
+- The sheet names no maker; it describes the common unbranded SHT20 RS485 module. Addresses are given as protocol addresses
+  (0x0001) and used as they are.
+- Temperature and humidity are input registers (function 04), one decimal; the temperature is signed (0xFF33 = −20.5 °C).
+  Settings are holding registers (03 / 06 / 16).
+- Besides Modbus the module has a plain-text serial mode (commands READ, AUTO, STOP, BR:, TC:, HC:, HZ:, PARAM); not described
+  here.
+- RS485 sensor; Modbus TCP only through a serial gateway.
+- The sensor can be set to 9600, 14400, 19200 baud (codes 0 = 9600, 1 = 14400, 2 = 19200 in its settings register); the project
+  doesn't name that register's address.
+- The project reports that this hardware does not reliably keep values written to its own settings registers (correction offsets
+  with a negative sign in particular), so it applies offsets on the host.
+- Reads that share a bus with other devices were seen to come back as plausible-looking wrong values; the project rejects
+  jumps larger than 2 °C or 5 %RH between polls.

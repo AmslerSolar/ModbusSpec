@@ -1,0 +1,251 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the SolarEdge Technical Note "Power Control Protocol for SolarEdge Inverters" (1.3, Nov. 2017);
+# word order from the SunSpec logging technical note (3.2, June 2025).
+
+modbusspec: 0
+id: solaredge-control
+manufacturer: SolarEdge
+name: SolarEdge inverter power, export limit and storage control
+kind: inverter
+
+sources:
+- title: Technical Note – Power Control Protocol for SolarEdge Inverters
+  version: 1.3 (Nov. 2017)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi/blob/2bffb6ad39897991cec037ed2240032e41fab6a3/doc/Power-Control-Open-Protocol-for-SolarEdge-Inverters.pdf
+  sha256: ef2bbde6b899f2e2b03a1e2ba9c6c56199fe5ac0eea1d8e5f1142ab3b82b0e3f
+- title: Technical Note – SolarEdge Inverters - SunSpec Logging
+  version: 3.2 (June 2025)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi/blob/2bffb6ad39897991cec037ed2240032e41fab6a3/doc/sunspec-implementation-technical-note.pdf
+  sha256: ee578cc770f381b58dc0de75a6b8696477c7827f7c5109e2ee71b98a1f57dc2d
+- id: evcc
+  title: evcc (EV charging and energy management)
+  url: https://github.com/evcc-io/evcc
+  license: MIT
+  commit: bf5c276cdb395443fda4601b99151c0a962d0db4
+  path: templates/definition/meter/solaredge-inverter.yaml, templates/definition/curtailer/solaredge.yaml
+- id: openwb
+  title: openWB 2 (wallbox and energy management)
+  url: https://github.com/openWB/core
+  license: GPL-3.0
+  commit: 809ac7425348dc4a0a2e080e742dfcd2f3cfc992
+  path: packages/modules/devices/solaredge/solaredge
+- id: solaredge-modbus-multi
+  title: solaredge-modbus-multi (Home Assistant integration)
+  url: https://github.com/WillCodeForCats/solaredge-modbus-multi
+  license: Apache-2.0
+  commit: 2bffb6ad39897991cec037ed2240032e41fab6a3
+  path: custom_components/solaredge_modbus_multi/components.py, custom_components/solaredge_modbus_multi/const.py
+- id: solaredged
+  title: solaredged (Python library used by the Home Assistant core solaredge_modbus integration)
+  url: https://github.com/frenck/python-solaredged
+  license: MIT
+  commit: c80f8a8fa3e592e6bfa689063a4a372a5dd5cbea
+  path: src/solaredged/components.py, src/solaredged/const.py
+- id: sunspec2
+  title: ha-sunspec2 (Home Assistant integration)
+  url: https://github.com/hilman2/ha-sunspec2
+  license: MIT
+  commit: 2efb4dd6e51e55a5f07d960f56a6281831eb58de
+  path: custom_components/sunspec2/vendors/solaredge.py
+
+connection:
+  default_port: 1502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  serial:
+    baud: 115200
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: little
+
+points:
+  # Export limit control (0xE000, mirrored at 0xF700)
+  - {key: x.export_control_mode, label: Export Control Mode, table: holding, address: 57344, type: u16, flags: export_control_mode, writable: true, note: 0 = off (default). Only one of bits 0–2; bits 10 and 11 may be added to it.}
+  - {key: x.export_limit_mode, label: Export Control Limit Mode, table: holding, address: 57345, type: u16, enum: export_limit_mode, writable: true}
+  - {key: x.export_site_limit, label: Export Control Site Limit, table: holding, address: 57346, type: f32, unit: W, writable: true}
+  - {key: x.external_production_max, label: External Production Max Power, table: holding, address: 57362, type: f32, unit: W, writable: true, note: 'Power of non-SolarEdge production, for the fallback limit when communication fails (default 0).'}
+
+  # Storage (StorEdge) control (0xE004, mirrored at 0xF704)
+  - {key: x.storage_control_mode, label: Storage Control Mode, table: holding, address: 57348, type: u16, enum: storage_control_mode, writable: true}
+  - {key: x.ac_charge_policy, label: Storage AC Charge Policy, table: holding, address: 57349, type: u16, enum: ac_charge_policy, writable: true}
+  - {key: x.ac_charge_limit, label: Storage AC Charge Limit, table: holding, address: 57350, type: f32, writable: true, note: kWh (policy 2) or percent of production (policy 3).}
+  - {key: x.backup_reserve, label: Storage Backup Reserved Setting, table: holding, address: 57352, type: f32, unit: '%', writable: true, note: Share of the battery's energy kept for backup (inverters with backup hardware).}
+  - {key: x.default_mode, label: Storage Charge/Discharge Default Mode, table: holding, address: 57354, type: u16, enum: charge_discharge_mode, writable: true, note: Remote control mode only; applies after the command timeout.}
+  - {key: x.command_timeout, label: Remote Control Command Timeout, table: holding, address: 57355, type: u32, unit: s, writable: true, min: 0, max: 86400, note: Remote control mode only.}
+  - {key: x.command_mode, label: Remote Control Command Mode, table: holding, address: 57357, type: u16, enum: charge_discharge_mode, writable: true, note: Remote control mode only; holds until the command timeout.}
+  - {key: x.charge_limit, label: Remote Control Charge Limit, table: holding, address: 57358, type: f32, unit: W, writable: true, note: Default is the battery's maximum charge power.}
+  - {key: x.discharge_limit, label: Remote Control Command Discharge Limit, table: holding, address: 57360, type: f32, unit: W, writable: true, note: Default is the battery's maximum discharge power.}
+
+  # Dynamic power control (0xF000)
+  - {key: x.rrcr_state, label: RRCR State, table: holding, address: 61440, type: u16, note: 'State of the four RRCR (ripple control receiver) inputs, 0–15.'}
+  - {key: x.active_power_limit, label: Active Power Limit, table: holding, address: 61441, type: u16, unit: '%', writable: true, min: 0, max: 100, persistent: false, note: Percent of the inverter's maximum power.}
+  - {key: x.cos_phi, label: CosPhi, table: holding, address: 61442, type: f32, writable: true, min: -1, max: 1, persistent: false}
+
+  # Power control settings (0xF100); they take effect after a commit
+  - {key: x.commit, label: Commit Power Control Settings, table: holding, address: 61696, type: s16, writable: true, note: 'Write 1 to apply the settings from 0xF102 on (takes 5–10 s). Reads 0 = done, 1–4 internal error, 0xF102 and up = the register with a bad value, 0xFFFF (−1) unknown error.', conflicts: [{sources: [evcc, solaredged], type: u16, label: PV feed-in / production limit (write)}]}
+  - {key: x.restore_defaults, label: Restore Power Control Default Settings, table: holding, address: 61697, type: s16, writable: true, note: 'Write 1 to restore the country defaults (3–6 s). Reads 0 = done, 0xFFFF (−1) = error.'}
+  - {key: x.frequency_derating_config, label: PwrFrqDeratingConfig, table: holding, address: 61698, type: s32, enum: frequency_derating_config, writable: true}
+  - {key: x.reactive_power_config, label: ReactivePwrConfig, table: holding, address: 61700, type: s32, enum: reactive_power_config, writable: true, note: 'Default 0; must be 4 (RRCR) for dynamic, export limit and storage control.'}
+  - {key: x.reactive_power_iter_time, label: ReactPwrIterTime, table: holding, address: 61702, type: u32, unit: ms, writable: true, note: Response time of the reactive power graphs.}
+  - {key: x.active_power_gradient, label: ActivePwrGrad, table: holding, address: 61704, type: s32, writable: true, min: 0, max: 1, note: Wake-up gradient on (1) / off (0).}
+  - {key: x.fixed_cos_phi, label: FixedCosPhiPhase, table: holding, address: 61706, type: f32, writable: true, min: -1, max: 1, note: Negative = lagging.}
+  - {key: x.fixed_reactive_power, label: FixedReactPwr, table: holding, address: 61708, type: f32, unit: var, writable: true}
+  - {key: x.frt_k_factor, label: FRT_KFactor, table: holding, address: 61758, type: f32, writable: true, min: 0, max: 16, note: Default 2.}
+  - {key: x.power_reduce, label: PowerReduce, table: holding, address: 61760, type: f32, unit: '%', writable: true, min: 0, max: 100, note: 'Maximum output power, percent of nominal active power.', conflicts: [{sources: [solaredge-modbus-multi, solaredged]}]}
+  - {key: x.advanced_power_control, label: AdvancedPwrControlEn, table: holding, address: 61762, type: s32, writable: true, min: 0, max: 1, note: '0 = off (default), 1 = on; power control settings only act when on.'}
+  - {key: x.frt_enable, label: FrtEn, table: holding, address: 61764, type: s32, writable: true, min: 0, max: 1}
+  - {key: x.max_wakeup_frequency, label: MaxWakeupFreq, table: holding, address: 61766, type: f32, unit: Hz, writable: true, min: 0, max: 100}
+  - {key: x.min_wakeup_frequency, label: MinWakeupFreq, table: holding, address: 61768, type: f32, unit: Hz, writable: true, min: 0, max: 100}
+  - {key: x.max_wakeup_voltage, label: MaxWakeupVg, table: holding, address: 61770, type: f32, unit: V, writable: true, min: 0, max: 500}
+  - {key: x.min_wakeup_voltage, label: MinWakeupVg, table: holding, address: 61772, type: f32, unit: V, writable: true, min: 0, max: 500}
+  - {key: x.nominal_voltage, label: Vnom, table: holding, address: 61774, type: f32, unit: V, writable: true, min: 0, max: 500}
+  - {key: x.nominal_current, label: Inom, table: holding, address: 61776, type: f32, unit: A}
+  - {key: x.soft_start_time, label: PwrSoftStartTime, table: holding, address: 61836, type: u32, unit: ms, writable: true}
+  - {key: x.max_current, label: MaxCurrent, table: holding, address: 61838, type: f32, unit: A, writable: true, min: 0, max: 256}
+  - {key: x.disconnect_at_zero_power, label: DisconnectAtZeroPwrLim, table: holding, address: 61864, type: f32, writable: true, min: 0, max: 1, note: '1 = open the AC relays when limited to zero (default), 0 = keep them closed (a small output remains). The reference table types it Float32.'}
+
+  # Enhanced dynamic power control (0xF300)
+  - {key: x.dynamic_power_control, label: Enable Dynamic Power Control, table: holding, address: 62208, type: u16, writable: true, note: 0 = off (default). Enable only after setting 0xF308 and on.}
+  - {key: x.max_active_power, label: Max Active Power, table: holding, address: 62212, type: f32, unit: W, poll: slow, note: Inverter rating.}
+  - {key: x.max_reactive_power, label: Max Reactive Power, table: holding, address: 62214, type: f32, unit: var, poll: slow, note: Inverter rating.}
+  - {key: x.active_reactive_preference, label: Active/Reactive Preference, table: holding, address: 62216, type: u16, writable: true, note: 1 = active power first.}
+  - {key: x.cos_phi_q_preference, label: CosPhi/Q Preference, table: holding, address: 62217, type: u16, writable: true, note: '0 = reactive power by cos phi, 1 = by Q.'}
+  - {key: x.active_power_limit_w, label: Active Power Limit, table: holding, address: 62220, type: f32, unit: W, writable: true}
+  - {key: x.reactive_power_limit, label: Reactive Power Limit, table: holding, address: 62222, type: f32, unit: var, writable: true}
+  - {key: x.dynamic_command_timeout, label: Command Timeout, table: holding, address: 62224, type: u32, unit: s, writable: true, note: Without a dynamic command in this time the inverter uses the fallback values.}
+  - {key: x.fallback_active_power_limit, label: Fall-back Active Power Limit, table: holding, address: 62226, type: f32, unit: '%', writable: true}
+  - {key: x.fallback_reactive_power_limit, label: Fall-back Reactive Power Limit, table: holding, address: 62228, type: f32, unit: '%', writable: true}
+  - {key: x.fallback_cos_phi, label: Fall-back CosPhi, table: holding, address: 62230, type: f32, writable: true}
+  - {key: x.active_power_ramp_up, label: Active Power Ramp-up Rate, table: holding, address: 62232, type: f32, unit: '%/min', writable: true}
+  - {key: x.active_power_ramp_down, label: Active Power Ramp-down Rate, table: holding, address: 62234, type: f32, unit: '%/min', writable: true}
+  - {key: x.reactive_power_ramp_up, label: Reactive Power Ramp-up Rate, table: holding, address: 62236, type: f32, unit: '%/min', writable: true}
+  - {key: x.reactive_power_ramp_down, label: Reactive Power Ramp-down Rate, table: holding, address: 62238, type: f32, unit: '%/min', writable: true}
+  - {key: x.phi_change_rate, label: Phi Change Rate, table: holding, address: 62240, type: f32, unit: rad/min, writable: true}
+  - {key: x.dynamic_active_power_limit, label: Dynamic Active Power Limit, table: holding, address: 62242, type: f32, unit: '%', writable: true, persistent: false, note: Percent of the Active Power Limit (0xF30C).}
+  - {key: x.dynamic_reactive_power_ref, label: Dynamic Reactive Power Ref, table: holding, address: 62244, type: f32, unit: '%', writable: true, persistent: false, note: Percent of the Reactive Power Limit (0xF30E).}
+  - {key: x.dynamic_cos_phi_ref, label: Dynamic CosPhi Ref, table: holding, address: 62246, type: f32, writable: true, persistent: false}
+  - {key: x.site_limit_mode, label: Site limit mode, table: holding, address: 57344, type: u16, bits: [0, 2], enum: site_limit_mode, writable: true, note: 'Bits 0…2 select the limit mode; bit 10 = external production, bit 11 = negative site limit.', sources: [sunspec2], verified: false}
+  - {key: x.reactcosphivspx_0, label: ReactCosPhiVsPX_0, table: holding, address: 61710, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspx_1, label: ReactCosPhiVsPX_1, table: holding, address: 61712, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspx_2, label: ReactCosPhiVsPX_2, table: holding, address: 61714, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspx_3, label: ReactCosPhiVsPX_3, table: holding, address: 61716, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspx_4, label: ReactCosPhiVsPX_4, table: holding, address: 61718, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspx_5, label: ReactCosPhiVsPX_5, table: holding, address: 61720, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspy_0, label: ReactCosPhiVsPY_0, table: holding, address: 61722, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspy_1, label: ReactCosPhiVsPY_1, table: holding, address: 61724, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspy_2, label: ReactCosPhiVsPY_2, table: holding, address: 61726, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspy_3, label: ReactCosPhiVsPY_3, table: holding, address: 61728, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspy_4, label: ReactCosPhiVsPY_4, table: holding, address: 61730, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspy_5, label: ReactCosPhiVsPY_5, table: holding, address: 61732, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgx_0, label: ReactQVsVgX_0, table: holding, address: 61734, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgx_1, label: ReactQVsVgX_1, table: holding, address: 61736, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgx_2, label: ReactQVsVgX_2, table: holding, address: 61738, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgx_3, label: ReactQVsVgX_3, table: holding, address: 61740, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgx_4, label: ReactQVsVgX_4, table: holding, address: 61742, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgx_5, label: ReactQVsVgX_5, table: holding, address: 61744, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgy_0, label: ReactQVsVgY_0, table: holding, address: 61746, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgy_1, label: ReactQVsVgY_1, table: holding, address: 61748, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgy_2, label: ReactQVsVgY_2, table: holding, address: 61750, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgy_3, label: ReactQVsVgY_3, table: holding, address: 61752, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgy_4, label: ReactQVsVgY_4, table: holding, address: 61754, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgy_5, label: ReactQVsVgY_5, table: holding, address: 61756, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsfreqx_0, label: PwrVsFreqX_0, table: holding, address: 61778, type: f32, unit: Hz, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsfreqx_1, label: PwrVsFreqX_1, table: holding, address: 61780, type: f32, unit: Hz, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsfreqy_0, label: PwrVsFreqY_0, table: holding, address: 61782, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsfreqy_1, label: PwrVsFreqY_1, table: holding, address: 61784, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.resetfreq, label: ResetFreq, table: holding, address: 61786, type: f32, unit: Hz, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.maxfreq, label: MaxFreq, table: holding, address: 61788, type: f32, unit: Hz, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspx_0, label: ReactQVsPX_0, table: holding, address: 61790, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspx_1, label: ReactQVsPX_1, table: holding, address: 61792, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspx_2, label: ReactQVsPX_2, table: holding, address: 61794, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspx_3, label: ReactQVsPX_3, table: holding, address: 61796, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspx_4, label: ReactQVsPX_4, table: holding, address: 61798, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspx_5, label: ReactQVsPX_5, table: holding, address: 61800, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspy_0, label: ReactQVsPY_0, table: holding, address: 61802, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspy_1, label: ReactQVsPY_1, table: holding, address: 61804, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspy_2, label: ReactQVsPY_2, table: holding, address: 61806, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspy_3, label: ReactQVsPY_3, table: holding, address: 61808, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspy_4, label: ReactQVsPY_4, table: holding, address: 61810, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvspy_5, label: ReactQVsPY_5, table: holding, address: 61812, type: f32, unit: '%', writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrfrqderatingresettime, label: PwrFrqDeratingResetTime, table: holding, address: 61814, type: u32, unit: ms, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrfrqderatinggradtime, label: PwrFrqDeratingGradTime, table: holding, address: 61816, type: u32, unit: ms, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspvglockinmax, label: ReactCosPhiVsPVgLockInMax, table: holding, address: 61818, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspvglockinmin, label: ReactCosPhiVsPVgLockInMin, table: holding, address: 61820, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspvglockoutmax, label: ReactCosPhiVsPVgLockOutMax, table: holding, address: 61822, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactcosphivspvglockoutmin, label: ReactCosPhiVsPVgLockOutMin, table: holding, address: 61824, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgplockinmax, label: ReactQVsVgPLockInMax, table: holding, address: 61826, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgplockinmin, label: ReactQVsVgPLockInMin, table: holding, address: 61828, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgplockoutmax, label: ReactQVsVgPLockOutMax, table: holding, address: 61830, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgplockoutmin, label: ReactQVsVgPLockOutMin, table: holding, address: 61832, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.reactqvsvgtype, label: ReactQVsVgType, table: holding, address: 61834, type: u32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgx_0, label: PwrVsVgX_0, table: holding, address: 61840, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgx_1, label: PwrVsVgX_1, table: holding, address: 61842, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgx_2, label: PwrVsVgX_2, table: holding, address: 61844, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgx_3, label: PwrVsVgX_3, table: holding, address: 61846, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgx_4, label: PwrVsVgX_4, table: holding, address: 61848, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgx_5, label: PwrVsVgX_5, table: holding, address: 61850, type: f32, unit: V, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgy_0, label: PwrVsVgY_0, table: holding, address: 61852, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgy_1, label: PwrVsVgY_1, table: holding, address: 61854, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgy_2, label: PwrVsVgY_2, table: holding, address: 61856, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgy_3, label: PwrVsVgY_3, table: holding, address: 61858, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgy_4, label: PwrVsVgY_4, table: holding, address: 61860, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+  - {key: x.pwrvsvgy_5, label: PwrVsVgY_5, table: holding, address: 61862, type: f32, writable: true, verified: false, sources: [solaredge-modbus-multi]}
+
+enums:
+  export_limit_mode: {'0': Total (all phases together), '1': Per phase (1/3 of the site limit each)}
+  storage_control_mode: {'0': Disabled, '1': Maximize self consumption, '2': Time of use (profile programming), '3': Backup only, '4': Remote control}
+  ac_charge_policy: {'0': Disabled, '1': Always allowed, '2': Fixed yearly energy limit, '3': Percent of production}
+  charge_discharge_mode: {'0': 'Off', '1': Charge excess PV power only, '2': 'Charge from PV first, then AC output', '3': Charge from PV and AC (up to the charge limit), '4': Maximize export (discharge to reach the AC limit), '5': Discharge to meet loads (no discharge to the grid), '7': Maximize self consumption}
+  reactive_power_config: {'0': Fixed cos phi, '1': Fixed Q, '2': Cos phi (P), '3': Q(U) + Q(P), '4': RRCR}
+  frequency_derating_config: {'0': 'Off', '1': Reserved, '2': Reserved, '3': P(f) with hysteresis, '4': P(f) without hysteresis}
+  site_limit_mode: {'0': Disabled, '1': Export control (export/import meter), '2': Export control (consumption meter), '4': Production control}
+
+flags:
+  export_control_mode: {'0': Direct export limitation (meter at the grid connection), '1': Indirect export limitation (meter at the load connection), '2': Production limitation, '10': External (non-SolarEdge) production, '11': Negative site limit (minimum import)}
+
+notes:
+- 'These are control registers of a SolarEdge inverter, not a device of their own: a network search finds the inverter (solaredge-inverter),
+  so this file has no identification.'
+- SolarEdge-specific blocks of the inverter, read and written at the inverter's unit id and port (see solaredge-inverter).
+  Supported on inverters with CPU firmware 3.x and later.
+- 32-bit values in the 0xE000 and 0xF000 ranges have the low word first and must be written together with function 16 (SunSpec
+  logging note, appendix A of 3.2 / C of 2.x). Document 3.2 adds that a copy with the high word first sits 0x800 registers
+  higher; it is not used here.
+- Dynamic, export limit and storage control need AdvancedPwrControlEn (0xF142) = 1 and ReactivePwrConfig (0xF104) = 4, followed
+  by a commit (write 1 to 0xF100).
+- 'Mirrors: the export limit registers 0xE000–0xE003 also at 0xF700, storage control 0xE004–0xE011 at 0xF704. The text also
+  says the export block is mirrored at 0xF000, which clashes with the dynamic power control block there; the register table''s
+  0xF700 is taken.'
+- 'Remote storage control: set 0xE000 to 0, 0xE004 to 4, choose the default mode (0xE00A), then write timeout (0xE00B), command
+  mode (0xE00D) and the charge / discharge limit (0xE00E / 0xE010) for each command; the inverter returns to the default mode
+  when the timeout runs out. Modes 5 and 7 need a consumption or export meter. Power limits and gradients take priority.'
+- 'Left out: the graph settings of the power control block (cos phi(P), Q(U), Q(P), P(U), P(f) points and lock-in / lock-out
+  values, 0xF10E–0xF13C, 0xF152–0xF18A, 0xF190–0xF1A6) and the grid protection trip limits (commit / restore 0xF600–0xF601,
+  limits 0xF602–0xF652).'
+- 'Sign convention for reactive power settings: inductive positive, capacitive negative (from appendix A of the document).'
+- Write response time under 0.5 s; an active power setpoint acts within 1 s, a commit takes up to 1.5 s (document 3.2, appendix
+  B, SetApp three-phase commercial inverters); the 2017 document gives 5–10 s for a commit.
+- 'evcc template `solaredge-inverter` (grid, pv) lists: SolarEdge Inverter.'
+- evcc also reads SunSpec model values for this template (not included here).
+- 'evcc template `solaredge` (single device) lists: SolarEdge Inverter (feed-in limitation).'
+- 'SolarEdge-specific control blocks of the inverter, read at the inverter''s unit id, with the low word first: site limit
+  control (0xE000), storage control (0xE004), dynamic power control (0xF000), advanced power control (0xF100) and enhanced
+  dynamic power control (0xF300).'
+- Each block is optional; the inverter answers an absent block with a Modbus exception.
+- Advanced power control settings only take effect after writing 1 to 0xF100 (commit); writing 1 to 0xF101 restores the defaults.
+- 'Storage control: the command mode, command timeout and charge / discharge limits are used in remote control mode (0xE004
+  = 4); the default mode applies after the command timeout.'
+- Site limit 0xE002 reads ±3.4e38 (largest float) when no limit is set.
+- Active power limit (0xF001), cos phi (0xF002), the dynamic limits at 0xF322–0xF327 and the storage command registers are
+  reported not to be stored in the inverter.
+- 'Storage control in remote control mode: the inverter goes back to the default mode when the command timeout runs out or
+  when it restarts at night, so the command and its timeout have to be written again (ha-sunspec2 does it every 15 minutes).'
+- 'ha-sunspec2 writes the active power limit (0xF001) again every 10 s: some firmware drops it after about ten seconds.'
+- Points without `sources` come from the manufacturer documents; points with `sources` were added from open-source projects
+  and are not checked against the documents.

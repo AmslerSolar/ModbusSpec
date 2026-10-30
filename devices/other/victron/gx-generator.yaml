@@ -1,0 +1,74 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Victron's GX Modbus-TCP register list dbus_modbustcp 744e228 (revision 55) and dbus_modbustcp's attributes.csv.
+
+modbusspec: 0
+id: victron-gx-generator
+manufacturer: Victron Energy
+name: 'GX Modbus-TCP: generator start/stop (com.victronenergy.generator)'
+kind: other
+
+sources:
+- title: Victron GX Modbus-TCP register list (CCGX-Modbus-TCP-register-list)
+  version: dbus_modbustcp 744e228 (revision 55)
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/CCGX-Modbus-TCP-register-list.xlsx
+- title: dbus_modbustcp attributes.csv (Victron's register table in the Modbus-TCP service source)
+  version: commit 744e228
+  url: https://github.com/victronenergy/dbus_modbustcp/blob/744e228f4124c233367d00e3a7d245e0139bfcb6/attributes.csv
+- id: hass-victron
+  title: hass-victron (Home Assistant integration)
+  url: https://github.com/sfstar/hass-victron
+  license: Apache-2.0
+  commit: 3d3ec1e6cb7768d3c6d49ed23e9b52814477c205
+  path: custom_components/victron/const.py
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  - {key: x.manual_start, label: Manual Start, table: holding, address: 3500, type: u16, enum: manual_start, writable: true}
+  - {key: x.running_by_condition_code, label: Condition that started the generator, table: holding, address: 3501, type: u16, enum: running_by_condition_code}
+  - {key: x.runtime_3502, label: Runtime in seconds, table: holding, address: 3502, type: u16, unit: s}
+  - {key: x.quiet_hours, label: Quiet hours active, table: holding, address: 3503, type: u16, enum: quiet_hours}
+  - {key: x.runtime, label: Runtime in seconds, table: holding, address: 3504, type: u32, unit: s}
+  - {key: state, label: Generator start/stop state, table: holding, address: 3506, type: u16, enum: state}
+  - {key: x.error, label: Generator remote error, table: holding, address: 3507, type: u16, enum: error}
+  - {key: x.alarms_no_generator_at_ac_in, label: Generator not detected at AC input alarm, table: holding, address: 3508, type: u16, enum: alarms_no_generator_at_ac_in}
+  - {key: x.auto_start_enabled, label: Auto start enabled/disabled, table: holding, address: 3509, type: u16, enum: auto_start_enabled, writable: true}
+  - {key: x.service_counter, label: Service countdown counter, table: holding, address: 3510, type: u32, unit: s}
+  - {key: x.service_counter_reset, label: Service countdown reset, table: holding, address: 3512, type: u16, enum: service_counter_reset, writable: true}
+
+enums:
+  manual_start: {'0': Stop generator, '1': Start generator}
+  running_by_condition_code: {'0': Stopped, '1': Manual, '2': TestRun, '3': LossOfComms, '4': Soc, '5': AcLoad, '6': BatteryCurrent, '7': BatteryVoltage, '8': InverterTemperatur, '9': InverterOverload, '10': StopOnAc1}
+  quiet_hours: {'0': Quiet hours inactive, '1': Quiet hours active}
+  state: {'0': Stopped, '1': Running, '2': Warm-up, '3': Cool-down, '4': Stopping, '10': Error}
+  error: {'0': No Error, '1': Remote disabled, '2': Remote fault}
+  alarms_no_generator_at_ac_in: {'0': No alarm, '2': Alarm}
+  auto_start_enabled: {'0': Autostart disabled, '1': Autostart enabled}
+  service_counter_reset: {'1': Reset service counter}
+
+problems:
+  - {when: {key: state, equals: 10}, kind: fault, text: Generator start/stop error (state 10)}
+  - {when: {key: x.alarms_no_generator_at_ac_in, equals: 2}, kind: warning, text: Generator not detected at AC input alarm}
+
+notes:
+- 'No fixed unit id: the GX assigns them (since Venus OS 2.60), normally the device instance; see Settings → Integrations
+  → Modbus TCP server → Available services. 1 is only a placeholder.'
+- Addresses are the list's numbers, which are the protocol addresses (no 30001/40001 offset); read them as holding registers
+  (function 03). Strings carry two characters per register, first character in the high byte.
+- Registers the device or firmware doesn't have make the GX answer the whole request with an exception; read them in separate
+  requests or skip them.
+- Taken from the register list dbus_modbustcp 744e228 (revision 55); attributes.csv (Victron's dbus_modbustcp source) filled
+  in what the list leaves out.
+- The unit id is the GX device instance of this service; hass-victron finds it by scanning a fixed list of unit ids.
