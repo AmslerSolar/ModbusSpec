@@ -1,0 +1,231 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Socomec's Modbus communication tables. No reading from a real device yet.
+
+modbusspec: 0
+id: socomec-countis-e1x
+manufacturer: Socomec
+name: Countis E13 / E14 energy meters
+kind: meter
+
+sources:
+- title: Socomec Countis E13 Modbus communication table
+  version: 2025-01
+  url: https://www.socomec.fr/sites/default/files/2025-01/COUNTIS-E13-MODBUS---ACTIVE-ENERGY-METERS_COMMUNICATION-TABLE_2025-01_CMT_EN.html
+  sha256: ac0e006b5f60b82a99d206a667e0f639d9cbefec079000f0c35c6ca926c0f9d2
+  language: en
+  devices: [Countis E13]
+- title: Socomec Countis E14 Modbus communication table
+  version: 2025-01
+  url: https://www.socomec.fr/sites/default/files/2025-01/COUNTIS-E14-MODBUS---ACTIVE-ENERGY-METERS_COMMUNICATION-TABLE_2025-01_CMT_EN.html
+  sha256: afa50eadfe5b41b7629a4708bc298a034b86ad6d1ef6146be451d1079d9ce94f
+  language: en
+  devices: [Countis E14]
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - {table: holding, address: 50000, type: str, length: 4, chars: low, equals: SOCO}
+  any:
+  - {table: holding, address: 50058, type: str, length: 8, prefix: Countis E13}
+  - {table: holding, address: 50058, type: str, length: 8, prefix: Countis E14}
+
+points:
+  # Product identification
+  - {key: x.soco, label: "\"SOCO\"", table: holding, address: 50000, type: str, length: 4, chars: low, poll: slow}
+  - {key: x.product_order_id_countis_100_protection_200_atys_300, label: "Product order ID (Countis:100, Protection:200, Atys:300, Diris:400)", table: holding, address: 50004, type: u16, poll: slow}
+  - {key: x.product_id, label: "Product ID", table: holding, address: 50005, type: u16, poll: slow}
+  - {key: x.jbus_table_version, label: "JBUS Table Version", table: holding, address: 50006, type: u16, poll: slow}
+  - {key: x.product_software_version, label: "Product software version", table: holding, address: 50007, type: u16, poll: slow}
+  - {key: x.serial_aa_ss, label: "Serial_AA_SS", table: holding, address: 50008, type: u16, poll: slow}
+  - {key: x.serial_sst_l, label: "Serial_SST_L", table: holding, address: 50009, type: u16, poll: slow}
+  - {key: x.serial_order, label: "Serial_order", table: holding, address: 50010, type: u16, poll: slow}
+  - {key: x.serial_reserve, label: "Serial_Reserve", table: holding, address: 50011, type: u32, invalid: [4294967295], poll: slow}
+  - {key: x.product_version_major, label: "Product version (Major)", table: holding, address: 50018, type: u16, poll: slow}
+  - {key: x.product_version_minor, label: "Product version (Minor)", table: holding, address: 50019, type: u16, poll: slow}
+  - {key: x.product_vlo, label: "Product VLO", table: holding, address: 50030, type: str, length: 4, poll: slow}
+  - {key: x.vendor_name, label: "Vendor name", table: holding, address: 50042, type: str, length: 8, poll: slow}
+  - {key: x.product_name, label: "Product name", table: holding, address: 50050, type: str, length: 8, poll: slow}
+  - {key: x.extended_name, label: "Extended name", table: holding, address: 50058, type: str, length: 8, poll: slow}
+
+  # Modbus settings
+  - {key: x.slave_address, label: "Slave Address", table: holding, address: 57344, type: u16, writable: true, poll: slow}
+
+  # RS485 settings
+  - {key: x.baudrate, label: "Baudrate", table: holding, address: 57345, type: u16, enum: baudrate, writable: true, poll: slow}
+  - {key: x.stop_bit, label: "Stop bit", table: holding, address: 57346, type: u16, enum: stop_bit, writable: true, poll: slow}
+  - {key: x.parity, label: "Parity", table: holding, address: 57347, type: u16, enum: parity, writable: true, poll: slow}
+
+  # Metrology Affected by current and voltage transformers
+  - {key: l1_voltage, label: "Simple voltage : V1", table: holding, address: 50520, type: u32, unit: "V", scale: 0.01, invalid: [4294967295]}
+  - {key: frequency, label: "Frequency : F", table: holding, address: 50526, type: u32, unit: "Hz", scale: 0.001, invalid: [4294967295]}
+  - {key: l1_current, label: "Current : I1", table: holding, address: 50528, type: u32, unit: "A", scale: 0.001, invalid: [4294967295]}
+  - {key: grid_power, label: "Sum Active Power +/- : P", table: holding, address: 50536, type: s32, unit: "W", scale: 10, positive: import, verified: false, invalid: [2147483647], note: "The table says +/- without a direction; import is assumed."}
+  - {key: reactive_power, label: "Sum Reactive Power +/- : Q", table: holding, address: 50538, type: s32, unit: "var", scale: 10, invalid: [2147483647]}
+  - {key: apparent_power, label: "Sum Apparent Power : S", table: holding, address: 50540, type: u32, unit: "VA", scale: 10, invalid: [4294967295]}
+  - {key: power_factor, label: "Sum Power Factor : -: leading et + : lagging : PF", table: holding, address: 50542, type: s32, scale: 0.001, invalid: [2147483647]}
+  - {key: l1_power, label: "Active Power phase 1 +/- : P1", table: holding, address: 50544, type: s32, unit: "W", scale: 10, positive: import, verified: false, invalid: [2147483647], note: "As the total."}
+  - {key: x.reactive_power_phase_1_plus_q1, label: "Reactive Power phase 1 +/- : Q1", table: holding, address: 50550, type: s32, unit: "var", scale: 10, invalid: [2147483647]}
+  - {key: x.apparent_power_phase, label: "Apparent Power phase", table: holding, address: 50556, type: u32, unit: "VA", scale: 10, invalid: [4294967295], note: "The table: Apparent Power phase 1 : S1"}
+  - {key: x.power_factor_phase_1_leading_and_plus_lagging_pf1, label: "Power Factor phase 1 -: leading and + : lagging : PF1", table: holding, address: 50562, type: s32, scale: 0.001, invalid: [2147483647]}
+
+  # Metrology No Affected by current and voltage transformers
+  - {key: x.simple_voltage_v1, label: "Simple voltage : V1", table: holding, address: 51284, type: u16, unit: "V", scale: 0.01}
+  - {key: x.frequency_f, label: "Frequency : F", table: holding, address: 51287, type: u16, unit: "Hz", scale: 0.001}
+  - {key: x.sum_power_factor_leading_and_plus_lagging_pf, label: "Sum power factor : -: leading and + : lagging : PF", table: holding, address: 51295, type: s16, scale: 0.001}
+  - {key: x.metrology_no_affected_by_power_factor_phase_1_leading_and_plus_lagging_pf1, label: "Power Factor phase 1 -: leading and + : lagging : PF1", table: holding, address: 51305, type: s16, scale: 0.001}
+  - {key: x.total_positive_active_energy_no_resetable_ea_plus, label: "Total Positive Active Energy (no resetable) : Ea+", table: holding, address: 51311, type: u16, unit: "MWh"}
+  - {key: x.total_positive_reactive_energy_no_resetable_er_plus, label: "Total Positive Reactive Energy (no resetable) : Er +", table: holding, address: 51312, type: u16, unit: "Mvarh"}
+  - {key: x.total_negative_active_energy_no_resetable_ea_minus, label: "Total Negative Active Energy (no resetable) : Ea-", table: holding, address: 51313, type: u16, unit: "MWh"}
+  - {key: x.total_negative_reactive_energy_no_resetable_er_minus, label: "Total Negative Reactive Energy (no resetable) : Er -", table: holding, address: 51314, type: u16, unit: "Mvarh"}
+
+  # Energies
+  - {key: grid_import_energy, label: "Total Positive Active Energy (no resetable) : Ea+", table: holding, address: 50770, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.energies_total_positive_reactive_energy_no_resetable_er_plus, label: "Total Positive Reactive Energy (no resetable) : Er +", table: holding, address: 50772, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.total_apparent_energy_no_resetable_eap, label: "Total Apparent Energy (no resetable) : Eap", table: holding, address: 50774, type: u32, unit: "kVAh", invalid: [4294967295], poll: slow}
+  - {key: grid_export_energy, label: "Total Negative Active Energy (no resetable) : Ea-", table: holding, address: 50776, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.energies_total_negative_reactive_energy_no_resetable_er_minus, label: "Total Negative Reactive Energy (no resetable) : Er -", table: holding, address: 50778, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.partial_positive_active_energy_ea_plus, label: "Partial Positive Active Energy: Ea+", table: holding, address: 50780, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.partial_positive_reactive_energy_er_plus, label: "Partial Positive Reactive Energy: Er +", table: holding, address: 50782, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.partial_apparent_energy_eap, label: "Partial Apparent Energy : Eap", table: holding, address: 50784, type: u32, unit: "kVAh", invalid: [4294967295], poll: slow}
+  - {key: x.partial_negative_active_energy_ea_minus, label: "Partial Negative Active Energy : Ea-", table: holding, address: 50786, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.partial_negative_reactive_energy_er_minus, label: "Partial Negative Reactive Energy : Er -", table: holding, address: 50788, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+
+  # Energies in Unit/100
+  - {key: x.energies_in_unit_100_total_positive_active_energy_no_resetable_ea_plus, label: "Total Positive Active Energy (no resetable) : Ea+", table: holding, address: 50946, type: u32, unit: "kWh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_in_unit_100_total_positive_reactive_energy_no_resetable_er_plus, label: "Total Positive Reactive Energy (no resetable) : Er +", table: holding, address: 50948, type: u32, unit: "kvarh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_in_unit_100_total_negative_active_energy_no_resetable_ea_minus, label: "Total Negative Active Energy (no resetable) : Ea-", table: holding, address: 50952, type: u32, unit: "kWh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_in_unit_100_total_negative_reactive_energy_no_resetable_er_minus, label: "Total Negative Reactive Energy (no resetable) : Er -", table: holding, address: 50954, type: u32, unit: "kvarh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_in_unit_100_partial_positive_active_energy_ea_plus, label: "Partial Positive Active Energy: Ea+", table: holding, address: 50956, type: u32, unit: "kWh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_in_unit_100_partial_positive_reactive_energy_er_plus, label: "Partial Positive Reactive Energy: Er +", table: holding, address: 50958, type: u32, unit: "kvarh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_in_unit_100_partial_negative_active_energy_ea_minus, label: "Partial Negative Active Energy : Ea-", table: holding, address: 50962, type: u32, unit: "kWh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_in_unit_100_partial_negative_reactive_energy_er_minus, label: "Partial Negative Reactive Energy : Er -", table: holding, address: 50964, type: u32, unit: "kvarh", scale: 0.01, invalid: [4294967295], poll: slow}
+
+  # Energies per tariff
+  - {key: x.1_tariff_number_2, label: "1 >= Tariff number <= 2", table: holding, address: 50848, type: u16, poll: slow}
+  - {key: x.tariff_number_in_progress_1_to_2, label: "Tariff number in progress ( 1 to 2 )", table: holding, address: 50849, type: u16, poll: slow}
+  - {key: x.positive_active_energies_1, label: "Positive Active Energies 1", table: holding, address: 50850, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.positive_active_energies_2, label: "Positive Active Energies 2", table: holding, address: 50852, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.positive_reactive_enegies_1, label: "Positive Reactive Enegies 1", table: holding, address: 50866, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.positive_reactive_enegies_2, label: "Positive Reactive Enegies 2", table: holding, address: 50868, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.time_counter_1, label: "Time Counter 1", table: holding, address: 50882, type: u32, unit: "h", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.time_counter_2, label: "Time Counter 2", table: holding, address: 50884, type: u32, unit: "h", scale: 0.01, invalid: [4294967295], poll: slow}
+
+  # Energies per tariff in Unit/100
+  - {key: x.energies_per_tariff_in_u_1_tariff_number_2, label: "1 >= Tariff number <= 2", table: holding, address: 51200, type: u16, poll: slow}
+  - {key: x.energies_per_tariff_in_u_tariff_number_in_progress_1_to_2, label: "Tariff number in progress ( 1 to 2 )", table: holding, address: 51201, type: u16, poll: slow}
+  - {key: x.energies_per_tariff_in_u_positive_active_energies_1, label: "Positive Active Energies 1", table: holding, address: 51202, type: u32, unit: "kWh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_per_tariff_in_u_positive_active_energies_2, label: "Positive Active Energies 2", table: holding, address: 51204, type: u32, unit: "kWh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_per_tariff_in_u_positive_reactive_enegies_1, label: "Positive Reactive Enegies 1", table: holding, address: 51218, type: u32, unit: "kvarh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_per_tariff_in_u_positive_reactive_enegies_2, label: "Positive Reactive Enegies 2", table: holding, address: 51220, type: u32, unit: "kvarh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_per_tariff_in_u_time_counter_1, label: "Time Counter 1", table: holding, address: 51234, type: u32, unit: "h", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.energies_per_tariff_in_u_time_counter_2, label: "Time Counter 2", table: holding, address: 51236, type: u32, unit: "h", scale: 0.01, invalid: [4294967295], poll: slow}
+
+  # Energy measurement - Total
+  - {key: x.total_positive_active_energy_ea_plus, label: "Total Positive active Energy : Ea+", table: holding, address: 25987, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.total_residual_positive_active_energy_rea_plus, label: "Total Residual positive active Energy : rEa+", table: holding, address: 25989, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.total_negative_active_energy_ea_minus, label: "Total Negative active Energy : Ea-", table: holding, address: 25990, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.total_residual_negative_active_energy_rea_minus, label: "Total Residual negative active Energy : rEa-", table: holding, address: 25992, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.total_positive_reactive_energy_er_plus, label: "Total Positive reactive Energy : Er+", table: holding, address: 25993, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.total_residual_positive_reactive_energy_rer_plus, label: "Total Residual positive reactive Energy : rEr+", table: holding, address: 25995, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.total_negative_reactive_energy_er_minus, label: "Total Negative reactive Energy : Er-", table: holding, address: 25996, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.total_residual_negative_reactive_energy_rer_minus, label: "Total Residual negative reactive Energy : rEr-", table: holding, address: 25998, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.total_apparent_energy_eap, label: "Total Apparent Energy : Eap", table: holding, address: 25999, type: u32, unit: "kVAh", invalid: [4294967295], poll: slow}
+  - {key: x.total_residual_apparent_energy_reap, label: "Total Residual apparent Energy : rEap", table: holding, address: 26001, type: u16, unit: "VAh", scale: 0.1, poll: slow}
+  - {key: x.total_positive_lagging_reactive_energy_er_plus_laggi, label: "Total positive lagging reactive Energy : Er+ (lagging)", table: holding, address: 26002, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.total_residual_positive_lagging_reactive_energy_rer, label: "Total residual positive lagging reactive Energy : rEr+ (lagging)", table: holding, address: 26004, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.total_negative_lagging_reactive_energy_er_minus_lagg, label: "Total negative lagging reactive Energy : Er- (lagging)", table: holding, address: 26005, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.total_residual_negative_lagging_reactive_energy_rer, label: "Total residual negative lagging reactive Energy : rEr- (lagging)", table: holding, address: 26007, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.total_positive_leading_reactive_energy_er_plus_leadi, label: "Total positive leading reactive Energy : Er+ (leading)", table: holding, address: 26008, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.total_residual_positive_leading_reactive_energy_rer, label: "Total residual positive leading reactive Energy : rEr+ (leading)", table: holding, address: 26010, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.total_negative_leading_reactive_energy_er_minus_lead, label: "Total negative leading reactive Energy : Er- (leading)", table: holding, address: 26011, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.total_residual_negative_leading_reactive_energy_rer, label: "Total residual negative leading reactive Energy : rEr- (leading)", table: holding, address: 26013, type: u16, unit: "varh", scale: 0.1, poll: slow}
+
+  # Partial active energy by tariff
+  - {key: x.partial_positive_active_energy_ea_plus_tariff_1, label: "Partial positive active Energy : Ea+ Tariff 1", table: holding, address: 32768, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.partial_residual_positive_active_energy_rea_plus_tar, label: "Partial Residual positive active Energy : rEa+ Tariff 1", table: holding, address: 32770, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.partial_positive_active_energy_ea_plus_tariff_2, label: "Partial positive active Energy : Ea+ Tariff 2", table: holding, address: 32771, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.partial_active_energy_by_partial_residual_positive_active_energy_rea_plus_tar, label: "Partial Residual positive active Energy : rEa+ Tariff 2", table: holding, address: 32773, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.partial_positive_active_energy_ea_minus_tariff_1, label: "Partial positive active Energy : Ea- Tariff 1", table: holding, address: 32792, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.partial_residual_positive_active_energy_rea_minus_ta, label: "Partial Residual positive active Energy : rEa- Tariff 1", table: holding, address: 32794, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.partial_positive_active_energy_ea_minus_tariff_2, label: "Partial positive active Energy : Ea- Tariff 2", table: holding, address: 32795, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.partial_active_energy_by_partial_residual_positive_active_energy_rea_minus_ta, label: "Partial Residual positive active Energy : rEa- Tariff 2", table: holding, address: 32797, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+
+  # Energy balance
+  - {key: x.net_active_energy_balance_sum_ea_plus_ea_minus_by_ta, label: "Net active energy balance (SUM ((Ea+)-(Ea-)) by tariff)", table: holding, address: 33024, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.net_residual_active_energy_balance_sum_ea_plus_ea_mi, label: "Net Residual active energy balance (SUM((Ea+)-(Ea-)) by tariff)", table: holding, address: 33026, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.net_reactive_energy_balance_sum_er_plus_er_minus_by, label: "Net reactive energy balance (SUM((Er+)-(Er-)) by tariff)", table: holding, address: 33027, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.net_residual_reactive_energy_balance_sum_er_plus_er, label: "Net Residual reactive energy balance (SUM((Er+)-(Er-)) by tariff)", table: holding, address: 33029, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+
+  # Tariff meter (total) - Total (1st Part)
+  - {key: x.tariff_number_in_progress_available_for_1st_2nd_and, label: "Tariff number in progress (available for 1st,2nd and 3rd Parts below)", table: holding, address: 26368, type: u16, enum: tariff_number_in_progress_avai, poll: slow}
+  - {key: x.t1_ea_plus, label: "T1 - Ea+", table: holding, address: 26369, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.t2_ea_plus, label: "T2 - Ea+", table: holding, address: 26371, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.t1_ea_minus, label: "T1 - Ea-", table: holding, address: 26385, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+  - {key: x.t2_ea_minus, label: "T2 - Ea-", table: holding, address: 26387, type: u32, unit: "kWh", invalid: [4294967295], poll: slow}
+
+  # Tariff meter (total) - Total (2nd Part)
+  - {key: x.t1_er_plus, label: "T1 - Er+", table: holding, address: 26401, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t2_er_plus, label: "T2 - Er+", table: holding, address: 26403, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t1_er_plus_lagging, label: "T1 - Er+ (lagging)", table: holding, address: 26417, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t2_er_plus_lagging, label: "T2 - Er+ (lagging)", table: holding, address: 26419, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t1_er_plus_leading, label: "T1 - Er+ (leading)", table: holding, address: 26433, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t2_er_plus_leading, label: "T2 - Er+ (leading)", table: holding, address: 26435, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t1_er_minus, label: "T1 - Er-", table: holding, address: 26449, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t2_er_minus, label: "T2 - Er-", table: holding, address: 26451, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t1_er_minus_lagging, label: "T1 - Er- (lagging)", table: holding, address: 26465, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t2_er_minus_lagging, label: "T2 - Er- (lagging)", table: holding, address: 26467, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t1_er_minus_leading, label: "T1 - Er- (leading)", table: holding, address: 26481, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+  - {key: x.t2_er_minus_leading, label: "T2 - Er- (leading)", table: holding, address: 26483, type: u32, unit: "kvarh", invalid: [4294967295], poll: slow}
+
+  # Tariff meter (total) - Total (3rd Part)
+  - {key: x.t1_eap, label: "T1 - Eap", table: holding, address: 26497, type: u32, unit: "kVAh", invalid: [4294967295], poll: slow}
+  - {key: x.t2_eap, label: "T2 - Eap", table: holding, address: 26499, type: u32, unit: "kVAh", invalid: [4294967295], poll: slow}
+
+  # Table Overflow
+  - {key: x.value_of_the_meter_overflow_10wh, label: "Value of the meter overflow (10Wh)", table: holding, address: 36864, type: u32, unit: "kWh", scale: 0.01, invalid: [4294967295], poll: slow}
+  - {key: x.nb_overflow_total_ea_plus, label: "Nb Overflow Total Ea +", table: holding, address: 36866, type: u16, poll: slow}
+  - {key: x.nb_overflow_total_er_plus, label: "Nb Overflow Total Er +", table: holding, address: 36867, type: u16, poll: slow}
+  - {key: x.nb_overflow_total_ea, label: "Nb Overflow Total Ea -", table: holding, address: 36868, type: u16, poll: slow}
+  - {key: x.nb_overflow_total_er_minus, label: "Nb Overflow Total Er -", table: holding, address: 36869, type: u16, poll: slow}
+  - {key: x.nb_overflow_total_eap, label: "Nb Overflow Total Eap", table: holding, address: 36870, type: u16, poll: slow}
+  - {key: x.nb_overflow_total_ea_t1, label: "Nb Overflow Total Ea T1", table: holding, address: 36871, type: u16, poll: slow}
+  - {key: x.nb_overflow_total_ea_t2, label: "Nb Overflow Total Ea T2", table: holding, address: 36872, type: u16, poll: slow}
+
+  # Current without CT
+  - {key: x.current_i1, label: "Current: I1", table: holding, address: 40576, type: u32, unit: "A", scale: 0.001, invalid: [4294967295], poll: slow}
+
+  # Set Tariff
+  - {key: x.tariff_number_to_set, label: "Tariff Number to set", table: holding, address: 40481, type: u16, writable: true, write_only: true, poll: slow}
+
+  # Indus Mode and MID status
+  - {key: x.indus_mode, label: "Indus Mode (", table: holding, address: 40544, type: u16, poll: slow, note: "The table: Indus Mode (0: indus mode disabled, 1: indus mode enabled)"}
+  - {key: x.mid_status, label: "MID status (", table: holding, address: 40545, type: u16, poll: slow, note: "The table: MID status (0: non-MID product, 1: MID product"}
+
+  # COM Board Product ID
+  - {key: x.product_id_0x, label: "Product ID :0x", table: holding, address: 40608, type: u16, poll: slow, note: "The table: Product ID :0x01: E3x/E4x COM Board0x02: E63 COM Board"}
+
+enums:
+  baudrate: {'0': "1200", '1': "2400", '2': "4800", '3': "9600", '4': "19200", '5': "38400", '6': "57600", '7': "115200"}
+  stop_bit: {'0': "1", '1': "2"}
+  parity: {'0': "None", '1': "Odd", '2': "Even"}
+  tariff_number_in_progress_avai: {'1': "Tariff 1", '2': "Tariff 2"}
+
+notes:
+- "The E13 and E14 tables have the same rows, all of them also in the E2x table (socomec-countis-e2x); the E1x is a subset of that map."
+- "OpenEMS treats the E14 as not three-phase."
+- "The table gives no default unit id or serial settings; unit 1 is assumed."
+- "The model is told by the extended name at 50058. The tables only give examples for it; on a real E24 it reads \"Countis E24\", and the same pattern is assumed here."
+- "Write-only commands (resets, configuration storage) are left out, as are fields the format can't express or that the table points elsewhere for."
