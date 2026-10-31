@@ -1,0 +1,162 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Janitza UMG 800 Modbus address list (default mapping, CSV) and its description, doc. no. 2.053.226.1.c.
+
+modbusspec: 0
+id: janitza-umg800
+manufacturer: Janitza
+name: UMG 800 modular energy analyser
+kind: meter
+
+sources:
+- title: Janitza UMG 800 and modules, Modbus address list (janitza-default_mappings.csv) and its functional description, doc. no. 2.053.226.1.c, from firmware 1.7.0; ZIP
+  version: 12/2024
+  url: https://assets.janitza.com/ce18jq9ih0x6/JrOo1mcZv4D6hSIq9Knef/d331bd43a595f9c839e3d1a8dc510891/janitza-mal-umg800-de-en.zip
+  sha256: 732804c4a51491b367eadf54cb9a23b7408f71c6a673400755db92d036f110d3  # of the ZIP
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+defaults:
+  verified: false
+
+identify:
+  serial:
+    table: holding
+    address: 50
+    type: u64
+  checks:
+  # device name: registers filled with text
+  - table: holding
+    address: 0
+    type: str
+    length: 32
+    printable: true
+  # device state; the range is the one the UMG 801 list gives, this list gives none
+  - table: holding
+    address: 44
+    type: u16
+    range:
+    - 0
+    - 4
+  # voltage L1-N: rejects word-swapped floats
+  - table: holding
+    address: 1000
+    type: f32
+    range:
+    - 0
+    - 1000
+  # mains frequency
+  - table: holding
+    address: 1054
+    type: f32
+    range:
+    - 0
+    - 70
+
+points:
+  # Identity and state (slow: fixed values)
+  - {key: x.device_name, label: Device/Info/Name, table: holding, address: 0, type: str, length: 32, poll: slow, note: 32 registers by the list's spacing; content not stated.}
+  - {key: firmware, label: Device/Info/SoftwareVersionString, table: holding, address: 32, type: str, length: 8, poll: slow}
+  - {key: x.hardware_version, label: Device/Info/HardwareVersion, table: holding, address: 40, type: u64, poll: slow}
+  - {key: state, label: Device/Maintenance/State, table: holding, address: 44, type: u16, note: The list gives no value meanings.}
+  - {key: x.device_kind, label: Device/Info/Kind, table: holding, address: 45, type: u16, poll: slow, note: The list gives no value meanings.}
+  - {key: x.production_number, label: Device/Info/ProductionNumber, table: holding, address: 46, type: u64, poll: slow}
+  - {key: serial, label: Device/Info/SerialNumber, table: holding, address: 50, type: u64, poll: slow}
+
+  # Voltages: one set for the device
+  - {key: l1_voltage, label: Device/Measurements/UG/U1/ULNRms, table: holding, address: 1000, type: f32, unit: V}
+  - {key: l2_voltage, label: Device/Measurements/UG/U2/ULNRms, table: holding, address: 1002, type: f32, unit: V}
+  - {key: l3_voltage, label: Device/Measurements/UG/U3/ULNRms, table: holding, address: 1004, type: f32, unit: V}
+  - {key: x.l1_l2_voltage, label: Device/Measurements/UG/U1/ULLRms, table: holding, address: 1006, type: f32, unit: V, note: 'Which pair each L-L value is isn''t stated; taken from the U1, U2, U3 order.'}
+  - {key: x.l2_l3_voltage, label: Device/Measurements/UG/U2/ULLRms, table: holding, address: 1008, type: f32, unit: V}
+  - {key: x.l3_l1_voltage, label: Device/Measurements/UG/U3/ULLRms, table: holding, address: 1010, type: f32, unit: V}
+  - {key: frequency, label: Device/Measurements/UG/Freq, table: holding, address: 1054, type: f32, unit: Hz}
+  - {key: x.rotation_field, label: Device/Measurements/UG/RotationField, table: holding, address: 1056, type: u32, note: 'UInt32 in the list, which gives no value meanings.'}
+  - {key: x.voltage_unbalance, label: Device/Measurements/UG/SymUnbalance, table: holding, address: 1544, type: f32, unit: '%'}
+  - {key: x.voltage_ln_average, label: Device/Measurements/UG/ULNAvg, table: holding, address: 1546, type: f32, unit: V}
+  - {key: x.voltage_ll_average, label: Device/Measurements/UG/ULLAvg, table: holding, address: 1548, type: f32, unit: V}
+  - {key: x.l1_thd_u, label: Device/Measurements/UG/U1/ULNThd, table: holding, address: 1114, type: f32, unit: '%'}
+  - {key: x.l2_thd_u, label: Device/Measurements/UG/U2/ULNThd, table: holding, address: 1116, type: f32, unit: '%'}
+  - {key: x.l3_thd_u, label: Device/Measurements/UG/U3/ULNThd, table: holding, address: 1118, type: f32, unit: '%'}
+
+  # Virtual meter group 1: currents and power
+  - {key: l1_current, label: Device/VirtualMeter/Group1/I1/IRms, table: holding, address: 1012, type: f32, unit: A}
+  - {key: l2_current, label: Device/VirtualMeter/Group1/I2/IRms, table: holding, address: 1014, type: f32, unit: A}
+  - {key: l3_current, label: Device/VirtualMeter/Group1/I3/IRms, table: holding, address: 1016, type: f32, unit: A}
+  - {key: x.i4_current, label: Device/VirtualMeter/Group1/I4/IRms, table: holding, address: 1018, type: f32, unit: A}
+  - {key: l1_power, label: Device/VirtualMeter/Group1/I1/P, table: holding, address: 1024, type: f32, unit: W, positive: import, verified: false, note: Sign assumed like the total power.}
+  - {key: l2_power, label: Device/VirtualMeter/Group1/I2/P, table: holding, address: 1026, type: f32, unit: W, positive: import, verified: false, note: Sign assumed like the total power.}
+  - {key: l3_power, label: Device/VirtualMeter/Group1/I3/P, table: holding, address: 1028, type: f32, unit: W, positive: import, verified: false, note: Sign assumed like the total power.}
+  - {key: grid_power, label: Device/VirtualMeter/Group1/P, table: holding, address: 1030, type: f32, unit: W, positive: import, verified: false, note: 'The list doesn''t give the sign and its description has no formulary. Import assumed, in line with the UMG 801 formulary (cos phi positive when obtaining real power).'}
+  - {key: x.l1_apparent_power, label: Device/VirtualMeter/Group1/I1/S, table: holding, address: 1032, type: f32, unit: VA}
+  - {key: x.l2_apparent_power, label: Device/VirtualMeter/Group1/I2/S, table: holding, address: 1034, type: f32, unit: VA}
+  - {key: x.l3_apparent_power, label: Device/VirtualMeter/Group1/I3/S, table: holding, address: 1036, type: f32, unit: VA}
+  - {key: apparent_power, label: Device/VirtualMeter/Group1/S, table: holding, address: 1038, type: f32, unit: VA}
+  - {key: x.l1_reactive_power_fund, label: Device/VirtualMeter/Group1/I1/Q1, table: holding, address: 1040, type: f32, unit: var}
+  - {key: x.l2_reactive_power_fund, label: Device/VirtualMeter/Group1/I2/Q1, table: holding, address: 1042, type: f32, unit: var}
+  - {key: x.l3_reactive_power_fund, label: Device/VirtualMeter/Group1/I3/Q1, table: holding, address: 1044, type: f32, unit: var}
+  - {key: x.reactive_power_fund, label: Device/VirtualMeter/Group1/Q1, table: holding, address: 1046, type: f32, unit: var}
+  - {key: reactive_power, label: Device/VirtualMeter/Group1/Q, table: holding, address: 1550, type: f32, unit: var, note: 'The Q1 values are taken as the fundamental, Q as the whole reactive power, from the same naming on the UMG 801.'}
+  - {key: x.l1_cos_phi, label: Device/VirtualMeter/Group1/I1/PF1, table: holding, address: 1048, type: f32}
+  - {key: x.l2_cos_phi, label: Device/VirtualMeter/Group1/I2/PF1, table: holding, address: 1050, type: f32}
+  - {key: x.l3_cos_phi, label: Device/VirtualMeter/Group1/I3/PF1, table: holding, address: 1052, type: f32}
+  - {key: x.cos_phi, label: Device/VirtualMeter/Group1/PF1, table: holding, address: 1556, type: f32}
+  - {key: power_factor, label: Device/VirtualMeter/Group1/PF, table: holding, address: 1554, type: f32}
+  - {key: x.current_unbalance, label: Device/VirtualMeter/Group1/SymUnbalance, table: holding, address: 1558, type: f32, unit: '%'}
+  - {key: x.l1_thd_i, label: Device/VirtualMeter/Group1/I1/IThd, table: holding, address: 1120, type: f32, unit: '%'}
+  - {key: x.l2_thd_i, label: Device/VirtualMeter/Group1/I2/IThd, table: holding, address: 1122, type: f32, unit: '%'}
+  - {key: x.l3_thd_i, label: Device/VirtualMeter/Group1/I3/IThd, table: holding, address: 1124, type: f32, unit: '%'}
+
+  # Virtual meter group 1: energy, Base
+  - {key: x.l1_net_energy, label: Device/VirtualMeter/Group1/I1/Energies/Base/WP, table: holding, address: 1058, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.l2_net_energy, label: Device/VirtualMeter/Group1/I2/Energies/Base/WP, table: holding, address: 1060, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.l3_net_energy, label: Device/VirtualMeter/Group1/I3/Energies/Base/WP, table: holding, address: 1062, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.net_energy, label: Device/VirtualMeter/Group1/Energies/Base/WP, table: holding, address: 1064, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.l1_import_energy, label: Device/VirtualMeter/Group1/I1/Energies/Base/WP_Cons, table: holding, address: 1066, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.l2_import_energy, label: Device/VirtualMeter/Group1/I2/Energies/Base/WP_Cons, table: holding, address: 1068, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.l3_import_energy, label: Device/VirtualMeter/Group1/I3/Energies/Base/WP_Cons, table: holding, address: 1070, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: grid_import_energy, label: Device/VirtualMeter/Group1/Energies/Base/WP_Cons, table: holding, address: 1072, type: f32, unit: kWh, scale: 0.001, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.l1_export_energy, label: Device/VirtualMeter/Group1/I1/Energies/Base/WP_Supp, table: holding, address: 1074, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.l2_export_energy, label: Device/VirtualMeter/Group1/I2/Energies/Base/WP_Supp, table: holding, address: 1076, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.l3_export_energy, label: Device/VirtualMeter/Group1/I3/Energies/Base/WP_Supp, table: holding, address: 1078, type: f32, unit: kWh, scale: 0.001, poll: slow, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: grid_export_energy, label: Device/VirtualMeter/Group1/Energies/Base/WP_Supp, table: holding, address: 1080, type: f32, unit: kWh, scale: 0.001, note: The list gives no units; Wh assumed (the unit the UMG 801 list gives for the same quantity).}
+  - {key: x.apparent_energy, label: Device/VirtualMeter/Group1/Energies/Base/WS, table: holding, address: 1088, type: f32, unit: kVAh, scale: 0.001, poll: slow, note: 'Unit assumed, as for the real energy.'}
+  - {key: x.reactive_energy, label: Device/VirtualMeter/Group1/Energies/Base/WQ, table: holding, address: 1096, type: f32, unit: kvarh, scale: 0.001, poll: slow, note: 'Unit assumed, as for the real energy.'}
+  - {key: x.inductive_reactive_energy, label: Device/VirtualMeter/Group1/Energies/Base/WQ_ConsInd, table: holding, address: 1104, type: f32, unit: kvarh, scale: 0.001, poll: slow, note: 'Unit assumed, as for the real energy.'}
+  - {key: x.capacitive_reactive_energy, label: Device/VirtualMeter/Group1/Energies/Base/WQ_ConsCap, table: holding, address: 1112, type: f32, unit: kvarh, scale: 0.001, poll: slow, note: 'Unit assumed, as for the real energy.'}
+
+  # Voltage transformer ratio
+  - {key: x.vt_primary, label: 'Device/Measurements/UG/TransformerRatio[0]', table: holding, address: 33000, type: f32, poll: slow, note: Also at 1664 and 1000 further per group; only this row has the comment calling it primary.}
+  - {key: x.vt_secondary, label: 'Device/Measurements/UG/TransformerRatio[1]', table: holding, address: 33002, type: f32, poll: slow, note: Also at 1666 and 1000 further per group; only this row has the comment calling it secondary.}
+
+notes:
+- The UMG 800 keeps its Modbus map in a file. This file follows the fixed DefaultList; a device set to one of the two customer lists
+  (CustomListA, CustomListB) answers differently, and this file does not apply. The maker adds that the real addresses also depend on the
+  modules fitted and that the device's own web page has the exact list.
+- The list gives no units, no signs and no value meanings for state, kind or rotation field; its scale column has no function. Units here
+  come from the quantity names and from the UMG 801 list, where the same quantities are given (V, A, W, VA, var, Hz, and Wh for energy).
+  That is why energy is read with scale 0.001. All of this is unverified.
+- The sign of the power registers is not stated. `positive` import is an assumption, following the UMG 801 formulary.
+- The list and its description say nothing about function codes, byte order, or whether addresses count from 0. Addresses are used as listed
+  and taken as protocol addresses, with function 03 and big-endian data assumed. Address 0 is in the list, which fits 0-based counting.
+- 'String length is taken in registers: the description reckons (length x size) / 2 without giving the size of a character, and the next row''s address leaves room for 32 registers
+  for the name (0 to 31) and 8 for the software version (32 to 39), so a length of 32 is read as 32 registers, unverified. UInt64 rows say length 1 and take 4 registers.'
+- 'Further measurement groups: the values of group 1 repeat at 1000 per group, for virtual meter groups up to 32 (group 2 current I1 at 2012,
+  group 32 at 32012). Each group''s block also repeats the voltages and frequency. Module identity: 56 registers per module from 54, modules 1 to 13
+  (state of module 1 at 98, of module 2 at 154). Digital inputs of modules from 37000. Harmonics of the voltage from 42000.'
+- Each group has a 16-register name at 966 past the group's thousand (1966 for group 1), not included here.
+- 'Connection: the documents give no serial parameters, port or unit. TCP port 502, unit id 1, 125 registers per request and the transports listed are assumed.'
+- Many registers are left out (group 2 to 32, module identity and inputs, mean, minimum and maximum values with their time stamps, harmonics, the fourth current's other values, distortion and TDD, load percentage, complex current, tariffs other than Base, virtual measurements, comparators, current
+  transformer ratios).

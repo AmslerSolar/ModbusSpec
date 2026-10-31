@@ -1,0 +1,518 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the two Janitza UMG 804 Modbus address lists: firmware 1.126 or higher (09/2021) and firmware 1.049 or lower (07/2023).
+
+modbusspec: 0
+id: janitza-umg804
+manufacturer: Janitza
+name: UMG 804 branch circuit power analyser
+kind: meter
+
+sources:
+- title: Janitza BCM Power Analyser UMG 804, Modbus address list, for firmware version 1.126 or higher, doc. no. 2.063.011.0.a
+  version: 09/2021
+  url: https://assets.janitza.com/ce18jq9ih0x6/35b84328429c16391ced17/f23d9f9f9cb3bbfc49862df1279766a4/janitza-mal-umg804_v1.126_-en.pdf
+  sha256: b9f1b807362307849e6e8ec8e2905e501bd6e8214fa95803a6be04233797e112
+- title: Janitza BCM Power Analyser UMG 804, Modbus address list, for firmware version 1.049 or lower, doc. no. 2.063.010.1.a
+  version: 07/2023
+  url: https://assets.janitza.com/ce18jq9ih0x6/622f600bcc3defed138c77/a918e258674866fe79baa75f59bd9d37/janitza-mal-umg804_v1.049_-en.pdf
+  sha256: 259234c9feb2a8b375b485a2cb7aa6e17b52704f0bb8b171d8a2c80328d75e9b
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+defaults:
+  verified: false
+
+identify:
+  serial:
+    table: holding
+    address: 1
+    type: u32
+  checks:
+  # 22000 = Janitza point map, in both documents
+  - table: holding
+    address: 5
+    type: u16
+    equals: 22000
+  # frequency: rejects word-swapped floats
+  - table: holding
+    address: 4900
+    type: f32
+    range:
+    - 0
+    - 70
+  # model name: registers filled with text; its content isn't stated
+  - table: holding
+    address: 45
+    type: str
+    length: 16
+    printable: true
+
+points:
+  # Identity
+  - {key: serial, label: Serial Number, table: holding, address: 1, type: u32, poll: slow}
+  - {key: firmware, label: Firmware Version, table: holding, address: 4, type: u16, poll: slow}
+  - {key: x.device_id, label: Device ID, table: holding, address: 5, type: u16, poll: slow, note: '22000 is the Janitza point map, the only value firmware 1.126 lists; firmware 1.049 and lower also allows 15172 and the register is writable there.'}
+  - {key: x.uptime, label: Uptime, table: holding, address: 7, type: u32, unit: s, poll: slow}
+  - {key: x.brand_name, label: Brand Name (16 Registers), table: holding, address: 29, type: str, length: 16, poll: slow}
+  - {key: x.model_name, label: Model Name (16 Register), table: holding, address: 45, type: str, length: 16, poll: slow}
+  - {key: x.device_name, label: Device Name (16 Registers), table: holding, address: 61, type: str, length: 16, poll: slow}
+  - {key: x.smart_port_1_id, label: 'Smart Port ID #1', table: holding, address: 10, type: u16, poll: slow, enum: smart_port_id, note: Called Smart Product ID in the document for firmware 1.126.}
+  - {key: x.smart_port_2_id, label: 'Smart Port ID #2', table: holding, address: 11, type: u16, poll: slow, enum: smart_port_id}
+  - {key: x.smart_port_3_id, label: 'Smart Port ID #3', table: holding, address: 12, type: u16, poll: slow, enum: smart_port_id}
+  - {key: x.smart_port_4_id, label: 'Smart Port ID #4', table: holding, address: 13, type: u16, poll: slow, enum: smart_port_id}
+
+  # Status
+  - {key: x.smart_port_1_status, label: Smart Port 1 Status, table: holding, address: 1930, type: u16, enum: smart_port_status}
+  - {key: x.smart_port_2_status, label: Smart Port 2 Status, table: holding, address: 1931, type: u16, enum: smart_port_status}
+  - {key: x.smart_port_3_status, label: Smart Port 3 Status, table: holding, address: 1932, type: u16, enum: smart_port_status}
+  - {key: x.smart_port_4_status, label: Smart Port 4 Status, table: holding, address: 1933, type: u16, enum: smart_port_status}
+  - {key: x.global_latching_alarm, label: Global Latching Alarm Status, table: holding, address: 1200, type: u16}
+
+  # Voltage (float registers, same in both documents)
+  - {key: frequency, label: Frequency, table: holding, address: 4900, type: f32, unit: Hz, note: Derived from L1.}
+  - {key: x.voltage_ln_average, label: Voltage LN Average, table: holding, address: 4902, type: f32, unit: V}
+  - {key: x.voltage_ll_average, label: Voltage LL Average, table: holding, address: 4904, type: f32, unit: V}
+  - {key: l1_voltage, label: Voltage L1, table: holding, address: 4906, type: f32, unit: V}
+  - {key: l2_voltage, label: Voltage L2, table: holding, address: 4908, type: f32, unit: V}
+  - {key: l3_voltage, label: Voltage L3, table: holding, address: 4910, type: f32, unit: V}
+  - {key: x.l1_l2_voltage, label: Voltage L1 - L2, table: holding, address: 4912, type: f32, unit: V}
+  - {key: x.l2_l3_voltage, label: Voltage L2 - L3, table: holding, address: 4914, type: f32, unit: V}
+  - {key: x.l3_l1_voltage, label: Voltage L3 - L1, table: holding, address: 4916, type: f32, unit: V}
+  - {key: x.thd_u_average, label: 'Percent THD Average (L1, L2 & L3)', table: holding, address: 4918, type: f32, unit: '%'}
+  - {key: x.l1_thd_u, label: Percent THD - L1, table: holding, address: 4920, type: f32, unit: '%'}
+  - {key: x.l2_thd_u, label: Percent THD - L2, table: holding, address: 4922, type: f32, unit: '%'}
+  - {key: x.l3_thd_u, label: Percent THD - L3, table: holding, address: 4924, type: f32, unit: '%'}
+
+  # Meter 1 total (True Meter or Custom Meter, only if configured)
+  - {key: x.meter_1_energy, label: 'kWh, meter 1 total', table: holding, address: 15300, type: f32, unit: kWh, poll: slow}
+  - {key: x.meter_1_power, label: 'kW, meter 1 total', table: holding, address: 15306, type: f32, unit: kW}
+  - {key: x.meter_1_reactive_power, label: 'kVAR, meter 1 total', table: holding, address: 15308, type: f32, unit: kvar}
+  - {key: x.meter_1_apparent_power, label: 'kVA, meter 1 total', table: holding, address: 15310, type: f32, unit: kVA}
+  - {key: x.meter_1_current, label: 'Current, meter 1 total', table: holding, address: 15312, type: f32, unit: A}
+  - {key: x.meter_1_power_factor, label: 'Power Factor Average, meter 1 total', table: holding, address: 15314, type: f32, note: Not signed.}
+  - {key: x.meter_1_neutral_current, label: 'Neutral Current, meter 1 total', table: holding, address: 15316, type: f32, unit: A}
+
+  # Circuits 1 to 96: Current
+  - {key: x.circuit_1_current, label: Current - Circuit 1, table: holding, address: 11152, type: f32, unit: A}
+  - {key: x.circuit_2_current, label: Current - Circuit 2, table: holding, address: 11154, type: f32, unit: A}
+  - {key: x.circuit_3_current, label: Current - Circuit 3, table: holding, address: 11156, type: f32, unit: A}
+  - {key: x.circuit_4_current, label: Current - Circuit 4, table: holding, address: 11158, type: f32, unit: A}
+  - {key: x.circuit_5_current, label: Current - Circuit 5, table: holding, address: 11160, type: f32, unit: A}
+  - {key: x.circuit_6_current, label: Current - Circuit 6, table: holding, address: 11162, type: f32, unit: A}
+  - {key: x.circuit_7_current, label: Current - Circuit 7, table: holding, address: 11164, type: f32, unit: A}
+  - {key: x.circuit_8_current, label: Current - Circuit 8, table: holding, address: 11166, type: f32, unit: A}
+  - {key: x.circuit_9_current, label: Current - Circuit 9, table: holding, address: 11168, type: f32, unit: A}
+  - {key: x.circuit_10_current, label: Current - Circuit 10, table: holding, address: 11170, type: f32, unit: A}
+  - {key: x.circuit_11_current, label: Current - Circuit 11, table: holding, address: 11172, type: f32, unit: A}
+  - {key: x.circuit_12_current, label: Current - Circuit 12, table: holding, address: 11174, type: f32, unit: A}
+  - {key: x.circuit_13_current, label: Current - Circuit 13, table: holding, address: 11176, type: f32, unit: A}
+  - {key: x.circuit_14_current, label: Current - Circuit 14, table: holding, address: 11178, type: f32, unit: A}
+  - {key: x.circuit_15_current, label: Current - Circuit 15, table: holding, address: 11180, type: f32, unit: A}
+  - {key: x.circuit_16_current, label: Current - Circuit 16, table: holding, address: 11182, type: f32, unit: A}
+  - {key: x.circuit_17_current, label: Current - Circuit 17, table: holding, address: 11184, type: f32, unit: A}
+  - {key: x.circuit_18_current, label: Current - Circuit 18, table: holding, address: 11186, type: f32, unit: A}
+  - {key: x.circuit_19_current, label: Current - Circuit 19, table: holding, address: 11188, type: f32, unit: A}
+  - {key: x.circuit_20_current, label: Current - Circuit 20, table: holding, address: 11190, type: f32, unit: A}
+  - {key: x.circuit_21_current, label: Current - Circuit 21, table: holding, address: 11192, type: f32, unit: A}
+  - {key: x.circuit_22_current, label: Current - Circuit 22, table: holding, address: 11194, type: f32, unit: A}
+  - {key: x.circuit_23_current, label: Current - Circuit 23, table: holding, address: 11196, type: f32, unit: A}
+  - {key: x.circuit_24_current, label: Current - Circuit 24, table: holding, address: 11198, type: f32, unit: A}
+  - {key: x.circuit_25_current, label: Current - Circuit 25, table: holding, address: 11200, type: f32, unit: A}
+  - {key: x.circuit_26_current, label: Current - Circuit 26, table: holding, address: 11202, type: f32, unit: A}
+  - {key: x.circuit_27_current, label: Current - Circuit 27, table: holding, address: 11204, type: f32, unit: A}
+  - {key: x.circuit_28_current, label: Current - Circuit 28, table: holding, address: 11206, type: f32, unit: A}
+  - {key: x.circuit_29_current, label: Current - Circuit 29, table: holding, address: 11208, type: f32, unit: A}
+  - {key: x.circuit_30_current, label: Current - Circuit 30, table: holding, address: 11210, type: f32, unit: A}
+  - {key: x.circuit_31_current, label: Current - Circuit 31, table: holding, address: 11212, type: f32, unit: A}
+  - {key: x.circuit_32_current, label: Current - Circuit 32, table: holding, address: 11214, type: f32, unit: A}
+  - {key: x.circuit_33_current, label: Current - Circuit 33, table: holding, address: 11216, type: f32, unit: A}
+  - {key: x.circuit_34_current, label: Current - Circuit 34, table: holding, address: 11218, type: f32, unit: A}
+  - {key: x.circuit_35_current, label: Current - Circuit 35, table: holding, address: 11220, type: f32, unit: A}
+  - {key: x.circuit_36_current, label: Current - Circuit 36, table: holding, address: 11222, type: f32, unit: A}
+  - {key: x.circuit_37_current, label: Current - Circuit 37, table: holding, address: 11224, type: f32, unit: A}
+  - {key: x.circuit_38_current, label: Current - Circuit 38, table: holding, address: 11226, type: f32, unit: A}
+  - {key: x.circuit_39_current, label: Current - Circuit 39, table: holding, address: 11228, type: f32, unit: A}
+  - {key: x.circuit_40_current, label: Current - Circuit 40, table: holding, address: 11230, type: f32, unit: A}
+  - {key: x.circuit_41_current, label: Current - Circuit 41, table: holding, address: 11232, type: f32, unit: A}
+  - {key: x.circuit_42_current, label: Current - Circuit 42, table: holding, address: 11234, type: f32, unit: A}
+  - {key: x.circuit_43_current, label: Current - Circuit 43, table: holding, address: 11236, type: f32, unit: A}
+  - {key: x.circuit_44_current, label: Current - Circuit 44, table: holding, address: 11238, type: f32, unit: A}
+  - {key: x.circuit_45_current, label: Current - Circuit 45, table: holding, address: 11240, type: f32, unit: A}
+  - {key: x.circuit_46_current, label: Current - Circuit 46, table: holding, address: 11242, type: f32, unit: A}
+  - {key: x.circuit_47_current, label: Current - Circuit 47, table: holding, address: 11244, type: f32, unit: A}
+  - {key: x.circuit_48_current, label: Current - Circuit 48, table: holding, address: 11246, type: f32, unit: A}
+  - {key: x.circuit_49_current, label: Current - Circuit 49, table: holding, address: 11248, type: f32, unit: A}
+  - {key: x.circuit_50_current, label: Current - Circuit 50, table: holding, address: 11250, type: f32, unit: A}
+  - {key: x.circuit_51_current, label: Current - Circuit 51, table: holding, address: 11252, type: f32, unit: A}
+  - {key: x.circuit_52_current, label: Current - Circuit 52, table: holding, address: 11254, type: f32, unit: A}
+  - {key: x.circuit_53_current, label: Current - Circuit 53, table: holding, address: 11256, type: f32, unit: A}
+  - {key: x.circuit_54_current, label: Current - Circuit 54, table: holding, address: 11258, type: f32, unit: A}
+  - {key: x.circuit_55_current, label: Current - Circuit 55, table: holding, address: 11260, type: f32, unit: A}
+  - {key: x.circuit_56_current, label: Current - Circuit 56, table: holding, address: 11262, type: f32, unit: A}
+  - {key: x.circuit_57_current, label: Current - Circuit 57, table: holding, address: 11264, type: f32, unit: A}
+  - {key: x.circuit_58_current, label: Current - Circuit 58, table: holding, address: 11266, type: f32, unit: A}
+  - {key: x.circuit_59_current, label: Current - Circuit 59, table: holding, address: 11268, type: f32, unit: A}
+  - {key: x.circuit_60_current, label: Current - Circuit 60, table: holding, address: 11270, type: f32, unit: A}
+  - {key: x.circuit_61_current, label: Current - Circuit 61, table: holding, address: 11272, type: f32, unit: A}
+  - {key: x.circuit_62_current, label: Current - Circuit 62, table: holding, address: 11274, type: f32, unit: A}
+  - {key: x.circuit_63_current, label: Current - Circuit 63, table: holding, address: 11276, type: f32, unit: A}
+  - {key: x.circuit_64_current, label: Current - Circuit 64, table: holding, address: 11278, type: f32, unit: A}
+  - {key: x.circuit_65_current, label: Current - Circuit 65, table: holding, address: 11280, type: f32, unit: A}
+  - {key: x.circuit_66_current, label: Current - Circuit 66, table: holding, address: 11282, type: f32, unit: A}
+  - {key: x.circuit_67_current, label: Current - Circuit 67, table: holding, address: 11284, type: f32, unit: A}
+  - {key: x.circuit_68_current, label: Current - Circuit 68, table: holding, address: 11286, type: f32, unit: A}
+  - {key: x.circuit_69_current, label: Current - Circuit 69, table: holding, address: 11288, type: f32, unit: A}
+  - {key: x.circuit_70_current, label: Current - Circuit 70, table: holding, address: 11290, type: f32, unit: A}
+  - {key: x.circuit_71_current, label: Current - Circuit 71, table: holding, address: 11292, type: f32, unit: A}
+  - {key: x.circuit_72_current, label: Current - Circuit 72, table: holding, address: 11294, type: f32, unit: A}
+  - {key: x.circuit_73_current, label: Current - Circuit 73, table: holding, address: 11296, type: f32, unit: A}
+  - {key: x.circuit_74_current, label: Current - Circuit 74, table: holding, address: 11298, type: f32, unit: A}
+  - {key: x.circuit_75_current, label: Current - Circuit 75, table: holding, address: 11300, type: f32, unit: A}
+  - {key: x.circuit_76_current, label: Current - Circuit 76, table: holding, address: 11302, type: f32, unit: A}
+  - {key: x.circuit_77_current, label: Current - Circuit 77, table: holding, address: 11304, type: f32, unit: A}
+  - {key: x.circuit_78_current, label: Current - Circuit 78, table: holding, address: 11306, type: f32, unit: A}
+  - {key: x.circuit_79_current, label: Current - Circuit 79, table: holding, address: 11308, type: f32, unit: A}
+  - {key: x.circuit_80_current, label: Current - Circuit 80, table: holding, address: 11310, type: f32, unit: A}
+  - {key: x.circuit_81_current, label: Current - Circuit 81, table: holding, address: 11312, type: f32, unit: A}
+  - {key: x.circuit_82_current, label: Current - Circuit 82, table: holding, address: 11314, type: f32, unit: A}
+  - {key: x.circuit_83_current, label: Current - Circuit 83, table: holding, address: 11316, type: f32, unit: A}
+  - {key: x.circuit_84_current, label: Current - Circuit 84, table: holding, address: 11318, type: f32, unit: A}
+  - {key: x.circuit_85_current, label: Current - Circuit 85, table: holding, address: 11320, type: f32, unit: A}
+  - {key: x.circuit_86_current, label: Current - Circuit 86, table: holding, address: 11322, type: f32, unit: A}
+  - {key: x.circuit_87_current, label: Current - Circuit 87, table: holding, address: 11324, type: f32, unit: A}
+  - {key: x.circuit_88_current, label: Current - Circuit 88, table: holding, address: 11326, type: f32, unit: A}
+  - {key: x.circuit_89_current, label: Current - Circuit 89, table: holding, address: 11328, type: f32, unit: A}
+  - {key: x.circuit_90_current, label: Current - Circuit 90, table: holding, address: 11330, type: f32, unit: A}
+  - {key: x.circuit_91_current, label: Current - Circuit 91, table: holding, address: 11332, type: f32, unit: A}
+  - {key: x.circuit_92_current, label: Current - Circuit 92, table: holding, address: 11334, type: f32, unit: A}
+  - {key: x.circuit_93_current, label: Current - Circuit 93, table: holding, address: 11336, type: f32, unit: A}
+  - {key: x.circuit_94_current, label: Current - Circuit 94, table: holding, address: 11338, type: f32, unit: A}
+  - {key: x.circuit_95_current, label: Current - Circuit 95, table: holding, address: 11340, type: f32, unit: A}
+  - {key: x.circuit_96_current, label: Current - Circuit 96, table: holding, address: 11342, type: f32, unit: A}
+
+  # Circuits 1 to 96: kW
+  - {key: x.circuit_1_power, label: kW - Circuit 1, table: holding, address: 10576, type: f32, unit: kW}
+  - {key: x.circuit_2_power, label: kW - Circuit 2, table: holding, address: 10578, type: f32, unit: kW}
+  - {key: x.circuit_3_power, label: kW - Circuit 3, table: holding, address: 10580, type: f32, unit: kW}
+  - {key: x.circuit_4_power, label: kW - Circuit 4, table: holding, address: 10582, type: f32, unit: kW}
+  - {key: x.circuit_5_power, label: kW - Circuit 5, table: holding, address: 10584, type: f32, unit: kW}
+  - {key: x.circuit_6_power, label: kW - Circuit 6, table: holding, address: 10586, type: f32, unit: kW}
+  - {key: x.circuit_7_power, label: kW - Circuit 7, table: holding, address: 10588, type: f32, unit: kW}
+  - {key: x.circuit_8_power, label: kW - Circuit 8, table: holding, address: 10590, type: f32, unit: kW}
+  - {key: x.circuit_9_power, label: kW - Circuit 9, table: holding, address: 10592, type: f32, unit: kW}
+  - {key: x.circuit_10_power, label: kW - Circuit 10, table: holding, address: 10594, type: f32, unit: kW}
+  - {key: x.circuit_11_power, label: kW - Circuit 11, table: holding, address: 10596, type: f32, unit: kW}
+  - {key: x.circuit_12_power, label: kW - Circuit 12, table: holding, address: 10598, type: f32, unit: kW}
+  - {key: x.circuit_13_power, label: kW - Circuit 13, table: holding, address: 10600, type: f32, unit: kW}
+  - {key: x.circuit_14_power, label: kW - Circuit 14, table: holding, address: 10602, type: f32, unit: kW}
+  - {key: x.circuit_15_power, label: kW - Circuit 15, table: holding, address: 10604, type: f32, unit: kW}
+  - {key: x.circuit_16_power, label: kW - Circuit 16, table: holding, address: 10606, type: f32, unit: kW}
+  - {key: x.circuit_17_power, label: kW - Circuit 17, table: holding, address: 10608, type: f32, unit: kW}
+  - {key: x.circuit_18_power, label: kW - Circuit 18, table: holding, address: 10610, type: f32, unit: kW}
+  - {key: x.circuit_19_power, label: kW - Circuit 19, table: holding, address: 10612, type: f32, unit: kW}
+  - {key: x.circuit_20_power, label: kW - Circuit 20, table: holding, address: 10614, type: f32, unit: kW}
+  - {key: x.circuit_21_power, label: kW - Circuit 21, table: holding, address: 10616, type: f32, unit: kW}
+  - {key: x.circuit_22_power, label: kW - Circuit 22, table: holding, address: 10618, type: f32, unit: kW}
+  - {key: x.circuit_23_power, label: kW - Circuit 23, table: holding, address: 10620, type: f32, unit: kW}
+  - {key: x.circuit_24_power, label: kW - Circuit 24, table: holding, address: 10622, type: f32, unit: kW}
+  - {key: x.circuit_25_power, label: kW - Circuit 25, table: holding, address: 10624, type: f32, unit: kW}
+  - {key: x.circuit_26_power, label: kW - Circuit 26, table: holding, address: 10626, type: f32, unit: kW}
+  - {key: x.circuit_27_power, label: kW - Circuit 27, table: holding, address: 10628, type: f32, unit: kW}
+  - {key: x.circuit_28_power, label: kW - Circuit 28, table: holding, address: 10630, type: f32, unit: kW}
+  - {key: x.circuit_29_power, label: kW - Circuit 29, table: holding, address: 10632, type: f32, unit: kW}
+  - {key: x.circuit_30_power, label: kW - Circuit 30, table: holding, address: 10634, type: f32, unit: kW}
+  - {key: x.circuit_31_power, label: kW - Circuit 31, table: holding, address: 10636, type: f32, unit: kW}
+  - {key: x.circuit_32_power, label: kW - Circuit 32, table: holding, address: 10638, type: f32, unit: kW}
+  - {key: x.circuit_33_power, label: kW - Circuit 33, table: holding, address: 10640, type: f32, unit: kW}
+  - {key: x.circuit_34_power, label: kW - Circuit 34, table: holding, address: 10642, type: f32, unit: kW}
+  - {key: x.circuit_35_power, label: kW - Circuit 35, table: holding, address: 10644, type: f32, unit: kW}
+  - {key: x.circuit_36_power, label: kW - Circuit 36, table: holding, address: 10646, type: f32, unit: kW}
+  - {key: x.circuit_37_power, label: kW - Circuit 37, table: holding, address: 10648, type: f32, unit: kW}
+  - {key: x.circuit_38_power, label: kW - Circuit 38, table: holding, address: 10650, type: f32, unit: kW}
+  - {key: x.circuit_39_power, label: kW - Circuit 39, table: holding, address: 10652, type: f32, unit: kW}
+  - {key: x.circuit_40_power, label: kW - Circuit 40, table: holding, address: 10654, type: f32, unit: kW}
+  - {key: x.circuit_41_power, label: kW - Circuit 41, table: holding, address: 10656, type: f32, unit: kW}
+  - {key: x.circuit_42_power, label: kW - Circuit 42, table: holding, address: 10658, type: f32, unit: kW}
+  - {key: x.circuit_43_power, label: kW - Circuit 43, table: holding, address: 10660, type: f32, unit: kW}
+  - {key: x.circuit_44_power, label: kW - Circuit 44, table: holding, address: 10662, type: f32, unit: kW}
+  - {key: x.circuit_45_power, label: kW - Circuit 45, table: holding, address: 10664, type: f32, unit: kW}
+  - {key: x.circuit_46_power, label: kW - Circuit 46, table: holding, address: 10666, type: f32, unit: kW}
+  - {key: x.circuit_47_power, label: kW - Circuit 47, table: holding, address: 10668, type: f32, unit: kW}
+  - {key: x.circuit_48_power, label: kW - Circuit 48, table: holding, address: 10670, type: f32, unit: kW}
+  - {key: x.circuit_49_power, label: kW - Circuit 49, table: holding, address: 10672, type: f32, unit: kW}
+  - {key: x.circuit_50_power, label: kW - Circuit 50, table: holding, address: 10674, type: f32, unit: kW}
+  - {key: x.circuit_51_power, label: kW - Circuit 51, table: holding, address: 10676, type: f32, unit: kW}
+  - {key: x.circuit_52_power, label: kW - Circuit 52, table: holding, address: 10678, type: f32, unit: kW}
+  - {key: x.circuit_53_power, label: kW - Circuit 53, table: holding, address: 10680, type: f32, unit: kW}
+  - {key: x.circuit_54_power, label: kW - Circuit 54, table: holding, address: 10682, type: f32, unit: kW}
+  - {key: x.circuit_55_power, label: kW - Circuit 55, table: holding, address: 10684, type: f32, unit: kW}
+  - {key: x.circuit_56_power, label: kW - Circuit 56, table: holding, address: 10686, type: f32, unit: kW}
+  - {key: x.circuit_57_power, label: kW - Circuit 57, table: holding, address: 10688, type: f32, unit: kW}
+  - {key: x.circuit_58_power, label: kW - Circuit 58, table: holding, address: 10690, type: f32, unit: kW}
+  - {key: x.circuit_59_power, label: kW - Circuit 59, table: holding, address: 10692, type: f32, unit: kW}
+  - {key: x.circuit_60_power, label: kW - Circuit 60, table: holding, address: 10694, type: f32, unit: kW}
+  - {key: x.circuit_61_power, label: kW - Circuit 61, table: holding, address: 10696, type: f32, unit: kW}
+  - {key: x.circuit_62_power, label: kW - Circuit 62, table: holding, address: 10698, type: f32, unit: kW}
+  - {key: x.circuit_63_power, label: kW - Circuit 63, table: holding, address: 10700, type: f32, unit: kW}
+  - {key: x.circuit_64_power, label: kW - Circuit 64, table: holding, address: 10702, type: f32, unit: kW}
+  - {key: x.circuit_65_power, label: kW - Circuit 65, table: holding, address: 10704, type: f32, unit: kW}
+  - {key: x.circuit_66_power, label: kW - Circuit 66, table: holding, address: 10706, type: f32, unit: kW}
+  - {key: x.circuit_67_power, label: kW - Circuit 67, table: holding, address: 10708, type: f32, unit: kW}
+  - {key: x.circuit_68_power, label: kW - Circuit 68, table: holding, address: 10710, type: f32, unit: kW}
+  - {key: x.circuit_69_power, label: kW - Circuit 69, table: holding, address: 10712, type: f32, unit: kW}
+  - {key: x.circuit_70_power, label: kW - Circuit 70, table: holding, address: 10714, type: f32, unit: kW}
+  - {key: x.circuit_71_power, label: kW - Circuit 71, table: holding, address: 10716, type: f32, unit: kW}
+  - {key: x.circuit_72_power, label: kW - Circuit 72, table: holding, address: 10718, type: f32, unit: kW}
+  - {key: x.circuit_73_power, label: kW - Circuit 73, table: holding, address: 10720, type: f32, unit: kW}
+  - {key: x.circuit_74_power, label: kW - Circuit 74, table: holding, address: 10722, type: f32, unit: kW}
+  - {key: x.circuit_75_power, label: kW - Circuit 75, table: holding, address: 10724, type: f32, unit: kW}
+  - {key: x.circuit_76_power, label: kW - Circuit 76, table: holding, address: 10726, type: f32, unit: kW}
+  - {key: x.circuit_77_power, label: kW - Circuit 77, table: holding, address: 10728, type: f32, unit: kW}
+  - {key: x.circuit_78_power, label: kW - Circuit 78, table: holding, address: 10730, type: f32, unit: kW}
+  - {key: x.circuit_79_power, label: kW - Circuit 79, table: holding, address: 10732, type: f32, unit: kW}
+  - {key: x.circuit_80_power, label: kW - Circuit 80, table: holding, address: 10734, type: f32, unit: kW}
+  - {key: x.circuit_81_power, label: kW - Circuit 81, table: holding, address: 10736, type: f32, unit: kW}
+  - {key: x.circuit_82_power, label: kW - Circuit 82, table: holding, address: 10738, type: f32, unit: kW}
+  - {key: x.circuit_83_power, label: kW - Circuit 83, table: holding, address: 10740, type: f32, unit: kW}
+  - {key: x.circuit_84_power, label: kW - Circuit 84, table: holding, address: 10742, type: f32, unit: kW}
+  - {key: x.circuit_85_power, label: kW - Circuit 85, table: holding, address: 10744, type: f32, unit: kW}
+  - {key: x.circuit_86_power, label: kW - Circuit 86, table: holding, address: 10746, type: f32, unit: kW}
+  - {key: x.circuit_87_power, label: kW - Circuit 87, table: holding, address: 10748, type: f32, unit: kW}
+  - {key: x.circuit_88_power, label: kW - Circuit 88, table: holding, address: 10750, type: f32, unit: kW}
+  - {key: x.circuit_89_power, label: kW - Circuit 89, table: holding, address: 10752, type: f32, unit: kW}
+  - {key: x.circuit_90_power, label: kW - Circuit 90, table: holding, address: 10754, type: f32, unit: kW}
+  - {key: x.circuit_91_power, label: kW - Circuit 91, table: holding, address: 10756, type: f32, unit: kW}
+  - {key: x.circuit_92_power, label: kW - Circuit 92, table: holding, address: 10758, type: f32, unit: kW}
+  - {key: x.circuit_93_power, label: kW - Circuit 93, table: holding, address: 10760, type: f32, unit: kW}
+  - {key: x.circuit_94_power, label: kW - Circuit 94, table: holding, address: 10762, type: f32, unit: kW}
+  - {key: x.circuit_95_power, label: kW - Circuit 95, table: holding, address: 10764, type: f32, unit: kW}
+  - {key: x.circuit_96_power, label: kW - Circuit 96, table: holding, address: 10766, type: f32, unit: kW}
+
+  # Circuits 1 to 96: Power Factor
+  - {key: x.circuit_1_power_factor, label: Power Factor - Circuit 1, table: holding, address: 11344, type: f32}
+  - {key: x.circuit_2_power_factor, label: Power Factor - Circuit 2, table: holding, address: 11346, type: f32}
+  - {key: x.circuit_3_power_factor, label: Power Factor - Circuit 3, table: holding, address: 11348, type: f32}
+  - {key: x.circuit_4_power_factor, label: Power Factor - Circuit 4, table: holding, address: 11350, type: f32}
+  - {key: x.circuit_5_power_factor, label: Power Factor - Circuit 5, table: holding, address: 11352, type: f32}
+  - {key: x.circuit_6_power_factor, label: Power Factor - Circuit 6, table: holding, address: 11354, type: f32}
+  - {key: x.circuit_7_power_factor, label: Power Factor - Circuit 7, table: holding, address: 11356, type: f32}
+  - {key: x.circuit_8_power_factor, label: Power Factor - Circuit 8, table: holding, address: 11358, type: f32}
+  - {key: x.circuit_9_power_factor, label: Power Factor - Circuit 9, table: holding, address: 11360, type: f32}
+  - {key: x.circuit_10_power_factor, label: Power Factor - Circuit 10, table: holding, address: 11362, type: f32}
+  - {key: x.circuit_11_power_factor, label: Power Factor - Circuit 11, table: holding, address: 11364, type: f32}
+  - {key: x.circuit_12_power_factor, label: Power Factor - Circuit 12, table: holding, address: 11366, type: f32}
+  - {key: x.circuit_13_power_factor, label: Power Factor - Circuit 13, table: holding, address: 11368, type: f32}
+  - {key: x.circuit_14_power_factor, label: Power Factor - Circuit 14, table: holding, address: 11370, type: f32}
+  - {key: x.circuit_15_power_factor, label: Power Factor - Circuit 15, table: holding, address: 11372, type: f32}
+  - {key: x.circuit_16_power_factor, label: Power Factor - Circuit 16, table: holding, address: 11374, type: f32}
+  - {key: x.circuit_17_power_factor, label: Power Factor - Circuit 17, table: holding, address: 11376, type: f32}
+  - {key: x.circuit_18_power_factor, label: Power Factor - Circuit 18, table: holding, address: 11378, type: f32}
+  - {key: x.circuit_19_power_factor, label: Power Factor - Circuit 19, table: holding, address: 11380, type: f32}
+  - {key: x.circuit_20_power_factor, label: Power Factor - Circuit 20, table: holding, address: 11382, type: f32}
+  - {key: x.circuit_21_power_factor, label: Power Factor - Circuit 21, table: holding, address: 11384, type: f32}
+  - {key: x.circuit_22_power_factor, label: Power Factor - Circuit 22, table: holding, address: 11386, type: f32}
+  - {key: x.circuit_23_power_factor, label: Power Factor - Circuit 23, table: holding, address: 11388, type: f32}
+  - {key: x.circuit_24_power_factor, label: Power Factor - Circuit 24, table: holding, address: 11390, type: f32}
+  - {key: x.circuit_25_power_factor, label: Power Factor - Circuit 25, table: holding, address: 11392, type: f32}
+  - {key: x.circuit_26_power_factor, label: Power Factor - Circuit 26, table: holding, address: 11394, type: f32}
+  - {key: x.circuit_27_power_factor, label: Power Factor - Circuit 27, table: holding, address: 11396, type: f32}
+  - {key: x.circuit_28_power_factor, label: Power Factor - Circuit 28, table: holding, address: 11398, type: f32}
+  - {key: x.circuit_29_power_factor, label: Power Factor - Circuit 29, table: holding, address: 11400, type: f32}
+  - {key: x.circuit_30_power_factor, label: Power Factor - Circuit 30, table: holding, address: 11402, type: f32}
+  - {key: x.circuit_31_power_factor, label: Power Factor - Circuit 31, table: holding, address: 11404, type: f32}
+  - {key: x.circuit_32_power_factor, label: Power Factor - Circuit 32, table: holding, address: 11406, type: f32}
+  - {key: x.circuit_33_power_factor, label: Power Factor - Circuit 33, table: holding, address: 11408, type: f32}
+  - {key: x.circuit_34_power_factor, label: Power Factor - Circuit 34, table: holding, address: 11410, type: f32}
+  - {key: x.circuit_35_power_factor, label: Power Factor - Circuit 35, table: holding, address: 11412, type: f32}
+  - {key: x.circuit_36_power_factor, label: Power Factor - Circuit 36, table: holding, address: 11414, type: f32}
+  - {key: x.circuit_37_power_factor, label: Power Factor - Circuit 37, table: holding, address: 11416, type: f32}
+  - {key: x.circuit_38_power_factor, label: Power Factor - Circuit 38, table: holding, address: 11418, type: f32}
+  - {key: x.circuit_39_power_factor, label: Power Factor - Circuit 39, table: holding, address: 11420, type: f32}
+  - {key: x.circuit_40_power_factor, label: Power Factor - Circuit 40, table: holding, address: 11422, type: f32}
+  - {key: x.circuit_41_power_factor, label: Power Factor - Circuit 41, table: holding, address: 11424, type: f32}
+  - {key: x.circuit_42_power_factor, label: Power Factor - Circuit 42, table: holding, address: 11426, type: f32}
+  - {key: x.circuit_43_power_factor, label: Power Factor - Circuit 43, table: holding, address: 11428, type: f32}
+  - {key: x.circuit_44_power_factor, label: Power Factor - Circuit 44, table: holding, address: 11430, type: f32}
+  - {key: x.circuit_45_power_factor, label: Power Factor - Circuit 45, table: holding, address: 11432, type: f32}
+  - {key: x.circuit_46_power_factor, label: Power Factor - Circuit 46, table: holding, address: 11434, type: f32}
+  - {key: x.circuit_47_power_factor, label: Power Factor - Circuit 47, table: holding, address: 11436, type: f32}
+  - {key: x.circuit_48_power_factor, label: Power Factor - Circuit 48, table: holding, address: 11438, type: f32}
+  - {key: x.circuit_49_power_factor, label: Power Factor - Circuit 49, table: holding, address: 11440, type: f32}
+  - {key: x.circuit_50_power_factor, label: Power Factor - Circuit 50, table: holding, address: 11442, type: f32}
+  - {key: x.circuit_51_power_factor, label: Power Factor - Circuit 51, table: holding, address: 11444, type: f32}
+  - {key: x.circuit_52_power_factor, label: Power Factor - Circuit 52, table: holding, address: 11446, type: f32}
+  - {key: x.circuit_53_power_factor, label: Power Factor - Circuit 53, table: holding, address: 11448, type: f32}
+  - {key: x.circuit_54_power_factor, label: Power Factor - Circuit 54, table: holding, address: 11450, type: f32}
+  - {key: x.circuit_55_power_factor, label: Power Factor - Circuit 55, table: holding, address: 11452, type: f32}
+  - {key: x.circuit_56_power_factor, label: Power Factor - Circuit 56, table: holding, address: 11454, type: f32}
+  - {key: x.circuit_57_power_factor, label: Power Factor - Circuit 57, table: holding, address: 11456, type: f32}
+  - {key: x.circuit_58_power_factor, label: Power Factor - Circuit 58, table: holding, address: 11458, type: f32}
+  - {key: x.circuit_59_power_factor, label: Power Factor - Circuit 59, table: holding, address: 11460, type: f32}
+  - {key: x.circuit_60_power_factor, label: Power Factor - Circuit 60, table: holding, address: 11462, type: f32}
+  - {key: x.circuit_61_power_factor, label: Power Factor - Circuit 61, table: holding, address: 11464, type: f32}
+  - {key: x.circuit_62_power_factor, label: Power Factor - Circuit 62, table: holding, address: 11466, type: f32}
+  - {key: x.circuit_63_power_factor, label: Power Factor - Circuit 63, table: holding, address: 11468, type: f32}
+  - {key: x.circuit_64_power_factor, label: Power Factor - Circuit 64, table: holding, address: 11470, type: f32}
+  - {key: x.circuit_65_power_factor, label: Power Factor - Circuit 65, table: holding, address: 11472, type: f32}
+  - {key: x.circuit_66_power_factor, label: Power Factor - Circuit 66, table: holding, address: 11474, type: f32}
+  - {key: x.circuit_67_power_factor, label: Power Factor - Circuit 67, table: holding, address: 11476, type: f32}
+  - {key: x.circuit_68_power_factor, label: Power Factor - Circuit 68, table: holding, address: 11478, type: f32}
+  - {key: x.circuit_69_power_factor, label: Power Factor - Circuit 69, table: holding, address: 11480, type: f32}
+  - {key: x.circuit_70_power_factor, label: Power Factor - Circuit 70, table: holding, address: 11482, type: f32}
+  - {key: x.circuit_71_power_factor, label: Power Factor - Circuit 71, table: holding, address: 11484, type: f32}
+  - {key: x.circuit_72_power_factor, label: Power Factor - Circuit 72, table: holding, address: 11486, type: f32}
+  - {key: x.circuit_73_power_factor, label: Power Factor - Circuit 73, table: holding, address: 11488, type: f32}
+  - {key: x.circuit_74_power_factor, label: Power Factor - Circuit 74, table: holding, address: 11490, type: f32}
+  - {key: x.circuit_75_power_factor, label: Power Factor - Circuit 75, table: holding, address: 11492, type: f32}
+  - {key: x.circuit_76_power_factor, label: Power Factor - Circuit 76, table: holding, address: 11494, type: f32}
+  - {key: x.circuit_77_power_factor, label: Power Factor - Circuit 77, table: holding, address: 11496, type: f32}
+  - {key: x.circuit_78_power_factor, label: Power Factor - Circuit 78, table: holding, address: 11498, type: f32}
+  - {key: x.circuit_79_power_factor, label: Power Factor - Circuit 79, table: holding, address: 11500, type: f32}
+  - {key: x.circuit_80_power_factor, label: Power Factor - Circuit 80, table: holding, address: 11502, type: f32}
+  - {key: x.circuit_81_power_factor, label: Power Factor - Circuit 81, table: holding, address: 11504, type: f32}
+  - {key: x.circuit_82_power_factor, label: Power Factor - Circuit 82, table: holding, address: 11506, type: f32}
+  - {key: x.circuit_83_power_factor, label: Power Factor - Circuit 83, table: holding, address: 11508, type: f32}
+  - {key: x.circuit_84_power_factor, label: Power Factor - Circuit 84, table: holding, address: 11510, type: f32}
+  - {key: x.circuit_85_power_factor, label: Power Factor - Circuit 85, table: holding, address: 11512, type: f32}
+  - {key: x.circuit_86_power_factor, label: Power Factor - Circuit 86, table: holding, address: 11514, type: f32}
+  - {key: x.circuit_87_power_factor, label: Power Factor - Circuit 87, table: holding, address: 11516, type: f32}
+  - {key: x.circuit_88_power_factor, label: Power Factor - Circuit 88, table: holding, address: 11518, type: f32}
+  - {key: x.circuit_89_power_factor, label: Power Factor - Circuit 89, table: holding, address: 11520, type: f32}
+  - {key: x.circuit_90_power_factor, label: Power Factor - Circuit 90, table: holding, address: 11522, type: f32}
+  - {key: x.circuit_91_power_factor, label: Power Factor - Circuit 91, table: holding, address: 11524, type: f32}
+  - {key: x.circuit_92_power_factor, label: Power Factor - Circuit 92, table: holding, address: 11526, type: f32}
+  - {key: x.circuit_93_power_factor, label: Power Factor - Circuit 93, table: holding, address: 11528, type: f32}
+  - {key: x.circuit_94_power_factor, label: Power Factor - Circuit 94, table: holding, address: 11530, type: f32}
+  - {key: x.circuit_95_power_factor, label: Power Factor - Circuit 95, table: holding, address: 11532, type: f32}
+  - {key: x.circuit_96_power_factor, label: Power Factor - Circuit 96, table: holding, address: 11534, type: f32}
+
+  # Circuits 1 to 96: kWh
+  - {key: x.circuit_1_energy, label: kWh - Circuit 1, table: holding, address: 10000, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_2_energy, label: kWh - Circuit 2, table: holding, address: 10002, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_3_energy, label: kWh - Circuit 3, table: holding, address: 10004, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_4_energy, label: kWh - Circuit 4, table: holding, address: 10006, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_5_energy, label: kWh - Circuit 5, table: holding, address: 10008, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_6_energy, label: kWh - Circuit 6, table: holding, address: 10010, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_7_energy, label: kWh - Circuit 7, table: holding, address: 10012, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_8_energy, label: kWh - Circuit 8, table: holding, address: 10014, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_9_energy, label: kWh - Circuit 9, table: holding, address: 10016, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_10_energy, label: kWh - Circuit 10, table: holding, address: 10018, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_11_energy, label: kWh - Circuit 11, table: holding, address: 10020, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_12_energy, label: kWh - Circuit 12, table: holding, address: 10022, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_13_energy, label: kWh - Circuit 13, table: holding, address: 10024, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_14_energy, label: kWh - Circuit 14, table: holding, address: 10026, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_15_energy, label: kWh - Circuit 15, table: holding, address: 10028, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_16_energy, label: kWh - Circuit 16, table: holding, address: 10030, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_17_energy, label: kWh - Circuit 17, table: holding, address: 10032, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_18_energy, label: kWh - Circuit 18, table: holding, address: 10034, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_19_energy, label: kWh - Circuit 19, table: holding, address: 10036, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_20_energy, label: kWh - Circuit 20, table: holding, address: 10038, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_21_energy, label: kWh - Circuit 21, table: holding, address: 10040, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_22_energy, label: kWh - Circuit 22, table: holding, address: 10042, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_23_energy, label: kWh - Circuit 23, table: holding, address: 10044, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_24_energy, label: kWh - Circuit 24, table: holding, address: 10046, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_25_energy, label: kWh - Circuit 25, table: holding, address: 10048, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_26_energy, label: kWh - Circuit 26, table: holding, address: 10050, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_27_energy, label: kWh - Circuit 27, table: holding, address: 10052, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_28_energy, label: kWh - Circuit 28, table: holding, address: 10054, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_29_energy, label: kWh - Circuit 29, table: holding, address: 10056, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_30_energy, label: kWh - Circuit 30, table: holding, address: 10058, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_31_energy, label: kWh - Circuit 31, table: holding, address: 10060, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_32_energy, label: kWh - Circuit 32, table: holding, address: 10062, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_33_energy, label: kWh - Circuit 33, table: holding, address: 10064, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_34_energy, label: kWh - Circuit 34, table: holding, address: 10066, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_35_energy, label: kWh - Circuit 35, table: holding, address: 10068, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_36_energy, label: kWh - Circuit 36, table: holding, address: 10070, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_37_energy, label: kWh - Circuit 37, table: holding, address: 10072, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_38_energy, label: kWh - Circuit 38, table: holding, address: 10074, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_39_energy, label: kWh - Circuit 39, table: holding, address: 10076, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_40_energy, label: kWh - Circuit 40, table: holding, address: 10078, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_41_energy, label: kWh - Circuit 41, table: holding, address: 10080, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_42_energy, label: kWh - Circuit 42, table: holding, address: 10082, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_43_energy, label: kWh - Circuit 43, table: holding, address: 10084, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_44_energy, label: kWh - Circuit 44, table: holding, address: 10086, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_45_energy, label: kWh - Circuit 45, table: holding, address: 10088, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_46_energy, label: kWh - Circuit 46, table: holding, address: 10090, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_47_energy, label: kWh - Circuit 47, table: holding, address: 10092, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_48_energy, label: kWh - Circuit 48, table: holding, address: 10094, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_49_energy, label: kWh - Circuit 49, table: holding, address: 10096, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_50_energy, label: kWh - Circuit 50, table: holding, address: 10098, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_51_energy, label: kWh - Circuit 51, table: holding, address: 10100, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_52_energy, label: kWh - Circuit 52, table: holding, address: 10102, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_53_energy, label: kWh - Circuit 53, table: holding, address: 10104, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_54_energy, label: kWh - Circuit 54, table: holding, address: 10106, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_55_energy, label: kWh - Circuit 55, table: holding, address: 10108, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_56_energy, label: kWh - Circuit 56, table: holding, address: 10110, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_57_energy, label: kWh - Circuit 57, table: holding, address: 10112, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_58_energy, label: kWh - Circuit 58, table: holding, address: 10114, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_59_energy, label: kWh - Circuit 59, table: holding, address: 10116, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_60_energy, label: kWh - Circuit 60, table: holding, address: 10118, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_61_energy, label: kWh - Circuit 61, table: holding, address: 10120, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_62_energy, label: kWh - Circuit 62, table: holding, address: 10122, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_63_energy, label: kWh - Circuit 63, table: holding, address: 10124, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_64_energy, label: kWh - Circuit 64, table: holding, address: 10126, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_65_energy, label: kWh - Circuit 65, table: holding, address: 10128, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_66_energy, label: kWh - Circuit 66, table: holding, address: 10130, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_67_energy, label: kWh - Circuit 67, table: holding, address: 10132, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_68_energy, label: kWh - Circuit 68, table: holding, address: 10134, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_69_energy, label: kWh - Circuit 69, table: holding, address: 10136, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_70_energy, label: kWh - Circuit 70, table: holding, address: 10138, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_71_energy, label: kWh - Circuit 71, table: holding, address: 10140, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_72_energy, label: kWh - Circuit 72, table: holding, address: 10142, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_73_energy, label: kWh - Circuit 73, table: holding, address: 10144, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_74_energy, label: kWh - Circuit 74, table: holding, address: 10146, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_75_energy, label: kWh - Circuit 75, table: holding, address: 10148, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_76_energy, label: kWh - Circuit 76, table: holding, address: 10150, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_77_energy, label: kWh - Circuit 77, table: holding, address: 10152, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_78_energy, label: kWh - Circuit 78, table: holding, address: 10154, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_79_energy, label: kWh - Circuit 79, table: holding, address: 10156, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_80_energy, label: kWh - Circuit 80, table: holding, address: 10158, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_81_energy, label: kWh - Circuit 81, table: holding, address: 10160, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_82_energy, label: kWh - Circuit 82, table: holding, address: 10162, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_83_energy, label: kWh - Circuit 83, table: holding, address: 10164, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_84_energy, label: kWh - Circuit 84, table: holding, address: 10166, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_85_energy, label: kWh - Circuit 85, table: holding, address: 10168, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_86_energy, label: kWh - Circuit 86, table: holding, address: 10170, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_87_energy, label: kWh - Circuit 87, table: holding, address: 10172, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_88_energy, label: kWh - Circuit 88, table: holding, address: 10174, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_89_energy, label: kWh - Circuit 89, table: holding, address: 10176, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_90_energy, label: kWh - Circuit 90, table: holding, address: 10178, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_91_energy, label: kWh - Circuit 91, table: holding, address: 10180, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_92_energy, label: kWh - Circuit 92, table: holding, address: 10182, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_93_energy, label: kWh - Circuit 93, table: holding, address: 10184, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_94_energy, label: kWh - Circuit 94, table: holding, address: 10186, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_95_energy, label: kWh - Circuit 95, table: holding, address: 10188, type: f32, unit: kWh, poll: slow}
+  - {key: x.circuit_96_energy, label: kWh - Circuit 96, table: holding, address: 10190, type: f32, unit: kWh, poll: slow}
+
+enums:
+  smart_port_id: {'0': Nothing connected, '1': DIN rail CT interface card, '4': DIN rail CT interface floating board}
+  smart_port_status: {'0': Nothing detected, '1': Status OK, '2': Offline, '3': Invalid device detected}
+
+notes:
+- 'Two documents, and the file names mislead: the one dated 09/2021 is for firmware 1.126 or higher, the one dated 07/2023 for firmware 1.049 or lower. Nothing covers the firmware between them.'
+- 'The two maps differ, but not for anything in this file, so it has no models. All float registers here have the same addresses and names in both. Only the 1.126 document has the scaled integer registers
+  (4800 to 7687 and at each custom meter), the device health word at 9, the Pi check values at 153 to 155 and resettable kWh at 13648. The 1.049 document lists the integer columns empty for
+  the readings. The older document calls meters True Meter, the newer Custom Meter (a true meter, or a virtual one that sums circuits).'
+- 'Neither document names function codes, byte order or the base of its addresses. Registers start at 1 in the lists with nothing at 0, so the numbers may count from 1. Addresses are used as listed; function 03 and
+  big-endian bytes are assumed. Only the word order is stated (MSW first, then LSW). On firmware 1.126 or higher, register 153 should read 31415 and 154 the float pi, which settles the question.'
+- 'Identification rests on register 5 reading 22000. A device with the other point map (15172, possible on firmware 1.049 or lower) isn''t found.'
+- 'Circuit values go up by 2 registers per circuit, 96 circuits: current from 11152, kW from 10576, power factor from 11344, kWh from 10000. Power factor: positive leading (capacitive), negative lagging (inductive). The
+  documents don''t state the sign of kW; there is no main power or grid total unless a meter is configured.'
+- 'Meter n is at meter 1 + 500 x (n − 1): the total values at 15300, then circuit values at 15350, 15400, 15450. A true meter takes up to 3 circuits, assigned from register 488. The newer document runs to 96 custom meters.'
+- 'Modbus port 502 is stated in the document (register 125 lists it); slave address 1 to 254 (register 124). Baud rates 9600 to 76800 are selected in registers 140 and 141; the newer document has parity and stop bits in 142 and 143 without value
+  meanings, and no default is given, so no serial parameters are stated here. Unit id 1 and 125 registers per request are assumed.'
+- Many registers are left out (scaled integer readings, kVAR, kVA, kVARh, kVAh, current angle, THD, max and demand values, crest factor and utilisation per circuit, meters 2 onwards and meter circuit values, voltage angle, circuit
+  and alarm configuration, per-circuit alarm status, waveform capture, digital inputs and outputs, clock, network settings, smart port daisy-chain details).

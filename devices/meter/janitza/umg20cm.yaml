@@ -1,0 +1,277 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Janitza UMG 20 CM Modbus address list (firmware 14.18, doc. no. 33.03.311.MOD-V3).
+
+modbusspec: 0
+id: janitza-umg20cm
+manufacturer: Janitza
+name: UMG 20 CM branch current monitor
+kind: meter
+
+sources:
+- title: Janitza UMG 20 CM Power Analyser, Modbus Address List, doc. no. 33.03.311.MOD-V3
+  version: firmware 14.18
+  url: https://assets.janitza.com/ce18jq9ih0x6/9f1491f9603bb977fa58c2/3cdacf8b302c5550853015e7ed928cae/janitza-mal-umg20cm_en.pdf
+  sha256: 53cf0ec02a572294125165bc761e985a257cb851691526bfbba9379b8ec01300
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    format: 8N1
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+defaults:
+  verified: false
+
+identify:
+  serial:
+    table: holding
+    address: 911
+    type: u32
+  checks:
+  # serial number: a device answering every register with 0 isn't this one
+  - table: holding
+    address: 911
+    type: u32
+    not: 0
+  # mains frequency: rejects word-swapped floats
+  - table: holding
+    address: 1272
+    type: f32
+    range:
+    - 0
+    - 70
+  # expected and detected 20CM-CT6 modules
+  - table: holding
+    address: 916
+    type: u16
+    range:
+    - 0
+    - 16
+  - table: holding
+    address: 917
+    type: u16
+    range:
+    - 0
+    - 16
+  # voltage V1-VN
+  - table: holding
+    address: 1000
+    type: f32
+    range:
+    - 0
+    - 1000
+
+points:
+  # Identity and status
+  - {key: serial, label: Serial number, table: holding, address: 911, type: u32, poll: slow}
+  - {key: firmware, label: Firmware version, table: holding, address: 913, type: s16, poll: slow, note: 'High byte functional range, low byte bug fix.'}
+  - {key: x.hardware_version, label: Hardware version, table: holding, address: 914, type: u16, poll: slow}
+  - {key: x.device_type, label: Device type, table: holding, address: 915, type: u16, poll: slow, note: The list gives no values.}
+  - {key: x.expected_modules, label: Expected number of modules, table: holding, address: 916, type: u16, poll: slow}
+  - {key: x.detected_modules, label: Number of detected modules, table: holding, address: 917, type: u16, poll: slow}
+  - {key: x.device_faults, label: Device faults, table: holding, address: 703, type: u16}
+  - {key: x.under_current_faults, label: Under current faults, table: holding, address: 2180, type: u32, note: 'Bit 0 to 19: channel I1 to I20.'}
+  - {key: x.over_current_faults, label: Over current faults, table: holding, address: 2182, type: u32, note: 'Bit 0 to 19: channel I1 to I20.'}
+  - {key: x.overdrive_faults, label: Overdrive faults, table: holding, address: 2184, type: u32, note: 'Bit 0 to 19: channel I1 to I20.'}
+  - {key: x.under_current_warnings, label: Under current warnings, table: holding, address: 2186, type: u32, note: 'Bit 0 to 19: channel I1 to I20.'}
+  - {key: x.over_current_warnings, label: Over current warnings, table: holding, address: 2188, type: u32, note: 'Bit 0 to 19: channel I1 to I20.'}
+  - {key: x.ct_faults, label: Current transformer faults, table: holding, address: 2190, type: u32, note: 'Bit 0 to 19: channel I1 to I20.'}
+  - {key: x.amplifier_faults, label: Amplifier faults, table: holding, address: 2192, type: u32, note: 'Bit 0 to 19: channel I1 to I20.'}
+
+  # Voltages
+  - {key: l1_voltage, label: 'Voltage[0]', table: holding, address: 1000, type: f32, unit: V, note: V1-VN.}
+  - {key: l2_voltage, label: 'Voltage[1]', table: holding, address: 1002, type: f32, unit: V, note: V2-VN.}
+  - {key: l3_voltage, label: 'Voltage[2]', table: holding, address: 1004, type: f32, unit: V, note: V3-VN.}
+  - {key: x.v2_v1_voltage, label: 'Voltage[3]', table: holding, address: 1006, type: f32, unit: V, note: V2-V1.}
+  - {key: x.v3_v2_voltage, label: 'Voltage[4]', table: holding, address: 1008, type: f32, unit: V, note: V3-V2.}
+  - {key: x.v1_v3_voltage, label: 'Voltage[5]', table: holding, address: 1010, type: f32, unit: V, note: V1-V3.}
+  - {key: frequency, label: Mains frequency, table: holding, address: 1272, type: f32, unit: Hz}
+
+  # Channels I1 to I20: Current
+  - {key: x.i1_current, label: 'Current[0]', table: holding, address: 1012, type: f32, unit: A}
+  - {key: x.i2_current, label: 'Current[1]', table: holding, address: 1014, type: f32, unit: A}
+  - {key: x.i3_current, label: 'Current[2]', table: holding, address: 1016, type: f32, unit: A}
+  - {key: x.i4_current, label: 'Current[3]', table: holding, address: 1018, type: f32, unit: A}
+  - {key: x.i5_current, label: 'Current[4]', table: holding, address: 1020, type: f32, unit: A}
+  - {key: x.i6_current, label: 'Current[5]', table: holding, address: 1022, type: f32, unit: A}
+  - {key: x.i7_current, label: 'Current[6]', table: holding, address: 1024, type: f32, unit: A}
+  - {key: x.i8_current, label: 'Current[7]', table: holding, address: 1026, type: f32, unit: A}
+  - {key: x.i9_current, label: 'Current[8]', table: holding, address: 1028, type: f32, unit: A}
+  - {key: x.i10_current, label: 'Current[9]', table: holding, address: 1030, type: f32, unit: A}
+  - {key: x.i11_current, label: 'Current[10]', table: holding, address: 1032, type: f32, unit: A}
+  - {key: x.i12_current, label: 'Current[11]', table: holding, address: 1034, type: f32, unit: A}
+  - {key: x.i13_current, label: 'Current[12]', table: holding, address: 1036, type: f32, unit: A}
+  - {key: x.i14_current, label: 'Current[13]', table: holding, address: 1038, type: f32, unit: A}
+  - {key: x.i15_current, label: 'Current[14]', table: holding, address: 1040, type: f32, unit: A}
+  - {key: x.i16_current, label: 'Current[15]', table: holding, address: 1042, type: f32, unit: A}
+  - {key: x.i17_current, label: 'Current[16]', table: holding, address: 1044, type: f32, unit: A}
+  - {key: x.i18_current, label: 'Current[17]', table: holding, address: 1046, type: f32, unit: A}
+  - {key: x.i19_current, label: 'Current[18]', table: holding, address: 1048, type: f32, unit: A}
+  - {key: x.i20_current, label: 'Current[19]', table: holding, address: 1050, type: f32, unit: A}
+
+  # Channels I1 to I20: Real power
+  - {key: x.i1_power, label: 'Real power[0]', table: holding, address: 1052, type: f32, unit: W}
+  - {key: x.i2_power, label: 'Real power[1]', table: holding, address: 1054, type: f32, unit: W}
+  - {key: x.i3_power, label: 'Real power[2]', table: holding, address: 1056, type: f32, unit: W}
+  - {key: x.i4_power, label: 'Real power[3]', table: holding, address: 1058, type: f32, unit: W}
+  - {key: x.i5_power, label: 'Real power[4]', table: holding, address: 1060, type: f32, unit: W}
+  - {key: x.i6_power, label: 'Real power[5]', table: holding, address: 1062, type: f32, unit: W}
+  - {key: x.i7_power, label: 'Real power[6]', table: holding, address: 1064, type: f32, unit: W}
+  - {key: x.i8_power, label: 'Real power[7]', table: holding, address: 1066, type: f32, unit: W}
+  - {key: x.i9_power, label: 'Real power[8]', table: holding, address: 1068, type: f32, unit: W}
+  - {key: x.i10_power, label: 'Real power[9]', table: holding, address: 1070, type: f32, unit: W}
+  - {key: x.i11_power, label: 'Real power[10]', table: holding, address: 1072, type: f32, unit: W}
+  - {key: x.i12_power, label: 'Real power[11]', table: holding, address: 1074, type: f32, unit: W}
+  - {key: x.i13_power, label: 'Real power[12]', table: holding, address: 1076, type: f32, unit: W}
+  - {key: x.i14_power, label: 'Real power[13]', table: holding, address: 1078, type: f32, unit: W}
+  - {key: x.i15_power, label: 'Real power[14]', table: holding, address: 1080, type: f32, unit: W}
+  - {key: x.i16_power, label: 'Real power[15]', table: holding, address: 1082, type: f32, unit: W}
+  - {key: x.i17_power, label: 'Real power[16]', table: holding, address: 1084, type: f32, unit: W}
+  - {key: x.i18_power, label: 'Real power[17]', table: holding, address: 1086, type: f32, unit: W}
+  - {key: x.i19_power, label: 'Real power[18]', table: holding, address: 1088, type: f32, unit: W}
+  - {key: x.i20_power, label: 'Real power[19]', table: holding, address: 1090, type: f32, unit: W}
+
+  # Channels I1 to I20: Reactive power
+  - {key: x.i1_reactive_power, label: 'Reactive power[0]', table: holding, address: 1092, type: f32, unit: var}
+  - {key: x.i2_reactive_power, label: 'Reactive power[1]', table: holding, address: 1094, type: f32, unit: var}
+  - {key: x.i3_reactive_power, label: 'Reactive power[2]', table: holding, address: 1096, type: f32, unit: var}
+  - {key: x.i4_reactive_power, label: 'Reactive power[3]', table: holding, address: 1098, type: f32, unit: var}
+  - {key: x.i5_reactive_power, label: 'Reactive power[4]', table: holding, address: 1100, type: f32, unit: var}
+  - {key: x.i6_reactive_power, label: 'Reactive power[5]', table: holding, address: 1102, type: f32, unit: var}
+  - {key: x.i7_reactive_power, label: 'Reactive power[6]', table: holding, address: 1104, type: f32, unit: var}
+  - {key: x.i8_reactive_power, label: 'Reactive power[7]', table: holding, address: 1106, type: f32, unit: var}
+  - {key: x.i9_reactive_power, label: 'Reactive power[8]', table: holding, address: 1108, type: f32, unit: var}
+  - {key: x.i10_reactive_power, label: 'Reactive power[9]', table: holding, address: 1110, type: f32, unit: var}
+  - {key: x.i11_reactive_power, label: 'Reactive power[10]', table: holding, address: 1112, type: f32, unit: var}
+  - {key: x.i12_reactive_power, label: 'Reactive power[11]', table: holding, address: 1114, type: f32, unit: var}
+  - {key: x.i13_reactive_power, label: 'Reactive power[12]', table: holding, address: 1116, type: f32, unit: var}
+  - {key: x.i14_reactive_power, label: 'Reactive power[13]', table: holding, address: 1118, type: f32, unit: var}
+  - {key: x.i15_reactive_power, label: 'Reactive power[14]', table: holding, address: 1120, type: f32, unit: var}
+  - {key: x.i16_reactive_power, label: 'Reactive power[15]', table: holding, address: 1122, type: f32, unit: var}
+  - {key: x.i17_reactive_power, label: 'Reactive power[16]', table: holding, address: 1124, type: f32, unit: var}
+  - {key: x.i18_reactive_power, label: 'Reactive power[17]', table: holding, address: 1126, type: f32, unit: var}
+  - {key: x.i19_reactive_power, label: 'Reactive power[18]', table: holding, address: 1128, type: f32, unit: var}
+  - {key: x.i20_reactive_power, label: 'Reactive power[19]', table: holding, address: 1130, type: f32, unit: var}
+
+  # Channels I1 to I20: Apparent power
+  - {key: x.i1_apparent_power, label: 'Apparent power[0]', table: holding, address: 1132, type: f32, unit: VA}
+  - {key: x.i2_apparent_power, label: 'Apparent power[1]', table: holding, address: 1134, type: f32, unit: VA}
+  - {key: x.i3_apparent_power, label: 'Apparent power[2]', table: holding, address: 1136, type: f32, unit: VA}
+  - {key: x.i4_apparent_power, label: 'Apparent power[3]', table: holding, address: 1138, type: f32, unit: VA}
+  - {key: x.i5_apparent_power, label: 'Apparent power[4]', table: holding, address: 1140, type: f32, unit: VA}
+  - {key: x.i6_apparent_power, label: 'Apparent power[5]', table: holding, address: 1142, type: f32, unit: VA}
+  - {key: x.i7_apparent_power, label: 'Apparent power[6]', table: holding, address: 1144, type: f32, unit: VA}
+  - {key: x.i8_apparent_power, label: 'Apparent power[7]', table: holding, address: 1146, type: f32, unit: VA}
+  - {key: x.i9_apparent_power, label: 'Apparent power[8]', table: holding, address: 1148, type: f32, unit: VA}
+  - {key: x.i10_apparent_power, label: 'Apparent power[9]', table: holding, address: 1150, type: f32, unit: VA}
+  - {key: x.i11_apparent_power, label: 'Apparent power[10]', table: holding, address: 1152, type: f32, unit: VA}
+  - {key: x.i12_apparent_power, label: 'Apparent power[11]', table: holding, address: 1154, type: f32, unit: VA}
+  - {key: x.i13_apparent_power, label: 'Apparent power[12]', table: holding, address: 1156, type: f32, unit: VA}
+  - {key: x.i14_apparent_power, label: 'Apparent power[13]', table: holding, address: 1158, type: f32, unit: VA}
+  - {key: x.i15_apparent_power, label: 'Apparent power[14]', table: holding, address: 1160, type: f32, unit: VA}
+  - {key: x.i16_apparent_power, label: 'Apparent power[15]', table: holding, address: 1162, type: f32, unit: VA}
+  - {key: x.i17_apparent_power, label: 'Apparent power[16]', table: holding, address: 1164, type: f32, unit: VA}
+  - {key: x.i18_apparent_power, label: 'Apparent power[17]', table: holding, address: 1166, type: f32, unit: VA}
+  - {key: x.i19_apparent_power, label: 'Apparent power[18]', table: holding, address: 1168, type: f32, unit: VA}
+  - {key: x.i20_apparent_power, label: 'Apparent power[19]', table: holding, address: 1170, type: f32, unit: VA}
+
+  # Channels I1 to I20: Power factor
+  - {key: x.i1_power_factor, label: 'Power factor[0]', table: holding, address: 1172, type: f32}
+  - {key: x.i2_power_factor, label: 'Power factor[1]', table: holding, address: 1174, type: f32}
+  - {key: x.i3_power_factor, label: 'Power factor[2]', table: holding, address: 1176, type: f32}
+  - {key: x.i4_power_factor, label: 'Power factor[3]', table: holding, address: 1178, type: f32}
+  - {key: x.i5_power_factor, label: 'Power factor[4]', table: holding, address: 1180, type: f32}
+  - {key: x.i6_power_factor, label: 'Power factor[5]', table: holding, address: 1182, type: f32}
+  - {key: x.i7_power_factor, label: 'Power factor[6]', table: holding, address: 1184, type: f32}
+  - {key: x.i8_power_factor, label: 'Power factor[7]', table: holding, address: 1186, type: f32}
+  - {key: x.i9_power_factor, label: 'Power factor[8]', table: holding, address: 1188, type: f32}
+  - {key: x.i10_power_factor, label: 'Power factor[9]', table: holding, address: 1190, type: f32}
+  - {key: x.i11_power_factor, label: 'Power factor[10]', table: holding, address: 1192, type: f32}
+  - {key: x.i12_power_factor, label: 'Power factor[11]', table: holding, address: 1194, type: f32}
+  - {key: x.i13_power_factor, label: 'Power factor[12]', table: holding, address: 1196, type: f32}
+  - {key: x.i14_power_factor, label: 'Power factor[13]', table: holding, address: 1198, type: f32}
+  - {key: x.i15_power_factor, label: 'Power factor[14]', table: holding, address: 1200, type: f32}
+  - {key: x.i16_power_factor, label: 'Power factor[15]', table: holding, address: 1202, type: f32}
+  - {key: x.i17_power_factor, label: 'Power factor[16]', table: holding, address: 1204, type: f32}
+  - {key: x.i18_power_factor, label: 'Power factor[17]', table: holding, address: 1206, type: f32}
+  - {key: x.i19_power_factor, label: 'Power factor[18]', table: holding, address: 1208, type: f32}
+  - {key: x.i20_power_factor, label: 'Power factor[19]', table: holding, address: 1210, type: f32}
+
+  # Channels I1 to I20: cos(Phi)
+  - {key: x.i1_cos_phi, label: 'cos(Phi)[0]', table: holding, address: 1314, type: f32}
+  - {key: x.i2_cos_phi, label: 'cos(Phi)[1]', table: holding, address: 1316, type: f32}
+  - {key: x.i3_cos_phi, label: 'cos(Phi)[2]', table: holding, address: 1318, type: f32}
+  - {key: x.i4_cos_phi, label: 'cos(Phi)[3]', table: holding, address: 1320, type: f32}
+  - {key: x.i5_cos_phi, label: 'cos(Phi)[4]', table: holding, address: 1322, type: f32}
+  - {key: x.i6_cos_phi, label: 'cos(Phi)[5]', table: holding, address: 1324, type: f32}
+  - {key: x.i7_cos_phi, label: 'cos(Phi)[6]', table: holding, address: 1326, type: f32}
+  - {key: x.i8_cos_phi, label: 'cos(Phi)[7]', table: holding, address: 1328, type: f32}
+  - {key: x.i9_cos_phi, label: 'cos(Phi)[8]', table: holding, address: 1330, type: f32}
+  - {key: x.i10_cos_phi, label: 'cos(Phi)[9]', table: holding, address: 1332, type: f32}
+  - {key: x.i11_cos_phi, label: 'cos(Phi)[10]', table: holding, address: 1334, type: f32}
+  - {key: x.i12_cos_phi, label: 'cos(Phi)[11]', table: holding, address: 1336, type: f32}
+  - {key: x.i13_cos_phi, label: 'cos(Phi)[12]', table: holding, address: 1338, type: f32}
+  - {key: x.i14_cos_phi, label: 'cos(Phi)[13]', table: holding, address: 1340, type: f32}
+  - {key: x.i15_cos_phi, label: 'cos(Phi)[14]', table: holding, address: 1342, type: f32}
+  - {key: x.i16_cos_phi, label: 'cos(Phi)[15]', table: holding, address: 1344, type: f32}
+  - {key: x.i17_cos_phi, label: 'cos(Phi)[16]', table: holding, address: 1346, type: f32}
+  - {key: x.i18_cos_phi, label: 'cos(Phi)[17]', table: holding, address: 1348, type: f32}
+  - {key: x.i19_cos_phi, label: 'cos(Phi)[18]', table: holding, address: 1350, type: f32}
+  - {key: x.i20_cos_phi, label: 'cos(Phi)[19]', table: holding, address: 1352, type: f32}
+
+  # Channels I1 to I20: Energy (Wh in the list, read as kWh)
+  - {key: x.i1_energy, label: 'Energy[0]', table: holding, address: 1212, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i2_energy, label: 'Energy[1]', table: holding, address: 1214, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i3_energy, label: 'Energy[2]', table: holding, address: 1216, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i4_energy, label: 'Energy[3]', table: holding, address: 1218, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i5_energy, label: 'Energy[4]', table: holding, address: 1220, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i6_energy, label: 'Energy[5]', table: holding, address: 1222, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i7_energy, label: 'Energy[6]', table: holding, address: 1224, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i8_energy, label: 'Energy[7]', table: holding, address: 1226, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i9_energy, label: 'Energy[8]', table: holding, address: 1228, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i10_energy, label: 'Energy[9]', table: holding, address: 1230, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i11_energy, label: 'Energy[10]', table: holding, address: 1232, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i12_energy, label: 'Energy[11]', table: holding, address: 1234, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i13_energy, label: 'Energy[12]', table: holding, address: 1236, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i14_energy, label: 'Energy[13]', table: holding, address: 1238, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i15_energy, label: 'Energy[14]', table: holding, address: 1240, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i16_energy, label: 'Energy[15]', table: holding, address: 1242, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i17_energy, label: 'Energy[16]', table: holding, address: 1244, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i18_energy, label: 'Energy[17]', table: holding, address: 1246, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i19_energy, label: 'Energy[18]', table: holding, address: 1248, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.i20_energy, label: 'Energy[19]', table: holding, address: 1250, type: f32, unit: kWh, scale: 0.001, poll: slow}
+
+  # Sum channels (which channels count is set at 2428)
+  - {key: x.sum_1_power, label: 'Sum of real power[0]', table: holding, address: 2400, type: f32, unit: W}
+  - {key: x.sum_2_power, label: 'Sum of real power[1]', table: holding, address: 2402, type: f32, unit: W}
+  - {key: x.sum_3_power, label: 'Sum of real power[2]', table: holding, address: 2404, type: f32, unit: W}
+  - {key: x.sum_4_power, label: 'Sum of real power[3]', table: holding, address: 2406, type: f32, unit: W}
+  - {key: x.sum_5_power, label: 'Sum of real power[4]', table: holding, address: 2408, type: f32, unit: W}
+  - {key: x.sum_6_power, label: 'Sum of real power[5]', table: holding, address: 2410, type: f32, unit: W}
+  - {key: x.sum_7_power, label: 'Sum of real power[6]', table: holding, address: 2412, type: f32, unit: W}
+  - {key: x.sum_1_energy, label: 'Sum of energy[0]', table: holding, address: 2414, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.sum_2_energy, label: 'Sum of energy[1]', table: holding, address: 2416, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.sum_3_energy, label: 'Sum of energy[2]', table: holding, address: 2418, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.sum_4_energy, label: 'Sum of energy[3]', table: holding, address: 2420, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.sum_5_energy, label: 'Sum of energy[4]', table: holding, address: 2422, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.sum_6_energy, label: 'Sum of energy[5]', table: holding, address: 2424, type: f32, unit: kWh, scale: 0.001, poll: slow}
+  - {key: x.sum_7_energy, label: 'Sum of energy[6]', table: holding, address: 2426, type: f32, unit: kWh, scale: 0.001, poll: slow}
+
+notes:
+- The list names function 03 for reading and 06, 16, 23 for writing, and promises big-endian data (high byte first). It says nothing about whether addresses count from 0. Addresses are used as listed and taken as protocol addresses, unverified.
+- 'The list has an 8-bit type (char) with one address per value, so each sits in a register of its own. It is read here as u16, assuming the upper byte is 0. Identification leans on this at 916 and 917. Unverified. The device type register (915) has no listed values, so identification can''t use it.'
+- 'Twenty current channels are listed, I1 to I20. Registers 916 and 917 count up to 16 20CM-CT6 modules, but the list holds no channels beyond I20, so module channels aren''t described here.'
+- 'The list doesn''t give the sign of the real power. A branch monitor has no grid connection of its own, so no grid_power key is used; which voltage each channel uses for power is set at 3080 to 3099 (0 V1-VN, 1 V2-VN, 2 V3-VN, 3 V2-V1, 4 V3-V2, 5 V1-V3). Power factor and cos(Phi) are listed as −1 to +1, no sign meaning given.'
+- Channel values go up by 2 registers per channel. Voltage values are in the order V1-VN, V2-VN, V3-VN, V2-V1, V3-V2, V1-V3, so the line-to-line voltages are named that way round here. The registers update every 200 ms.
+- 'RS485: 8 data bits, no parity, 1 stop bit; rates 9600, 19200, 38400, 57600, 115200 and 921600 baud, no default given. The list mentions no Modbus TCP, so only RTU is listed. Port 502, unit id 1 and 125 registers per request are assumed.'
+- Many registers are left out (error details at 704 to 713, clock, fundamental current and voltage, phase angles, extreme values with time stamps, resets, sum channel setup and faults, analysis channel with crest factor, THD and harmonics, voltage error states, settings for transformers, burden, limits and channels, communication settings and output assignments, comment strings, recording, calibration and firmware update).
