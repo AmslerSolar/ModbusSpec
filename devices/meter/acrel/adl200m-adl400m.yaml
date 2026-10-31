@@ -1,0 +1,177 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Acrel's ADL200M / ADL400M manual V1.1. No reading from a real device yet.
+
+modbusspec: 0
+id: acrel-adl200m-adl400m
+manufacturer: Acrel
+name: ADL200M / ADL400M dual-circuit energy meters
+kind: meter
+
+sources:
+- title: ADL200M ADL400M Series Dual-Circuit Electric Energy Meter With External Current Transformer, Installation and Operation Instructions
+  version: V1.1
+  url: https://www.acrelenergy.com/uploads/file/adl200m-adl400m-manual.pdf
+  sha256: 4890710c1ab41f54ec84b3971e0fd35f3dd4ed4a107330bd7cbfb4dc89d4d34c
+  language: en
+  devices: [ADL200M, ADL400M]
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - table: holding
+    address: 11
+    type: u16
+    in: [44033, 44034, 44035, 44036]
+
+points:
+
+  # Identity and setup
+  - {key: x.feature_code, label: Feature code, table: holding, address: 11, type: u16, enum: feature_code, poll: slow}
+  - {key: x.modbus_address, label: Slave address, table: holding, address: 4096, type: u16, min: 1, max: 247, note: Also at 0x0000., writable: true, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 4097, type: u16, note: 'The value itself: 1200 to 38400.', writable: true, poll: slow}
+  - {key: x.parity, label: Parity, table: holding, address: 4098, type: u16, bits: [0, 7], enum: parity, writable: true, poll: slow}
+  - {key: x.stop_bits, label: Stop bits, table: holding, address: 4098, type: u16, bits: [8, 15], enum: stop_bits, writable: true, poll: slow}
+  - {key: x.c1_phase_sequence, label: 'Circuit 1: phase sequence detected', table: holding, address: 12, type: u16, bits: [0, 7], enum: phase_sequence, poll: slow}
+  - {key: x.c1_ct_polarity_detected, label: 'Circuit 1: CT polarity detected', table: holding, address: 12, type: u16, bits: [8, 10], poll: slow, note: 'Bit 8 = A, 9 = B, 10 = C; 1 = reversed.'}
+  - {key: x.c1_phase_sequence_adjust, label: 'Circuit 1: phase sequence adjustment', table: holding, address: 13, type: u16, enum: phase_sequence, writable: true, poll: slow}
+  - {key: x.c1_ct_polarity_adjust, label: 'Circuit 1: CT polarity adjustment', table: holding, address: 14, type: u16, note: 'Bit 0 = A, 1 = B, 2 = C.', writable: true, poll: slow}
+  - {key: x.c2_phase_sequence, label: 'Circuit 2: phase sequence detected', table: holding, address: 15, type: u16, bits: [0, 7], enum: phase_sequence, poll: slow}
+  - {key: x.c2_ct_polarity_detected, label: 'Circuit 2: CT polarity detected', table: holding, address: 15, type: u16, bits: [8, 10], poll: slow, note: 'Bit 8 = A, 9 = B, 10 = C; 1 = reversed.'}
+  - {key: x.c2_phase_sequence_adjust, label: 'Circuit 2: phase sequence adjustment', table: holding, address: 16, type: u16, enum: phase_sequence, writable: true, poll: slow}
+  - {key: x.c2_ct_polarity_adjust, label: 'Circuit 2: CT polarity adjustment', table: holding, address: 17, type: u16, note: 'Bit 0 = A, 1 = B, 2 = C.', writable: true, poll: slow}
+
+  # Circuit 1: measurements, floats
+  - {key: l1_voltage, label: A-phase voltage, table: holding, address: 8448, type: f32, unit: V}
+  - {key: l2_voltage, label: B-phase voltage, table: holding, address: 8450, type: f32, unit: V}
+  - {key: l3_voltage, label: C-phase voltage, table: holding, address: 8452, type: f32, unit: V}
+  - {key: x.l1_l2_voltage, label: AB line voltage, table: holding, address: 8454, type: f32, unit: V}
+  - {key: x.l2_l3_voltage, label: BC line voltage, table: holding, address: 8456, type: f32, unit: V}
+  - {key: x.l3_l1_voltage, label: CA line voltage, table: holding, address: 8458, type: f32, unit: V}
+  - {key: l1_current, label: A-phase current, table: holding, address: 8460, type: f32, unit: A}
+  - {key: l2_current, label: B-phase current, table: holding, address: 8462, type: f32, unit: A}
+  - {key: l3_current, label: C-phase current, table: holding, address: 8464, type: f32, unit: A}
+  - {key: x.neutral_current, label: N-phase current, table: holding, address: 8466, type: f32, unit: A}
+  - {key: l1_power, label: A-phase active power, table: holding, address: 8468, type: f32, unit: W, positive: import, verified: false, note: The manual does not say which direction is positive; import assumed.}
+  - {key: l2_power, label: B-phase active power, table: holding, address: 8470, type: f32, unit: W, positive: import, verified: false, note: The manual does not say which direction is positive; import assumed.}
+  - {key: l3_power, label: C-phase active power, table: holding, address: 8472, type: f32, unit: W, positive: import, verified: false, note: The manual does not say which direction is positive; import assumed.}
+  - {key: grid_power, label: Total active power, table: holding, address: 8474, type: f32, unit: W, positive: import, verified: false, note: The manual does not say which direction is positive; import assumed.}
+  - {key: x.l1_reactive_power, label: A-phase reactive power, table: holding, address: 8476, type: f32, unit: var}
+  - {key: x.l2_reactive_power, label: B-phase reactive power, table: holding, address: 8478, type: f32, unit: var}
+  - {key: x.l3_reactive_power, label: C-phase reactive power, table: holding, address: 8480, type: f32, unit: var}
+  - {key: reactive_power, label: Total reactive power, table: holding, address: 8482, type: f32, unit: var}
+  - {key: x.l1_apparent_power, label: A-phase apparent power, table: holding, address: 8484, type: f32, unit: VA}
+  - {key: x.l2_apparent_power, label: B-phase apparent power, table: holding, address: 8486, type: f32, unit: VA}
+  - {key: x.l3_apparent_power, label: C-phase apparent power, table: holding, address: 8488, type: f32, unit: VA}
+  - {key: apparent_power, label: Total apparent power, table: holding, address: 8490, type: f32, unit: VA}
+  - {key: x.l1_power_factor, label: A-phase power factor, table: holding, address: 8492, type: f32}
+  - {key: x.l2_power_factor, label: B-phase power factor, table: holding, address: 8494, type: f32}
+  - {key: x.l3_power_factor, label: C-phase power factor, table: holding, address: 8496, type: f32}
+  - {key: power_factor, label: Total power factor, table: holding, address: 8498, type: f32}
+  - {key: frequency, label: Frequency, table: holding, address: 8500, type: f32, unit: Hz}
+
+  # Circuit 2: measurements, floats
+  - {key: x.c2_l1_voltage, label: A-phase voltage, table: holding, address: 8960, type: f32, unit: V}
+  - {key: x.c2_l2_voltage, label: B-phase voltage, table: holding, address: 8962, type: f32, unit: V}
+  - {key: x.c2_l3_voltage, label: C-phase voltage, table: holding, address: 8964, type: f32, unit: V}
+  - {key: x.c2_l1_l2_voltage, label: AB line voltage, table: holding, address: 8966, type: f32, unit: V}
+  - {key: x.c2_l2_l3_voltage, label: BC line voltage, table: holding, address: 8968, type: f32, unit: V}
+  - {key: x.c2_l3_l1_voltage, label: CA line voltage, table: holding, address: 8970, type: f32, unit: V}
+  - {key: x.c2_l1_current, label: A-phase current, table: holding, address: 8972, type: f32, unit: A}
+  - {key: x.c2_l2_current, label: B-phase current, table: holding, address: 8974, type: f32, unit: A}
+  - {key: x.c2_l3_current, label: C-phase current, table: holding, address: 8976, type: f32, unit: A}
+  - {key: x.c2_neutral_current, label: N-phase current, table: holding, address: 8978, type: f32, unit: A}
+  - {key: x.c2_l1_power, label: A-phase active power, table: holding, address: 8980, type: f32, unit: W}
+  - {key: x.c2_l2_power, label: B-phase active power, table: holding, address: 8982, type: f32, unit: W}
+  - {key: x.c2_l3_power, label: C-phase active power, table: holding, address: 8984, type: f32, unit: W}
+  - {key: x.c2_active_power, label: Total active power, table: holding, address: 8986, type: f32, unit: W}
+  - {key: x.c2_l1_reactive_power, label: A-phase reactive power, table: holding, address: 8988, type: f32, unit: var}
+  - {key: x.c2_l2_reactive_power, label: B-phase reactive power, table: holding, address: 8990, type: f32, unit: var}
+  - {key: x.c2_l3_reactive_power, label: C-phase reactive power, table: holding, address: 8992, type: f32, unit: var}
+  - {key: x.c2_reactive_power, label: Total reactive power, table: holding, address: 8994, type: f32, unit: var}
+  - {key: x.c2_l1_apparent_power, label: A-phase apparent power, table: holding, address: 8996, type: f32, unit: VA}
+  - {key: x.c2_l2_apparent_power, label: B-phase apparent power, table: holding, address: 8998, type: f32, unit: VA}
+  - {key: x.c2_l3_apparent_power, label: C-phase apparent power, table: holding, address: 9000, type: f32, unit: VA}
+  - {key: x.c2_apparent_power, label: Total apparent power, table: holding, address: 9002, type: f32, unit: VA}
+  - {key: x.c2_l1_power_factor, label: A-phase power factor, table: holding, address: 9004, type: f32}
+  - {key: x.c2_l2_power_factor, label: B-phase power factor, table: holding, address: 9006, type: f32}
+  - {key: x.c2_l3_power_factor, label: C-phase power factor, table: holding, address: 9008, type: f32}
+  - {key: x.c2_power_factor, label: Total power factor, table: holding, address: 9010, type: f32}
+  - {key: x.c2_frequency, label: Frequency, table: holding, address: 9012, type: f32, unit: Hz}
+
+  # Circuit 1: primary energy, doubles
+  - {key: x.active_energy, label: Active energy, table: holding, address: 12288, type: f64, unit: kWh, poll: slow}
+  - {key: grid_import_energy, label: Forward active energy, table: holding, address: 12292, type: f64, unit: kWh, poll: slow, note: 'Forward = import, assumed.'}
+  - {key: grid_export_energy, label: Reverse active energy, table: holding, address: 12296, type: f64, unit: kWh, poll: slow, note: 'Reverse = export, assumed.'}
+  - {key: x.reactive_energy, label: Reactive energy, table: holding, address: 12300, type: f64, unit: kvarh, poll: slow}
+  - {key: x.forward_reactive_energy, label: Forward reactive energy, table: holding, address: 12304, type: f64, unit: kvarh, poll: slow}
+  - {key: x.reverse_reactive_energy, label: Reverse reactive energy, table: holding, address: 12308, type: f64, unit: kvarh, poll: slow}
+  - {key: x.apparent_energy, label: Apparent energy, table: holding, address: 12312, type: f64, unit: kVAh, poll: slow}
+  - {key: x.l1_active_energy, label: Active energy of phase A, table: holding, address: 12316, type: f64, unit: kWh, poll: slow}
+  - {key: x.l1_forward_active_energy, label: Forward active energy of phase A, table: holding, address: 12320, type: f64, unit: kWh, poll: slow}
+  - {key: x.l1_reverse_active_energy, label: Reverse active energy of phase A, table: holding, address: 12324, type: f64, unit: kWh, poll: slow}
+  - {key: x.l1_reactive_energy, label: Reactive energy of phase A, table: holding, address: 12328, type: f64, unit: kvarh, poll: slow}
+  - {key: x.l1_forward_reactive_energy, label: Forward reactive energy of phase A, table: holding, address: 12332, type: f64, unit: kvarh, poll: slow}
+  - {key: x.l1_reverse_reactive_energy, label: Reverse reactive energy of phase A, table: holding, address: 12336, type: f64, unit: kvarh, poll: slow}
+  - {key: x.l2_active_energy, label: Active energy of phase B, table: holding, address: 12340, type: f64, unit: kWh, poll: slow}
+  - {key: x.l2_forward_active_energy, label: Forward active energy of phase B, table: holding, address: 12344, type: f64, unit: kWh, poll: slow}
+  - {key: x.l2_reverse_active_energy, label: Reverse active energy of phase B, table: holding, address: 12348, type: f64, unit: kWh, poll: slow}
+  - {key: x.l2_reactive_energy, label: Reactive energy of phase B, table: holding, address: 12352, type: f64, unit: kvarh, poll: slow}
+  - {key: x.l2_forward_reactive_energy, label: Forward reactive energy of phase B, table: holding, address: 12356, type: f64, unit: kvarh, poll: slow}
+  - {key: x.l2_reverse_reactive_energy, label: Reverse reactive energy of phase B, table: holding, address: 12360, type: f64, unit: kvarh, poll: slow}
+  - {key: x.l3_active_energy, label: Active energy of phase C, table: holding, address: 12364, type: f64, unit: kWh, poll: slow}
+  - {key: x.l3_forward_active_energy, label: Forward active energy of phase C, table: holding, address: 12368, type: f64, unit: kWh, poll: slow}
+  - {key: x.l3_reverse_active_energy, label: Reverse active energy of phase C, table: holding, address: 12372, type: f64, unit: kWh, poll: slow}
+  - {key: x.l3_reactive_energy, label: Reactive energy of phase C, table: holding, address: 12376, type: f64, unit: kvarh, poll: slow}
+  - {key: x.l3_forward_reactive_energy, label: Forward reactive energy of phase C, table: holding, address: 12380, type: f64, unit: kvarh, poll: slow}
+  - {key: x.l3_reverse_reactive_energy, label: Reverse reactive energy of phase C, table: holding, address: 12384, type: f64, unit: kvarh, poll: slow}
+
+  # Circuit 2: primary energy, doubles
+  - {key: x.c2_active_energy, label: Active energy, table: holding, address: 12544, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_forward_active_energy, label: Forward active energy, table: holding, address: 12548, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_reverse_active_energy, label: Reverse active energy, table: holding, address: 12552, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_reactive_energy, label: Reactive energy, table: holding, address: 12556, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_forward_reactive_energy, label: Forward reactive energy, table: holding, address: 12560, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_reverse_reactive_energy, label: Reverse reactive energy, table: holding, address: 12564, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_apparent_energy, label: Apparent energy, table: holding, address: 12568, type: f64, unit: kVAh, poll: slow, note: 'The manual prints 3018H, which belongs to circuit 1; the sequence requires 3118H.'}
+  - {key: x.c2_l1_active_energy, label: Active energy of phase A, table: holding, address: 12572, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_l1_forward_active_energy, label: Forward active energy of phase A, table: holding, address: 12576, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_l1_reverse_active_energy, label: Reverse active energy of phase A, table: holding, address: 12580, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_l1_reactive_energy, label: Reactive energy of phase A, table: holding, address: 12584, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_l1_forward_reactive_energy, label: Forward reactive energy of phase A, table: holding, address: 12588, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_l1_reverse_reactive_energy, label: Reverse reactive energy of phase A, table: holding, address: 12592, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_l2_active_energy, label: Active energy of phase B, table: holding, address: 12596, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_l2_forward_active_energy, label: Forward active energy of phase B, table: holding, address: 12600, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_l2_reverse_active_energy, label: Reverse active energy of phase B, table: holding, address: 12604, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_l2_reactive_energy, label: Reactive energy of phase B, table: holding, address: 12608, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_l2_forward_reactive_energy, label: Forward reactive energy of phase B, table: holding, address: 12612, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_l2_reverse_reactive_energy, label: Reverse reactive energy of phase B, table: holding, address: 12616, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_l3_active_energy, label: Active energy of phase C, table: holding, address: 12620, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_l3_forward_active_energy, label: Forward active energy of phase C, table: holding, address: 12624, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_l3_reverse_active_energy, label: Reverse active energy of phase C, table: holding, address: 12628, type: f64, unit: kWh, poll: slow}
+  - {key: x.c2_l3_reactive_energy, label: Reactive energy of phase C, table: holding, address: 12632, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_l3_forward_reactive_energy, label: Forward reactive energy of phase C, table: holding, address: 12636, type: f64, unit: kvarh, poll: slow}
+  - {key: x.c2_l3_reverse_reactive_energy, label: Reverse reactive energy of phase C, table: holding, address: 12640, type: f64, unit: kvarh, poll: slow}
+
+enums:
+  feature_code: {'44033': 'Single-channel CT, single-phase', '44034': 'Single-channel CT, three-phase', '44035': 'Dual-channel CT, single-phase', '44036': 'Dual-channel CT, three-phase'}
+  phase_sequence: {'0': ABC, '1': BAC, '2': ACB, '3': CBA, '4': CAB, '5': BCA}
+  parity: {'0': None, '1': Odd, '2': Even}
+  stop_bits: {'0': '1', '1': '2'}
+
+notes:
+- "Identification: the manual gives 0x000B as the feature code, high byte fixed at 0xAC, low byte the meter type."
+- "The manual gives no default unit or default serial settings. Float and double format, and word order, are assumed; it only names the types. Energies are called primary values."
+- "Single-phase and single-channel models don't use all of these registers; the manual doesn't say what the unused ones return."
+- "Left out: serial number (0x1009, 7 registers, ASCII, read/write)."

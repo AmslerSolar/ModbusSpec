@@ -1,0 +1,61 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Acrel's ACR10R-DxxTE manual V1.3. No reading from a real device yet.
+
+modbusspec: 0
+id: acrel-acr10r-dxxte
+manufacturer: Acrel
+name: ACR10R-DxxTE single-phase rail-mounted meters
+kind: meter
+
+sources:
+- title: Rail-type Multifunction Electrical Instrument with External Split Core Current Transformer, Use and Installation Manual
+  version: V1.3
+  url: https://www.acrelenergy.com/uploads/file/single-phase-acr10r-d16te-manual.pdf
+  sha256: 103c3e89984bbb04b81af0a9479a839a0e0e0b6f45f2ab11bc18149450489262
+  language: en
+  devices: [ACR10R-D10TE, ACR10R-D16TE, ACR10R-D24TE, ACR10R-D36TE]
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  write_multiple: true
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+
+  # Setup
+  - {key: x.modbus_address, label: Communication address, table: holding, address: 1, type: u16, bits: [8, 15], writable: true, min: 1, max: 247, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 1, type: u16, bits: [0, 7], enum: baud_rate, writable: true, poll: slow}
+  - {key: x.pt_ratio, label: PT transformation ratio, table: holding, address: 3, type: u16, writable: true, min: 1, max: 9999, poll: slow}
+  - {key: x.ct_ratio, label: CT transformation ratio, table: holding, address: 4, type: u16, writable: true, min: 1, max: 9999, poll: slow}
+
+  # Measurements
+  - {key: l1_voltage, label: Voltage, table: holding, address: 97, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Current, table: holding, address: 100, type: u16, unit: A, scale: 0.01}
+  - {key: l1_power, label: Active power, table: holding, address: 103, type: s16, unit: W, positive: import, verified: false, note: 'Signed in the manual, which does not say which direction is positive; import assumed.'}
+  - {key: reactive_power, label: Reactive power, table: holding, address: 107, type: s16, unit: var}
+  - {key: apparent_power, label: Apparent power, table: holding, address: 111, type: u16, unit: VA}
+  - {key: power_factor, label: Power factor, table: holding, address: 115, type: u16, scale: 0.01, note: 'The manual gives the range 0–100 and two decimals, so 1.00 at most, without a sign.'}
+  - {key: frequency, label: Frequency, table: holding, address: 119, type: u16, unit: Hz, scale: 0.01}
+
+  # Energy, primary side: the manual says only Float, so IEEE format and word order are assumed
+  - {key: grid_import_energy, label: Absorbing active energy, table: holding, address: 71, type: f32, unit: kWh, note: 'Absorbing = import, assumed. The manual gives no unit.', verified: false, poll: slow}
+  - {key: grid_export_energy, label: Releasing active energy, table: holding, address: 73, type: f32, unit: kWh, note: 'Releasing = export, assumed. The manual gives no unit.', verified: false, poll: slow}
+  - {key: x.inductive_reactive_energy, label: Reactive energy, table: holding, address: 75, type: f32, unit: kvarh, note: The manual gives no unit., verified: false, poll: slow}
+  - {key: x.capacitive_reactive_energy, label: Capacitive reactive energy, table: holding, address: 77, type: f32, unit: kvarh, note: The manual gives no unit., verified: false, poll: slow}
+
+enums:
+  baud_rate: {'0': '38400', '1': '19200', '2': '9600', '3': '4800'}
+
+notes:
+- "Read with function 03 or 04, write with 10H, at most 16 registers at once. The manual gives no identification, default unit or default serial settings."
+- "The manual's menu offers parity none, 2 stop bits, odd and even, but its address list has no register for it. Its reading example uses 0028H and its writing example 0022H, neither of which is in this device's address list."
+- "The manual does not say whether the measurements are primary or secondary values, or how PT and CT apply; only the energies are called primary."
+- "Left out: the protective password (0000H) and the reserved ranges."

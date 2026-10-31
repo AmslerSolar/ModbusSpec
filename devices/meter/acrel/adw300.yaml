@@ -1,14 +1,21 @@
 # SPDX-License-Identifier: CC0-1.0
 # Copyright (C) 2026 Amsler Solar GmbH
 #
+# Written from Acrel's ADW300 manual V1.2; evcc's template agrees with it. No reading from a real device yet.
 
 modbusspec: 0
 id: acrel-adw300
 manufacturer: Acrel
-name: ADW300
+name: ADW300 wireless energy meter
 kind: meter
 
 sources:
+- title: ADW300 Wireless Metering Meter, Installation and Use Manual
+  version: V1.2
+  url: https://www.acrelenergy.com/uploads/file/adw300-manual.pdf
+  sha256: 91ab966f88e1509b8d0fcf2c6316f5e62bcf1b1716c462134aedf555315add0c
+  language: en
+  devices: [ADW300]
 - id: evcc
   title: evcc (EV charging and energy management)
   url: https://github.com/evcc-io/evcc
@@ -20,31 +27,147 @@ connection:
   default_port: 502
   default_unit: 1
   transports:
-  - tcp
   - rtu
   serial:
     baud: 1200
     format: 8N1
+  write_multiple: true
 
-defaults:
-  verified: false
-  sources:
-  - evcc
+encoding:
+  byte_order: big
+  word_order: big
 
 points:
-  - {key: l1_voltage, label: Grid L1 voltage, table: holding, address: 20, type: u16, unit: V, scale: 0.1, note: 'evcc reads it for the usages grid, pv, charge.'}
-  - {key: l2_voltage, label: Grid L2 voltage, table: holding, address: 21, type: u16, unit: V, scale: 0.1, note: 'evcc reads it for the usages grid, pv, charge.'}
-  - {key: l3_voltage, label: Grid L3 voltage, table: holding, address: 22, type: u16, unit: V, scale: 0.1, note: 'evcc reads it for the usages grid, pv, charge.'}
-  - {key: l1_current, label: Grid L1 current, table: holding, address: 26, type: u16, unit: A, scale: 0.01, note: 'evcc reads it for the usages grid, pv, charge.'}
-  - {key: l2_current, label: Grid L2 current, table: holding, address: 27, type: u16, unit: A, scale: 0.01, note: 'evcc reads it for the usages grid, pv, charge.'}
-  - {key: l3_current, label: Grid L3 current, table: holding, address: 28, type: u16, unit: A, scale: 0.01, note: 'evcc reads it for the usages grid, pv, charge.'}
-  - {key: l1_power, label: Grid L1 power, table: holding, address: 30, type: s32, unit: W, positive: import, note: 'evcc reads it for the usages grid, pv, charge. evcc negates it for the PV L1 power.'}
-  - {key: l2_power, label: Grid L2 power, table: holding, address: 32, type: s32, unit: W, positive: import, note: 'evcc reads it for the usages grid, pv, charge. evcc negates it for the PV L2 power.'}
-  - {key: l3_power, label: Grid L3 power, table: holding, address: 34, type: s32, unit: W, positive: import, note: 'evcc reads it for the usages grid, pv, charge. evcc negates it for the PV L3 power.'}
-  - {key: grid_power, label: Grid power, table: holding, address: 36, type: s32, unit: W, positive: import, note: 'evcc reads it for the usages grid, pv, charge. evcc negates it for the PV power.'}
-  - {key: grid_import_energy, label: Grid energy, table: holding, address: 62, type: s32, unit: kWh, scale: 0.01, note: 'evcc reads it for the usages grid, charge.'}
-  - {key: x.pv_energy, label: PV energy, table: holding, address: 64, type: s32, unit: kWh, scale: 0.01}
+
+  # Setup
+  - {key: x.modbus_address, label: Address, table: holding, address: 0, type: u16, min: 1, max: 247, writable: true, poll: slow}
+  - {key: x.baud_rate, label: Baud rate, table: holding, address: 1, type: u16, enum: baud_rate, writable: true, poll: slow}
+  - {key: x.spreading_factor, label: Spreading factor, table: holding, address: 2, type: u16, min: 6, max: 12, writable: true, poll: slow}
+  - {key: x.frequency_channel, label: Frequency channel setting, table: holding, address: 3, type: u16, min: 0, max: 45, writable: true, poll: slow}
+  - {key: x.parity, label: Parity mode, table: holding, address: 4, type: u16, bits: [8, 15], enum: parity, writable: true, poll: slow}
+  - {key: x.stop_bits, label: Stop bits, table: holding, address: 4, type: u16, bits: [0, 7], enum: stop_bits, writable: true, poll: slow}
+  - {key: x.pulse_constant, label: Pulse constant, table: holding, address: 6, type: u16, poll: slow}
+  - {key: x.backlight_time, label: Backlight time, table: holding, address: 7, type: u16, poll: slow}
+  - {key: x.current_specification, label: Current specification, table: holding, address: 13, type: u16, poll: slow}
+  - {key: x.pt_ratio, label: PT, table: holding, address: 14, type: u16, poll: slow}
+  - {key: x.ct_ratio, label: CT, table: holding, address: 15, type: u16, poll: slow}
+
+  # Measurements
+  - {key: x.temperature_n, label: Temperature of N phase, table: holding, address: 16, type: s16, unit: °C, scale: 0.1, verified: false, note: The manual says Int; signed assumed.}
+  - {key: l1_voltage, label: Voltage of A phase, table: holding, address: 20, type: u16, unit: V, scale: 0.1}
+  - {key: l2_voltage, label: Voltage of B phase, table: holding, address: 21, type: u16, unit: V, scale: 0.1}
+  - {key: l3_voltage, label: Voltage of C phase, table: holding, address: 22, type: u16, unit: V, scale: 0.1}
+  - {key: x.l1_l2_voltage, label: Voltage between A-B, table: holding, address: 23, type: u16, unit: V, scale: 0.1}
+  - {key: x.l2_l3_voltage, label: Voltage between B-C, table: holding, address: 24, type: u16, unit: V, scale: 0.1}
+  - {key: x.l3_l1_voltage, label: Voltage between C-A, table: holding, address: 25, type: u16, unit: V, scale: 0.1}
+  - {key: l1_current, label: Current of A phase, table: holding, address: 26, type: u16, unit: A, scale: 0.01, note: The manual calls it electricity.}
+  - {key: l2_current, label: Current of B phase, table: holding, address: 27, type: u16, unit: A, scale: 0.01, note: The manual calls it electricity.}
+  - {key: l3_current, label: Current of C phase, table: holding, address: 28, type: u16, unit: A, scale: 0.01, note: The manual calls it electricity.}
+  - {key: x.current_vector_sum, label: Vector sum of 3-phase current, table: holding, address: 29, type: u16, unit: A, scale: 0.01}
+  - {key: l1_power, label: Active power of A phase, table: holding, address: 30, type: s32, unit: W, positive: import, verified: false, sources: [evcc], note: 'The manual says only Int, 0.001 kW. Signed and + = import come from evcc, which negates it for PV.'}
+  - {key: l2_power, label: Active power of B phase, table: holding, address: 32, type: s32, unit: W, positive: import, verified: false, sources: [evcc], note: 'The manual says only Int, 0.001 kW. Signed and + = import come from evcc, which negates it for PV.'}
+  - {key: l3_power, label: Active power of C phase, table: holding, address: 34, type: s32, unit: W, positive: import, verified: false, sources: [evcc], note: 'The manual says only Int, 0.001 kW. Signed and + = import come from evcc, which negates it for PV.'}
+  - {key: grid_power, label: Total active power, table: holding, address: 36, type: s32, unit: W, positive: import, verified: false, sources: [evcc], note: 'The manual says only Int, 0.001 kW. Signed and + = import come from evcc, which negates it for PV.'}
+  - {key: x.l1_reactive_power, label: Reactive power of A phase, table: holding, address: 38, type: s32, unit: var}
+  - {key: x.l2_reactive_power, label: Reactive power of B phase, table: holding, address: 40, type: s32, unit: var}
+  - {key: x.l3_reactive_power, label: Reactive power of C phase, table: holding, address: 42, type: s32, unit: var}
+  - {key: reactive_power, label: Total reactive power, table: holding, address: 44, type: s32, unit: var}
+  - {key: x.l1_apparent_power, label: Apparent power of A phase, table: holding, address: 46, type: u32, unit: VA}
+  - {key: x.l2_apparent_power, label: Apparent power of B phase, table: holding, address: 48, type: u32, unit: VA}
+  - {key: x.l3_apparent_power, label: Apparent power of C phase, table: holding, address: 50, type: u32, unit: VA}
+  - {key: apparent_power, label: Total apparent power, table: holding, address: 52, type: u32, unit: VA}
+  - {key: x.l1_power_factor, label: Power factor of A phase, table: holding, address: 54, type: s16, scale: 0.001, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l2_power_factor, label: Power factor of B phase, table: holding, address: 55, type: s16, scale: 0.001, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l3_power_factor, label: Power factor of C phase, table: holding, address: 56, type: s16, scale: 0.001, verified: false, note: The manual says Int; signed assumed.}
+  - {key: power_factor, label: Total power factor, table: holding, address: 57, type: s16, scale: 0.001, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.di_state, label: State of DI, table: holding, address: 58, type: u16, note: Bit 0 = DI1 to bit 3 = DI4.}
+  - {key: frequency, label: Frequency, table: holding, address: 59, type: u16, unit: Hz, scale: 0.01}
+
+  # Energy: two decimals
+  - {key: x.total_energy, label: Total energy consumption, table: holding, address: 60, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: grid_import_energy, label: Forward active energy consumption, table: holding, address: 62, type: s32, unit: kWh, scale: 0.01, poll: slow, verified: false, sources: [evcc], note: 'Forward = import, and the signed type, come from evcc.'}
+  - {key: grid_export_energy, label: Reversing active energy consumption, table: holding, address: 64, type: u32, unit: kWh, scale: 0.01, poll: slow, verified: false, sources: [evcc], note: 'Reversing = export, assumed. evcc reads this register as PV energy.'}
+  - {key: x.forward_reactive_energy, label: Forward reactive energy consumption, table: holding, address: 66, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.reverse_reactive_energy, label: Reversing reactive energy consumption, table: holding, address: 68, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.l1_total_energy, label: Total energy on A phase, table: holding, address: 70, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l1_forward_active_energy, label: Forward active energy on A phase, table: holding, address: 72, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l1_reverse_active_energy, label: Reversing active energy on A phase, table: holding, address: 74, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l1_forward_reactive_energy, label: Forward reactive energy on A phase, table: holding, address: 76, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.l1_reverse_reactive_energy, label: Reversing reactive energy on A phase, table: holding, address: 78, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.l2_total_energy, label: Total energy on B phase, table: holding, address: 80, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l2_forward_active_energy, label: Forward active energy on B phase, table: holding, address: 82, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l2_reverse_active_energy, label: Reversing active energy on B phase, table: holding, address: 84, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l2_forward_reactive_energy, label: Forward reactive energy on B phase, table: holding, address: 86, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.l2_reverse_reactive_energy, label: Reversing reactive energy on B phase, table: holding, address: 88, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.l3_total_energy, label: Total energy on C phase, table: holding, address: 90, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l3_forward_active_energy, label: Forward active energy on C phase, table: holding, address: 92, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l3_reverse_active_energy, label: Reversing active energy on C phase, table: holding, address: 94, type: u32, unit: kWh, scale: 0.01, poll: slow}
+  - {key: x.l3_forward_reactive_energy, label: Forward reactive energy on C phase, table: holding, address: 96, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+  - {key: x.l3_reverse_reactive_energy, label: Reversing reactive energy on C phase, table: holding, address: 98, type: u32, unit: kvarh, scale: 0.01, poll: slow}
+
+  # Maximum and current demand: three decimals
+  - {key: x.max_forward_active_demand, label: Maximum forward active demand in current month, table: holding, address: 100, type: u32, unit: kW, scale: 0.001, poll: slow}
+  - {key: x.max_reverse_active_demand, label: Maximum reversing active demand in current month, table: holding, address: 104, type: u32, unit: kW, scale: 0.001, poll: slow, note: 'The manual prints kVar; kW is meant, as for all active demand.'}
+  - {key: x.max_forward_reactive_demand, label: Maximum forward reactive demand in current month, table: holding, address: 108, type: u32, unit: kvar, scale: 0.001, poll: slow}
+  - {key: x.max_reverse_reactive_demand, label: Maximum reversing reactive demand in current month, table: holding, address: 112, type: u32, unit: kvar, scale: 0.001, poll: slow}
+  - {key: x.forward_active_demand, label: Current forward active demand, table: holding, address: 346, type: u32, unit: kW, scale: 0.001}
+  - {key: x.reverse_active_demand, label: Current reversing active demand, table: holding, address: 348, type: u32, unit: kW, scale: 0.001}
+  - {key: x.forward_reactive_demand, label: Current forward reactive demand, table: holding, address: 350, type: u32, unit: kvar, scale: 0.001}
+  - {key: x.reverse_reactive_demand, label: Current reversing reactive demand, table: holding, address: 352, type: u32, unit: kvar, scale: 0.001}
+
+  # Distortion: two decimals
+  - {key: x.l1_thd_voltage, label: Total distortion rate of voltage on A phase, table: holding, address: 116, type: u16, scale: 0.01, poll: slow}
+  - {key: x.l2_thd_voltage, label: Total distortion rate of voltage on B phase, table: holding, address: 117, type: u16, scale: 0.01, poll: slow}
+  - {key: x.l3_thd_voltage, label: Total distortion rate of voltage on C phase, table: holding, address: 118, type: u16, scale: 0.01, poll: slow}
+  - {key: x.l1_thd_current, label: Total distortion rate of current on A phase, table: holding, address: 119, type: u16, scale: 0.01, poll: slow}
+  - {key: x.l2_thd_current, label: Total distortion rate of current on B phase, table: holding, address: 120, type: u16, scale: 0.01, poll: slow}
+  - {key: x.l3_thd_current, label: Total distortion rate of current on C phase, table: holding, address: 121, type: u16, scale: 0.01, poll: slow}
+
+  # Fundamental and harmonic values
+  - {key: x.l1_fundamental_voltage, label: Fundamental voltage on A phase, table: holding, address: 302, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.l2_fundamental_voltage, label: Fundamental voltage on B phase, table: holding, address: 303, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.l3_fundamental_voltage, label: Fundamental voltage on C phase, table: holding, address: 304, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.l1_harmonic_voltage, label: Harmonic voltage on A phase, table: holding, address: 305, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.l2_harmonic_voltage, label: Harmonic voltage on B phase, table: holding, address: 306, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.l3_harmonic_voltage, label: Harmonic voltage on C phase, table: holding, address: 307, type: u16, unit: V, scale: 0.1, poll: slow}
+  - {key: x.l1_fundamental_current, label: Fundamental current on A phase, table: holding, address: 308, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.l2_fundamental_current, label: Fundamental current on B phase, table: holding, address: 309, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.l3_fundamental_current, label: Fundamental current on C phase, table: holding, address: 310, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.l1_harmonic_current, label: Harmonic current on A phase, table: holding, address: 311, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.l2_harmonic_current, label: Harmonic current on B phase, table: holding, address: 312, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.l3_harmonic_current, label: Harmonic current on C phase, table: holding, address: 313, type: u16, unit: A, scale: 0.01, poll: slow}
+  - {key: x.l1_fundamental_active_power, label: Fundamental active power on A phase, table: holding, address: 314, type: s32, unit: W, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l2_fundamental_active_power, label: Fundamental active power on B phase, table: holding, address: 316, type: s32, unit: W, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l3_fundamental_active_power, label: Fundamental active power on C phase, table: holding, address: 318, type: s32, unit: W, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.total_fundamental_active_power, label: Fundamental active power, table: holding, address: 320, type: s32, unit: W, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l1_fundamental_reactive_power, label: Fundamental reactive power on A phase, table: holding, address: 322, type: s32, unit: var, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l2_fundamental_reactive_power, label: Fundamental reactive power on B phase, table: holding, address: 324, type: s32, unit: var, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l3_fundamental_reactive_power, label: Fundamental reactive power on C phase, table: holding, address: 326, type: s32, unit: var, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.total_fundamental_reactive_power, label: Fundamental reactive power, table: holding, address: 328, type: s32, unit: var, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l1_harmonic_active_power, label: Harmonic active power on A phase, table: holding, address: 330, type: s32, unit: W, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l2_harmonic_active_power, label: Harmonic active power on B phase, table: holding, address: 332, type: s32, unit: W, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l3_harmonic_active_power, label: Harmonic active power on C phase, table: holding, address: 334, type: s32, unit: W, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.total_harmonic_active_power, label: Harmonic active power, table: holding, address: 336, type: s32, unit: W, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l1_harmonic_reactive_power, label: Harmonic reactive power on A phase, table: holding, address: 338, type: s32, unit: var, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l2_harmonic_reactive_power, label: Harmonic reactive power on B phase, table: holding, address: 340, type: s32, unit: var, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l3_harmonic_reactive_power, label: Harmonic reactive power on C phase, table: holding, address: 342, type: s32, unit: var, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.total_harmonic_reactive_power, label: Harmonic reactive power, table: holding, address: 344, type: s32, unit: var, poll: slow, verified: false, note: The manual says Int; signed assumed.}
+
+  # State
+  - {key: x.voltage_imbalance, label: Voltage imbalance, table: holding, address: 354, type: u16, unit: '%', scale: 0.01}
+  - {key: x.current_imbalance, label: Current imbalance, table: holding, address: 355, type: u16, unit: '%', scale: 0.01}
+  - {key: x.l1_temperature, label: Temperature on A phase, table: holding, address: 356, type: s16, unit: °C, scale: 0.1, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l2_temperature, label: Temperature on B phase, table: holding, address: 357, type: s16, unit: °C, scale: 0.1, verified: false, note: The manual says Int; signed assumed.}
+  - {key: x.l3_temperature, label: Temperature on C phase, table: holding, address: 358, type: s16, unit: °C, scale: 0.1, verified: false, note: The manual says Int; signed assumed.}
+
+enums:
+  baud_rate: {'1': '1200', '2': '2400', '3': '4800', '4': '9600'}
+  parity: {'0': None, '1': Even, '2': Odd}
+  stop_bits: {'0': '1', '1': '2'}
 
 notes:
-- 'evcc template `acrel-adw300` (grid, pv, charge) lists: Acrel ADW300.'
-- Taken from open-source projects (see sources); not checked against manufacturer documents.
+- "All 12 points of evcc's template (`acrel-adw300`, usages grid, pv, charge) agree with Acrel's manual on address and scale. evcc reads power and energy as signed; the manual doesn't state signedness. Its PV energy is register 64, grid_export_energy here."
+- "The default unit 1 and 1200 8N1 come from evcc. The manual gives 1200 baud only for the infrared port, no RS485 default, and prints baud index 2 as 3400, taken here as 2400."
+- "Read with function 03, write with 10H. Two-register values are taken as most significant register first. The manual gives no identification."
+- "The manual's R/W column is empty for 0x0005 to 0x000F, so they are read-only here. It labels the first two harmonic blocks both THUa; the sequence is THUa, THUb, THUc, then the current ones."
+- "Left out: code (0x0008), clock (0x0011 to 0x0013), demand times, harmonics 2 to 31 (0x007A to 0x012D, 30 registers each), and the time zone and period tables from 0x0167."
