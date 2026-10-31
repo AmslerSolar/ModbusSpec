@@ -44,6 +44,8 @@ The documents leave these open; a reading from a real device settles them.
 | davicom-mexm-2 | No real device yet. The one-page table gives only 64 status inputs: transport, unit id and what each input means are unknown. 10052 is printed twice; input 53 is taken as 10053. |
 | cs-instruments-fa5xx | No real device yet. Default stop bits; which rows the version formats belong to; whether an FA 515 answers the identify check before Modbus is enabled (it can't). |
 | socomec-diris-o | No real device yet. The table has only names and registers: types, units, scales, table and transport are inferred from the DIRIS B-30. Its power registers sit two addresses above the B-30's; which is right on a DIRIS-O? |
+| rheonics-sme | Stop bits on RTU (not stated; one assumed); default unit on RTU (1 in the examples, "0 or 1" in the settings). |
+| sofar-string, -old, -inverter | Sofar's own download pages (`_Manual_HYD Modbus Protocol 2021 May 05`, `_Manual_1-40kw-g1 ... 20200402`, `_Manual_SOLAR ModBus-RTU`, downloads.sofarsolar.eu) give no public file link, so these files still rest on GitHub copies. The PDFs are needed to compare them. |
 | abb-b23-b24 | Outage time 0x8A39 (2 registers listed, the layout needs 3); 0x8A50 / 0x8A54 labelled "active", probably reactive. A real B23 with firmware B1.28.0 reads all of 8A30–8A5F as invalid, so another firmware is needed. |
 | carlogavazzi-em24-din | Whether the extra V2R0 registers still exist on current (V4) meters. |
 | deye-p3 | Device type 0x0005 / 0x0006 in the HP3 edition: typo for 0x0500 / 0x0600, or real (accepted in identify). |

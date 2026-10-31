@@ -1,12 +1,13 @@
 # SPDX-License-Identifier: CC0-1.0
 # Copyright (C) 2026 Amsler Solar GmbH
 #
-# Written from the Rheonics Modbus TCP manual (MTCP-OP-2403, version 1, 16.02.2024).
+# Written from the Rheonics Modbus TCP manual (MTCP-OP-2403, version 1, 16.02.2024) and checked against the Modbus RTU
+# manual (MRTU-OP-2403).
 
 modbusspec: 0
 id: rheonics-sme
 manufacturer: Rheonics
-name: SME sensor electronics for SRV, SRD, DVP and DVM viscosity / density sensors (Modbus TCP)
+name: SME sensor electronics for SRV, SRD, DVP and DVM viscosity / density sensors
 kind: io
 
 sources:
@@ -15,12 +16,20 @@ sources:
   url: https://rheonics.com/wp-content/uploads/2024/04/Rheonics-Modbus-TCP-Manual_MTCP-OP-2403.pdf
   sha256: 28aa3a4c803c79f0147e844d176e3b7abdb72b7c9a5e0cf57bb548f8e2b4a7ed
   archive_url: https://web.archive.org/web/20250906003551/https://rheonics.com/wp-content/uploads/2024/04/Rheonics-Modbus-TCP-Manual_MTCP-OP-2403.pdf
+- title: Modbus RTU field device specification, Rheonics SME (MRTU-OP-2403)
+  url: https://rheonics.com/wp-content/uploads/2024/04/Rheonics-Modbus-RTU-Manual_MRTU-OP-2403.pdf
+  sha256: e32f6dae270489960d56d5264b33f29b406259947eb21fca4cf6c095af9aac9d
+  number: MRTU-OP-2403
 
 connection:
   default_port: 502
   default_unit: 255
   transports:
   - tcp
+  - rtu
+  serial:
+    baud: 38400
+    format: 8O1
 
 encoding:
   byte_order: big
@@ -157,8 +166,12 @@ problems:
 notes:
 - Addresses are the document's 0-based PDU addresses (its 3000xx register numbers minus 300001). Measurements are input registers
   (function 04); the density coefficients are holding registers (function 03 / 16).
-- Unit identifier 255; Modbus TCP on port 502. The SME also has an RS-485 Modbus RTU port, whose settings (address, baud rate,
-  parity) are set with the configuration software; this document covers Modbus TCP only.
+- Modbus TCP uses unit identifier 255 on port 502. Modbus RTU runs on RS-485 with a different default unit, so a reader on RTU
+  has to use 1 instead of the default_unit here (the RTU manual says 1 in one place and "0 or 1" in another; its examples use 1).
+- RTU factory settings are 38400 baud and odd parity, also settable to 9600 or 19200 and to even or no parity with the
+  configuration software. The manual doesn't state the stop bits; one is assumed.
+- The two manuals have the same 116 input register rows and the same holding registers, and the RTU examples read the same addresses (function 04 at 0x38 for
+  the temperature gives 0x41B15C29), so all points apply to both transports.
 - 'Each of the 23 parameters takes eight registers from 40 + 8 × n: value as f32 (+0), value × 100 as s16 (+2), status (+3),
   uncalibrated value as f32 (+4) and unit index (+6). The s16 scaled values and the uncalibrated values are left out here.
   The document''s table has two typos for parameter 12 (uncalibrated value and unit printed as 300041 / 300043); the addresses
