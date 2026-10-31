@@ -47,7 +47,7 @@ The documents leave these open; a reading from a real device settles them.
 | rheonics-sme | Stop bits on RTU (not stated; one assumed); default unit on RTU (1 in the examples, "0 or 1" in the settings). |
 | sofar-string, -old, -inverter | Sofar's own download pages (`_Manual_HYD Modbus Protocol 2021 May 05`, `_Manual_1-40kw-g1 ... 20200402`, `_Manual_SOLAR ModBus-RTU`, downloads.sofarsolar.eu) give no public file link, so these files still rest on GitHub copies. The PDFs are needed to compare them. |
 | abb-b23-b24 | Outage time 0x8A39 (2 registers listed, the layout needs 3); 0x8A50 / 0x8A54 labelled "active", probably reactive. A real B23 with firmware B1.28.0 reads all of 8A30–8A5F as invalid, so another firmware is needed. |
-| carlogavazzi-em24-din | Whether the extra V2R0 registers still exist on current (V4) meters. |
+| carlogavazzi-em24-din | Whether the extra V2R0 registers still exist on current (V4) meters: they answer on one AV5 reporting code 72, and its per-phase energies add up to the total, but its document edition isn't known. Meaning of the unknown registers from the sweep (0x0068 to 0x0078, 0x1103 to 0x1138). |
 | deye-p3 | Device type 0x0005 / 0x0006 in the HP3 edition: typo for 0x0500 / 0x0600, or real (accepted in identify). |
 | sungrow-sg | State data 2 (5045): the document points to a value table it doesn't contain. |
 | huawei-dtsu666-h | Read on a real meter with only L1 connected and no load: the phase order of the per-phase energies (L1 showed at +6, not +2), the sign and scale of current, active power and power factor, the reactive / apparent power positions (2134–2148), and the unknown pairs at input 5438–5452 / 8244–8258 need a load on two or three phases. |
