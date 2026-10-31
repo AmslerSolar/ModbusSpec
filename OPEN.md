@@ -8,6 +8,7 @@ The documents leave these open; a reading from a real device settles them.
 
 | Device file | Question |
 |---|---|
+| edgetech-evse-c | No real device yet. Whether a function 04 read of the action registers acts (see its notes); sign and scale of temperature; encoding of serial number and firmware; no identification in the document. |
 | peblar-wallbox | Does holding 30123 read 1 (the identify check)? The only local material, Peblar's example client, reads 30122 for two values. |
 | shoto-battery | Cell voltage factor: the document prints "100 0" on every row; 1000 (mV) is assumed, 100 would also give plausible values. |
 | mainstream-mainprobe | Address offset: every 4xxxx number in the document is even, which hints at 40000 + address instead of 40001 = address 0. |

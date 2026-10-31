@@ -28,10 +28,11 @@ request that can rule out the most files (a file with alternatives counts for it
 leaves the chain to confirm the files that test speaks for, the most specific first, and comes back to the next test if
 none holds, so the size of a tree grows with the number of tests, not with their combinations.
 
-Files with strong evidence (`SURE_BITS`) come first on the chain, and those with weak evidence alone (a plausible range,
-a small number) after them, since other devices can pass weak checks too. A walk ends at the first file that holds once
-no more specific file is left to confirm, so `found` names more than one file only when they hold on the same answers.
-A device known by weak evidence therefore costs all the reads for the strong files.
+Files with strong evidence (`SURE_BITS`) come first on the chain, in the order that takes the fewest reads. Those with
+weak evidence alone (a plausible range, a small number) follow from the strongest to the weakest, since other devices
+can pass weak checks too: whichever holds first is then the strongest that holds. A walk ends at the first file that
+holds once no more specific file is left to confirm, so `found` names more than one file only when they hold on the
+same answers. A device known by weak evidence therefore costs the reads for all files with stronger evidence.
 """
 from __future__ import annotations
 
@@ -50,9 +51,12 @@ SERIAL = {"rtu", "ascii", "rtu_over_tcp"}
 
 def bits(c: dict) -> float:
     """A rough count of how much a condition tells: the chance, as bits, that some other device passes by accident.
-    Numbers up to 255 are common register values and ranges only say the value is plausible."""
+    Registers often read 0, FFFFh or a small number, and a range that includes 0 passes on an idle or unused register;
+    other ranges only say the value is plausible."""
     def of(v):
-        return 6 * len(v) if isinstance(v, str) else 16 if abs(v) > 255 else 6
+        if isinstance(v, str):
+            return 6 * len(v)
+        return 3 if abs(v) < 16 or v == 0xFFFF else 10 if abs(v) < 256 else 16
     n = 0.0
     if "equals" in c:
         n += of(c["equals"])
@@ -63,7 +67,7 @@ def bits(c: dict) -> float:
     if "contains" in c:
         n += min(of(t) for t in c["contains"])
     if "range" in c:
-        n += 4
+        n += 1 if c["range"][0] <= 0 <= c["range"][1] else 4
     if c.get("printable"):
         n += 6
     return n or 1  # only `not`, `not_in` or `answers`
@@ -246,11 +250,12 @@ class Builder:
         return self.seen[key]
 
     def build(self, names: list[str]) -> int:
-        """The root for these files: the strong ones first on the chain, then the weak ones."""
+        """The root for these files: the strong ones first on the chain, then the weak ones, strongest first."""
         files = sorted(self.ids[n] for n in names)
         made: set[tuple] = set()
         steps = self.chain([f for f in files if self.strength[f] >= SURE_BITS], made)
-        steps += self.chain([f for f in files if self.strength[f] < SURE_BITS], made)
+        for level in sorted({self.strength[f] for f in files if self.strength[f] < SURE_BITS}, reverse=True):
+            steps += self.chain([f for f in files if self.strength[f] == level], made)
         node = self.node(None, found=[])
         for a, speaks_for, before in reversed(steps):
             node = self.node(a, self.confirm(speaks_for, frozenset(), {a: True}, before, node), node)

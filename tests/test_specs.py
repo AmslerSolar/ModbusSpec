@@ -550,6 +550,23 @@ def test_identify_tree_weak_evidence_waits_for_strong():
     assert it.walk(tree, "port:502", CountingDevice(input={70: 50}), pace=False)[0] == ["a/weak"]
 
 
+def test_identify_tree_tries_weak_files_strongest_first():
+    it, tree = small_tree(
+        a_loose={"identify": {"checks": [{"table": "holding", "address": 0, "type": "u16", "range": [0, 14]}]}},
+        b_code={"identify": {"checks": [{"table": "input", "address": 11, "type": "u16", "in": [71, 72, 73]}]}})
+    device = CountingDevice(holding={0: 0}, input={11: 72})
+    assert it.walk(tree, "port:502", device, pace=False)[0] == ["b/code"]
+    assert it.walk(tree, "port:502", CountingDevice(holding={0: 0}, input={11: 5}), pace=False)[0] == ["a/loose"]
+
+
+def test_identify_tree_on_a_real_em24(identify_tree):
+    """A real Carlo Gavazzi EM24-DIN AV5, as read on 2026-10-31: its model code at input 11, also answered at holding
+    11, passed the loose checks of other files while holding 0 and 3 read 0."""
+    it, _, tree = identify_tree
+    device = CountingDevice(input={11: 72}, holding={0: 0, 3: 0, 7: 0, 11: 72})
+    assert it.walk(tree, "serial", device, pace=False)[0] == ["meter/carlogavazzi/em24-din"]
+
+
 def test_identify_tree_requests_follow_the_connection():
     even = {"limits": {"even_address": True, "min_interval_ms": 200}}
     block = {"blocks": [{"table": "holding", "address": 100, "count": 10}]}
@@ -580,6 +597,23 @@ def test_identify_tree_sends_serial_devices_to_their_own_root():
     assert it.roots_of({"connection": both}) == ["port:502", "serial"]
     assert it.roots_of({"connection": {**both, "transports": ["tcp"]}}) == ["port:502"]
     assert it.roots_of({"connection": {"default_port": 1502, "default_unit": 1}}) == ["port:1502"]
+
+
+def test_edgetech_evse_c():
+    """State and errors share a register, currents are in 1/256 A, and no read touches the registers that may act."""
+    spec = msp.load(msp.ROOT / "devices/charger/edgetech/evse-c.yaml")
+    inputs = {a: 0 for a in [*range(0, 6), 0x10, *range(0x100, 0x114)]}
+    inputs[0x103] = 0x0403                                      # ground fault, state C
+    inputs[0x105] = 0x086A                                      # 8.414 A in the document's example
+    inputs[0x10D], inputs[0x10E] = 0x0100, 0x0001               # low word first
+    device = FakeDevice(input=inputs, holding={a: 0 for a in [0x200, 0x201, 0x204, 0x205, 0x207, 0x208, 0x209, 0x20A]})
+    r = msp.read_device(spec, device)
+    assert r["values"]["state"] == 3
+    assert r["values"]["l1_current"] == pytest.approx(8.4140625)
+    assert r["values"]["consumer_energy"] == pytest.approx(0x00010100 / 256)
+    assert r["problems"] == [{"kind": "fault", "text": "Ground fault (error bit 2)"}]
+    acting = {0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x11, 0x12, 0x15, 0x16, 0x17}
+    assert not [q for q in device.requests if q[0] == "input" and acting & set(range(q[1], q[1] + q[2]))]
 
 
 def test_sunspec_marker_is_read_big_endian():

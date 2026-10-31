@@ -1,0 +1,98 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the manufacturer's register map (below). Not yet checked on a device. A different product from the
+# SmartEVSE in smartevse.yaml, with a different register map.
+
+modbusspec: 0
+id: edgetech-evse-c
+manufacturer: Edge FS (EdgeTech)
+name: EVSE-C-3x32A charge controller
+kind: charger
+
+sources:
+- title: Modbus register map (EVSE-C-3x32A)
+  version: updated 2026-10-13; firmware 2.10.17 and later
+  url: https://edgetech.eu/docs/modbus-registers
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+
+encoding:
+  byte_order: big
+  word_order: big
+
+points:
+  # System (function 04)
+  - {key: serial, label: SerialNumber, table: input, address: 0x0000, type: str, length: 5, poll: slow, verified: false, note: The document doesn't state the encoding; text assumed.}
+  - {key: firmware, label: FirmwareVersion, table: input, address: 0x0005, type: u16, poll: slow, note: The document doesn't state the encoding.}
+  - {key: x.external_lock, label: ExternalLock, table: input, address: 0x0010, type: u16, enum: external_lock, poll: slow}
+
+  # Status (function 04)
+  - {key: x.min_pilot, label: MinPilot, table: input, address: 0x0100, type: u16, note: Raw value.}
+  - {key: x.max_pilot, label: MaxPilot, table: input, address: 0x0101, type: u16, note: Raw value.}
+  - {key: x.max_cable_current, label: MaxCableCurrent, table: input, address: 0x0102, type: u16, bits: [0, 7], unit: A, note: Cable rating from the PP resistor.}
+  - {key: x.max_current, label: MaxCurrent, table: input, address: 0x0102, type: u16, bits: [8, 15], unit: A, note: Charge current currently advertised.}
+  - {key: state, label: State, table: input, address: 0x0103, type: u16, bits: [0, 7], enum: state, poll: fast}
+  - {key: x.error, label: Error, table: input, address: 0x0103, type: u16, bits: [8, 15], flags: error_bits, poll: fast}
+  - {key: temperature, label: Temperature, table: input, address: 0x0104, type: s16, unit: °C, verified: false, note: 'The document gives °C without the 1/256 scale of its other analog values and states no sign; signed, unscaled assumed.'}
+  - {key: l1_current, label: CurrentL1, table: input, address: 0x0105, type: u16, unit: A, scale: 0.00390625, poll: fast, verified: false, note: Meaningful in state C or D. Sign not stated; unsigned assumed.}
+  - {key: l2_current, label: CurrentL2, table: input, address: 0x0106, type: u16, unit: A, scale: 0.00390625, poll: fast, verified: false, note: Meaningful in state C or D. Sign not stated; unsigned assumed.}
+  - {key: l3_current, label: CurrentL3, table: input, address: 0x0107, type: u16, unit: A, scale: 0.00390625, poll: fast, verified: false, note: Meaningful in state C or D. Sign not stated; unsigned assumed.}
+  - {key: session_energy, label: EnergySession, table: input, address: 0x0108, type: u16, unit: kWh, scale: 0.00390625, poll: fast, note: All phases; the document doesn't say what happens past the 16-bit range (about 256 kWh).}
+  - {key: l1_voltage, label: VoltageL1, table: input, address: 0x0109, type: u16, unit: V, scale: 0.00390625, poll: fast, note: 'Output voltage; not zero only in state C or D.'}
+  - {key: l2_voltage, label: VoltageL2, table: input, address: 0x010A, type: u16, unit: V, scale: 0.00390625, poll: fast, note: Output voltage; meaningful in state C or D.}
+  - {key: l3_voltage, label: VoltageL3, table: input, address: 0x010B, type: u16, unit: V, scale: 0.00390625, poll: fast, note: Output voltage; meaningful in state C or D.}
+  - {key: x.options, label: Options, table: input, address: 0x010C, type: u16, flags: option_bits, poll: slow}
+  - {key: consumer_energy, label: Energy, table: input, address: 0x010D, type: u32, word_order: little, unit: kWh, scale: 0.00390625, note: 'Lifetime energy; 0x010E is the high word.'}
+  - {key: x.session_energy_l1, label: EnergySessionL1, table: input, address: 0x010F, type: u16, unit: kWh, scale: 0.00390625}
+  - {key: x.session_energy_l2, label: EnergySessionL2, table: input, address: 0x0110, type: u16, unit: kWh, scale: 0.00390625}
+  - {key: x.session_energy_l3, label: EnergySessionL3, table: input, address: 0x0111, type: u16, unit: kWh, scale: 0.00390625}
+  - {key: x.earth_quality, label: EarthQuality, table: input, address: 0x0112, type: u16, poll: slow, note: Raw value; marked experimental.}
+  - {key: x.baud_register, label: UBRR, table: input, address: 0x0113, type: u16, poll: slow, note: Raw value of the current baud-rate register.}
+
+  # Configuration (function 03 / 06)
+  - {key: x.modbus_address, label: ModbusAddress, table: holding, address: 0x0200, type: u16, bits: [0, 7], writable: true, poll: slow, note: 'Protected: write the magic code to 0x0202 first (default 0x1234). The address has to be saved to last; the document gives no exact sequence.'}
+  - {key: x.remote_max_current, label: RemoteMaxCurrent, table: holding, address: 0x0201, type: u16, unit: A, writable: true, persistent: false, min: 0, max: 32, verified: false, note: 'The limit is the low byte; 0 stops charging. Write at least once per second: after two missed writes the board falls back to a static limit the document does not name. Written as a whole register, as in the document''s control loop, which leaves the high byte (RemoteMaxCurrentNextSecond, a one-second failsafe limit) at 0; a non-zero high byte would read wrongly here. The maximum is from that loop; a board in 16 A mode (Options bit 1 clear) may accept less.'}
+  - {key: x.settings, label: Settings, table: holding, address: 0x0204, type: u16, flags: setting_bits, writable: true, poll: slow}
+  - {key: x.led, label: Led, table: holding, address: 0x0205, type: u16, enum: led, writable: true, poll: slow}
+  - {key: x.baud_setting, label: UBRR, table: holding, address: 0x0207, type: u16, poll: slow, note: 'Baud-rate register; 0x33 = 19200. Left read only here: the document gives no other value, and a wrong one cuts the device off.'}
+  - {key: x.cp_disconnect_time, label: CPDisconnectTime, table: holding, address: 0x0208, type: u16, unit: ms, writable: true, poll: slow}
+  - {key: x.time_before_cp_disconnect, label: TimeBeforeCPDisconnect, table: holding, address: 0x0209, type: u16, unit: ms, writable: true, poll: slow, note: Wait after advertising current before checking for state C.}
+  - {key: x.cp_type, label: CPType, table: holding, address: 0x020A, type: u16, bits: [0, 7], enum: cp_type, writable: true, poll: slow}
+  - {key: x.cp_disconnect_type, label: CPDisconnectType, table: holding, address: 0x020A, type: u16, bits: [8, 15], enum: cp_disconnect_type, writable: true, poll: slow}
+
+enums:
+  state: {'1': 'A: no vehicle', '2': 'B: vehicle connected, not charging', '3': 'C: charging', '4': 'D: charging, ventilation required'}
+  external_lock: {'0': Unlocked, '1': Locked, '65535': Lock port used as CP disconnect}
+  led: {'0': Onboard GRB LED, '1': Addressable LED strip (36 LEDs)}
+  cp_type: {'0': Normal, '1': A1/B1 pilot levels}
+  cp_disconnect_type: {'0': EV40, '1': Extended EV40}
+
+flags:
+  error_bits: {'0': Temperature too high, '1': Stuck relay, '2': Ground fault, '3': Max CP too low (pilot out of range), '4': Min CP too high (pilot out of range), '5': DC leakage detected by the on-board RDC-DD, '6': I²C initialisation failed, '7': I²C communication error}
+  option_bits: {'0': RDC-DD enabled, '1': 32 A mode (clear = 16 A)}
+  setting_bits: {'0': 'PHASES: 3-phase (clear = 1-phase)', '1': LOCK_STATE (cable lock behaviour), '2': DCL_MUST_BE_PRESENT (no charging without RDC-DD), '3': Lock port used as CP disconnect, '4': Automatic CP disconnect after a pause, '5': EV40-style CP disconnect}
+
+problems:
+  - {when: {key: x.error, bit: 0}, kind: fault, text: Temperature too high (error bit 0)}
+  - {when: {key: x.error, bit: 1}, kind: fault, text: Stuck relay (error bit 1)}
+  - {when: {key: x.error, bit: 2}, kind: fault, text: Ground fault (error bit 2)}
+  - {when: {key: x.error, bit: 5}, kind: fault, text: 'DC leakage detected, charging blocked (error bit 5)'}
+  - {when: {key: x.error, bit: 3}, kind: warning, text: Max CP too low (error bit 3)}
+  - {when: {key: x.error, bit: 4}, kind: warning, text: Min CP too high (error bit 4)}
+  - {when: {key: x.error, bit: 6}, kind: warning, text: I²C initialisation failed (error bit 6)}
+  - {when: {key: x.error, bit: 7}, kind: warning, text: I²C communication error (error bit 7)}
+
+notes:
+- 'No identification: the document lists no device type, maker or model register, and the serial number''s format is not stated.'
+- 'Factory address 1 is special: after boot the charger answers there only after a state change (board button, car plugged in). With an own controller, give it address 2 or higher (0x0200) after such a change, and save.'
+- 9600 baud 8N1, or 19200 when driven by an EVSE-SC-02. The board expects a 40 ms response window; a Modbus TCP gateway works but answers more slowly, wireless Modbus doesn't work.
+- 'Don''t read these with function 04 without need: the document lists them as actions and its wording suggests a read acts, without saying so: 0x000A SaveEEPROM, 0x000B FactoryDefaults, 0x000C Reset, 0x000D EnterBootloader (all four protected by the magic code), 0x0011 I2cErrors (read and reset), 0x0012 QuietReset, 0x0015 LockLock, 0x0016 UnlockLock, 0x0017 DisconnectCP. Left out as points, like 0x000E ChallengeResponse.'
+- 'Left out: 0x0006 MsSinceBoot (word order not stated), 0x000F (not used), the conditional response registers 0x0013, 0x0014 and 0x0206 (no meaning given), 0x0202 MagicResetCode and 0x0203 Challenge (the sequence isn''t described), and the bootloader at address 0xF0.'
