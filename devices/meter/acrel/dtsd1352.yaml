@@ -26,6 +26,8 @@ connection:
     baud: 9600
     format: 8N1
   write_multiple: true
+  limits:
+    max_registers: 100
 
 encoding:
   byte_order: big
@@ -42,7 +44,7 @@ points:
   # Identity and setup
   - {key: x.device_type_code, label: Device type code, table: holding, address: 20480, type: u16, poll: slow, verified: true, note: 'Not in the manual. Reads 0x102F on the one unit checked. Read this one register alone: a read of two gets no answer.'}
   - {key: x.modbus_address, label: 'First communication path: address', table: holding, address: 63, type: u16, bits: [8, 15], writable: true, poll: slow, verified: true, note: The manual gives 1–247; the unit checked reads 254 and answers there.}
-  - {key: x.baud_rate, label: 'First communication path: baud rate', table: holding, address: 63, type: u16, bits: [0, 7], enum: baud_rate, writable: true, poll: slow, verified: false, note: 'The unit checked reads 3 and talks at 9600. In the ADL400 manual 3 is 9600, so this unit may follow that list.'}
+  - {key: x.baud_rate, label: 'First communication path: baud rate', table: holding, address: 63, type: u16, bits: [0, 7], enum: baud_rate, writable: true, poll: slow, verified: true, note: 'Read as 3 at 9600 and 4 at 19200. This is the list of the ADL400 manual; the DTSD1352 manual gives 1 = 9600, 2 = 4800, 3 = 2400, 4 = 1200.'}
   - {key: x.parity, label: 'First communication path: parity', table: holding, address: 149, type: u16, bits: [8, 15], enum: parity, writable: true, poll: slow}
   - {key: x.stop_bits, label: 'First communication path: stop bits', table: holding, address: 149, type: u16, bits: [0, 7], enum: stop_bits, writable: true, poll: slow}
   - {key: x.modbus_address_2, label: 'Second communication path: address', table: holding, address: 150, type: u16, bits: [8, 15], writable: true, poll: slow}
@@ -231,16 +233,45 @@ points:
   - {key: x.l3_harmonic_reactive_power, label: Harmonic reactive power on C phase, table: holding, address: 1713, type: u16, unit: kvar, scale: 0.001, poll: slow, verified: false}
   - {key: x.total_harmonic_reactive_power, label: Total harmonic reactive power, table: holding, address: 1714, type: u16, unit: kvar, scale: 0.001, poll: slow, verified: false}
 
+  # Not in the manual: found by a sweep of the unit checked. Every meaning here is a guess
+  - {key: x.number_pair_1, label: 'Possible meter number, digit pair 1', table: holding, address: 153, type: bcd16, poll: slow, verified: false, note: 'Together a 12-digit number, possibly the meter number or DL/T 645 address.'}
+  - {key: x.number_pair_2, label: 'Possible meter number, digit pair 2', table: holding, address: 154, type: bcd16, poll: slow, verified: false, note: See digit pair 1.}
+  - {key: x.number_pair_3, label: 'Possible meter number, digit pair 3', table: holding, address: 155, type: bcd16, poll: slow, verified: false, note: See digit pair 1.}
+  - {key: x.number_pair_4, label: 'Possible meter number, digit pair 4', table: holding, address: 156, type: bcd16, poll: slow, verified: false, note: See digit pair 1.}
+  - {key: x.number_pair_5, label: 'Possible meter number, digit pair 5', table: holding, address: 157, type: bcd16, poll: slow, verified: false, note: See digit pair 1.}
+  - {key: x.number_pair_6, label: 'Possible meter number, digit pair 6', table: holding, address: 158, type: bcd16, poll: slow, verified: false, note: See digit pair 1.}
+  - {key: x.number_copy_pair_1, label: 'Possible meter number copy, digit pair 1', table: holding, address: 196, type: bcd16, poll: slow, verified: false, note: Same values as 0x0099 to 0x009E.}
+  - {key: x.number_copy_pair_2, label: 'Possible meter number copy, digit pair 2', table: holding, address: 197, type: bcd16, poll: slow, verified: false, note: See copy digit pair 1.}
+  - {key: x.number_copy_pair_3, label: 'Possible meter number copy, digit pair 3', table: holding, address: 198, type: bcd16, poll: slow, verified: false, note: See copy digit pair 1.}
+  - {key: x.number_copy_pair_4, label: 'Possible meter number copy, digit pair 4', table: holding, address: 199, type: bcd16, poll: slow, verified: false, note: See copy digit pair 1.}
+  - {key: x.number_copy_pair_5, label: 'Possible meter number copy, digit pair 5', table: holding, address: 200, type: bcd16, poll: slow, verified: false, note: See copy digit pair 1.}
+  - {key: x.number_copy_pair_6, label: 'Possible meter number copy, digit pair 6', table: holding, address: 201, type: bcd16, poll: slow, verified: false, note: See copy digit pair 1.}
+  - {key: x.unknown_00a5, label: Unknown, table: holding, address: 165, type: u16, note: Reads 5., poll: slow, verified: false}
+  - {key: x.code, label: Possibly the password, table: holding, address: 166, type: u16, note: 'Reads 1. The ADL400 has its code here, range 1 to 9999; the DTSD1352 menu default is not stated in its table.', poll: slow, verified: false}
+  - {key: x.possible_over_voltage_limit, label: Possibly the over-voltage limit, table: holding, address: 168, type: u16, note: Reads 1500. A guess from the conditions in the event log., poll: slow, verified: false}
+  - {key: x.possible_over_voltage_delay, label: Possibly the over-voltage delay, table: holding, address: 169, type: u16, note: Reads 1000. A guess from the conditions in the event log., poll: slow, verified: false}
+  - {key: x.possible_loss_voltage_limit, label: Possibly the voltage-loss limit, table: holding, address: 170, type: u16, note: Reads 600. A guess from the conditions in the event log., poll: slow, verified: false}
+  - {key: x.possible_loss_voltage_delay, label: Possibly the voltage-loss delay, table: holding, address: 171, type: u16, note: Reads 1000. A guess from the conditions in the event log., poll: slow, verified: false}
+  - {key: x.possible_over_current_limit, label: Possibly the over-current limit, table: holding, address: 172, type: u16, note: Reads 2000. A guess from the conditions in the event log., poll: slow, verified: false}
+  - {key: x.possible_over_current_delay, label: Possibly the over-current delay, table: holding, address: 173, type: u16, note: Reads 1000. A guess from the conditions in the event log., poll: slow, verified: false}
+  - {key: x.possible_low_current_limit, label: Possibly the low-current limit, table: holding, address: 174, type: u16, note: Reads 400. A guess from the conditions in the event log., poll: slow, verified: false}
+  - {key: x.possible_low_current_delay, label: Possibly the low-current delay, table: holding, address: 175, type: u16, note: Reads 1000. A guess from the conditions in the event log., poll: slow, verified: false}
+  - {key: x.possible_demand_cycle, label: Possibly the demand cycle, table: holding, address: 176, type: u16, unit: min, note: 'Reads 15, the default demand cycle in the manual.', poll: slow, verified: false}
+  - {key: x.unknown_00b1, label: Unknown, table: holding, address: 177, type: u16, note: 'Reads 0x0E30, unchanged over at least 30 minutes.', poll: slow, verified: false}
+  - {key: x.unknown_00ca, label: Unknown, table: holding, address: 202, type: u16, note: Reads 1. The ADL400 has its backlight time here., poll: slow, verified: false}
+  - {key: x.unknown_00cb, label: Unknown, table: holding, address: 203, type: u16, note: Reads 100., poll: slow, verified: false}
+
 enums:
-  baud_rate: {'1': '9600', '2': '4800', '3': '2400', '4': '1200'}
+  baud_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200'}
   parity: {'0': None, '2': Even}
   stop_bits: {'0': '1', '1': '2'}
 
 notes:
+- "Sweep on 2026-10-31 of the unit checked, function 03: reads of 100, 60 and 32 registers over 0x0000 to 0xFFFF, and single registers up to about 0x24B8. Above that, a register answering only when read alone, as 0x5000 does, could have been missed. Also answering, all zeros and left out as points: 0x0098, 0x00CC to 0x0120, 0x0123 to 0x0163, 0x019C to 0x01A8, 0x0284. 0x0067 to 0x0076 are reserved in the manual and read zero without a load; the ADL400 has one-register powers there. 0x01E0 to 0x01FE, 0x2003 to 0x201F and 0x05C0 to 0x05DC read zero inside longer reads but are silent alone, so they are probably padding."
 - "Read on 2026-10-31 on one Sungrow-labelled DTSD1352, unit 254, 9600 8N1, function 03, L1 alone connected and no load: 235.3 V, 49.99 to 50.0 Hz, import 0.17 kWh (0.05 + 0.06 + 0.06), pulse constant 6400, PT and CT 1. Points marked verified were read with a meaningful value; zeros prove nothing, so current, power and power factor stay unchecked."
 - "Identification: register 20480 (0x5000) is not in Acrel's manual. It read 0x102F on the one Sungrow-labelled unit, and a plain Acrel meter may read something else, so this rule may miss those. Sungrow's document gives 0x20D5 there; see sungrow/dtsu666."
 - "The manual gives lengths in bytes (4 = two registers). Registers are read with function 03 and written with function 10; function 04 gets no answer. Two-register values are most significant register first, which the readings confirm."
-- "The default unit and serial settings aren't in the manual; those here are what the unit checked uses. The manual's text also mentions 19200 baud, which its index table lacks."
+- "The default unit and serial settings aren't in the manual; those here are what the unit checked came with. Reads of up to 100 registers work; 101 to 120 from address 0 do not."
 - "Stop bits on the unit checked read index 1 (2 stop bits), and it answered a port set to 1 stop bit. The second path reads address 187, baud index 3."
 - "The manual's address list has a slip: minimum apparent power on C phase is printed at 027EH, between 0278H and 0280H. The sequence requires 027CH, and the readings there show the same pattern as the neighbouring values."
 - "The clock and the times of the maximum and minimum values read 0xA5A5 while unset. Byte order within the clock registers isn't stated, and the clock on this unit is unset, so they're given whole."
