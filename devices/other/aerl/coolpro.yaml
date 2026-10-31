@@ -1,0 +1,113 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the AERL CoolPro Modbus RTU protocol, document CP-MODBUS-RTU, revision 1 (8 June 2026).
+
+modbusspec: 0
+id: aerl-coolpro
+manufacturer: AERL
+name: CoolPro
+kind: other
+
+sources:
+- title: AERL CoolPro Modbus RTU Communications Protocol, CP-MODBUS-RTU
+  version: "1"
+  url: https://www.aerl.com.au/documents/protocols/AERL_COOLPRO_RS485_Modbus_Protocol_REV_001.pdf
+  sha256: 52e5f49d5c8e3e090b1cd13325c6dfb3562eedd5346babd812486bb48f1f36bd
+  date: '2026-06'
+  number: CP-MODBUS-RTU
+  language: en
+
+connection:
+  default_port: 502
+  default_unit: 40
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  serial:
+    table: input
+    address: 100
+    type: u32
+    word_order: little
+  checks:
+  - table: holding
+    address: 0
+    type: u16
+    range:
+    - 1
+    - 247
+  - table: holding
+    address: 1
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+    - 3
+    - 4
+  # the reset register always reads 0
+  - table: holding
+    address: 2
+    type: u16
+    equals: 0
+
+points:
+  - {key: x.modbus_address, label: Device Address, table: holding, address: 0, type: u16, poll: slow, writable: true, min: 1, max: 247, persistent: true, note: Takes effect after a reset.}
+  - {key: x.baud_rate, label: Baud Rate Index, table: holding, address: 1, type: u16, enum: baud_rate, poll: slow, writable: true, persistent: true, note: Takes effect after a reset.}
+  - {key: x.reset, label: Reset Command, table: holding, address: 2, type: u16, writable: true, write_only: true, min: 43605, max: 43605, note: 'Write 0xAA55: the device answers, then resets at once. Reads always give 0.'}
+  - {key: x.input_voltage, label: Input Voltage, table: input, address: 0, type: u16, unit: V, scale: 0.001}
+  - {key: x.input_current, label: Input Current, table: input, address: 1, type: u16, unit: A, scale: 0.001}
+  - {key: x.output_voltage, label: Output Voltage, table: input, address: 2, type: u16, unit: V, scale: 0.001}
+  - {key: x.output_current, label: Output Current, table: input, address: 3, type: u16, unit: A, scale: 0.001}
+  - {key: temperature, label: Temperature, table: input, address: 4, type: u16, unit: °C, scale: 0.001}
+  - {key: x.uptime, label: Uptime, table: input, address: 5, type: u32, unit: s, word_order: little, note: The status bit Daily Reset says this counter was reset.}
+  - {key: x.status_flags, label: Status Flags, table: input, address: 7, type: u16, flags: status}
+  - {key: serial, label: Serial Number, table: input, address: 100, type: u32, word_order: little, poll: slow}
+  - {key: x.hardware_revision, label: Hardware Revision, table: input, address: 102, type: u16, poll: slow}
+  - {key: x.firmware_major, label: Firmware Major Version, table: input, address: 103, type: u16, poll: slow}
+  - {key: x.firmware_minor, label: Firmware Minor Version, table: input, address: 104, type: u16, poll: slow}
+  - {key: x.firmware_patch, label: Firmware Patch Version, table: input, address: 105, type: u16, poll: slow}
+  - {key: x.manufacture_date, label: Manufacture Date, table: input, address: 106, type: u32, word_order: little, epoch: {start: '1970-01-01', unit: s}, poll: slow}
+
+enums:
+  baud_rate: {'0': '9600', '1': '19200', '2': '38400', '3': '57600', '4': '115200'}
+
+flags:
+  status:
+    '0': System Startup
+    '1': Daily Reset
+    '2': Input Measurement Fault
+    '3': Output Measurement Fault
+    '4': Calibration Invalid
+    '5': Calibration Missing
+    '6': Temperature Sensor Fault
+
+reserved:
+  - {table: input, address: 7, bits: [7, 15]}
+
+problems:
+  - {when: {key: x.status_flags, bit: 2}, kind: fault, text: Input measurement sensor fault}
+  - {when: {key: x.status_flags, bit: 3}, kind: fault, text: Output measurement sensor fault}
+  - {when: {key: x.status_flags, bit: 4}, kind: warning, text: Calibration data invalid}
+  - {when: {key: x.status_flags, bit: 5}, kind: warning, text: No calibration data}
+  - {when: {key: x.status_flags, bit: 6}, kind: fault, text: Temperature sensor fault}
+
+notes:
+- 'The document gives the on-wire offsets directly: 40001 and 30001 are address 0, and the function code picks the table, so address 0 differs between holding (device address) and input (input voltage).'
+- 'Function 03 reads holding registers, 04 input registers, 06 writes; function 16 isn''t listed, so a value is written one register at a time. Registers are big-endian; uptime, serial number and manufacture date are two registers with the low word first.'
+- 'Temperature is listed as unsigned millidegrees, so it can''t show a value below 0 °C or above 65.535 °C.'
+- 'The document doesn''t say what kind of device the CoolPro is beyond its input and output measurements, so the kind is other.'
+- 'Whether the device address and baud rate survive a power cycle isn''t stated outright; `persistent` is inferred from their taking effect after a reset (unverified).'
+- 'The fault or warning classification of the status bits is ours, not the document''s.'
+- 'No Modbus TCP in the document: the port and 125 registers per request are assumed, for gateways.'
+- All registers in the document are here.

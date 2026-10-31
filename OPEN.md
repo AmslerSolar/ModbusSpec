@@ -32,6 +32,10 @@ The documents leave these open; a reading from a real device settles them.
 | janitza-umg806 | Which firmware changed the 19000 block from kW / kWh (list of 01/2022) to W / Wh. |
 | janitza-umg800, -umg801, -umg804, -umg20cm | No real device yet. UMG 800: units and signs inferred (its list has none), and the map is replaceable. UMG 804: address base (register 153 = 31415 would settle it); the firmware between its two lists is uncovered. UMG 20 CM: 8-bit `char` read as u16; module counts above I20. |
 | janitza-rcm201-rogo, -rcm202ab, -procont, -prodata2, -ahf-svg | No real device yet; each identify rests on ranges or values not seen on a device. RCM 202-AB: bit 4 listed twice (bit 5 assumed for Current2k), and whether settings are writable. Procont: sign of main-meter power; External Meter Power listed UINT16 over two registers (read as u32). AHF / SVG: 0x1203 device type; TCP assumed. |
+| bituo-sdm01 | No real device yet. Sign of power (import assumed); whether 247 is really the factory address although 1–246 are listed as valid. |
+| aerl-coolpro | No real device yet. What kind of device it is; whether address and baud rate survive a power cycle. |
+| sentek-probe | No real device yet. Default Modbus address (1 assumed); units of the cooked values (none given); relative address of 30025 (0x0018 by the layout, 0x0019 printed). |
+| energielenker-lobas | No real system yet. Which rows of models 60000 and 60001 can be written; device models 113, 213 and 124 have no fixed address, so they stay in the notes. |
 | abb-b23-b24 | Outage time 0x8A39 (2 registers listed, the layout needs 3); 0x8A50 / 0x8A54 labelled "active", probably reactive. A real B23 with firmware B1.28.0 reads all of 8A30–8A5F as invalid, so another firmware is needed. |
 | carlogavazzi-em24-din | Whether the extra V2R0 registers still exist on current (V4) meters. |
 | deye-p3 | Device type 0x0005 / 0x0006 in the HP3 edition: typo for 0x0500 / 0x0600, or real (accepted in identify). |
