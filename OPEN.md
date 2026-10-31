@@ -37,6 +37,7 @@ The documents leave these open; a reading from a real device settles them.
 | socomec-countis-e0x, -e1x, -e3x, -e5x, -p04 | Written from the tables; no real device read. The model names at 50058 are assumed from the E24 ("Countis E24"). |
 | socomec-countis-m04, -m34 | Written from the tables; no real device read, and no identification: the table gives no Product ID values. Serial number at 64512 assumed to be a holding register. |
 | socomec-diris-b30 | Written from the table, a focused part of its 5,565 rows; no real device read. Direction of the active power, and the model name at 50058. |
+| socomec-countis-eci, -evdc, -diris-mcm48, socomec-atys-c55, -c65, socomec-statys | Written from the documents; no real device read. Names at 50058 assumed; EVDC, MCM-48 and STATYS have no identification; EVDC input addresses assumed from register numbers. |
 | socomec-countis-e2x | Read on a real E24 without load: the sign of the powers needs a load. E23, E27 and E28 not read. |
 | kostal-ksem | Signs of inverter AC, PV DC and battery power in the energy-flow block (40974–40984): read 0 at night on a real KSEM (firmware 2.7) without a managed KOSTAL inverter; grid power (40972) is settled. Modbus TLS (port 802) not tested. |
 
@@ -104,6 +105,10 @@ Not named by a document, but missing for a device file:
 - Fronius Smart Meter TS 65A-3 Modbus register list (model code 731): no device file for the meter on RS485
 
 ## Not done
+
+- **Socomec DELPHYS XM and DELPHYS XL (manuals 533404A, 552540A):** same layout as socomec-ups, with their own status and alarm bits; need a side-by-side with that file before adding.
+- **Socomec DIRIS B-10:** table not read yet.
+- **Socomec COUNTIS E47 / E48, P43, P44:** only manuals and datasheets without register tables were at hand.
 
 - **Vertiv IntelliSlot guide SL-28170:** the UPS and power maps are done; cooling (CW/DS/PDX, DCD, CRV, CRC, CAHU,
   DCP, DME2, iCOM XDM, DataMate / MiniMate2, Mini-Mate3, PEX4, XDC, XDP, CoolPhase Wall, CoolCenter, CoolLoop), PDUs
