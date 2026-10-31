@@ -9,7 +9,7 @@
 modbusspec: 0
 id: socomec-ups
 manufacturer: Socomec
-name: UPS (Modulys GP 2.0 / XM / XS, Masterys BC+ / GP4, Delphys MX Elite+)
+name: UPS (Modulys GP 2.0 / XM / XS, Masterys BC+ / GP4, Delphys MX Elite+ / XM / XL)
 kind: ups
 
 sources:
@@ -34,6 +34,18 @@ sources:
   language: en
   devices:
   - DELPHYS MX Elite+
+- title: Modbus RTU / Modbus TCP for DELPHYS XM UPS, installation and operating manual
+  version: 533404A (2026-04)
+  url: https://www.socomec.fr/sites/default/files/2026-04/MODBUS-RTU-and-TCP-for-DELPHYS-XM_INSTALLATION-AND-OPERATING-MANUAL_2026-04-17-09-48-16_533404A_English_PLURI.pdf
+  sha256: dcef4d8ade9ff4afb7c06457e9287cc791c40a39d844f9c09a22f7902a195a97
+  language: en
+  devices: [Delphys XM]
+- title: Modbus RTU / Modbus TCP pour gamme ASI DELPHYS (Delphys XL), manuel d'installation et d'utilisation
+  version: 552540A (2024-10)
+  url: https://www.socomec.fr/sites/default/files/2024-10/MODBUS-RTU-AND-TCP-FOR-DELPHYS-XL_INSTALLATION-AND-OPERATING-MANUAL_2024-10_552540A_FR.pdf
+  sha256: 0e3f0d8d3b9b70988ad579564204eb623f6728a0b30682b58b9ae9ef862925ad
+  language: fr
+  devices: [Delphys XL]
 
 connection:
   default_port: 502
@@ -73,6 +85,8 @@ models:
   - {id: masterys_bc, name: Masterys BC+, match: {table: holding, address: 15, type: u16, equals: 33280}}
   - {id: masterys_gp4, name: Masterys GP4, match: {table: holding, address: 15, type: u16, equals: 33536}}
   - {id: delphys_mx_elite, name: Delphys MX Elite+, match: {table: holding, address: 15, type: u16, equals: 61440}}
+  - {id: delphys_xm, name: Delphys XM, match: {table: holding, address: 15, type: u16, equals: 34048}}
+  - {id: delphys_xl, name: Delphys XL, match: {table: holding, address: 15, type: u16, equals: 33792}}
 
 points:
   # Configuration (0x0001, 15 words)
@@ -93,11 +107,12 @@ points:
   # References (ASCII, first character in the high byte)
   - {key: serial, label: Serial number, table: holding, address: 16, type: str, length: 10, poll: slow}
   - {key: x.socomec_reference, label: Socomec reference (range name), table: holding, address: 26, type: str, length: 10, poll: slow}
-  - {key: x.user_device_reference, label: User device reference, table: holding, address: 36, type: str, length: 6, poll: slow, models: [modulys_gp, modulys_xm, modulys_xs, masterys_bc, masterys_gp4]}
-  - {key: x.user_device_location, label: User device location, table: holding, address: 42, type: str, length: 6, poll: slow, models: [modulys_gp, modulys_xm, modulys_xs, masterys_bc, masterys_gp4]}
+  - {key: x.user_device_reference, label: User device reference, table: holding, address: 36, type: str, length: 6, poll: slow, models: [modulys_gp, modulys_xm, modulys_xs, masterys_bc, masterys_gp4, delphys_xm, delphys_xl]}
+  - {key: x.user_device_location, label: User device location, table: holding, address: 42, type: str, length: 6, poll: slow, models: [modulys_gp, modulys_xm, modulys_xs, masterys_bc, masterys_gp4, delphys_xm, delphys_xl]}
   # Status (0x0030–0x0037) and alarms (0x0038–0x003F): one bit per Snnn / Annn
   - {key: x.status_output, label: 'Status S000–S015 (output, functioning mode, device status)', table: holding, address: 48, type: u16, flags: status_0030}
-  - {key: x.status_environment, label: 'Status S016–S031 (device environment, procedures)', table: holding, address: 49, type: u16, flags: status_0031}
+  - {key: x.status_environment, label: 'Status S016–S031 (device environment, procedures)', table: holding, address: 49, type: u16, flags: status_0031, models: [modulys_gp, modulys_xm, modulys_xs, masterys_bc, masterys_gp4, delphys_mx_elite, delphys_xm]}
+  - {key: x.status_environment, label: 'Status S016–S031 (device environment, procedures)', table: holding, address: 49, type: u16, flags: status_0031_xl, models: [delphys_xl], note: "S018-S022 differ from the other ranges."}
   - {key: x.status_battery, label: Status S032–S047 (battery), table: holding, address: 50, type: u16, flags: status_0032}
   - {key: x.status_power, label: 'Status S048–S063 (rectifier, inverter, bypass)', table: holding, address: 51, type: u16, flags: status_0033}
   - {key: x.status_options, label: 'Status S064–S079 (options, programmable)', table: holding, address: 52, type: u16, flags: status_0034}
@@ -108,10 +123,10 @@ points:
   - {key: x.alarms_battery, label: 'Alarms A016–A031 (battery, DC storage)', table: holding, address: 57, type: u16, flags: alarms_0039}
   - {key: x.alarms_power, label: 'Alarms A032–A047 (rectifier, inverter)', table: holding, address: 58, type: u16, flags: alarms_003a}
   - {key: x.alarms_bypass, label: 'Alarms A048–A063 (bypass, environment, internal)', table: holding, address: 59, type: u16, flags: alarms_003b}
-  - {key: x.alarms_programmable_1, label: Alarms A064–A079 (programmable), table: holding, address: 60, type: u16, models: [modulys_gp, modulys_xm, modulys_xs, masterys_bc, masterys_gp4], note: Meanings set with the maintenance software.}
-  - {key: x.alarms_programmable_2, label: Alarms A080–A095 (programmable), table: holding, address: 61, type: u16, models: [masterys_bc, masterys_gp4], note: Meanings set with the maintenance software.}
-  - {key: x.units_general_alarm, label: Alarms A096–A111 (units or modules general alarm), table: holding, address: 62, type: u16, flags: units_general_alarm, models: [modulys_gp, modulys_xm, modulys_xs, masterys_bc, masterys_gp4]}
-  - {key: x.units_imminent_stop, label: Alarms A112–A127 (units or modules imminent stop), table: holding, address: 63, type: u16, flags: units_imminent_stop, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4]}
+  - {key: x.alarms_programmable_1, label: Alarms A064–A079 (programmable), table: holding, address: 60, type: u16, models: [modulys_gp, modulys_xm, modulys_xs, masterys_bc, masterys_gp4, delphys_xm, delphys_xl], note: Meanings set with the maintenance software.}
+  - {key: x.alarms_programmable_2, label: Alarms A080–A095 (programmable), table: holding, address: 61, type: u16, models: [masterys_bc, masterys_gp4, delphys_xl], note: Meanings set with the maintenance software.}
+  - {key: x.units_general_alarm, label: Alarms A096–A111 (units or modules general alarm), table: holding, address: 62, type: u16, flags: units_general_alarm, models: [modulys_gp, modulys_xm, modulys_xs, masterys_bc, masterys_gp4, delphys_xm, delphys_xl]}
+  - {key: x.units_imminent_stop, label: Alarms A112–A127 (units or modules imminent stop), table: holding, address: 63, type: u16, flags: units_imminent_stop, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4, delphys_xm, delphys_xl]}
   # Measurements (0x0040, 80 words); scales for measurement factor 1 (0x000E = 1)
   - {key: x.load_rate, label: Output load rate (M000), table: holding, address: 64, type: u16, unit: '%'}
   - {key: x.load_rate_l1, label: Output load rate L1 (M001), table: holding, address: 65, type: u16, unit: '%'}
@@ -126,19 +141,19 @@ points:
   - {key: l2_voltage, label: Output voltage L2 (M011), table: holding, address: 75, type: u16, unit: V}
   - {key: l3_voltage, label: Output voltage L3 (M012), table: holding, address: 76, type: u16, unit: V}
   - {key: frequency, label: Output frequency (M013), table: holding, address: 77, type: u16, unit: Hz, scale: 0.1}
-  - {key: x.output_crest_factor, label: Output crest factor (M014), table: holding, address: 78, type: u16, scale: 0.1, models: [delphys_mx_elite]}
+  - {key: x.output_crest_factor, label: Output crest factor (M014), table: holding, address: 78, type: u16, scale: 0.1, models: [delphys_mx_elite, delphys_xl]}
   - {key: x.ambient_temperature, label: Ambient temperature (M015), table: holding, address: 79, type: s16, unit: °C, scale: 0.1, verified: false, note: Signed is assumed; the document allows signed and unsigned values.}
   - {key: x.battery_voltage_plus, label: Battery voltage string + (M016), table: holding, address: 80, type: u16, unit: V, scale: 0.1}
   - {key: x.battery_voltage_minus, label: Battery voltage string − (M017), table: holding, address: 81, type: u16, unit: V, scale: 0.1, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4]}
   - {key: x.battery_current_plus, label: Battery current string + (M018), table: holding, address: 82, type: s16, unit: A, scale: 0.1, verified: false, note: 'Which direction is positive isn''t stated, and signed is assumed. The Delphys manual names M018 ''string −''.'}
   - {key: x.battery_current_minus, label: Battery current string − (M019), table: holding, address: 83, type: s16, unit: A, scale: 0.1, verified: false, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4]}
-  - {key: x.battery_min_soh, label: Battery minimum state of health (M021), table: holding, address: 85, type: u16, models: [delphys_mx_elite], verified: false, note: The unit isn't stated (likely %).}
+  - {key: x.battery_min_soh, label: Battery minimum state of health (M021), table: holding, address: 85, type: u16, models: [delphys_mx_elite, delphys_xl], verified: false, note: The unit isn't stated (likely %).}
   - {key: battery_soc, label: Battery capacity (M022), table: holding, address: 86, type: u16, unit: '%'}
   - {key: x.battery_capacity_ah, label: Battery capacity Ah (M023), table: holding, address: 87, type: u16, unit: Ah, scale: 0.1}
   - {key: x.backup_time, label: Battery remaining backup time (M024), table: holding, address: 88, type: u16, unit: min}
   - {key: x.time_on_battery, label: Time on battery (M025), table: holding, address: 89, type: u16, unit: s}
   - {key: battery_temperature, label: Battery temperature (M026), table: holding, address: 90, type: s16, unit: °C, scale: 0.1, verified: false, note: Signed is assumed.}
-  - {key: x.battery_temperature_average, label: Battery temperature average (M027), table: holding, address: 91, type: s16, unit: °C, scale: 0.1, verified: false, models: [modulys_gp, modulys_xm, delphys_mx_elite]}
+  - {key: x.battery_temperature_average, label: Battery temperature average (M027), table: holding, address: 91, type: s16, unit: °C, scale: 0.1, verified: false, models: [modulys_gp, modulys_xm, delphys_mx_elite, delphys_xl]}
   - {key: x.rectifier_voltage_l1, label: Rectifier input supply voltage L1 (M032), table: holding, address: 96, type: u16, unit: V}
   - {key: x.rectifier_voltage_l2, label: Rectifier input supply voltage L2 (M033), table: holding, address: 97, type: u16, unit: V}
   - {key: x.rectifier_voltage_l3, label: Rectifier input supply voltage L3 (M034), table: holding, address: 98, type: u16, unit: V}
@@ -153,6 +168,7 @@ points:
   - {key: x.bypass_voltage_l1_l2, label: Bypass input supply voltage U12 (M043), table: holding, address: 107, type: u16, unit: V}
   - {key: x.bypass_voltage_l2_l3, label: Bypass input supply voltage U23 (M044), table: holding, address: 108, type: u16, unit: V}
   - {key: x.bypass_voltage_l3_l1, label: Bypass input supply voltage U31 (M045), table: holding, address: 109, type: u16, unit: V}
+  - {key: x.line_interactive_transfer_delay, label: Delay before transfer to line-interactive (M047), table: holding, address: 111, type: u16, unit: s, models: [delphys_xl]}
   - {key: x.output_apparent_power_l1, label: Output apparent power L1 (M048), table: holding, address: 112, type: u16, unit: VA, scale: 100}
   - {key: x.output_apparent_power_l2, label: Output apparent power L2 (M049), table: holding, address: 113, type: u16, unit: VA, scale: 100}
   - {key: x.output_apparent_power_l3, label: Output apparent power L3 (M050), table: holding, address: 114, type: u16, unit: VA, scale: 100}
@@ -162,24 +178,24 @@ points:
   - {key: x.output_voltage_l1_l2, label: Output voltage U12 (M054), table: holding, address: 118, type: u16, unit: V}
   - {key: x.output_voltage_l2_l3, label: Output voltage U23 (M055), table: holding, address: 119, type: u16, unit: V}
   - {key: x.output_voltage_l3_l1, label: Output voltage U31 (M056), table: holding, address: 120, type: u16, unit: V}
-  - {key: x.output_power_factor_l1, label: Output power factor L1 (M057), table: holding, address: 121, type: s16, scale: 0.01, models: [delphys_mx_elite], verified: false, note: Signed is assumed.}
-  - {key: x.output_power_factor_l2, label: Output power factor L2 (M058), table: holding, address: 122, type: s16, scale: 0.01, models: [delphys_mx_elite], verified: false}
-  - {key: x.output_power_factor_l3, label: Output power factor L3 (M059), table: holding, address: 123, type: s16, scale: 0.01, models: [delphys_mx_elite], verified: false}
-  - {key: x.output_crest_factor_l1, label: Output crest factor L1 (M060), table: holding, address: 124, type: u16, scale: 0.1, models: [delphys_mx_elite]}
-  - {key: x.output_crest_factor_l2, label: Output crest factor L2 (M061), table: holding, address: 125, type: u16, scale: 0.1, models: [delphys_mx_elite]}
-  - {key: x.output_crest_factor_l3, label: Output crest factor L3 (M062), table: holding, address: 126, type: u16, scale: 0.1, models: [delphys_mx_elite]}
+  - {key: x.output_power_factor_l1, label: Output power factor L1 (M057), table: holding, address: 121, type: s16, scale: 0.01, models: [delphys_mx_elite, delphys_xm, delphys_xl], verified: false, note: Signed is assumed.}
+  - {key: x.output_power_factor_l2, label: Output power factor L2 (M058), table: holding, address: 122, type: s16, scale: 0.01, models: [delphys_mx_elite, delphys_xm, delphys_xl], verified: false}
+  - {key: x.output_power_factor_l3, label: Output power factor L3 (M059), table: holding, address: 123, type: s16, scale: 0.01, models: [delphys_mx_elite, delphys_xm, delphys_xl], verified: false}
+  - {key: x.output_crest_factor_l1, label: Output crest factor L1 (M060), table: holding, address: 124, type: u16, scale: 0.1, models: [delphys_mx_elite, delphys_xm]}
+  - {key: x.output_crest_factor_l2, label: Output crest factor L2 (M061), table: holding, address: 125, type: u16, scale: 0.1, models: [delphys_mx_elite, delphys_xm]}
+  - {key: x.output_crest_factor_l3, label: Output crest factor L3 (M062), table: holding, address: 126, type: u16, scale: 0.1, models: [delphys_mx_elite, delphys_xm]}
   - {key: x.rectifier_current_l1, label: Rectifier input current L1 (M064), table: holding, address: 128, type: u16, unit: A, scale: 0.1}
   - {key: x.rectifier_current_l2, label: Rectifier input current L2 (M065), table: holding, address: 129, type: u16, unit: A, scale: 0.1}
   - {key: x.rectifier_current_l3, label: Rectifier input current L3 (M066), table: holding, address: 130, type: u16, unit: A, scale: 0.1}
-  - {key: x.rectifier_power_l1, label: Rectifier active power L1 (M067), table: holding, address: 131, type: s16, unit: W, scale: 100, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4, delphys_mx_elite], note: Signed (+/−) in the Delphys manual; which direction is positive isn't stated.}
-  - {key: x.rectifier_power_l2, label: Rectifier active power L2 (M068), table: holding, address: 132, type: s16, unit: W, scale: 100, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4, delphys_mx_elite]}
-  - {key: x.rectifier_power_l3, label: Rectifier active power L3 (M069), table: holding, address: 133, type: s16, unit: W, scale: 100, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4, delphys_mx_elite]}
-  - {key: x.bypass_current_l1, label: Bypass input current L1 (M070), table: holding, address: 134, type: u16, unit: A, scale: 0.1, models: [modulys_gp, modulys_xm, delphys_mx_elite]}
-  - {key: x.bypass_current_l2, label: Bypass input current L2 (M071), table: holding, address: 135, type: u16, unit: A, scale: 0.1, models: [modulys_gp, modulys_xm, delphys_mx_elite]}
-  - {key: x.bypass_current_l3, label: Bypass input current L3 (M072), table: holding, address: 136, type: u16, unit: A, scale: 0.1, models: [modulys_gp, modulys_xm, delphys_mx_elite]}
-  - {key: x.bypass_power_l1, label: Bypass power L1 (M073), table: holding, address: 137, type: u16, unit: W, scale: 100, models: [modulys_gp, modulys_xm]}
-  - {key: x.bypass_power_l2, label: Bypass power L2 (M074), table: holding, address: 138, type: u16, unit: W, scale: 100, models: [modulys_gp, modulys_xm]}
-  - {key: x.bypass_power_l3, label: Bypass power L3 (M075), table: holding, address: 139, type: u16, unit: W, scale: 100, models: [modulys_gp, modulys_xm]}
+  - {key: x.rectifier_power_l1, label: Rectifier active power L1 (M067), table: holding, address: 131, type: s16, unit: W, scale: 100, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4, delphys_mx_elite, delphys_xm, delphys_xl], note: Signed (+/−) in the Delphys manual; which direction is positive isn't stated.}
+  - {key: x.rectifier_power_l2, label: Rectifier active power L2 (M068), table: holding, address: 132, type: s16, unit: W, scale: 100, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4, delphys_mx_elite, delphys_xm, delphys_xl]}
+  - {key: x.rectifier_power_l3, label: Rectifier active power L3 (M069), table: holding, address: 133, type: s16, unit: W, scale: 100, models: [modulys_gp, modulys_xm, masterys_bc, masterys_gp4, delphys_mx_elite, delphys_xm, delphys_xl]}
+  - {key: x.bypass_current_l1, label: Bypass input current L1 (M070), table: holding, address: 134, type: u16, unit: A, scale: 0.1, models: [modulys_gp, modulys_xm, delphys_mx_elite, delphys_xm, delphys_xl]}
+  - {key: x.bypass_current_l2, label: Bypass input current L2 (M071), table: holding, address: 135, type: u16, unit: A, scale: 0.1, models: [modulys_gp, modulys_xm, delphys_mx_elite, delphys_xm, delphys_xl]}
+  - {key: x.bypass_current_l3, label: Bypass input current L3 (M072), table: holding, address: 136, type: u16, unit: A, scale: 0.1, models: [modulys_gp, modulys_xm, delphys_mx_elite, delphys_xm, delphys_xl]}
+  - {key: x.bypass_power_l1, label: Bypass power L1 (M073), table: holding, address: 137, type: u16, unit: W, scale: 100, models: [modulys_gp, modulys_xm, delphys_xl]}
+  - {key: x.bypass_power_l2, label: Bypass power L2 (M074), table: holding, address: 138, type: u16, unit: W, scale: 100, models: [modulys_gp, modulys_xm, delphys_xl]}
+  - {key: x.bypass_power_l3, label: Bypass power L3 (M075), table: holding, address: 139, type: u16, unit: W, scale: 100, models: [modulys_gp, modulys_xm, delphys_xl]}
   # Measurement control management (0x00C0, 7 words): bit n of word k = measurement M(16k + n) is managed
   - {key: x.managed_m000, label: Measurements managed M000–M015, table: holding, address: 192, type: u16, poll: slow}
   - {key: x.managed_m016, label: Measurements managed M016–M031, table: holding, address: 193, type: u16, poll: slow}
@@ -194,7 +210,7 @@ points:
 
 enums:
   measurement_factor: {'0': No factor, '1': Factor 10 (one decimal)}
-  device_reference: {'32769': Modulys GP 2.0, '33088': Modulys XM, '33152': Modulys XS MC, '33160': Modulys XS RM, '33162': Modulys XS TC, '33280': Masterys BC+, '33536': Masterys GP4, '61440': Delphys MX Elite+}
+  device_reference: {'32769': Modulys GP 2.0, '33088': Modulys XM, '33152': Modulys XS MC, '33160': Modulys XS RM, '33162': Modulys XS TC, '33280': Masterys BC+, '33536': Masterys GP4, '61440': Delphys MX Elite+, '34048': Delphys XM, '33792': Delphys XL}
 
 flags:
   functions: {'0': Eco mode enabled, '1': Energy saver enabled, '3': Genset present, '6': Standby schedule}
@@ -202,16 +218,17 @@ flags:
   dc_storage: {'0': Battery present}
   status_0030: {'0': Load protected by inverter (S000), '2': Load supplied by automatic bypass (S002), '3': Load supplied by maintenance bypass (S003), '4': Load off (S004), '6': In eco mode (S006), '7': Energy saver (S007), '9': Service mode (S009), '10': Line-interactive mode (S010), '11': Operating (S011), '12': Available (S012), '13': On standby (S013), '14': Isolated (S014), '15': Maintenance alert (S015)}
   status_0031: {'0': Output breaker closed (S016), '1': Maintenance bypass breaker closed (S017), '2': External output breaker closed (S018), '4': Rectifier input breaker (S020), '5': Bypass input breaker (S021), '6': External output breaker closed (S022), '7': Genset on (S023), '10': Automatic start in progress; Masterys BC+ / GP4 - auto-test procedure in progress (S026), '11': Maintenance bypass procedure in progress (S027), '12': UPS off procedure in progress (S028), '14': Auto-test procedure in progress (S030), '15': Alarm acknowledge request (S031)}
-  status_0032: {'0': Battery OK (S032), '1': Battery charged (S033), '2': Battery test in progress (S034), '3': Battery test scheduled (S035), '4': Battery charging (S036), '5': Battery test interrupted (S037), '6': Floating voltage reduced (S038)}
-  status_0033: {'0': Rectifier input supply present (S048), '1': Rectifier on (S049), '2': Charger on (S050), '4': Inverter on (S052), '5': Inverter switch on (S053), '8': Bypass input supply present (S056), '9': Bypass static switch closed (S057), '10': Bypass input and inverter synchronised (S058)}
-  status_0034: {'0': Card in slot 1 present (S064), '1': Card in slot 2 present (S065), '6': Profile login 1 (S070), '7': Profile login 2 (S071), '8': Programmable S072, '9': Programmable S073, '10': Programmable S074, '11': Programmable S075, '12': Programmable S076, '13': Programmable S077, '14': Programmable S078, '15': Programmable S079}
+  status_0031_xl: {'0': Output breaker closed (S016), '1': Maintenance bypass closed (S017), '2': Maintenance bypass closed (S018), '3': External output breaker closed (S019), '5': Rectifier upstream breaker (S021), '6': Bypass upstream breaker (S022), '7': Genset on (S023), '10': Automatic start in progress (S026), '11': Bypass maintenance procedure in progress (S027), '14': Auto-test procedure in progress (S030), '15': Alarm acknowledge request (S031)}
+  status_0032: {'0': Battery OK (S032), '1': Battery charged (S033), '2': Battery test in progress (S034), '3': Battery test scheduled (S035), '4': Battery charging (S036), '5': Battery test interrupted (S037), '6': Floating voltage reduced (S038), '7': Battery discharge on input (S039; Delphys XL), '8': Backup battery connected (S040; Delphys XL), '9': Backup battery charged / ready (S041; Delphys XL), '10': Backup battery charging (S042; Delphys XL)}
+  status_0033: {'0': Rectifier input supply present (S048), '1': Rectifier on (S049), '2': Charger on (S050), '4': Inverter on (S052), '5': Inverter switch on (S053), '8': Bypass input supply present (S056), '9': Bypass static switch closed (S057), '10': Bypass input and inverter synchronised (S058), '7': Bypass output breaker closed (S055; Delphys XL), '11': External ACS synchronisation (S059; Delphys XL)}
+  status_0034: {'0': Card in slot 1 present (S064), '1': Card in slot 2 present (S065), '6': Profile login 1 (S070), '7': Profile login 2 (S071), '8': Programmable S072, '9': Programmable S073, '10': Programmable S074, '11': Programmable S075, '12': Programmable S076, '13': Programmable S077, '14': Programmable S078, '15': Programmable S079, '2': Card in slot 1 ext. present (S066; Delphys XM / XL), '3': Card in slot 2 ext. present (S067; Delphys XM / XL), '4': Card in slot 3 present (S068; Delphys XM / XL)}
   status_0035: {'2': UPS in line-interactive operation (S082; Delphys MX Elite+; programmable on Masterys), '4': Backfeed protection open (S084; Delphys MX Elite+; programmable on Masterys)}
   units_operating: {'0': Unit / module 1 operating (S096), '1': Unit / module 2 operating (S097), '2': Unit / module 3 operating (S098), '3': Unit / module 4 operating (S099), '4': Unit / module 5 operating (S100), '5': Unit / module 6 operating (S101), '6': Unit / module 7 operating (S102), '7': Unit / module 8 operating (S103), '8': Module 9 operating (S104), '9': Module 10 operating (S105), '10': Module 11 operating (S106), '11': Module 12 operating (S107), '12': Module 13 operating (S108), '13': Bypass operating (S109)}
   units_available: {'0': Unit / module 1 available (S112), '1': Unit / module 2 available (S113), '2': Unit / module 3 available (S114), '3': Unit / module 4 available (S115), '4': Unit / module 5 available (S116), '5': Unit / module 6 available (S117), '6': Unit / module 7 available (S118), '7': Unit / module 8 available (S119), '8': Module 9 available (S120), '9': Module 10 available (S121), '10': Module 11 available (S122), '11': Module 12 available (S123), '12': Module 13 available (S124), '13': Bypass available (S125)}
   alarms_0038: {'0': Imminent stop (A000), '1': Overload (A001), '2': Ambient temperature alarm (A002), '3': Transfer locked (A003), '4': Transfer impossible (A004), '5': Insufficient resources (A005), '6': Redundancy lost (A006), '7': Output short circuit detected (A007), '8': Eco mode disabled by UPS (A008), '9': Energy saver disabled by UPS (A009), '10': On bypass for 1 hour (A010), '11': Wrong password entered (A011), '12': Maintenance alarm (A012), '13': Remote service alarm (A013), '14': Remote service preventive alarm (A014), '15': General alarm (A015)}
-  alarms_0039: {'0': Battery disconnected (A016), '1': Battery discharged (A017), '2': 'End of backup time, battery low (A018)', '3': Battery discharging / operating on battery (A019), '4': Battery temperature alarm (A020), '5': Battery room alarm (A021), '6': Battery test failed (A022), '10': Insulation fault (A026), '11': Battery alarm (A027), '12': Battery preventive alarm (A028)}
-  alarms_003a: {'0': Rectifier critical alarm (A032), '1': Rectifier preventive alarm (A033), '3': Rectifier input supply not OK (A035), '4': Genset alarm (A036), '5': Charger critical alarm (A037), '6': Charger preventive alarm (A038), '8': Inverter critical alarm (A040), '9': Inverter preventive alarm (A041), '10': Inverter redundancy alarm (A042), '11': Imminent redundancy lost (A043), '12': Consumable alarm (A044), '14': Parallel board critical alarm (A046), '15': Parallel board preventive alarm (A047)}
-  alarms_003b: {'0': Bypass critical alarm (A048), '1': Bypass preventive alarm (A049), '2': Bypass input supply not OK (A050), '3': Phase rotation fault (A051), '4': Bypass backfeed detected (A052), '5': Transformer alarm (A053), '6': Fan failure (A054), '7': ACS alarm (A055), '8': Maintenance bypass alarm (A056), '9': Internal backfeed detected (A057), '11': UPS power off (A059), '12': Wrong configuration (A060), '13': Internal / communication failure (A061), '14': Option board alarm (A062), '15': Spare part not compatible (A063)}
+  alarms_0039: {'0': Battery disconnected (A016), '1': Battery discharged (A017), '2': 'End of backup time, battery low (A018)', '3': Battery discharging / operating on battery (A019), '4': Battery temperature alarm (A020), '5': Battery room alarm (A021), '6': Battery test failed (A022), '10': Insulation fault (A026), '11': Battery alarm (A027), '12': Battery preventive alarm (A028), '13': Backup battery critical alarm (A029; Delphys XL), '14': Backup battery preventive alarm (A030; Delphys XL), '15': Backup battery not OK (A031; Delphys XL)}
+  alarms_003a: {'0': Rectifier critical alarm (A032), '1': Rectifier preventive alarm (A033), '3': Rectifier input supply not OK (A035), '4': Genset alarm (A036), '5': Charger critical alarm (A037), '6': Charger preventive alarm (A038), '8': Inverter critical alarm (A040), '9': Inverter preventive alarm (A041), '10': Inverter redundancy alarm (A042), '11': Imminent redundancy lost (A043), '12': Consumable alarm (A044), '14': Parallel board critical alarm (A046), '15': Parallel board preventive alarm (A047), '7': Battery discharge interrupted (A039; Delphys XL)}
+  alarms_003b: {'0': Bypass critical alarm (A048), '1': Bypass preventive alarm (A049), '2': Bypass input supply not OK (A050), '3': Phase rotation fault (A051), '4': Bypass backfeed detected (A052), '5': Transformer alarm (A053), '6': Fan failure (A054), '7': ACS alarm (A055), '8': Maintenance bypass alarm (A056), '9': Internal backfeed detected (A057), '11': UPS power off (A059), '12': Wrong configuration (A060), '13': Internal / communication failure (A061), '14': Option board alarm (A062), '15': Spare part not compatible (A063), '10': Battery management alarm (A058; Delphys XL)}
   units_general_alarm: {'0': Unit / module 1 general alarm (A096), '1': Unit / module 2 general alarm (A097), '2': Unit / module 3 general alarm (A098), '3': Unit / module 4 general alarm (A099), '4': Unit / module 5 general alarm (A100), '5': Unit / module 6 general alarm (A101), '6': Unit / module 7 general alarm (A102), '7': Unit / module 8 general alarm (A103), '8': Module 9 general alarm (A104), '9': Module 10 general alarm (A105), '10': Module 11 general alarm (A106), '11': Module 12 general alarm (A107), '12': Module 13 general alarm (A108), '13': Bypass general alarm (A109)}
   units_imminent_stop: {'0': Unit / module 1 imminent stop (A112), '1': Unit / module 2 imminent stop (A113), '2': Unit / module 3 imminent stop (A114), '3': Unit / module 4 imminent stop (A115), '4': Unit / module 5 imminent stop (A116), '5': Unit / module 6 imminent stop (A117), '6': Unit / module 7 imminent stop (A118), '7': Unit / module 8 imminent stop (A119), '8': Module 9 imminent stop (A120), '9': Module 10 imminent stop (A121), '10': Module 11 imminent stop (A122), '11': Module 12 imminent stop (A123), '12': Module 13 imminent stop (A124), '13': Bypass imminent stop (A125)}
   permissions_1: {'0': Remote commands permitted (P000)}
@@ -234,6 +251,9 @@ problems:
   - {when: {key: x.alarms_battery, bit: 6}, kind: warning, text: Battery test failed (A022)}
   - {when: {key: x.alarms_battery, bit: 10}, kind: warning, text: Insulation fault (A026)}
   - {when: {key: x.alarms_battery, bit: 11}, kind: warning, text: Battery alarm (A027)}
+  - {when: {key: x.alarms_battery, bit: 13}, kind: fault, text: Backup battery critical alarm (A029)}
+  - {when: {key: x.alarms_battery, bit: 14}, kind: warning, text: Backup battery preventive alarm (A030)}
+  - {when: {key: x.alarms_battery, bit: 15}, kind: warning, text: Backup battery not OK (A031)}
   - {when: {key: x.alarms_power, bit: 0}, kind: fault, text: Rectifier critical alarm (A032)}
   - {when: {key: x.alarms_power, bit: 1}, kind: warning, text: Rectifier preventive alarm (A033)}
   - {when: {key: x.alarms_power, bit: 3}, kind: mains_lost, text: Rectifier input supply not OK (A035)}
@@ -252,6 +272,9 @@ problems:
   - {when: {key: x.alarms_bypass, bit: 13}, kind: warning, text: Internal / communication failure (A061)}
 
 notes:
+- "Delphys XM (533404A) and Delphys XL (552540A, in French) use this map: device reference 0x8500 and 0x8400. Measurements, status and alarm bits are scoped to what each manual names. Bits only one of them names say so in their text; the XL's breaker bits S018-S022 differ, so it has its own table for that word."
+- "Delphys XL: its manual calls S011 'Temperature' (Température) where the other ranges say 'Operating'; 'Operating' is kept, as a likely slip. In the units words, S109 is operation on bypass, S125 bypass available, A109 bypass general alarm and A125 bypass imminent stop, not module 14. Programmable words: A072 line-interactive mode disabled by the UPS, A073 functions using the batteries unavailable, A080 installation load overload."
+- "Delphys XM: units 1 to 4 are read by adding 0x10 to 0x40 to the high byte of the address; 0x00 is the system level."
 - 'Addresses are the protocol addresses the manuals give (0x0001 = register 1, function 3). Status and alarm words: bit 0
   is the lowest acronym of the word (0x0030 bit 0 = S000); a set bit means the condition is on. Text registers hold two characters
   each, the first in the high byte.'
