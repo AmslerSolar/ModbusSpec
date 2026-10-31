@@ -33,6 +33,8 @@ The documents leave these open; a reading from a real device settles them.
 | deye-p3 | Device type 0x0005 / 0x0006 in the HP3 edition: typo for 0x0500 / 0x0600, or real (accepted in identify). |
 | sungrow-sg | State data 2 (5045): the document points to a value table it doesn't contain. |
 | huawei-dtsu666-h | Read on a real meter with only L1 connected and no load: the phase order of the per-phase energies (L1 showed at +6, not +2), the sign and scale of current, active power and power factor, the reactive / apparent power positions (2134–2148), and the unknown pairs at input 5438–5452 / 8244–8258 need a load on two or three phases. |
+| acrel-dtsd1352 | Read on one Sungrow-labelled unit with only L1 connected and no load. Needs a load on three phases for currents, powers, signs and power factors. Register 20480 (not in Acrel's manual) reads 0x102F there: does a plain Acrel read the same? 003FH low byte reads 3 (2400) while it talks at 9600. Harmonic registers read 0 with 235 V on L1: does this unit measure them? |
+| sungrow-dtsu666 | Does any meter really report 0x20D5 at 20480? The one Sungrow-labelled meter read so far reports 0x102F and is an Acrel DTSD1352. Is real Sungrow Chint hardware also on this map? |
 | socomec-countis-e4x | No reading from a real E43 / E44 yet: frequency factor Hz / 100, and everything else from the tables. |
 | socomec-countis-e0x, -e1x, -e3x, -e5x, -p04 | Written from the tables; no real device read. The model names at 50058 are assumed from the E24 ("Countis E24"). |
 | socomec-countis-m04, -m34 | Written from the tables; no real device read, and no identification: the table gives no Product ID values. Serial number at 64512 assumed to be a holding register. |
