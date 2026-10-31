@@ -41,6 +41,9 @@ The documents leave these open; a reading from a real device settles them.
 | mccrometer-procomm | No real device yet. The sensor test flags are printed for register 0021 (the sample count) but fit 0032; how the overflow count adds to a total. |
 | benshaw-emx4 | No real device yet. Which value clears a command (bit 15 needed; 0 means legacy mode on TCP); units of current and voltage; whether AuCom's 30621 and 30622, reserved in Benshaw's guides, answer. |
 | Benshaw RSi S, RSi H2 | No file: their Ethernet/IP & Modbus-TCP manuals (890049-09-00, 890053-03-01) give only the frame and function codes, no named register. Needs the drives' own manuals. |
+| davicom-mexm-2 | No real device yet. The one-page table gives only 64 status inputs: transport, unit id and what each input means are unknown. 10052 is printed twice; input 53 is taken as 10053. |
+| cs-instruments-fa5xx | No real device yet. Default stop bits; which rows the version formats belong to; whether an FA 515 answers the identify check before Modbus is enabled (it can't). |
+| socomec-diris-o | No real device yet. The table has only names and registers: types, units, scales, table and transport are inferred from the DIRIS B-30. Its power registers sit two addresses above the B-30's; which is right on a DIRIS-O? |
 | abb-b23-b24 | Outage time 0x8A39 (2 registers listed, the layout needs 3); 0x8A50 / 0x8A54 labelled "active", probably reactive. A real B23 with firmware B1.28.0 reads all of 8A30–8A5F as invalid, so another firmware is needed. |
 | carlogavazzi-em24-din | Whether the extra V2R0 registers still exist on current (V4) meters. |
 | deye-p3 | Device type 0x0005 / 0x0006 in the HP3 edition: typo for 0x0500 / 0x0600, or real (accepted in identify). |
