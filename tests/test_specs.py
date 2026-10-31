@@ -1,5 +1,6 @@
 # SPDX-License-Identifier: MIT
 # Copyright (C) 2026 Amsler Solar GmbH
+import json
 import socket
 import struct
 import sys
@@ -432,6 +433,153 @@ def test_identify_rejects_blank_registers():
                 found.add((name, fill))
     assert sorted(found - allowed) == []
     assert sorted(allowed - found) == [], "listed files that no longer accept blank registers: remove them"
+
+
+@pytest.fixture(scope="module")
+def identify_tree():
+    import identify_tree as it
+    specs = it.load_all()
+    return it, specs, it.generate(specs)
+
+
+def short(name):
+    """A file's name as identify_overlaps.yaml and identify_blank.yaml have it: maker/family."""
+    return "/".join(name.split("/")[-2:])
+
+
+def test_identify_tree_file_is_current(identify_tree):
+    it, _, tree = identify_tree
+    assert json.loads(it.dumps(tree)) == tree
+    assert (msp.ROOT / "identify_tree.json").read_text(encoding="utf-8") == it.dumps(tree), \
+        "a device file changed: run python3 tools/identify_tree.py --out identify_tree.json"
+
+
+def test_identify_tree_finds_every_file(identify_tree):
+    """A simulated device of every file ends at its own file, or at files listed as taking it for theirs; every file
+    named really accepts the registers."""
+    import collisions
+    import yaml
+    it, specs, tree = identify_tree
+    known = yaml.safe_load((Path(__file__).parent / "identify_overlaps.yaml").read_text(encoding="utf-8"))
+    allowed = {(a, b) for o in known for a in o["devices"] for b in o["devices"] if a != b and
+               (not o.get("one_way") or a == o["devices"][0])}
+    wrong, others = [], []
+    for name, spec in specs.items():
+        img = it.simulated_image(spec)
+        for root in it.roots_of(spec):
+            found, _ = it.walk(tree, root, it.Simulated(img), pace=False)
+            wrong += [(root, name, f) for f in found if not collisions.accepts(specs[f], img)]
+            if name not in found:
+                others += [(root, name, f) for f in found if (short(name), short(f)) not in allowed] or \
+                    ([(root, name, None)] if not found else [])
+    assert wrong == []
+    assert others == []
+
+
+def test_identify_tree_unknown_devices(identify_tree):
+    """A device that answers nothing is unknown; one with blank registers can only be a file known to accept them."""
+    import yaml
+    it, specs, tree = identify_tree
+
+    class Blank:
+        def __init__(self, fill):
+            self.fill = fill
+
+        def read(self, table, address, count, unit=None):
+            return [self.fill] * count
+
+    allowed = {(k["device"], f) for k in yaml.safe_load(
+        (Path(__file__).parent / "identify_blank.yaml").read_text(encoding="utf-8")) for f in k["fills"]}
+    for root in tree["roots"]:
+        found, requests = it.walk(tree, root, it.Simulated(msp.Image()), pace=False)
+        assert found == [] and requests <= len(tree["tests"])
+        for fill in (0, 0xFFFF):
+            found, _ = it.walk(tree, root, Blank(fill), pace=False)
+            assert [f for f in found if (short(f), fill) not in allowed] == []
+
+
+def small_tree(**files):
+    import identify_tree as it
+    specs = {name.replace("_", "/"): {"connection": {"default_port": 502, "default_unit": 1, **f.pop("connection", {})},
+                                      **f} for name, f in files.items()}
+    return it, json.loads(json.dumps(it.generate(specs)))
+
+
+class CountingDevice:
+    def __init__(self, **tables):
+        self.tables, self.requests = tables, []
+
+    def read(self, table, address, count, unit=None):
+        self.requests.append((table, address, count))
+        regs = self.tables.get(table, {})
+        if any(a not in regs for a in range(address, address + count)):
+            raise IOError("illegal address")
+        return [regs[a] for a in range(address, address + count)]
+
+
+def test_identify_tree_reads_shared_register_once():
+    it, tree = small_tree(
+        a_x={"identify": {"checks": [{"table": "holding", "address": 0, "type": "u16", "equals": 1000}]}},
+        b_x={"identify": {"checks": [{"table": "holding", "address": 0, "type": "u16", "equals": 2000}]}},
+        c_x={"identify": {"checks": [{"table": "holding", "address": 0, "type": "u16", "equals": 3000}]}},
+        d_x={"identify": {"checks": [{"table": "holding", "address": 9, "type": "u16", "equals": 4000}]}})
+    device = CountingDevice(holding={0: 3000})
+    assert it.walk(tree, "port:502", device, pace=False)[0] == ["c/x"]
+    assert device.requests == [("holding", 0, 1)]
+
+
+def test_identify_tree_tries_the_more_specific_file_first():
+    general = {"table": "holding", "address": 0, "type": "u16", "equals": 1000}
+    it, tree = small_tree(
+        a_general={"identify": {"checks": [general]}},
+        b_specific={"identify": {"checks": [general, {"table": "holding", "address": 5, "type": "u16", "equals": 7000}]}})
+    assert it.walk(tree, "port:502", CountingDevice(holding={0: 1000, 5: 7000}), pace=False)[0] == \
+        ["b/specific", "a/general"]
+    assert it.walk(tree, "port:502", CountingDevice(holding={0: 1000, 5: 1}), pace=False)[0] == ["a/general"]
+
+
+def test_identify_tree_weak_evidence_waits_for_strong():
+    """A plausible value must not win over a device that states who it is."""
+    it, tree = small_tree(
+        a_weak={"identify": {"checks": [{"table": "input", "address": 70, "type": "u16", "range": [40, 70]}]}},
+        b_strong={"identify": {"checks": [{"table": "holding", "address": 0, "type": "str", "length": 2,
+                                           "prefix": "ACME"}]}})
+    device = CountingDevice(input={70: 50}, holding={0: 0x4143, 1: 0x4D45})  # "ACME"
+    assert it.walk(tree, "port:502", device, pace=False)[0] == ["b/strong"]
+    assert device.requests == [("holding", 0, 2)]
+    assert it.walk(tree, "port:502", CountingDevice(input={70: 50}), pace=False)[0] == ["a/weak"]
+
+
+def test_identify_tree_requests_follow_the_connection():
+    even = {"limits": {"even_address": True, "min_interval_ms": 200}}
+    block = {"blocks": [{"table": "holding", "address": 100, "count": 10}]}
+    it, tree = small_tree(
+        a_even={"connection": even, "identify": {"checks": [{"table": "input", "address": 7, "type": "u16", "equals": 1000}]}},
+        b_block={"connection": block, "identify": {"checks": [{"table": "holding", "address": 104, "type": "u16", "equals": 2000}]}},
+        c_unit={"identify": {"checks": [{"table": "holding", "address": 3, "unit_id": 50, "type": "u16", "equals": 3000}]}})
+    reads = {it.request_key(r): r for t in tree["tests"] for r in t["reads"]}
+    assert reads[("input", 6, 2, None)]["min_interval_ms"] == 200
+    assert ("holding", 100, 10, None) in reads and ("holding", 3, 1, 50) in reads
+
+
+def test_identify_tree_detects_the_register_order():
+    def spec(value):
+        return {"encoding": {"word_order": "detect", "detect": {"table": "holding", "address": 0, "type": "f32",
+                                                                "plausible": [40, 70]}},
+                "identify": {"checks": [{"table": "holding", "address": 10, "type": "u32", "equals": value}]}}
+    it, tree = small_tree(a_x=spec(0x00010002))
+    assert it.walk(tree, "port:502", CountingDevice(holding={**dict(enumerate(f32(50))), 10: 1, 11: 2}), pace=False)[0] == ["a/x"]
+    little = {**dict(enumerate(f32(50, "little"))), 10: 2, 11: 1}
+    assert it.walk(tree, "port:502", CountingDevice(holding=little), pace=False)[0] == ["a/x"]
+    assert it.walk(tree, "port:502", CountingDevice(holding={**little, 10: 1, 11: 2}), pace=False)[0] == []
+
+
+def test_identify_tree_sends_serial_devices_to_their_own_root():
+    import identify_tree as it
+    both = {"default_port": 502, "default_unit": 1, "transports": ["tcp", "rtu"]}
+    assert it.roots_of({"connection": both}) == ["port:502", "serial"]
+    assert it.roots_of({"connection": {**both, "transports": ["tcp"]}}) == ["port:502"]
+    assert it.roots_of({"connection": {"default_port": 1502, "default_unit": 1}}) == ["port:1502"]
 
 
 def test_sunspec_marker_is_read_big_endian():

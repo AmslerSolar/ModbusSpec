@@ -32,6 +32,8 @@ models on a particular device (walking the SunSpec chain) is left to SunSpec's o
 | `LICENSE`, `LICENSES/` | CC0 1.0 for the data, MIT for the code |
 | `tools/msp.py` | Reference tool: validate files, and read or write a real device with one (Modbus TCP, TLS, UDP, RTU over TCP/UDP; stdlib only) |
 | `tools/collisions.py` | Which files' identification would take another file's device for theirs |
+| `tools/identify_tree.py` | Generates a decision tree from the `identify` blocks that identifies a device with few reads |
+| `identify_tree.json` | That tree, generated: don't edit it by hand, regenerate it after changing a device file |
 | `tests/` | Tests against simulated devices |
 
 ## Use
@@ -40,6 +42,8 @@ models on a particular device (walking the SunSpec chain) is left to SunSpec's o
 python3 tools/msp.py validate                                   # check every device file
 python3 tools/msp.py read devices/charger/keba/kecontact-p30.yaml --host 192.168.1.40
 python3 tools/msp.py write devices/charger/keba/kecontact-p30.yaml x.set_charging_current 16 --host 192.168.1.40
+python3 tools/identify_tree.py --out identify_tree.json         # regenerate the decision tree for a search of the network
+python3 tools/identify_tree.py --host 192.168.1.40              # identify a real device (reads only)
 python3 -m pytest -q                                            # needs pytest, PyYAML, jsonschema
 ```
 
