@@ -2,7 +2,8 @@
 # Copyright (C) 2026 Amsler Solar GmbH
 #
 # Written from the Socomec Countis E43 JBUS / Modbus table (JBUS common table 1.01, index A), a spreadsheet for the
-# Countis E43 (three-phase, 5 A current transformers). Rows the table marks as not applicable to the E43 are left out.
+# Countis E43 (three-phase, 5 A current transformers), and corrected from Socomec's E43 Modbus table of 2019.
+# Rows the tables mark as not applicable to the E43 are left out. Countis E23 / E24 / E27 / E28: socomec-countis-e2x.
 
 modbusspec: 0
 id: socomec-countis-e
@@ -11,6 +12,11 @@ name: Countis E3x / E4x energy meters
 kind: meter
 
 sources:
+- title: Socomec Countis E43 Modbus communication table (48503065, CMT201266)
+  version: 2019-09
+  url: https://www.socomec.fr/sites/default/files/2021-05/COUNTIS-E43-MODBUS-48503065_COMMUNICATION-TABLE_2019-09_CMT201266_EN.html
+  language: en
+  devices: [Countis E43]
 - title: Socomec .MODBUS E43 (Countis E43 JBUS common table, 538461 / 53633 index A)
   version: JBUS common table 1.01
   url: https://github.com/user-attachments/files/30981536/Socomec_.MODBUS_E43.XLS
@@ -42,22 +48,10 @@ encoding:
 
 identify:
   checks:
-  - - table: holding
-      address: 50520
-      type: u32
-      range:
-      - 9900
-      - 12100
-    - table: holding
-      address: 50520
-      type: u32
-      range:
-      - 20700
-      - 25300
-
-models:
-  - {id: e23_e24_e27_e28, name: Countis E23 / E24 / E27 / E28}
-  - {id: e14, name: Countis E14}
+  - {table: holding, address: 50000, type: str, length: 4, chars: low, equals: SOCO}
+  any:
+  - {table: holding, address: 50058, type: str, length: 8, prefix: Countis E3}
+  - {table: holding, address: 50058, type: str, length: 8, prefix: Countis E4}
 
 points:
   # Metrology (0xC550), including the CT ratio
@@ -96,17 +90,17 @@ points:
   - {key: x.partial_active_energy_negative, label: Partial negative active energy Ea-, table: holding, address: 50786, type: u32, unit: kWh, poll: slow, invalid: [4294967295]}
   - {key: x.last_average_time, label: Date of the last average P/Q/S record, table: holding, address: 50826, type: u32, unit: s, epoch: {start: '2000-01-01', unit: s}, poll: slow, invalid: [4294967295]}
   - {key: x.last_average_active_power, label: Last average P+, table: holding, address: 50828, type: u16, unit: W, poll: slow, invalid: [65535], note: Without the CT / VT ratio.}
-  - {key: x.max_average_active_power, label: Max / average P+, table: holding, address: 51078, type: u32, unit: W, scale: 10, poll: slow, invalid: [4294967295]}
+  - {key: x.max_average_active_power, label: Max / average P+, table: holding, address: 51078, type: u32, unit: W, scale: 10, poll: slow, invalid: [4294967295], optional: true, note: Only in the older spreadsheet; not in the table of 2019.}
   # Energies per tariff (0xC6A0)
-  - {key: x.tariff_count, label: Number of tariffs (0 to 8), table: holding, address: 50848, type: u16, poll: slow}
-  - {key: x.tariff, label: Tariff in progress (1 to 8), table: holding, address: 50849, type: u16, poll: slow}
+  - {key: x.tariff_count, label: Number of tariffs (1 to 4), table: holding, address: 50848, type: u16, poll: slow}
+  - {key: x.tariff, label: Tariff in progress (1 to 4), table: holding, address: 50849, type: u16, poll: slow}
   - {key: x.tariff1_active_energy, label: Positive active energy tariff 1, table: holding, address: 50850, type: u32, unit: kWh, poll: slow, invalid: [4294967295], note: '50850–50865 hold the positive active energy of tariffs 1–8 (two registers each), 50866–50881 the positive reactive energy.'}
   - {key: x.tariff2_active_energy, label: Positive active energy tariff 2, table: holding, address: 50852, type: u32, unit: kWh, poll: slow, invalid: [4294967295]}
   - {key: x.tariff3_active_energy, label: Positive active energy tariff 3, table: holding, address: 50854, type: u32, unit: kWh, poll: slow, invalid: [4294967295]}
   - {key: x.tariff4_active_energy, label: Positive active energy tariff 4, table: holding, address: 50856, type: u32, unit: kWh, poll: slow, invalid: [4294967295]}
-  - {key: x.set_tariff, label: Tariff to set, table: holding, address: 40481, type: u16, poll: slow, writable: true, min: 1, max: 4, note: Written with function 6.}
+  - {key: x.set_tariff, label: Tariff to set, table: holding, address: 40481, type: u16, poll: slow, writable: true, write_only: true, min: 1, max: 4, note: Written with function 6.}
   # Overflow and periodic indexes (Countis E3x / E4x specific)
-  - {key: x.overflow_value, label: Meter overflow value, table: holding, address: 36864, type: u32, unit: kWh, poll: slow, note: 9 999 999 kWh.}
+  - {key: x.overflow_value, label: Meter overflow value, table: holding, address: 36864, type: u32, unit: Wh, scale: 10, poll: slow, note: "The table of 2019 gives 999 999 999 in 10 Wh steps."}
   - {key: x.overflow_count_import, label: Overflow count total Ea+, table: holding, address: 36866, type: u16, poll: slow}
   - {key: x.overflow_count_reactive, label: Overflow count total Er+, table: holding, address: 36867, type: u16, poll: slow}
   - {key: x.overflow_count_export, label: Overflow count total Ea-, table: holding, address: 36868, type: u16, poll: slow}
@@ -126,21 +120,24 @@ points:
   - {key: x.secondary_current_l1, label: Current I1 without CT, table: holding, address: 40576, type: u32, unit: A, scale: 0.001}
   - {key: x.secondary_current_l2, label: Current I2 without CT, table: holding, address: 40578, type: u32, unit: A, scale: 0.001}
   - {key: x.secondary_current_l3, label: Current I3 without CT, table: holding, address: 40580, type: u32, unit: A, scale: 0.001}
+  - {key: x.modbus_address, label: Slave address, table: holding, address: 58368, type: u16, poll: slow, writable: true, note: "At 57344 on the E23 family."}
   # Network settings (0xE000)
   - {key: x.network_type, label: Network type, table: holding, address: 57344, type: u16, enum: network_type, poll: slow, writable: true, invalid: [65535]}
   - {key: x.ct_secondary, label: Current transformer secondary, table: holding, address: 57345, type: u16, unit: A, poll: slow, writable: true, invalid: [65535], note: 1 or 5 A.}
   - {key: x.ct_primary, label: Current transformer primary, table: holding, address: 57346, type: u16, unit: A, poll: slow, writable: true, invalid: [65535]}
   - {key: x.sync_period, label: Synchronisation top for P+/- and Q+/-, table: holding, address: 57355, type: u16, unit: s, poll: slow, writable: true, invalid: [65535], note: '2, 5, 8, 10, 15, 20, 30 or 60 minutes, given in seconds.'}
   # Clock (0xE100): written as all six registers at once (function 16)
-  - {key: x.clock, label: Date and time, table: holding, address: 57600, type: datetime, length: 6, datetime: {day: {register: 0}, month: {register: 1}, year: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, poll: slow, writable: true, verified: false, note: Whether the year register holds the full year or only its last two digits isn't stated; the full year is assumed.}
-  - {key: x.socomec_marker, label: Socomec marker ('SOCO'), table: holding, address: 50000, type: str, length: 4, chars: low, verified: false, sources: [openems]}
-  - {key: x.product_name, label: Product name, table: holding, address: 50058, type: str, length: 8, verified: false, sources: [openems]}
-  - {key: frequency, label: Frequency, table: holding, address: 50526, type: u32, unit: Hz, scale: 0.01, verified: false, sources: [mbmd], conflicts: [{sources: [openems], scale: 0.001, models: [e23_e24_e27_e28, e14]}]}
-  - {key: x.current, label: Current, table: holding, address: 50568, type: u32, unit: A, scale: 0.001, verified: false, sources: [mbmd, openems]}
-  - {key: x.voltage, label: Voltage, table: holding, address: 50572, type: u32, unit: V, scale: 0.01, verified: false, sources: [mbmd, openems]}
-  - {key: x.reactive_export, label: Reactive Export, table: holding, address: 50778, type: u32, unit: kvarh, verified: false, sources: [mbmd]}
-  - {key: x.active_production_energy, label: Active Production Energy, table: holding, address: 50946, type: u32, unit: kWh, scale: 0.01, verified: false, sources: [openems]}
-  - {key: x.active_consumption_energy, label: Active Consumption Energy, table: holding, address: 50952, type: u32, unit: kWh, scale: 0.01, verified: false, sources: [openems]}
+  - {key: x.clock, label: Date and time, table: holding, address: 57600, type: datetime, length: 6, datetime: {day: {register: 0}, month: {register: 1}, year: {register: 2}, hour: {register: 3}, minute: {register: 4}, second: {register: 5}}, poll: slow, writable: true, verified: false, note: Whether the year register holds the full year or only its last two digits isn't stated; the full year is assumed., write_only: true}
+  - {key: x.socomec_marker, label: '"SOCO" marker', table: holding, address: 50000, type: str, length: 4, chars: low, poll: slow}
+  - {key: x.vendor_name, label: Vendor name, table: holding, address: 50042, type: str, length: 8, poll: slow}
+  - {key: x.product_name, label: Product name, table: holding, address: 50050, type: str, length: 8, poll: slow}
+  - {key: x.extended_name, label: Extended name, table: holding, address: 50058, type: str, length: 8, poll: slow}
+  - {key: frequency, label: Frequency, table: holding, address: 50526, type: u32, unit: Hz, scale: 0.01, invalid: [4294967295], note: The E43 table of 2019 gives Hz / 100; the E23 family uses Hz / 1000 at this register.}
+  - {key: x.current, label: System value I Sys, table: holding, address: 50568, type: u32, unit: A, scale: 0.001}
+  - {key: x.voltage, label: System value V Sys, table: holding, address: 50572, type: u32, unit: V, scale: 0.01}
+  - {key: x.reactive_export, label: Total negative reactive energy Er- (not resettable), table: holding, address: 50778, type: u32, unit: kvarh, poll: slow}
+  - {key: x.active_production_energy, label: Total positive active energy Ea+ in 10 Wh steps, table: holding, address: 50946, type: u32, unit: kWh, scale: 0.01, poll: slow, note: OpenEMS calls it production; the table says Ea+.}
+  - {key: x.active_consumption_energy, label: Total negative active energy Ea- in 10 Wh steps, table: holding, address: 50952, type: u32, unit: kWh, scale: 0.01, poll: slow, note: OpenEMS calls it consumption; the table says Ea-.}
 
 enums:
   network_type: {'0': 1BL, '1': 2BL, '2': 3BL, '3': 3NBL, '4': 4BL, '5': 4NBL}
@@ -150,16 +147,14 @@ notes:
   Addresses are given in decimal and hex and are used here as protocol addresses (holding registers, function 3).
 - 'Functions: 3 (read up to 125 registers), 6 and 16 (write). Values are high word first. A value not available reads as 0xFFFF
   / 0xFFFFFFFF (unsigned) or 0x7FFF / 0x7FFFFFFF (signed).'
-- The E43 has no frequency, hour meter, apparent energy, negative reactive energy, pulse inputs or THD in this table (marked
-  not applicable).
+- The older spreadsheet marks frequency and others as not applicable to the E43; the table of 2019 lists them.
 - 'A 16-bit copy of the main values (0xC850, 51280 ff.: voltages and currents, powers in kW / 100, energies in MWh) and the
   average / maximum statistics (0xC750) are left out.'
-- The serial link settings, default unit id and the identification registers aren't in this table; unit 1 is assumed.
+- The serial link settings and default unit id aren't in the tables; unit 1 is assumed. Identification (0xC350) is from the table of 2019.
+- 'Not the map of the Countis E23 / E24 / E27 / E28 (socomec-countis-e2x): 57344-57347 are network type and current transformer here and the serial settings there, and the frequency is Hz / 100 here and Hz / 1000 there. Writing with the wrong file changes the wrong setting.'
+- The E43 table of 2019 also lists energy per line and total, tariff meters, daily to monthly energies in 10 Wh steps (36928 ff.) and a load curve (61440 ff.); not in this file yet. No reading from a real E3x / E4x yet.
 - 'Write-only actions left out: 0xE200 (0xA1 store configuration, 0xB2 reset), 0xE220–0xE224 (erase min/max, energies, counters),
   0x9E40 (reset max P / partial energies).'
-- Models e14 come from projects and are listed after a model without a match, so detection never reaches them; their points
-  apply only when a reader selects such a model by hand.
-- Identification as mbmd recognises the device (not checked against a document).
 - Voltages, currents and powers come from the metrology table and include the configured CT/VT ratio; total energies have
   1 kWh resolution.
 - mbmd (type code SOCOMEC) detects the meter by reading L1 Voltage (holding register 50520, u32, scale 0.01); its bus scan

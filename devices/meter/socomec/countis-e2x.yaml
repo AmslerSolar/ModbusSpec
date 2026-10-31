@@ -1,0 +1,348 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from Socomec's Modbus table for the Countis E23 (48503050, V103.18, 2017-08), checked on a real Countis E24.
+
+modbusspec: 0
+id: socomec-countis-e2x
+manufacturer: Socomec
+name: Countis E23 / E24 / E27 / E28 energy meters
+kind: meter
+
+sources:
+- title: Socomec Countis E23 Modbus communication table (48503050)
+  version: V103.18, Modbus tables V1.1 (2017-08)
+  url: https://www.socomec.fr/sites/default/files/2021-05/COUNTIS-E23-MODBUS-48503050-V103.18_COMMUNICATION-TABLE_2017-08_CMT_EN.html
+  language: en
+  devices: [Countis E23]
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  - {table: holding, address: 50000, type: str, length: 4, chars: low, equals: SOCO}
+  - {table: holding, address: 50058, type: str, length: 8, prefix: Countis E2}
+
+points:
+
+  # Identification (0xC350)
+  - {key: x.socomec_marker, label: "\"SOCO\" marker", table: holding, address: 50000, type: str, length: 4, chars: low, poll: slow, verified: true}
+  - {key: x.product_order_id, label: "Product order ID (Countis 100, Protection 200, Atys 300, Diris 400)", table: holding, address: 50004, type: u16, poll: slow, verified: true}
+  - {key: x.product_id, label: "Product ID", table: holding, address: 50005, type: u16, poll: slow}
+  - {key: x.table_version, label: "JBUS table version", table: holding, address: 50006, type: u16, scale: 0.01, poll: slow, note: "101 = version 1.01."}
+  - {key: firmware, label: "Product software version", table: holding, address: 50007, type: u16, scale: 0.01, poll: slow, note: "100 = version 1.00."}
+  - {key: x.serial_year_week, label: "Serial AA SS", table: holding, address: 50008, type: u16, poll: slow, note: "Shown as hex."}
+  - {key: x.serial_week_line, label: "Serial SST L", table: holding, address: 50009, type: u16, poll: slow, note: "Shown as hex."}
+  - {key: x.serial_order, label: "Serial order", table: holding, address: 50010, type: u16, poll: slow}
+  - {key: x.product_version_major, label: "Product version (major)", table: holding, address: 50018, type: u16, poll: slow}
+  - {key: x.product_version_minor, label: "Product version (minor)", table: holding, address: 50019, type: u16, poll: slow}
+  - {key: x.product_vlo, label: "Product VLO", table: holding, address: 50030, type: str, length: 4, poll: slow}
+  - {key: x.vendor_name, label: "Vendor name", table: holding, address: 50042, type: str, length: 8, poll: slow, verified: true, note: "A real E24 read \"SOCOMEC\"."}
+  - {key: x.product_name, label: "Product name", table: holding, address: 50050, type: str, length: 8, poll: slow, verified: true, note: "A real E24 read \"Countis\"."}
+  - {key: x.extended_name, label: "Extended name", table: holding, address: 50058, type: str, length: 8, poll: slow, verified: true, note: "A real E24 read \"Countis E24\"."}
+
+  # Modbus settings (0xE000)
+  - {key: x.modbus_address, label: "Slave address", table: holding, address: 57344, type: u16, writable: true, poll: slow, verified: true, note: "A real E24 set to address 5 read 5."}
+  - {key: x.baud_rate, label: "Baud rate", table: holding, address: 57345, type: u16, enum: baud_rate, writable: true, poll: slow, verified: true, note: "An index. A real E24 read 3 at 9600 and 7 at 115200 baud."}
+  - {key: x.stop_bits, label: "Stop bits", table: holding, address: 57346, type: u16, enum: stop_bits, writable: true, poll: slow, verified: true, note: "A real E24 at 8N1 read 0."}
+  - {key: x.parity, label: "Parity", table: holding, address: 57347, type: u16, enum: parity, writable: true, poll: slow, verified: true, note: "A real E24 at 8N1 read 0."}
+
+  # Metrology, with the transformer ratios (0xC550)
+  - {key: x.voltage_l1_l2, label: "Phase to phase voltage U12", table: holding, address: 50514, type: u32, unit: "V", scale: 0.01, invalid: [4294967295]}
+  - {key: x.voltage_l2_l3, label: "Phase to phase voltage U23", table: holding, address: 50516, type: u32, unit: "V", scale: 0.01, invalid: [4294967295]}
+  - {key: x.voltage_l3_l1, label: "Phase to phase voltage U31", table: holding, address: 50518, type: u32, unit: "V", scale: 0.01, invalid: [4294967295]}
+  - {key: l1_voltage, label: "Simple voltage V1", table: holding, address: 50520, type: u32, unit: "V", scale: 0.01, invalid: [4294967295]}
+  - {key: l2_voltage, label: "Simple voltage V2", table: holding, address: 50522, type: u32, unit: "V", scale: 0.01, invalid: [4294967295]}
+  - {key: l3_voltage, label: "Simple voltage V3", table: holding, address: 50524, type: u32, unit: "V", scale: 0.01, invalid: [4294967295]}
+  - {key: frequency, label: "Frequency", table: holding, address: 50526, type: u32, unit: "Hz", scale: 0.001, invalid: [4294967295], verified: true, note: "A real E24 read 50020 (50.02 Hz). The E43 table gives Hz / 100 at this register; mbmd follows that one."}
+  - {key: l1_current, label: "Current I1", table: holding, address: 50528, type: u32, unit: "A", scale: 0.001, invalid: [4294967295]}
+  - {key: l2_current, label: "Current I2", table: holding, address: 50530, type: u32, unit: "A", scale: 0.001, invalid: [4294967295]}
+  - {key: l3_current, label: "Current I3", table: holding, address: 50532, type: u32, unit: "A", scale: 0.001, invalid: [4294967295]}
+  - {key: x.neutral_current, label: "Neutral current In", table: holding, address: 50534, type: u32, unit: "A", scale: 0.001, invalid: [4294967295]}
+  - {key: grid_power, label: "Sum active power P", table: holding, address: 50536, type: s32, unit: "W", scale: 10, positive: import, invalid: [2147483647], verified: False, note: "The table says +/- without a direction; import is assumed, as for the E43."}
+  - {key: reactive_power, label: "Sum reactive power Q", table: holding, address: 50538, type: s32, unit: "var", scale: 10, invalid: [2147483647]}
+  - {key: apparent_power, label: "Sum apparent power S", table: holding, address: 50540, type: u32, unit: "VA", scale: 10, invalid: [4294967295]}
+  - {key: power_factor, label: "Sum power factor PF", table: holding, address: 50542, type: s32, scale: 0.001, invalid: [2147483647], note: "Negative leading, positive lagging."}
+  - {key: l1_power, label: "Active power phase 1 P1", table: holding, address: 50544, type: s32, unit: "W", scale: 10, positive: import, invalid: [2147483647], verified: False}
+  - {key: l2_power, label: "Active power phase 2 P2", table: holding, address: 50546, type: s32, unit: "W", scale: 10, positive: import, invalid: [2147483647], verified: False}
+  - {key: l3_power, label: "Active power phase 3 P3", table: holding, address: 50548, type: s32, unit: "W", scale: 10, positive: import, invalid: [2147483647], verified: False}
+  - {key: x.reactive_power_l1, label: "Reactive power phase 1 Q1", table: holding, address: 50550, type: s32, unit: "var", scale: 10, invalid: [2147483647]}
+  - {key: x.reactive_power_l2, label: "Reactive power phase 2 Q2", table: holding, address: 50552, type: s32, unit: "var", scale: 10, invalid: [2147483647]}
+  - {key: x.reactive_power_l3, label: "Reactive power phase 3 Q3", table: holding, address: 50554, type: s32, unit: "var", scale: 10, invalid: [2147483647]}
+  - {key: x.apparent_power_l1, label: "Apparent power phase 1 S1", table: holding, address: 50556, type: u32, unit: "VA", scale: 10, invalid: [4294967295]}
+  - {key: x.apparent_power_l2, label: "Apparent power phase 2 S2", table: holding, address: 50558, type: u32, unit: "VA", scale: 10, invalid: [4294967295]}
+  - {key: x.apparent_power_l3, label: "Apparent power phase 3 S3", table: holding, address: 50560, type: u32, unit: "VA", scale: 10, invalid: [4294967295]}
+  - {key: x.power_factor_l1, label: "Power factor phase 1 PF1", table: holding, address: 50562, type: s32, scale: 0.001, invalid: [2147483647]}
+  - {key: x.power_factor_l2, label: "Power factor phase 2 PF2", table: holding, address: 50564, type: s32, scale: 0.001, invalid: [2147483647]}
+  - {key: x.power_factor_l3, label: "Power factor phase 3 PF3", table: holding, address: 50566, type: s32, scale: 0.001, invalid: [2147483647]}
+  - {key: x.current_system, label: "System value I Sys, (I1 + I2 + I3) / 3", table: holding, address: 50568, type: u32, unit: "A", scale: 0.001, invalid: [4294967295]}
+  - {key: x.voltage_ll_system, label: "System value U Sys, (U12 + U23 + U31) / 3", table: holding, address: 50570, type: u32, unit: "V", scale: 0.01, invalid: [4294967295]}
+  - {key: x.voltage_ln_system, label: "System value V Sys, (V1 + V2 + V3) / 3", table: holding, address: 50572, type: u32, unit: "V", scale: 0.01, invalid: [4294967295]}
+
+  # Metrology, without the transformer ratios, 16 bits (0xC850)
+  - {key: x.u12_raw, label: "Phase to phase voltage U12", table: holding, address: 51281, type: u16, unit: "V", scale: 0.01}
+  - {key: x.u23_raw, label: "Phase to phase voltage U23", table: holding, address: 51282, type: u16, unit: "V", scale: 0.01}
+  - {key: x.u31_raw, label: "Phase to phase voltage U31", table: holding, address: 51283, type: u16, unit: "V", scale: 0.01}
+  - {key: x.v1_raw, label: "Simple voltage V1", table: holding, address: 51284, type: u16, unit: "V", scale: 0.01}
+  - {key: x.v2_raw, label: "Simple voltage V2", table: holding, address: 51285, type: u16, unit: "V", scale: 0.01}
+  - {key: x.v3_raw, label: "Simple voltage V3", table: holding, address: 51286, type: u16, unit: "V", scale: 0.01}
+  - {key: x.frequency_raw, label: "Frequency", table: holding, address: 51287, type: u16, unit: "Hz", scale: 0.001}
+  - {key: x.power_factor_raw, label: "Sum power factor PF", table: holding, address: 51295, type: s16, scale: 0.001}
+  - {key: x.power_factor_l1_raw, label: "Power factor phase 1 PF1", table: holding, address: 51305, type: s16, scale: 0.001}
+  - {key: x.power_factor_l2_raw, label: "Power factor phase 2 PF2", table: holding, address: 51306, type: s16, scale: 0.001}
+  - {key: x.power_factor_l3_raw, label: "Power factor phase 3 PF3", table: holding, address: 51307, type: s16, scale: 0.001}
+  - {key: x.current_system_raw, label: "System value I Sys", table: holding, address: 51308, type: u16, unit: "A", scale: 0.001}
+  - {key: x.voltage_ll_system_raw, label: "System value U Sys", table: holding, address: 51309, type: u16, unit: "V", scale: 0.01}
+  - {key: x.voltage_ln_system_raw, label: "System value V Sys", table: holding, address: 51310, type: u16, unit: "V", scale: 0.01}
+  - {key: x.import_energy_mwh, label: "Total positive active energy Ea+", table: holding, address: 51311, type: u16, unit: "MWh", poll: slow}
+  - {key: x.reactive_positive_mvarh, label: "Total positive reactive energy Er+", table: holding, address: 51312, type: u16, unit: "Mvarh", poll: slow}
+  - {key: x.export_energy_mwh, label: "Total negative active energy Ea-", table: holding, address: 51313, type: u16, unit: "MWh", poll: slow}
+  - {key: x.reactive_negative_mvarh, label: "Total negative reactive energy Er-", table: holding, address: 51314, type: u16, unit: "Mvarh", poll: slow}
+  - {key: x.phase_sequence, label: "Phase sequence", table: holding, address: 51315, type: u16, enum: phase_sequence, poll: slow}
+
+  # Energies (0xC650)
+  - {key: grid_import_energy, label: "Total Ea+ (not resettable)", table: holding, address: 50770, type: u32, unit: "kWh", poll: slow, invalid: [4294967295], verified: true, note: "A real E24 read 30027 here and 3002726 at 50946."}
+  - {key: x.total_reactive_positive_energy, label: "Total Er+ (not resettable)", table: holding, address: 50772, type: u32, unit: "kvarh", poll: slow, invalid: [4294967295]}
+  - {key: x.total_apparent_energy, label: "Total Eap (not resettable)", table: holding, address: 50774, type: u32, unit: "kVAh", poll: slow, invalid: [4294967295]}
+  - {key: grid_export_energy, label: "Total Ea- (not resettable)", table: holding, address: 50776, type: u32, unit: "kWh", poll: slow, invalid: [4294967295], verified: true, note: "A real E24 read 125642 here and 12564217 at 50952."}
+  - {key: x.total_reactive_negative_energy, label: "Total Er- (not resettable)", table: holding, address: 50778, type: u32, unit: "kvarh", poll: slow, invalid: [4294967295]}
+  - {key: x.partial_active_positive_energy, label: "Partial Ea+", table: holding, address: 50780, type: u32, unit: "kWh", poll: slow, invalid: [4294967295]}
+  - {key: x.partial_reactive_positive_energy, label: "Partial Er+", table: holding, address: 50782, type: u32, unit: "kvarh", poll: slow, invalid: [4294967295]}
+  - {key: x.partial_apparent_energy, label: "Partial Eap", table: holding, address: 50784, type: u32, unit: "kVAh", poll: slow, invalid: [4294967295]}
+  - {key: x.partial_active_negative_energy, label: "Partial Ea-", table: holding, address: 50786, type: u32, unit: "kWh", poll: slow, invalid: [4294967295]}
+  - {key: x.partial_reactive_negative_energy, label: "Partial Er-", table: holding, address: 50788, type: u32, unit: "kvarh", poll: slow, invalid: [4294967295]}
+
+  # Energies in 10 Wh steps (0xC700)
+  - {key: x.total_active_positive_energy_fine, label: "Total Ea+ (not resettable)", table: holding, address: 50946, type: u32, unit: "kWh", scale: 0.01, poll: slow, invalid: [4294967295]}
+  - {key: x.total_reactive_positive_energy_fine, label: "Total Er+ (not resettable)", table: holding, address: 50948, type: u32, unit: "kvarh", scale: 0.01, poll: slow, invalid: [4294967295]}
+  - {key: x.total_apparent_energy_fine, label: "Total Eap (not resettable)", table: holding, address: 50950, type: u32, unit: "kVAh", scale: 0.01, poll: slow, invalid: [4294967295]}
+  - {key: x.total_active_negative_energy_fine, label: "Total Ea- (not resettable)", table: holding, address: 50952, type: u32, unit: "kWh", scale: 0.01, poll: slow, invalid: [4294967295]}
+  - {key: x.total_reactive_negative_energy_fine, label: "Total Er- (not resettable)", table: holding, address: 50954, type: u32, unit: "kvarh", scale: 0.01, poll: slow, invalid: [4294967295]}
+  - {key: x.partial_active_positive_energy_fine, label: "Partial Ea+", table: holding, address: 50956, type: u32, unit: "kWh", scale: 0.01, poll: slow, invalid: [4294967295]}
+  - {key: x.partial_reactive_positive_energy_fine, label: "Partial Er+", table: holding, address: 50958, type: u32, unit: "kvarh", scale: 0.01, poll: slow, invalid: [4294967295]}
+  - {key: x.partial_apparent_energy_fine, label: "Partial Eap", table: holding, address: 50960, type: u32, unit: "kVAh", scale: 0.01, poll: slow, invalid: [4294967295]}
+  - {key: x.partial_active_negative_energy_fine, label: "Partial Ea-", table: holding, address: 50962, type: u32, unit: "kWh", scale: 0.01, poll: slow, invalid: [4294967295]}
+  - {key: x.partial_reactive_negative_energy_fine, label: "Partial Er-", table: holding, address: 50964, type: u32, unit: "kvarh", scale: 0.01, poll: slow, invalid: [4294967295]}
+
+  # Tariffs (0xC6A0, and 0xC800 in 10 Wh steps)
+  - {key: x.tariff_count, label: "Number of tariffs (1 to 2)", table: holding, address: 50848, type: u16, poll: slow}
+  - {key: x.tariff, label: "Tariff in progress (1 to 2)", table: holding, address: 50849, type: u16, poll: slow}
+  - {key: x.tariff1_active_energy, label: "Positive active energy tariff 1", table: holding, address: 50850, type: u32, unit: "kWh", poll: slow}
+  - {key: x.tariff2_active_energy, label: "Positive active energy tariff 2", table: holding, address: 50852, type: u32, unit: "kWh", poll: slow}
+  - {key: x.tariff1_reactive_energy, label: "Positive reactive energy tariff 1", table: holding, address: 50866, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.tariff2_reactive_energy, label: "Positive reactive energy tariff 2", table: holding, address: 50868, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.tariff1_time, label: "Time counter 1", table: holding, address: 50882, type: u32, unit: "h", scale: 0.01, poll: slow}
+  - {key: x.tariff2_time, label: "Time counter 2", table: holding, address: 50884, type: u32, unit: "h", scale: 0.01, poll: slow}
+  - {key: x.tariff1_active_energy_fine, label: "Positive active energy tariff 1", table: holding, address: 51202, type: u32, unit: "kWh", scale: 0.01, poll: slow}
+  - {key: x.tariff2_active_energy_fine, label: "Positive active energy tariff 2", table: holding, address: 51204, type: u32, unit: "kWh", scale: 0.01, poll: slow}
+  - {key: x.tariff1_reactive_energy_fine, label: "Positive reactive energy tariff 1", table: holding, address: 51218, type: u32, unit: "kvarh", scale: 0.01, poll: slow}
+  - {key: x.tariff2_reactive_energy_fine, label: "Positive reactive energy tariff 2", table: holding, address: 51220, type: u32, unit: "kvarh", scale: 0.01, poll: slow}
+  - {key: x.tariff1_time_fine, label: "Time counter 1", table: holding, address: 51234, type: u32, unit: "h", scale: 0.01, poll: slow}
+  - {key: x.tariff2_time_fine, label: "Time counter 2", table: holding, address: 51236, type: u32, unit: "h", scale: 0.01, poll: slow}
+  - {key: x.tariff_count_2, label: "Number of tariffs (1 to 2)", table: holding, address: 51200, type: u16, poll: slow}
+  - {key: x.tariff_2, label: "Tariff in progress (1 to 2)", table: holding, address: 51201, type: u16, poll: slow}
+  - {key: x.set_tariff, label: "Tariff to set", table: holding, address: 40481, type: u16, writable: true, write_only: true, min: 1, max: 2, poll: slow}
+
+  # Line 1: energies (0x4D80) and tariff meter (0x4F00)
+  - {key: x.l1_active_positive_energy, label: "Line 1 Ea+", table: holding, address: 19843, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l1_active_positive_residual, label: "Line 1 residual Ea+", table: holding, address: 19845, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.l1_active_negative_energy, label: "Line 1 Ea-", table: holding, address: 19846, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l1_active_negative_residual, label: "Line 1 residual Ea-", table: holding, address: 19848, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.l1_reactive_positive_energy, label: "Line 1 Er+", table: holding, address: 19849, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_reactive_positive_residual, label: "Line 1 residual Er+", table: holding, address: 19851, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l1_reactive_negative_energy, label: "Line 1 Er-", table: holding, address: 19852, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_reactive_negative_residual, label: "Line 1 residual Er-", table: holding, address: 19854, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l1_apparent_energy, label: "Line 1 Eap", table: holding, address: 19855, type: u32, unit: "kVAh", poll: slow}
+  - {key: x.l1_apparent_residual, label: "Line 1 residual Eap", table: holding, address: 19857, type: u16, unit: "VAh", scale: 0.1, poll: slow}
+  - {key: x.l1_reactive_positive_lagging_energy, label: "Line 1 Er+ (lagging)", table: holding, address: 19858, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_reactive_positive_lagging_residual, label: "Line 1 residual Er+ (lagging)", table: holding, address: 19860, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l1_reactive_negative_lagging_energy, label: "Line 1 Er- (lagging)", table: holding, address: 19861, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_reactive_negative_lagging_residual, label: "Line 1 residual Er- (lagging)", table: holding, address: 19863, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l1_reactive_positive_leading_energy, label: "Line 1 Er+ (leading)", table: holding, address: 19864, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_reactive_positive_leading_residual, label: "Line 1 residual Er+ (leading)", table: holding, address: 19866, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l1_reactive_negative_leading_energy, label: "Line 1 Er- (leading)", table: holding, address: 19867, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_reactive_negative_leading_residual, label: "Line 1 residual Er- (leading)", table: holding, address: 19869, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l1_tariff, label: "Tariff in progress", table: holding, address: 20224, type: u16, poll: slow}
+  - {key: x.l1_t1_active_positive, label: "Line 1 T1 Ea+", table: holding, address: 20225, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l1_t2_active_positive, label: "Line 1 T2 Ea+", table: holding, address: 20227, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l1_t1_active_negative, label: "Line 1 T1 Ea-", table: holding, address: 20241, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l1_t2_active_negative, label: "Line 1 T2 Ea-", table: holding, address: 20243, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l1_t1_reactive_positive_lagging, label: "Line 1 T1 Er+ (lagging)", table: holding, address: 20273, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_t2_reactive_positive_lagging, label: "Line 1 T2 Er+ (lagging)", table: holding, address: 20275, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_t1_reactive_positive_leading, label: "Line 1 T1 Er+ (leading)", table: holding, address: 20289, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_t2_reactive_positive_leading, label: "Line 1 T2 Er+ (leading)", table: holding, address: 20291, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_t1_reactive_negative_lagging, label: "Line 1 T1 Er- (lagging)", table: holding, address: 20321, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_t2_reactive_negative_lagging, label: "Line 1 T2 Er- (lagging)", table: holding, address: 20323, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_t1_reactive_negative_leading, label: "Line 1 T1 Er- (leading)", table: holding, address: 20337, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_t2_reactive_negative_leading, label: "Line 1 T2 Er- (leading)", table: holding, address: 20339, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l1_t1_apparent, label: "Line 1 T1 Eap", table: holding, address: 20353, type: u32, unit: "kVAh", poll: slow}
+  - {key: x.l1_t2_apparent, label: "Line 1 T2 Eap", table: holding, address: 20355, type: u32, unit: "kVAh", poll: slow}
+
+  # Line 2: energies (0x5580) and tariff meter (0x5700)
+  - {key: x.l2_active_positive_energy, label: "Line 2 Ea+", table: holding, address: 21891, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l2_active_positive_residual, label: "Line 2 residual Ea+", table: holding, address: 21893, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.l2_active_negative_energy, label: "Line 2 Ea-", table: holding, address: 21894, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l2_active_negative_residual, label: "Line 2 residual Ea-", table: holding, address: 21896, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.l2_reactive_positive_energy, label: "Line 2 Er+", table: holding, address: 21897, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_reactive_positive_residual, label: "Line 2 residual Er+", table: holding, address: 21899, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l2_reactive_negative_energy, label: "Line 2 Er-", table: holding, address: 21900, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_reactive_negative_residual, label: "Line 2 residual Er-", table: holding, address: 21902, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l2_apparent_energy, label: "Line 2 Eap", table: holding, address: 21903, type: u32, unit: "kVAh", poll: slow}
+  - {key: x.l2_apparent_residual, label: "Line 2 residual Eap", table: holding, address: 21905, type: u16, unit: "VAh", scale: 0.1, poll: slow}
+  - {key: x.l2_reactive_positive_lagging_energy, label: "Line 2 Er+ (lagging)", table: holding, address: 21906, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_reactive_positive_lagging_residual, label: "Line 2 residual Er+ (lagging)", table: holding, address: 21908, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l2_reactive_negative_lagging_energy, label: "Line 2 Er- (lagging)", table: holding, address: 21909, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_reactive_negative_lagging_residual, label: "Line 2 residual Er- (lagging)", table: holding, address: 21911, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l2_reactive_positive_leading_energy, label: "Line 2 Er+ (leading)", table: holding, address: 21912, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_reactive_positive_leading_residual, label: "Line 2 residual Er+ (leading)", table: holding, address: 21914, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l2_reactive_negative_leading_energy, label: "Line 2 Er- (leading)", table: holding, address: 21915, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_reactive_negative_leading_residual, label: "Line 2 residual Er- (leading)", table: holding, address: 21917, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l2_tariff, label: "Tariff in progress", table: holding, address: 22272, type: u16, poll: slow}
+  - {key: x.l2_t1_active_positive, label: "Line 2 T1 Ea+", table: holding, address: 22273, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l2_t2_active_positive, label: "Line 2 T2 Ea+", table: holding, address: 22275, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l2_t1_active_negative, label: "Line 2 T1 Ea-", table: holding, address: 22289, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l2_t2_active_negative, label: "Line 2 T2 Ea-", table: holding, address: 22291, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l2_t1_reactive_positive_lagging, label: "Line 2 T1 Er+ (lagging)", table: holding, address: 22321, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_t2_reactive_positive_lagging, label: "Line 2 T2 Er+ (lagging)", table: holding, address: 22323, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_t1_reactive_positive_leading, label: "Line 2 T1 Er+ (leading)", table: holding, address: 22337, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_t2_reactive_positive_leading, label: "Line 2 T2 Er+ (leading)", table: holding, address: 22339, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_t1_reactive_negative_lagging, label: "Line 2 T1 Er- (lagging)", table: holding, address: 22369, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_t2_reactive_negative_lagging, label: "Line 2 T2 Er- (lagging)", table: holding, address: 22371, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_t1_reactive_negative_leading, label: "Line 2 T1 Er- (leading)", table: holding, address: 22385, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_t2_reactive_negative_leading, label: "Line 2 T2 Er- (leading)", table: holding, address: 22387, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l2_t1_apparent, label: "Line 2 T1 Eap", table: holding, address: 22401, type: u32, unit: "kVAh", poll: slow}
+  - {key: x.l2_t2_apparent, label: "Line 2 T2 Eap", table: holding, address: 22403, type: u32, unit: "kVAh", poll: slow}
+
+  # Line 3: energies (0x5D80) and tariff meter (0x5F00)
+  - {key: x.l3_active_positive_energy, label: "Line 3 Ea+", table: holding, address: 23939, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l3_active_positive_residual, label: "Line 3 residual Ea+", table: holding, address: 23941, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.l3_active_negative_energy, label: "Line 3 Ea-", table: holding, address: 23942, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l3_active_negative_residual, label: "Line 3 residual Ea-", table: holding, address: 23944, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.l3_reactive_positive_energy, label: "Line 3 Er+", table: holding, address: 23945, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_reactive_positive_residual, label: "Line 3 residual Er+", table: holding, address: 23947, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l3_reactive_negative_energy, label: "Line 3 Er-", table: holding, address: 23948, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_reactive_negative_residual, label: "Line 3 residual Er-", table: holding, address: 23950, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l3_apparent_energy, label: "Line 3 Eap", table: holding, address: 23951, type: u32, unit: "kVAh", poll: slow}
+  - {key: x.l3_apparent_residual, label: "Line 3 residual Eap", table: holding, address: 23953, type: u16, unit: "VAh", scale: 0.1, poll: slow}
+  - {key: x.l3_reactive_positive_lagging_energy, label: "Line 3 Er+ (lagging)", table: holding, address: 23954, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_reactive_positive_lagging_residual, label: "Line 3 residual Er+ (lagging)", table: holding, address: 23956, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l3_reactive_negative_lagging_energy, label: "Line 3 Er- (lagging)", table: holding, address: 23957, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_reactive_negative_lagging_residual, label: "Line 3 residual Er- (lagging)", table: holding, address: 23959, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l3_reactive_positive_leading_energy, label: "Line 3 Er+ (leading)", table: holding, address: 23960, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_reactive_positive_leading_residual, label: "Line 3 residual Er+ (leading)", table: holding, address: 23962, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l3_reactive_negative_leading_energy, label: "Line 3 Er- (leading)", table: holding, address: 23963, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_reactive_negative_leading_residual, label: "Line 3 residual Er- (leading)", table: holding, address: 23965, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.l3_tariff, label: "Tariff in progress", table: holding, address: 24320, type: u16, poll: slow}
+  - {key: x.l3_t1_active_positive, label: "Line 3 T1 Ea+", table: holding, address: 24321, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l3_t2_active_positive, label: "Line 3 T2 Ea+", table: holding, address: 24323, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l3_t1_active_negative, label: "Line 3 T1 Ea-", table: holding, address: 24337, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l3_t2_active_negative, label: "Line 3 T2 Ea-", table: holding, address: 24339, type: u32, unit: "kWh", poll: slow}
+  - {key: x.l3_t1_reactive_positive_lagging, label: "Line 3 T1 Er+ (lagging)", table: holding, address: 24369, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_t2_reactive_positive_lagging, label: "Line 3 T2 Er+ (lagging)", table: holding, address: 24371, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_t1_reactive_positive_leading, label: "Line 3 T1 Er+ (leading)", table: holding, address: 24385, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_t2_reactive_positive_leading, label: "Line 3 T2 Er+ (leading)", table: holding, address: 24387, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_t1_reactive_negative_lagging, label: "Line 3 T1 Er- (lagging)", table: holding, address: 24417, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_t2_reactive_negative_lagging, label: "Line 3 T2 Er- (lagging)", table: holding, address: 24419, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_t1_reactive_negative_leading, label: "Line 3 T1 Er- (leading)", table: holding, address: 24433, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_t2_reactive_negative_leading, label: "Line 3 T2 Er- (leading)", table: holding, address: 24435, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.l3_t1_apparent, label: "Line 3 T1 Eap", table: holding, address: 24449, type: u32, unit: "kVAh", poll: slow}
+  - {key: x.l3_t2_apparent, label: "Line 3 T2 Eap", table: holding, address: 24451, type: u32, unit: "kVAh", poll: slow}
+
+  # Total: energies (0x6580) and tariff meter (0x6700)
+  - {key: x.sum_active_positive_energy, label: "Total Ea+", table: holding, address: 25987, type: u32, unit: "kWh", poll: slow}
+  - {key: x.sum_active_positive_residual, label: "Total residual Ea+", table: holding, address: 25989, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.sum_active_negative_energy, label: "Total Ea-", table: holding, address: 25990, type: u32, unit: "kWh", poll: slow}
+  - {key: x.sum_active_negative_residual, label: "Total residual Ea-", table: holding, address: 25992, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.sum_reactive_positive_energy, label: "Total Er+", table: holding, address: 25993, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_reactive_positive_residual, label: "Total residual Er+", table: holding, address: 25995, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.sum_reactive_negative_energy, label: "Total Er-", table: holding, address: 25996, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_reactive_negative_residual, label: "Total residual Er-", table: holding, address: 25998, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.sum_apparent_energy, label: "Total Eap", table: holding, address: 25999, type: u32, unit: "kVAh", poll: slow}
+  - {key: x.sum_apparent_residual, label: "Total residual Eap", table: holding, address: 26001, type: u16, unit: "VAh", scale: 0.1, poll: slow}
+  - {key: x.sum_reactive_positive_lagging_energy, label: "Total Er+ (lagging)", table: holding, address: 26002, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_reactive_positive_lagging_residual, label: "Total residual Er+ (lagging)", table: holding, address: 26004, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.sum_reactive_negative_lagging_energy, label: "Total Er- (lagging)", table: holding, address: 26005, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_reactive_negative_lagging_residual, label: "Total residual Er- (lagging)", table: holding, address: 26007, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.sum_reactive_positive_leading_energy, label: "Total Er+ (leading)", table: holding, address: 26008, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_reactive_positive_leading_residual, label: "Total residual Er+ (leading)", table: holding, address: 26010, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.sum_reactive_negative_leading_energy, label: "Total Er- (leading)", table: holding, address: 26011, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_reactive_negative_leading_residual, label: "Total residual Er- (leading)", table: holding, address: 26013, type: u16, unit: "varh", scale: 0.1, poll: slow}
+  - {key: x.sum_tariff, label: "Tariff in progress", table: holding, address: 26368, type: u16, poll: slow}
+  - {key: x.sum_t1_active_positive, label: "Total T1 Ea+", table: holding, address: 26369, type: u32, unit: "kWh", poll: slow}
+  - {key: x.sum_t2_active_positive, label: "Total T2 Ea+", table: holding, address: 26371, type: u32, unit: "kWh", poll: slow}
+  - {key: x.sum_t1_active_negative, label: "Total T1 Ea-", table: holding, address: 26385, type: u32, unit: "kWh", poll: slow}
+  - {key: x.sum_t2_active_negative, label: "Total T2 Ea-", table: holding, address: 26387, type: u32, unit: "kWh", poll: slow}
+  - {key: x.sum_t1_reactive_positive, label: "Total T1 Er+", table: holding, address: 26401, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t2_reactive_positive, label: "Total T2 Er+", table: holding, address: 26403, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t1_reactive_positive_lagging, label: "Total T1 Er+ (lagging)", table: holding, address: 26417, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t2_reactive_positive_lagging, label: "Total T2 Er+ (lagging)", table: holding, address: 26419, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t1_reactive_positive_leading, label: "Total T1 Er+ (leading)", table: holding, address: 26433, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t2_reactive_positive_leading, label: "Total T2 Er+ (leading)", table: holding, address: 26435, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t1_reactive_negative, label: "Total T1 Er-", table: holding, address: 26449, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t2_reactive_negative, label: "Total T2 Er-", table: holding, address: 26451, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t1_reactive_negative_lagging, label: "Total T1 Er- (lagging)", table: holding, address: 26465, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t2_reactive_negative_lagging, label: "Total T2 Er- (lagging)", table: holding, address: 26467, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t1_reactive_negative_leading, label: "Total T1 Er- (leading)", table: holding, address: 26481, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t2_reactive_negative_leading, label: "Total T2 Er- (leading)", table: holding, address: 26483, type: u32, unit: "kvarh", poll: slow}
+  - {key: x.sum_t1_apparent, label: "Total T1 Eap", table: holding, address: 26497, type: u32, unit: "kVAh", poll: slow}
+  - {key: x.sum_t2_apparent, label: "Total T2 Eap", table: holding, address: 26499, type: u32, unit: "kVAh", poll: slow}
+
+  # Partial active energy by tariff (0x8000)
+  - {key: x.partial_active_positive_t1, label: "Partial active energy Ea+ tariff 1", table: holding, address: 32768, type: u32, unit: "kWh", poll: slow}
+  - {key: x.partial_active_positive_t1_residual, label: "Partial residual Ea+ tariff 1", table: holding, address: 32770, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.partial_active_positive_t2, label: "Partial active energy Ea+ tariff 2", table: holding, address: 32771, type: u32, unit: "kWh", poll: slow}
+  - {key: x.partial_active_positive_t2_residual, label: "Partial residual Ea+ tariff 2", table: holding, address: 32773, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.partial_active_negative_t1, label: "Partial active energy Ea- tariff 1", table: holding, address: 32792, type: u32, unit: "kWh", poll: slow, note: "The table calls it \"positive\"; the E43 table \"negative\", which fits Ea-."}
+  - {key: x.partial_active_negative_t1_residual, label: "Partial residual Ea- tariff 1", table: holding, address: 32794, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+  - {key: x.partial_active_negative_t2, label: "Partial active energy Ea- tariff 2", table: holding, address: 32795, type: u32, unit: "kWh", poll: slow, note: "The table calls it \"positive\"; the E43 table \"negative\", which fits Ea-."}
+  - {key: x.partial_active_negative_t2_residual, label: "Partial residual Ea- tariff 2", table: holding, address: 32797, type: u16, unit: "Wh", scale: 0.1, poll: slow}
+
+  # Energy balance (0x8100)
+  - {key: x.net_active_energy, label: "Net active energy balance, Ea+ - Ea- by tariff", table: holding, address: 33024, type: s32, unit: "kWh", poll: slow, verified: true, note: "The table says U32 and U16; the E43 table S32 and S16, and a real E24 exporting more than it imports read 0xFFFE8A82 at 33024."}
+  - {key: x.net_active_residual, label: "Net residual active energy balance", table: holding, address: 33026, type: s16, unit: "Wh", scale: 0.1, poll: slow, note: "As 33024."}
+  - {key: x.net_reactive_energy, label: "Net reactive energy balance, Er+ - Er- by tariff", table: holding, address: 33027, type: s32, unit: "kvarh", poll: slow, note: "As 33024. The table gives Wh units for reactive energy here; the E43 table varh."}
+  - {key: x.net_reactive_residual, label: "Net residual reactive energy balance", table: holding, address: 33029, type: s16, unit: "varh", scale: 0.1, poll: slow, note: "As 33027."}
+
+  # Overflow (0x9000)
+  - {key: x.overflow_value, label: "Value of the meter overflow", table: holding, address: 36864, type: u32, unit: "Wh", scale: 10, poll: slow}
+  - {key: x.overflow_count_import, label: "Overflow count total Ea+", table: holding, address: 36866, type: u16, poll: slow}
+  - {key: x.overflow_count_reactive, label: "Overflow count total Er+", table: holding, address: 36867, type: u16, poll: slow}
+  - {key: x.overflow_count_export, label: "Overflow count total Ea-", table: holding, address: 36868, type: u16, poll: slow}
+  - {key: x.overflow_count_reactive_negative, label: "Overflow count total Er-", table: holding, address: 36869, type: u16, poll: slow}
+  - {key: x.overflow_count_apparent, label: "Overflow count total Eap", table: holding, address: 36870, type: u16, poll: slow}
+  - {key: x.overflow_count_t1, label: "Overflow count total Ea T1", table: holding, address: 36871, type: u16, poll: slow}
+  - {key: x.overflow_count_t2, label: "Overflow count total Ea T2", table: holding, address: 36872, type: u16, poll: slow}
+
+  # Current without current transformer (0x9E80)
+  - {key: x.secondary_current_l1, label: "Current I1", table: holding, address: 40576, type: u32, unit: "A", scale: 0.001}
+  - {key: x.secondary_current_l2, label: "Current I2", table: holding, address: 40578, type: u32, unit: "A", scale: 0.001}
+  - {key: x.secondary_current_l3, label: "Current I3", table: holding, address: 40580, type: u32, unit: "A", scale: 0.001}
+
+  # Industrialisation
+  - {key: x.indus_mode, label: "Indus mode (1 = enabled)", table: holding, address: 40544, type: u16, poll: slow}
+  - {key: x.mid_status, label: "MID status (1 = MID product)", table: holding, address: 40545, type: u16, poll: slow}
+  - {key: x.com_board_id, label: "COM board product ID (1 = E3x/E4x COM board, 2 = E63 COM board)", table: holding, address: 40608, type: u16, poll: slow}
+
+enums:
+  baud_rate: {'0': '1200', '1': '2400', '2': '4800', '3': '9600', '4': '19200', '5': '38400', '6': '57600', '7': '115200'}
+  stop_bits: {'0': '1', '1': '2'}
+  parity: {'0': None, '1': Odd, '2': Even}
+  phase_sequence: {'0': 123 clockwise, '1': 132 counter-clockwise, '3': Not determined}
+
+notes:
+- The table is written for the Countis E23. A real Countis E24 answered exactly the table's read blocks, with the same starts and lengths, and its values fit; OpenEMS treats E23, E24, E27 and E28 alike. E27 and E28 are unchecked.
+- 'Not the map of the E3x / E4x (socomec-countis-e): the same addresses differ. 57344-57347 are the serial settings here and network type and current transformer there, and the frequency is Hz / 1000 here and Hz / 100 there. Writing with the wrong file changes the wrong setting.'
+- 'Functions: 3 (read up to 125 registers), 6 and 16 (write). Function 4 is refused. Values are high word first; a request reaching outside a block is refused with exception 2. Unused registers inside a block read 0 or FFFFh.'
+- The table gives no default unit id or serial settings; unit 1 is assumed. A real E24 ran at 9600 8N1 and 115200 8N1.
+- 'Write-only actions left out: 0xE200 (0xA1 store configuration, 0xB2 reset), 0xE222 and 0xE224 (reset partial energies, tariff counters), 0x9E40 (0x20 reset partial energies). The table does not say whether a changed setting needs 0xA1.'
+- 'Not checked by a reading under load: the sign of the powers, and the currents and powers in general; the real E24 had no load.'

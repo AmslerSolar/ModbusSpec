@@ -33,6 +33,8 @@ The documents leave these open; a reading from a real device settles them.
 | deye-p3 | Device type 0x0005 / 0x0006 in the HP3 edition: typo for 0x0500 / 0x0600, or real (accepted in identify). |
 | sungrow-sg | State data 2 (5045): the document points to a value table it doesn't contain. |
 | huawei-dtsu666-h | Read on a real meter with only L1 connected and no load: the phase order of the per-phase energies (L1 showed at +6, not +2), the sign and scale of current, active power and power factor, the reactive / apparent power positions (2134–2148), and the unknown pairs at input 5438–5452 / 8244–8258 need a load on two or three phases. |
+| socomec-countis-e | No reading from a real E3x / E4x yet: frequency factor Hz / 100 (2019 table), and everything else from the tables. The E14 is covered by no file (OpenEMS treats it as single-phase). |
+| socomec-countis-e2x | Read on a real E24 without load: the sign of the powers needs a load. E27 and E28 unchecked. |
 | kostal-ksem | Signs of inverter AC, PV DC and battery power in the energy-flow block (40974–40984): read 0 at night on a real KSEM (firmware 2.7) without a managed KOSTAL inverter; grid power (40972) is settled. Modbus TLS (port 802) not tested. |
 
 ## Answers without a document
