@@ -1,0 +1,372 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Navien Modbus RTU Installation & Operation Manual for the NFB700, version 1.0 (December 2025).
+
+modbusspec: 0
+id: navien-nfb700
+manufacturer: Navien
+name: NFB700 boiler
+kind: boiler
+
+sources:
+- title: Navien Modbus RTU Installation & Operation Manual
+  version: '1.0'
+  url: https://www.navieninc.ca/app/W1siZiIsIjIwMjYvMDcvMjAvMTcvMzEvMzMvNGRjYTMyNjItODYzZi00NWM1LTk2ZGQtMjAyMDg1NzRjODdjL01vZGJ1cyBSVFVfTkZCNzAwX0luc3RhbGxhdGlvbl9PcGVyYXRpb25fTWFudWFsX0VOXzI1MTIxMCAoMSkucGRmIl1d/Modbus%20RTU_NFB700_Installation_Operation_Manual_EN_251210%20%281%29.pdf?sha=091ec5f493184aed
+  sha256: 3fa25506f7d32d889246f8a82cf759cd2463e17dbed3eee2b442b9f429057944
+  date: 2025-12
+  language: en
+  devices:
+  - NFB700-500C
+  - NFB700-600C
+  - NFB700-800C
+  - NFB700-1000C
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 125
+
+encoding:
+  byte_order: big
+  word_order: big
+
+models:
+- id: single
+  name: Single boiler
+- id: cascade
+  name: Main unit of a cascade
+
+model_choice: user
+
+identify:
+  checks:
+  - table: holding
+    address: 19
+    type: u16
+    range:
+    - 2018
+    - 2099
+  - table: holding
+    address: 20
+    type: u16
+    range:
+    - 1
+    - 12
+  - table: holding
+    address: 21
+    type: u16
+    range:
+    - 1
+    - 31
+  - table: input
+    address: 38
+    type: u16
+    in:
+    - 0
+    - 1
+    - 2
+    - 3
+  - table: input
+    address: 39
+    type: u16
+    in:
+    - 0
+    - 1
+
+points:
+  # Coils
+  - {key: x.sh_operation, label: SH operation on/off control, table: coil, address: 0, type: bool, writable: true, poll: slow, note: 'Single mode. Writing 1 can start heating. Needs Modbus RTU enabled in the EMS menu and, to switch the boiler from the BAS, main DIP switch 7 ON or the T/S ZONE3 port shorted.'}
+  - {key: x.outdoor_reset_enable, label: Outdoor reset curve usage enable, table: coil, address: 1, type: bool, writable: true, poll: slow, note: Single and cascade mode.}
+  - {key: x.wwsd_enable, label: WWSD enable, table: coil, address: 2, type: bool, writable: true, poll: slow, note: Warm weather shutdown; single and cascade mode.}
+  - {key: x.dhw_operation, label: DHW operation ON/OFF control, table: coil, address: 3, type: bool, writable: true, poll: slow, note: Single mode. Writing 1 can start domestic hot water heating.}
+  - {key: x.touch_lock, label: Touch lock ON/OFF control, table: coil, address: 5, type: bool, writable: true, poll: slow}
+  - {key: x.temperature_display, label: Temperature display type, table: coil, address: 7, type: bool, enum: temperature_display, writable: true, poll: slow, note: '1 = Fahrenheit, 0 = Celsius. The document lists every temperature register in °C and does not say whether this switch changes them (unverified).', verified: false}
+  - {key: x.reset_duration_data, label: Reset Duration Data, table: coil, address: 8, type: bool, writable: true, poll: slow, note: 'Writing 1 clears the accumulated data (operation times, gas consumption and the like); the coil then goes back to 0 by itself.'}
+  # Discrete inputs, single boiler
+  - {key: x.boiler_operation, label: Boiler operation, table: discrete, address: 10, type: bool}
+  - {key: x.sh_operation_status, label: SH operation, table: discrete, address: 11, type: bool}
+  - {key: x.dhw_tank_mode, label: DHW tank mode operation, table: discrete, address: 13, type: bool}
+  - {key: x.error, label: Error, table: discrete, address: 14, type: bool}
+  - {key: x.boiler_enable, label: Boiler enable, table: discrete, address: 16, type: bool}
+  - {key: x.boiler_pump, label: Boiler pump, table: discrete, address: 17, type: bool}
+  - {key: x.dhw_zone1_pump, label: DHW/Zone1 pump, table: discrete, address: 18, type: bool}
+  - {key: x.zone2_pump, label: Zone2 pump, table: discrete, address: 19, type: bool}
+  - {key: x.system_zone3_pump, label: System/Zone3 pump, table: discrete, address: 20, type: bool}
+  - {key: x.sh1_thermostat, label: SH1 Thermostat, table: discrete, address: 21, type: bool}
+  - {key: x.sh2_thermostat, label: SH2 Thermostat, table: discrete, address: 22, type: bool}
+  - {key: x.sh3_thermostat, label: SH3 Thermostat, table: discrete, address: 23, type: bool}
+  - {key: x.dhw_call_signal, label: DHW call signal, table: discrete, address: 24, type: bool, note: '1 = tank sensor, 0 = thermostat.'}
+  - {key: x.dhw_thermostat, label: DHW Thermostat, table: discrete, address: 25, type: bool}
+  - {key: x.lwco_input, label: LWCO input, table: discrete, address: 26, type: bool}
+  - {key: x.louver_switch, label: Louver switch, table: discrete, address: 28, type: bool}
+  - {key: x.sh4_thermostat, label: SH4 Thermostat, table: discrete, address: 29, type: bool}
+  - {key: x.zone4_pump, label: Zone4 pump, table: discrete, address: 30, type: bool}
+  - {key: x.louver_output, label: Louver output, table: discrete, address: 31, type: bool}
+  - {key: x.air_damper_output, label: Air damper output, table: discrete, address: 32, type: bool}
+  - {key: x.frozen_protection, label: Frozen protection mode, table: discrete, address: 34, type: bool}
+  # Discrete inputs, cascade totals from the main unit
+  - {key: x.cascade_enable, label: Cascade system enable, table: discrete, address: 44, type: bool, models: [cascade]}
+  - {key: x.cascade_burning, label: Cascade burning, table: discrete, address: 45, type: bool, models: [cascade]}
+  - {key: x.cascade_sh_operation, label: Cascade SH operation, table: discrete, address: 46, type: bool, models: [cascade]}
+  - {key: x.cascade_dhw_tank_mode, label: Cascade DHW tank mode operation state, table: discrete, address: 49, type: bool, models: [cascade]}
+  - {key: x.cascade_dhw_call_signal, label: DHW call signal, table: discrete, address: 50, type: bool, models: [cascade], note: 'Listed as 1=ON/0=OFF here, but as 1=sensor/0=thermostat in the single boiler table (unverified).', verified: false}
+  - {key: x.cascade_dhw_thermostat, label: DHW Thermostat, table: discrete, address: 51, type: bool, models: [cascade]}
+  # Input registers, single boiler
+  - {key: error_code, label: Main Error code, table: input, address: 0, type: u16, note: The document gives no list of the codes and does not say that 0 means none.}
+  - {key: x.sub_error_code, label: Sub Error code, table: input, address: 1, type: u16}
+  - {key: x.heat_capacity, label: Current Heat capacity, table: input, address: 2, type: u16, unit: '%', scale: 0.1}
+  - {key: x.supply_temperature, label: Supply temperature, table: input, address: 3, type: u16, unit: °C, scale: 0.1}
+  - {key: x.return_temperature, label: Return temperature, table: input, address: 4, type: u16, unit: °C, scale: 0.1}
+  - {key: x.system_supply_temperature, label: System Supply temperature, table: input, address: 5, type: u16, unit: °C, scale: 0.1}
+  - {key: x.system_return_temperature, label: System Return temperature, table: input, address: 6, type: u16, unit: °C, scale: 0.1}
+  - {key: x.water_pressure, label: Water pressure, table: input, address: 7, type: u16, unit: psi}
+  - {key: x.exhaust_temperature, label: Exhaust temperature, table: input, address: 8, type: u16, unit: °C, scale: 0.1}
+  - {key: x.dhw_tank_temperature, label: DHW Tank temperature, table: input, address: 9, type: u16, unit: °C, scale: 0.1}
+  - {key: x.outdoor_temperature, label: Outdoor temperature, table: input, address: 10, type: s16, unit: °C, scale: 0.1, verified: false, note: 'Listed as Word with a negative minimum: read as two''s complement (unverified).'}
+  - {key: x.boiler_operation_word, label: Boiler operation, table: input, address: 11, type: u16, enum: on_off}
+  - {key: x.max_heat_capacity, label: Maximum Heat capacity, table: input, address: 12, type: u16, unit: BTU, scale: 100, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).'}
+  - {key: x.sh_operation_time, label: Total time of SH operation, table: input, address: 13, type: u16, unit: h, poll: slow}
+  - {key: x.sh_operation_count, label: Number of SH operation, table: input, address: 14, type: u16, scale: 10, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).'}
+  - {key: x.days_since_installation, label: Total time after installation, table: input, address: 15, type: u16, unit: d, poll: slow}
+  - {key: x.max_outdoor_temperature, label: Maximum outdoor temperature, table: input, address: 30, type: s16, unit: °C, scale: 0.5, poll: slow, verified: false, note: 'Listed as Word with a negative minimum: read as two''s complement (unverified).'}
+  - {key: x.min_outdoor_temperature, label: Minimum outdoor temperature, table: input, address: 31, type: s16, unit: °C, scale: 0.5, poll: slow, verified: false, note: 'Listed as Word with a negative minimum: read as two''s complement (unverified).'}
+  - {key: x.sh_supply_min, label: SH supply minimum temperature, table: input, address: 32, type: u16, unit: °C, scale: 0.5, poll: slow}
+  - {key: x.sh_supply_max, label: SH supply maximum temperature, table: input, address: 33, type: u16, unit: °C, scale: 0.5, poll: slow}
+  - {key: x.sh_return_min, label: SH return minimum temperature, table: input, address: 34, type: u16, unit: °C, scale: 0.5, poll: slow}
+  - {key: x.sh_return_max, label: SH return maximum temperature, table: input, address: 35, type: u16, unit: °C, scale: 0.5, poll: slow}
+  - {key: x.dhw_min, label: DHW minimum temperature, table: input, address: 36, type: u16, unit: °C, scale: 0.5, poll: slow}
+  - {key: x.dhw_max, label: DHW maximum temperature, table: input, address: 37, type: u16, unit: °C, scale: 0.5, poll: slow}
+  - {key: x.sh_control_method, label: SH control method, table: input, address: 38, type: u16, enum: sh_control_method, poll: slow}
+  - {key: x.dhw_control_method, label: DHW control method, table: input, address: 39, type: u16, enum: dhw_control_method, poll: slow}
+  - {key: x.gas_type, label: Gas type, table: input, address: 41, type: u16, enum: gas_type, poll: slow, note: The document allows up to 99 but names only these two values.}
+  - {key: x.current_gas, label: Current amount of gas, table: input, address: 44, type: u16, unit: BTU, scale: 100, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).'}
+  - {key: x.total_gas, label: Total amount of gas, table: input, address: 45, type: u32, unit: l, scale: 100, poll: slow, verified: false, note: 'High word first. Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).'}
+  # Input registers, cascade totals from the main unit
+  - {key: x.cascade_total_units, label: Cascade total units, table: input, address: 65, type: u16, poll: slow, models: [cascade]}
+  - {key: x.cascade_operating_units, label: Cascade Operating units, table: input, address: 66, type: u16, models: [cascade]}
+  - {key: x.cascade_on_off_state, label: Cascade On/Off state, table: input, address: 67, type: u32, note: High word first. The document does not say how the value is laid out., models: [cascade]}
+  - {key: x.cascade_avg_heat_capacity, label: Cascade Average Heating capacity, table: input, address: 69, type: u16, unit: '%', scale: 0.5, models: [cascade]}
+  - {key: x.cascade_max_heat_capacity, label: Cascade Maximum Heating capacity, table: input, address: 70, type: u16, unit: BTU, scale: 1000, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.primary_total_flow, label: Primary total flow, table: input, address: 71, type: u16, unit: l, models: [cascade]}
+  - {key: x.avg_primary_supply_temperature, label: Average primary Supply temperature, table: input, address: 72, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.avg_primary_return_temperature, label: Average primary return temperature, table: input, address: 73, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.cascade_system_supply_temperature, label: System Supply temperature, table: input, address: 74, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.cascade_system_return_temperature, label: System Return temperature, table: input, address: 75, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.cascade_error_unit, label: Error occurrence unit number, table: input, address: 76, type: u16, models: [cascade]}
+  - {key: x.cascade_error_code, label: Error code, table: input, address: 77, type: u16, models: [cascade]}
+  - {key: x.cascade_dhw_tank_temperature, label: DHW Tank temperature, table: input, address: 85, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  # Cascade, per unit: discrete inputs (16 addresses per unit, listed for the main unit and 7 subs)
+  - {key: x.main_operation, label: Main Boiler operation, table: discrete, address: 200, type: bool, models: [cascade]}
+  - {key: x.main_frozen_protection, label: Main Boiler Frozen protection mode, table: discrete, address: 201, type: bool, poll: slow, models: [cascade]}
+  - {key: x.main_error, label: Main Boiler Error, table: discrete, address: 205, type: bool, models: [cascade]}
+  - {key: x.main_enable, label: Main Boiler enable, table: discrete, address: 206, type: bool, poll: slow, models: [cascade]}
+  - {key: x.main_pump, label: Main Boiler pump, table: discrete, address: 207, type: bool, models: [cascade]}
+  - {key: x.sub1_operation, label: Sub 1 Boiler operation, table: discrete, address: 216, type: bool, models: [cascade]}
+  - {key: x.sub1_frozen_protection, label: Sub 1 Boiler Frozen protection mode, table: discrete, address: 217, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub1_error, label: Sub 1 Boiler Error, table: discrete, address: 221, type: bool, models: [cascade]}
+  - {key: x.sub1_enable, label: Sub 1 Boiler enable, table: discrete, address: 222, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub1_pump, label: Sub 1 Boiler pump, table: discrete, address: 223, type: bool, models: [cascade]}
+  - {key: x.sub2_operation, label: Sub 2 Boiler operation, table: discrete, address: 232, type: bool, models: [cascade]}
+  - {key: x.sub2_frozen_protection, label: Sub 2 Boiler Frozen protection mode, table: discrete, address: 233, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub2_error, label: Sub 2 Boiler Error, table: discrete, address: 237, type: bool, models: [cascade]}
+  - {key: x.sub2_enable, label: Sub 2 Boiler enable, table: discrete, address: 238, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub2_pump, label: Sub 2 Boiler pump, table: discrete, address: 239, type: bool, models: [cascade]}
+  - {key: x.sub3_operation, label: Sub 3 Boiler operation, table: discrete, address: 248, type: bool, models: [cascade]}
+  - {key: x.sub3_frozen_protection, label: Sub 3 Boiler Frozen protection mode, table: discrete, address: 249, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub3_error, label: Sub 3 Boiler Error, table: discrete, address: 253, type: bool, models: [cascade]}
+  - {key: x.sub3_enable, label: Sub 3 Boiler enable, table: discrete, address: 254, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub3_pump, label: Sub 3 Boiler pump, table: discrete, address: 255, type: bool, models: [cascade]}
+  - {key: x.sub4_operation, label: Sub 4 Boiler operation, table: discrete, address: 264, type: bool, models: [cascade]}
+  - {key: x.sub4_frozen_protection, label: Sub 4 Boiler Frozen protection mode, table: discrete, address: 265, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub4_error, label: Sub 4 Boiler Error, table: discrete, address: 269, type: bool, models: [cascade]}
+  - {key: x.sub4_enable, label: Sub 4 Boiler enable, table: discrete, address: 270, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub4_pump, label: Sub 4 Boiler pump, table: discrete, address: 271, type: bool, models: [cascade]}
+  - {key: x.sub5_operation, label: Sub 5 Boiler operation, table: discrete, address: 280, type: bool, models: [cascade]}
+  - {key: x.sub5_frozen_protection, label: Sub 5 Boiler Frozen protection mode, table: discrete, address: 281, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub5_error, label: Sub 5 Boiler Error, table: discrete, address: 285, type: bool, models: [cascade]}
+  - {key: x.sub5_enable, label: Sub 5 Boiler enable, table: discrete, address: 286, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub5_pump, label: Sub 5 Boiler pump, table: discrete, address: 287, type: bool, models: [cascade]}
+  - {key: x.sub6_operation, label: Sub 6 Boiler operation, table: discrete, address: 296, type: bool, models: [cascade]}
+  - {key: x.sub6_frozen_protection, label: Sub 6 Boiler Frozen protection mode, table: discrete, address: 297, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub6_error, label: Sub 6 Boiler Error, table: discrete, address: 301, type: bool, models: [cascade]}
+  - {key: x.sub6_enable, label: Sub 6 Boiler enable, table: discrete, address: 302, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub6_pump, label: Sub 6 Boiler pump, table: discrete, address: 303, type: bool, models: [cascade]}
+  - {key: x.sub7_operation, label: Sub 7 Boiler operation, table: discrete, address: 312, type: bool, models: [cascade]}
+  - {key: x.sub7_frozen_protection, label: Sub 7 Boiler Frozen protection mode, table: discrete, address: 313, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub7_error, label: Sub 7 Boiler Error, table: discrete, address: 317, type: bool, models: [cascade]}
+  - {key: x.sub7_enable, label: Sub 7 Boiler enable, table: discrete, address: 318, type: bool, poll: slow, models: [cascade]}
+  - {key: x.sub7_pump, label: Sub 7 Boiler pump, table: discrete, address: 319, type: bool, models: [cascade]}
+  # Cascade, per unit: input registers (22 addresses per unit, listed for the main unit and 7 subs)
+  - {key: x.main_operation_word, label: Main Boiler operation, table: input, address: 400, type: u16, enum: on_off, models: [cascade]}
+  - {key: x.main_error_code, label: Main Boiler Error code, table: input, address: 401, type: u16, models: [cascade]}
+  - {key: x.main_heat_capacity, label: Main Boiler Current Heat capacity, table: input, address: 403, type: u16, unit: '%', scale: 0.1, models: [cascade]}
+  - {key: x.main_supply_temperature, label: Main Boiler Supply temperature, table: input, address: 404, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.main_return_temperature, label: Main Boiler Return temperature, table: input, address: 405, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.main_water_pressure, label: Main Boiler Water pressure, table: input, address: 406, type: u16, unit: psi, models: [cascade]}
+  - {key: x.main_max_heat_capacity, label: Main Boiler Maximum Heat capacity, table: input, address: 407, type: u16, unit: BTU, scale: 100, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.main_exhaust_temperature, label: Main Boiler Exhaust temperature, table: input, address: 408, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.main_days_since_installation, label: Main Boiler Total time after installation, table: input, address: 409, type: u16, unit: d, poll: slow, models: [cascade]}
+  - {key: x.main_sh_operation_count, label: Main Boiler Number of SH operation, table: input, address: 410, type: u16, scale: 10, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.main_sh_operation_time, label: Main Boiler Total time of SH operation, table: input, address: 411, type: u16, unit: h, poll: slow, models: [cascade]}
+  - {key: x.main_current_gas, label: Main Boiler Current amount of gas, table: input, address: 412, type: u16, unit: BTU, scale: 100, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.main_total_gas, label: Main Boiler Total amount of gas, table: input, address: 413, type: u32, unit: l, scale: 100, poll: slow, verified: false, note: 'High word first. Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub1_operation_word, label: Sub 1 Boiler operation, table: input, address: 422, type: u16, enum: on_off, models: [cascade]}
+  - {key: x.sub1_error_code, label: Sub 1 Boiler Error code, table: input, address: 423, type: u16, models: [cascade]}
+  - {key: x.sub1_heat_capacity, label: Sub 1 Boiler Current Heat capacity, table: input, address: 425, type: u16, unit: '%', scale: 0.1, models: [cascade]}
+  - {key: x.sub1_supply_temperature, label: Sub 1 Boiler Supply temperature, table: input, address: 426, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub1_return_temperature, label: Sub 1 Boiler Return temperature, table: input, address: 427, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub1_max_heat_capacity, label: Sub 1 Boiler Maximum Heat capacity, table: input, address: 429, type: u16, unit: BTU, scale: 100, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub1_exhaust_temperature, label: Sub 1 Boiler Exhaust temperature, table: input, address: 430, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub1_days_since_installation, label: Sub 1 Boiler Total time after installation, table: input, address: 431, type: u16, unit: d, poll: slow, models: [cascade]}
+  - {key: x.sub1_sh_operation_count, label: Sub 1 Boiler Number of SH operation, table: input, address: 432, type: u16, scale: 10, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub1_sh_operation_time, label: Sub 1 Boiler Total time of SH operation, table: input, address: 433, type: u16, unit: h, poll: slow, models: [cascade]}
+  - {key: x.sub1_current_gas, label: Sub 1 Boiler Current amount of gas, table: input, address: 434, type: u16, unit: BTU, scale: 100, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub1_total_gas, label: Sub 1 Boiler Total amount of gas, table: input, address: 435, type: u32, unit: l, scale: 100, poll: slow, verified: false, note: 'High word first. Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub2_operation_word, label: Sub 2 Boiler operation, table: input, address: 444, type: u16, enum: on_off, models: [cascade]}
+  - {key: x.sub2_error_code, label: Sub 2 Boiler Error code, table: input, address: 445, type: u16, models: [cascade]}
+  - {key: x.sub2_heat_capacity, label: Sub 2 Boiler Current Heat capacity, table: input, address: 447, type: u16, unit: '%', scale: 0.1, models: [cascade]}
+  - {key: x.sub2_supply_temperature, label: Sub 2 Boiler Supply temperature, table: input, address: 448, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub2_return_temperature, label: Sub 2 Boiler Return temperature, table: input, address: 449, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub2_max_heat_capacity, label: Sub 2 Boiler Maximum Heat capacity, table: input, address: 451, type: u16, unit: BTU, scale: 100, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub2_exhaust_temperature, label: Sub 2 Boiler Exhaust temperature, table: input, address: 452, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub2_days_since_installation, label: Sub 2 Boiler Total time after installation, table: input, address: 453, type: u16, unit: d, poll: slow, models: [cascade]}
+  - {key: x.sub2_sh_operation_count, label: Sub 2 Boiler Number of SH operation, table: input, address: 454, type: u16, scale: 10, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub2_sh_operation_time, label: Sub 2 Boiler Total time of SH operation, table: input, address: 455, type: u16, unit: h, poll: slow, models: [cascade]}
+  - {key: x.sub2_current_gas, label: Sub 2 Boiler Current amount of gas, table: input, address: 456, type: u16, unit: BTU, scale: 100, verified: false, note: 'This row gives Resolution 1, the main unit and sub 1 rows give 100, and the table says all units share the main unit''s data: 100 is used (unverified).', models: [cascade]}
+  - {key: x.sub2_total_gas, label: Sub 2 Boiler Total amount of gas, table: input, address: 457, type: u32, unit: l, scale: 100, poll: slow, verified: false, note: 'High word first. Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub3_operation_word, label: Sub 3 Boiler operation, table: input, address: 466, type: u16, enum: on_off, models: [cascade]}
+  - {key: x.sub3_error_code, label: Sub 3 Boiler Error code, table: input, address: 467, type: u16, models: [cascade]}
+  - {key: x.sub3_heat_capacity, label: Sub 3 Boiler Current Heat capacity, table: input, address: 469, type: u16, unit: '%', scale: 0.1, models: [cascade]}
+  - {key: x.sub3_supply_temperature, label: Sub 3 Boiler Supply temperature, table: input, address: 470, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub3_return_temperature, label: Sub 3 Boiler Return temperature, table: input, address: 471, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub3_max_heat_capacity, label: Sub 3 Boiler Maximum Heat capacity, table: input, address: 473, type: u16, unit: BTU, scale: 100, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub3_exhaust_temperature, label: Sub 3 Boiler Exhaust temperature, table: input, address: 474, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub3_days_since_installation, label: Sub 3 Boiler Total time after installation, table: input, address: 475, type: u16, unit: d, poll: slow, models: [cascade]}
+  - {key: x.sub3_sh_operation_count, label: Sub 3 Boiler Number of SH operation, table: input, address: 476, type: u16, scale: 10, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub3_sh_operation_time, label: Sub 3 Boiler Total time of SH operation, table: input, address: 477, type: u16, unit: h, poll: slow, models: [cascade]}
+  - {key: x.sub3_current_gas, label: Sub 3 Boiler Current amount of gas, table: input, address: 478, type: u16, unit: BTU, scale: 100, verified: false, note: 'This row gives Resolution 1, the main unit and sub 1 rows give 100, and the table says all units share the main unit''s data: 100 is used (unverified).', models: [cascade]}
+  - {key: x.sub3_total_gas, label: Sub 3 Boiler Total amount of gas, table: input, address: 479, type: u32, unit: l, scale: 100, poll: slow, verified: false, note: 'High word first. Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub4_operation_word, label: Sub 4 Boiler operation, table: input, address: 488, type: u16, enum: on_off, models: [cascade]}
+  - {key: x.sub4_error_code, label: Sub 4 Boiler Error code, table: input, address: 489, type: u16, models: [cascade]}
+  - {key: x.sub4_heat_capacity, label: Sub 4 Boiler Current Heat capacity, table: input, address: 491, type: u16, unit: '%', scale: 0.1, models: [cascade]}
+  - {key: x.sub4_supply_temperature, label: Sub 4 Boiler Supply temperature, table: input, address: 492, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub4_return_temperature, label: Sub 4 Boiler Return temperature, table: input, address: 493, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub4_max_heat_capacity, label: Sub 4 Boiler Maximum Heat capacity, table: input, address: 495, type: u16, unit: BTU, scale: 100, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub4_exhaust_temperature, label: Sub 4 Boiler Exhaust temperature, table: input, address: 496, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub4_days_since_installation, label: Sub 4 Boiler Total time after installation, table: input, address: 497, type: u16, unit: d, poll: slow, models: [cascade]}
+  - {key: x.sub4_sh_operation_count, label: Sub 4 Boiler Number of SH operation, table: input, address: 498, type: u16, scale: 10, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub4_sh_operation_time, label: Sub 4 Boiler Total time of SH operation, table: input, address: 499, type: u16, unit: h, poll: slow, models: [cascade]}
+  - {key: x.sub4_current_gas, label: Sub 4 Boiler Current amount of gas, table: input, address: 500, type: u16, unit: BTU, scale: 100, verified: false, note: 'This row gives Resolution 1, the main unit and sub 1 rows give 100, and the table says all units share the main unit''s data: 100 is used (unverified).', models: [cascade]}
+  - {key: x.sub4_total_gas, label: Sub 4 Boiler Total amount of gas, table: input, address: 501, type: u32, unit: l, scale: 100, poll: slow, verified: false, note: 'High word first. Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub5_operation_word, label: Sub 5 Boiler operation, table: input, address: 510, type: u16, enum: on_off, models: [cascade]}
+  - {key: x.sub5_error_code, label: Sub 5 Boiler Error code, table: input, address: 511, type: u16, models: [cascade]}
+  - {key: x.sub5_heat_capacity, label: Sub 5 Boiler Current Heat capacity, table: input, address: 513, type: u16, unit: '%', scale: 0.1, models: [cascade]}
+  - {key: x.sub5_supply_temperature, label: Sub 5 Boiler Supply temperature, table: input, address: 514, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub5_return_temperature, label: Sub 5 Boiler Return temperature, table: input, address: 515, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub5_max_heat_capacity, label: Sub 5 Boiler Maximum Heat capacity, table: input, address: 517, type: u16, unit: BTU, scale: 100, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub5_exhaust_temperature, label: Sub 5 Boiler Exhaust temperature, table: input, address: 518, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub5_days_since_installation, label: Sub 5 Boiler Total time after installation, table: input, address: 519, type: u16, unit: d, poll: slow, models: [cascade]}
+  - {key: x.sub5_sh_operation_count, label: Sub 5 Boiler Number of SH operation, table: input, address: 520, type: u16, scale: 10, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub5_sh_operation_time, label: Sub 5 Boiler Total time of SH operation, table: input, address: 521, type: u16, unit: h, poll: slow, models: [cascade]}
+  - {key: x.sub5_current_gas, label: Sub 5 Boiler Current amount of gas, table: input, address: 522, type: u16, unit: BTU, scale: 100, verified: false, note: 'This row gives Resolution 1, the main unit and sub 1 rows give 100, and the table says all units share the main unit''s data: 100 is used (unverified).', models: [cascade]}
+  - {key: x.sub5_total_gas, label: Sub 5 Boiler Total amount of gas, table: input, address: 523, type: u32, unit: l, scale: 100, poll: slow, verified: false, note: 'High word first. Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub6_operation_word, label: Sub 6 Boiler operation, table: input, address: 532, type: u16, enum: on_off, models: [cascade]}
+  - {key: x.sub6_error_code, label: Sub 6 Boiler Error code, table: input, address: 533, type: u16, models: [cascade]}
+  - {key: x.sub6_heat_capacity, label: Sub 6 Boiler Current Heat capacity, table: input, address: 535, type: u16, unit: '%', scale: 0.1, models: [cascade]}
+  - {key: x.sub6_supply_temperature, label: Sub 6 Boiler Supply temperature, table: input, address: 536, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub6_return_temperature, label: Sub 6 Boiler Return temperature, table: input, address: 537, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub6_max_heat_capacity, label: Sub 6 Boiler Maximum Heat capacity, table: input, address: 539, type: u16, unit: BTU, scale: 100, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub6_exhaust_temperature, label: Sub 6 Boiler Exhaust temperature, table: input, address: 540, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub6_days_since_installation, label: Sub 6 Boiler Total time after installation, table: input, address: 541, type: u16, unit: d, poll: slow, models: [cascade]}
+  - {key: x.sub6_sh_operation_count, label: Sub 6 Boiler Number of SH operation, table: input, address: 542, type: u16, scale: 10, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub6_sh_operation_time, label: Sub 6 Boiler Total time of SH operation, table: input, address: 543, type: u16, unit: h, poll: slow, models: [cascade]}
+  - {key: x.sub6_current_gas, label: Sub 6 Boiler Current amount of gas, table: input, address: 544, type: u16, unit: BTU, scale: 100, verified: false, note: 'This row gives Resolution 1, the main unit and sub 1 rows give 100, and the table says all units share the main unit''s data: 100 is used (unverified).', models: [cascade]}
+  - {key: x.sub6_total_gas, label: Sub 6 Boiler Total amount of gas, table: input, address: 545, type: u32, unit: l, scale: 100, poll: slow, verified: false, note: 'High word first. Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub7_operation_word, label: Sub 7 Boiler operation, table: input, address: 554, type: u16, enum: on_off, models: [cascade]}
+  - {key: x.sub7_error_code, label: Sub 7 Boiler Error code, table: input, address: 555, type: u16, models: [cascade]}
+  - {key: x.sub7_heat_capacity, label: Sub 7 Boiler Current Heat capacity, table: input, address: 557, type: u16, unit: '%', scale: 0.1, models: [cascade]}
+  - {key: x.sub7_supply_temperature, label: Sub 7 Boiler Supply temperature, table: input, address: 558, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub7_return_temperature, label: Sub 7 Boiler Return temperature, table: input, address: 559, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub7_max_heat_capacity, label: Sub 7 Boiler Maximum Heat capacity, table: input, address: 561, type: u16, unit: BTU, scale: 100, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub7_exhaust_temperature, label: Sub 7 Boiler Exhaust temperature, table: input, address: 562, type: u16, unit: °C, scale: 0.1, models: [cascade]}
+  - {key: x.sub7_days_since_installation, label: Sub 7 Boiler Total time after installation, table: input, address: 563, type: u16, unit: d, poll: slow, models: [cascade]}
+  - {key: x.sub7_sh_operation_count, label: Sub 7 Boiler Number of SH operation, table: input, address: 564, type: u16, scale: 10, poll: slow, verified: false, note: 'Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  - {key: x.sub7_sh_operation_time, label: Sub 7 Boiler Total time of SH operation, table: input, address: 565, type: u16, unit: h, poll: slow, models: [cascade]}
+  - {key: x.sub7_current_gas, label: Sub 7 Boiler Current amount of gas, table: input, address: 566, type: u16, unit: BTU, scale: 100, verified: false, note: 'This row gives Resolution 1, the main unit and sub 1 rows give 100, and the table says all units share the main unit''s data: 100 is used (unverified).', models: [cascade]}
+  - {key: x.sub7_total_gas, label: Sub 7 Boiler Total amount of gas, table: input, address: 567, type: u32, unit: l, scale: 100, poll: slow, verified: false, note: 'High word first. Scale taken from the Resolution column, although the Max column gives the raw range here (unverified).', models: [cascade]}
+  # Holding registers: control, single and cascade
+  - {key: x.boiler_on_off, label: Boiler On/Off command, table: holding, address: 0, type: u16, enum: on_off, min: 0, max: 1, note: 'Single and cascade. Writing 1 can start heating. Needs Modbus RTU enabled in the EMS menu and, to switch the boiler from the BAS, main DIP switch 7 ON or the T/S ZONE3 port shorted.', writable: true, poll: slow}
+  - {key: x.sh_supply_setpoint, label: SH supply setpoint setting, table: holding, address: 1, type: u16, unit: °C, scale: 0.5, min: 20, max: 90, note: Applied when the SH control method (input 38) is 0 or 2; in cascade it is the set temperature. Limited by holding 15 and 16. A higher value can start heating when the boiler is on., writable: true, poll: slow}
+  - {key: x.sh_return_setpoint, label: SH return setpoint setting, table: holding, address: 2, type: u16, unit: °C, scale: 0.5, min: 20, max: 90, note: 'Applied when the SH control method (input 38) is 1 or 3. Limited by holding 17 and 18, whose range ends at 70 °C. A higher value can start heating when the boiler is on.', writable: true, poll: slow}
+  - {key: x.dhw_setpoint, label: DHW setpoint setting, table: holding, address: 3, type: u16, unit: °C, scale: 0.1, min: 30, max: 85, note: A higher value can start hot water heating when DHW operation is on. The input registers 36 and 37 show a DHW range that ends at 70 °C., writable: true, poll: slow}
+  - {key: x.error_reset, label: Error reset command, table: holding, address: 4, type: u16, enum: on_off, min: 0, max: 1, note: 'Writing 1 asks for an error reset, single and cascade. The document does not say whether the register returns to 0.', writable: true, poll: slow}
+  - {key: x.boiler_setpoint_dhw, label: Boiler setpoint in DHW operation, table: holding, address: 6, type: u16, unit: °C, min: 20, max: 90, note: Boiler water setpoint while heating hot water., writable: true, poll: slow}
+  - {key: x.outdoor_reset_heatload, label: Outdoor reset curve heatload setting, table: holding, address: 8, type: u16, enum: heatload, min: 1, max: 7, writable: true, poll: slow}
+  - {key: x.max_outdoor_temperature_setting, label: Maximum outdoor temperature setting, table: holding, address: 9, type: s16, unit: °C, scale: 0.5, min: -20, max: 40, verified: false, note: 'Keep at least 5 °C from the minimum outdoor temperature (holding 10). Listed as Word with a negative minimum: read as two''s complement (unverified).', writable: true, poll: slow}
+  - {key: x.min_outdoor_temperature_setting, label: Minimum outdoor temperature setting, table: holding, address: 10, type: s16, unit: °C, scale: 0.5, min: -20, max: 40, verified: false, note: 'Keep at least 5 °C from the maximum outdoor temperature (holding 9). Listed as Word with a negative minimum: read as two''s complement (unverified).', writable: true, poll: slow}
+  - {key: x.wwsd_temperature, label: WWSD temperature setting, table: holding, address: 11, type: u16, unit: °C, min: 10, max: 20, note: Warm weather shutdown temperature., writable: true, poll: slow}
+  - {key: x.wwsd_differential, label: WWSD On differential setting, table: holding, address: 12, type: u16, unit: °C, min: 0, max: 20, writable: true, poll: slow}
+  - {key: x.boost_interval, label: Boost interval time setting, table: holding, address: 13, type: u16, unit: min, min: 0, max: 120, note: What a write changes beyond the setting itself is not explained., writable: true, poll: slow}
+  - {key: x.cascade_initial_units, label: Cascade Initial operation units setting, table: holding, address: 14, type: u16, min: 0, max: 32, note: Number of units that start first in a cascade., writable: true, poll: slow, models: [cascade]}
+  - {key: x.sh_supply_min_setting, label: SH supply minimum temperature setting, table: holding, address: 15, type: u16, unit: °C, scale: 0.5, min: 20, max: 90, note: Lower limit of holding 1. Keep 20 °C from holding 16., writable: true, poll: slow}
+  - {key: x.sh_supply_max_setting, label: SH supply maximum temperature setting, table: holding, address: 16, type: u16, unit: °C, scale: 0.5, min: 20, max: 90, note: Upper limit of holding 1. Keep 20 °C from holding 15., writable: true, poll: slow}
+  - {key: x.sh_return_min_setting, label: SH return minimum temperature setting, table: holding, address: 17, type: u16, unit: °C, scale: 0.5, min: 20, max: 70, note: Lower limit of holding 2. Keep 10 °C from holding 18., writable: true, poll: slow}
+  - {key: x.sh_return_max_setting, label: SH return maximum temperature setting, table: holding, address: 18, type: u16, unit: °C, scale: 0.5, min: 20, max: 70, note: Upper limit of holding 2. Keep 10 °C from holding 17., writable: true, poll: slow}
+  - {key: x.date_year, label: System date (Year), table: holding, address: 19, type: u16, min: 2018, max: 2099, note: Sets the boiler clock., writable: true, poll: slow}
+  - {key: x.date_month, label: System date (Month), table: holding, address: 20, type: u16, min: 1, max: 12, note: Sets the boiler clock., writable: true, poll: slow}
+  - {key: x.date_day, label: System date (Day), table: holding, address: 21, type: u16, min: 1, max: 31, note: Sets the boiler clock., writable: true, poll: slow}
+  - {key: x.time_hour, label: System time (Hours), table: holding, address: 22, type: u16, unit: h, min: 0, max: 24, note: Sets the boiler clock., writable: true, poll: slow}
+  - {key: x.time_minute, label: System time (Minutes), table: holding, address: 23, type: u16, unit: min, min: 0, max: 60, note: Sets the boiler clock., writable: true, poll: slow}
+
+enums:
+  on_off:
+    "0": "Off"
+    "1": "On"
+  temperature_display:
+    "0": "Celsius"
+    "1": "Fahrenheit"
+  sh_control_method:
+    "0": "Supply control"
+    "1": "Return control"
+    "2": "System supply control"
+    "3": "System return control"
+  dhw_control_method:
+    "0": "Supply control"
+    "1": "System supply control"
+  gas_type:
+    "0": "NG"
+    "1": "LPG"
+  heatload:
+    "1": "Finned Tube Baseboard"
+    "2": "Fan Coil"
+    "3": "Cast Iron Baseboard"
+    "4": "Low Mass Radiant"
+    "5": "High Mass Radiant"
+    "6": "Radiators"
+    "7": "Custom"
+
+problems:
+  - {when: {key: x.error, equals: 1}, kind: fault, text: Boiler error (see the main and sub error codes)}
+  - {when: {key: x.cascade_error_code, not: 0}, kind: fault, text: 'Cascade error code {value}'}
+
+notes:
+- "Addresses: the document writes references with a table digit in front (00009, 10073, 30039, 40002 appear in its text), so they are 1-based references: 00001 is coil 0, 10011 is discrete input 10, 30001 is input 0, 40001 is holding 0. It has no frame example and no function codes, so the subtraction of 1 rests on the usual meaning of these references and on FORMAT.md, not on a frame (unverified)."
+- "The document lists no function codes; its data model only says coils and holding registers can be read and written, which is why they are marked writable. Function 16 is not mentioned. It does not say which settings are stored in non-volatile memory, so `persistent` is left out; treat the settings as not meant for a control loop until checked."
+- "Interlocks: Modbus RTU is off by default and has to be enabled in the EMS menu. To switch the boilers from a building automation system, main DIP switch 7 must be ON (space heating thermostat unused) or the T/S ZONE3 port shorted. In a cascade the RS-485 line goes to the main unit."
+- "Temperatures: every temperature register is listed in °C. Coil 7 chooses Celsius or Fahrenheit for the display type; the document does not say whether the registers follow it, so check on a device before relying on °C while it is set to Fahrenheit."
+- "Word registers have no stated sign. Those with a negative minimum are s16 (unverified), the rest u16. Real value = raw × Resolution column. BTU is the document's unit for capacity and current gas, without a per-hour; the total gas register is in litres."
+- "Serial: 9600 baud, no parity are the defaults; the baud rate menu also offers 19200, a value printed as 34800 (probably 38400), 57600 and 115200, and parity even or odd. Data 8, stop 1, unit 1 (1–100 settable), reply timeout setting 100–1000 ms, default 100 ms."
+- "No Modbus TCP in the document: the port and 125 registers per request are assumed, for gateways. Only addresses in the document are listed, with gaps; max_gap stays 0 since gaps may not answer."
+- "Models: pick `cascade` on the main unit of a cascade to read the cascade totals and per-unit values, and `single` otherwise. The file can't tell them apart from the device: the document does not say what the cascade registers read on a single boiler."
+- "Left out: the second cascade view organised by data rather than unit (discrete 10073–10200, input 30101–30356), whose rows repeat values in the per-unit blocks here; and units beyond sub 7. The address ranges allow for 32 units (discrete 10201 + 16 × n, 32 blocks to 10712; input 30401 + 22 × n, 32 blocks to 31104) and the document says later blocks use the main unit's layout, but it only prints rows up to sub 7."
+- "Per-unit layout: the water pressure row is printed only for the main unit (offset 6), not for the subs, so the subs have no pressure point here."
+- "Document inconsistencies: the second data-view table for input registers is headed as discrete inputs; its header says 8 data sets in 30101–30356 and 10073–10200 is said to hold 4, and not all are printed. DHW call signal has different value meanings in the single and cascade tables. Holding 2 (SH return setpoint) allows up to 90 °C, while the return limits end at 70 °C, and DHW setpoint allows 85 °C against a DHW maximum of 70 °C. The hour and minute registers allow 24 and 60. Sub 6 prints its total gas rows as Word instead of Dword."
+- "identify uses the system date registers together with the control method registers: the document has no model, serial or firmware register. This is a fit of ranges rather than a true identification, and no serial is available."
+- "The fault classification of the error bit and of the cascade error code is ours; the document only says error status. The document gives no list of error codes."

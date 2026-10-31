@@ -1,0 +1,154 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# Written from the Benshaw Modbus RTU and Modbus TCP option card guides for EMX4e/EMX4i (710-21970-00B, 710-21971-00A).
+
+modbusspec: 0
+id: benshaw-emx4
+manufacturer: Benshaw
+name: EMX4e / EMX4i soft starter with Modbus RTU or Modbus TCP card
+kind: other
+
+sources:
+- title: Modbus RTU Communications option for EMX4e/EMX4i soft starters, User Guide
+  version: 710-21970-00B
+  number: 710-21970-00B
+  date: '2020'
+  language: en
+  devices: [EMX4e, EMX4i]
+  url: https://www.esrcommerce.com/customer/docs/resources/Benshaw%20710-21970-00B-Modbus-RTU-Card-Benshaw-EN_web.pdf
+  sha256: d330e6fa227e2be6554c897bcc0774dc5010283b946fa31f16cc39e674826243
+- title: Modbus TCP Communications option for EMX4e/EMX4i soft starters, User Guide
+  version: 710-21971-00A
+  number: 710-21971-00A
+  date: '2020'
+  language: en
+  devices: [EMX4e, EMX4i]
+  url: https://www.esrcommerce.com/customer/docs/resources/Benshaw%20710-21971-00A-Modbus-TCP-Card-Benshaw-EN_web.pdf
+  sha256: b208c59c236042717d5cf7b4a61f8e34df20862ec009e9ea51aebde1cc95b926
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - tcp
+  - rtu
+  limits:
+    max_registers: 123
+    min_interval_ms: 300
+
+encoding:
+  byte_order: big
+  word_order: big
+
+identify:
+  checks:
+  # product type code 12 or 13 in bits 9-15 of 30600
+  - table: input
+    address: 599
+    type: u16
+    range:
+    - 6144
+    - 7167
+  # a model ID other than 0 in bits 8-15 of 30601; bits 0-7 are reserved
+  - table: input
+    address: 600
+    type: u16
+    range:
+    - 256
+    - 65535
+
+models:
+  - {id: up_to_0064b, name: Models 0064B and smaller (model ID 1–4), match: {table: input, address: 600, type: u16, range: [256, 1279]}}
+  - {id: larger, name: Models above 0064B (model ID 5 and up), match: {table: input, address: 600, type: u16, range: [1280, 65535]}}
+
+points:
+  # Status registers, 30600 on (function 04)
+  - {key: x.protocol_version, label: Version – binary protocol version, table: input, address: 599, type: u16, bits: [0, 5], poll: slow}
+  - {key: x.version_parameter_list, label: Version – parameter list major version, table: input, address: 599, type: u16, bits: [6, 8], poll: slow}
+  - {key: x.product_type, label: Version – product type code, table: input, address: 599, type: u16, bits: [9, 15], enum: product_type, poll: slow}
+  - {key: x.model_id, label: Model number – soft starter model ID, table: input, address: 600, type: u16, bits: [8, 15], poll: slow}
+  - {key: state, label: Starter state, table: input, address: 603, type: u16, bits: [0, 4], enum: starter_state}
+  - {key: x.warning, label: Starter state – warning, table: input, address: 603, type: u16, bits: [5, 5]}
+  - {key: x.initialised, label: Starter state – initialised, table: input, address: 603, type: u16, bits: [6, 6]}
+  - {key: x.command_source, label: Starter state – command source, table: input, address: 603, type: u16, bits: [7, 7], enum: command_source}
+  - {key: x.phase_sequence, label: Starter state – phase sequence, table: input, address: 603, type: u16, bits: [9, 9], enum: phase_sequence}
+  - {key: x.current, label: Average rms current across all three phases, table: input, address: 604, type: u16, bits: [0, 13], unit: A, scale: 0.1, models: [up_to_0064b], verified: false, note: 'Unit not stated for this register; amperes assumed. The register holds ten times the actual value on these models, hence the scale.'}
+  - {key: x.current, label: Average rms current across all three phases, table: input, address: 604, type: u16, bits: [0, 13], unit: A, models: [larger], verified: false, note: Unit not stated for this register; amperes assumed.}
+  - {key: x.current_flc, label: Current (% motor FLC), table: input, address: 605, type: u16, bits: [0, 9], unit: '%'}
+  - {key: x.motor_thermal_model, label: Motor temperature – motor thermal model, table: input, address: 606, type: u16, bits: [0, 7], unit: '%'}
+  - {key: x.power_raw, label: Power, table: input, address: 607, type: u16, bits: [0, 11], note: 'Unit and factor depend on x.power_scale: 0 = value × 10 in W, 1 = value × 100 in W, 2 = value in kW, 3 = value × 10 in kW. The direction of the power isn''t stated.'}
+  - {key: x.power_scale, label: Power scale, table: input, address: 607, type: u16, bits: [12, 13], enum: power_scale}
+  - {key: power_factor, label: '% Power factor', table: input, address: 608, type: u16, bits: [0, 7], unit: '', scale: 0.01, note: 100 % means a power factor of 1.}
+  - {key: x.voltage, label: Average rms voltage across all three phases, table: input, address: 609, type: u16, bits: [0, 13], unit: V, verified: false, note: Unit not stated; volts assumed.}
+  - {key: l1_current, label: Phase 1 current (rms), table: input, address: 610, type: u16, bits: [0, 13], unit: A, scale: 0.1, models: [up_to_0064b], verified: false, note: 'Unit not stated; amperes assumed. Ten times the actual value on these models, hence the scale.'}
+  - {key: l1_current, label: Phase 1 current (rms), table: input, address: 610, type: u16, bits: [0, 13], unit: A, models: [larger], verified: false, note: Unit not stated; amperes assumed.}
+  - {key: l2_current, label: Phase 2 current (rms), table: input, address: 611, type: u16, bits: [0, 13], unit: A, scale: 0.1, models: [up_to_0064b], verified: false, note: 'Unit not stated; amperes assumed. Ten times the actual value on these models, hence the scale.'}
+  - {key: l2_current, label: Phase 2 current (rms), table: input, address: 611, type: u16, bits: [0, 13], unit: A, models: [larger], verified: false, note: Unit not stated; amperes assumed.}
+  - {key: l3_current, label: Phase 3 current (rms), table: input, address: 612, type: u16, bits: [0, 13], unit: A, scale: 0.1, models: [up_to_0064b], verified: false, note: 'Unit not stated; amperes assumed. Ten times the actual value on these models, hence the scale.'}
+  - {key: l3_current, label: Phase 3 current (rms), table: input, address: 612, type: u16, bits: [0, 13], unit: A, models: [larger], verified: false, note: Unit not stated; amperes assumed.}
+  - {key: l1_voltage, label: Phase 1 voltage, table: input, address: 613, type: u16, bits: [0, 13], unit: V, verified: false, note: Unit not stated; volts assumed. Whether line-to-neutral or line-to-line isn't stated.}
+  - {key: l2_voltage, label: Phase 2 voltage, table: input, address: 614, type: u16, bits: [0, 13], unit: V, verified: false, note: Unit not stated; volts assumed. Whether line-to-neutral or line-to-line isn't stated.}
+  - {key: l3_voltage, label: Phase 3 voltage, table: input, address: 615, type: u16, bits: [0, 13], unit: V, verified: false, note: Unit not stated; volts assumed. Whether line-to-neutral or line-to-line isn't stated.}
+  - {key: x.parameter_list_minor, label: Parameter list version number – minor revision, table: input, address: 616, type: u16, bits: [0, 7], poll: slow}
+  - {key: x.parameter_list_major, label: Parameter list version number – major version, table: input, address: 616, type: u16, bits: [8, 15], poll: slow}
+  - {key: x.digital_inputs, label: Digital input state, table: input, address: 617, type: u16, flags: digital_inputs, note: 'A set bit means the input is closed. With parameter 7I set to normally open, the reset input reads the other way round.'}
+  - {key: error_code, label: Trip code, table: input, address: 618, type: u16, bits: [0, 7], enum: trip_code, note: 'No trip reads 255 in the RTU guide and 0 in the TCP guide; both are listed.'}
+
+  # Command register, 40001 (function 06)
+  - {key: x.command, label: Command, table: holding, address: 0, type: u16, enum: command, writable: true, min: 32768, max: 32800, poll: slow, note: 'A write can start the motor without warning, so alert personnel first. Accepted only with parameter 1A Command Source set to Network; the starter won''t operate while the reset input is active. The enum holds whole register values: the command in bits 0–7 plus bit 15, which must be 1 (derived from the bit table). The value stays in the register until overwritten or reinitialised, and if control went to Command Override (7A) or the reset input in the meantime, it is sent again when fieldbus control resumes, so clear it first. Writing 0 is left out of the enum: the TCP guide uses it to put the card into legacy mode.'}
+
+enums:
+  product_type: {'12': EMX4e (basic model), '13': EMX4i (advanced model)}
+  starter_state: {'1': Ready, '2': Starting, '3': Running, '4': Stopping, '5': 'Not ready (restart delay, restart temperature check, run simulation, reset input open)', '6': Tripped, '7': Programming mode, '8': Jog forward, '9': Jog reverse}
+  command_source: {'0': 'Remote keypad, digital input, clock', '1': Network}
+  phase_sequence: {'0': Negative, '1': Positive}
+  power_scale: {'0': Value × 10 in W, '1': Value × 100 in W, '2': Value in kW, '3': Value × 10 in kW}
+  command: {'32768': Stop, '32769': Start, '32770': Reset, '32772': Quick stop (coast to stop), '32776': Forced communication trip, '32784': Start using parameter set 1, '32800': Start using parameter set 2}
+  trip_code: {'0': No trip, '1': Excess start time, '2': Motor overload, '3': Motor thermistor, '4': Current imbalance, '5': Frequency, '6': Phase sequence, '7': Overcurrent, '8': Power loss, '9': Undercurrent, '10': Heatsink overtemperature, '11': Motor connection, '12': Input A trip, '13': FLC too high, '14': Unsupported option (not available in inside delta), '15': Communications card fault, '16': Network communication, '17': Internal fault, '18': Overvoltage, '19': Undervoltage, '23': Parameter out of range, '24': Input B trip, '26': L1 phase loss, '27': L2 phase loss, '28': L3 phase loss, '29': L1-T1 shorted, '30': L2-T2 shorted, '31': L3-T3 shorted, '33': Time-overcurrent (bypass overload), '34': SCR overtemperature, '35': Battery/clock, '36': Thermistor circuit, '47': Overpower, '48': Underpower, '56': Keypad disconnected, '57': Zero speed detect, '58': SCR Itsm, '59': Instantaneous overcurrent, '60': Rating capacity, '70': Current read error L1, '71': Current read error L2, '72': Current read error L3, '73': Remove mains volts (run simulation), '74': Motor connection T1, '75': Motor connection T2, '76': Motor connection T3, '77': Firing fail P1, '78': Firing fail P2, '79': Firing fail P3, '80': VZC fail P1, '81': VZC fail P2, '82': VZC fail P3, '83': Low control volts, '84': Internal fault 84, '85': Internal fault 85, '86': Internal fault 86, '87': Internal fault 87, '88': Internal fault 88, '89': Internal fault 89, '90': Internal fault 90, '91': Internal fault 91, '92': Internal fault 92, '93': Internal fault 93, '94': Internal fault 94, '95': Internal fault 95, '96': Internal fault 96, '255': No trip}
+
+flags:
+  digital_inputs: {'0': Start/Stop, '2': Reset, '3': Input A, '4': Input B}
+
+reserved:
+  - {table: holding, address: 0, bits: [8, 14]}
+  - {table: holding, address: 1, count: 7}
+  - {table: input, address: 2, count: 6}
+  - {table: input, address: 600, bits: [0, 7]}
+  - {table: input, address: 603, bits: [10, 15]}
+  - {table: input, address: 604, bits: [14, 15]}
+  - {table: input, address: 605, bits: [10, 15]}
+  - {table: input, address: 606, bits: [8, 15]}
+  - {table: input, address: 607, bits: [14, 15]}
+  - {table: input, address: 608, bits: [8, 15]}
+  - {table: input, address: 609, bits: [14, 15]}
+  - {table: input, address: 610, bits: [14, 15]}
+  - {table: input, address: 611, bits: [14, 15]}
+  - {table: input, address: 612, bits: [14, 15]}
+  - {table: input, address: 613, bits: [14, 15]}
+  - {table: input, address: 614, bits: [14, 15]}
+  - {table: input, address: 615, bits: [14, 15]}
+  - {table: input, address: 617, bits: [1, 1]}
+  - {table: input, address: 617, bits: [5, 15]}
+  - {table: input, address: 618, bits: [8, 15]}
+  - {table: input, address: 619, count: 12}
+
+problems:
+  - {when: {key: state, equals: 6}, kind: fault, text: Soft starter tripped (state 6)}
+  - {when: {key: x.warning, equals: 1}, kind: warning, text: Soft starter warning}
+
+notes:
+- 'These PDFs were collected from a distributor''s site (ESR Motor Systems, esrcommerce.com), not from Benshaw.'
+- 'One file for both cards: Modbus RTU and Modbus TCP guides give the same standard-mode register map. They differ in these ways. 30602 and 30603 (last changed parameter) and bit 8 of 30604 exist only on the RTU card and are reserved on the TCP card. The limit per request is 125 registers (RTU) or 123 (TCP); the lower one is used here. No trip is 255 (RTU) or 0 (TCP). Code 7 is named overcurrent (RTU) or instantaneous overcurrent (TCP), and code 16 network communication (RTU) or forced network trip (TCP); the enum uses the RTU names. Codes 17 and 73 are listed only by the TCP guide.'
+- 'Addresses: the guides list 5-digit references with the function code and show no raw bytes. They are taken as 1-based under FORMAT.md, so 30600 is input address 599 and 40001 is holding address 0. The only worked examples are RTU legacy-mode frames, which also show references (start command: function 06 at 40002); parameter examples give parameter n at 40008 + n, e.g. parameter 5 at 40013.'
+- 'Connection: port 502, unit 1 and byte and word order aren''t documented; assumed. Unit addresses 0–254 can be set with parameter 12A. RTU rates are 4800, 9600, 19200 and 38400, with parity none, odd, even or 10-bit, set with parameters 12B and 12C; no default is given, so `serial` is left out. An 11-bit frame needs 2 stop bits without parity or 1 with odd or even parity, and a 10-bit frame 1 stop bit. Parameter changes take effect after cycling control power. The TCP card''s default IP is 192.168.0.2.'
+- '300 ms is the RTU guide''s recommended minimum polling interval, as shorter ones can give wrong results; the TCP guide gives none.'
+- 'If communication stops, the starter may trip on Network Communications; with parameter 6M set to soft trip and log or to trip starter, it then needs a reset. Parameter 12D sets the RTU timeout (off, 10, 60 or 100 s).'
+- 'The guides disagree on clearing the command register. They ask for commands to be cleared before fieldbus control resumes, but all standard commands need bit 15 set, and the TCP guide says writing 0 to 40001 initialises legacy mode. They don''t say which value counts as cleared; check on a device before relying on one. Stop is 0x8000.'
+- 'Other inconsistencies: a legacy note says the status data is also at 30003 on, but the standard table marks 30003–30008 reserved and has the status at 30600 on. An RTU example reads a trip code at 40004, which the legacy table marks reserved; the trip code is at 40619 there. Legacy parameter registers are given 8 bits, standard ones 16, while an example returns 600.'
+- 'x.power_raw and x.power_scale stay apart because the format has no scale chosen by another register. consumer_power isn''t used, as no direction is documented.'
+- 'The ten-times current applies to model IDs 1–4 according to the guides, which is why the models exist; the two models differ only in that scale. The product type (EMX4e or EMX4i) is the point x.product_type. Model ID 0 matches neither model, so the current points aren''t read for it.'
+- 'The guides don''t classify trips or warnings; the fault and warning rules are ours. Trip codes aren''t turned into problems of their own, because the guides don''t say whether a code stays after a reset.'
+- 'Features and parameters vary with starter model and software version, per the guides. The standard-mode tables name no function codes: 3xxxx is taken as function 04 and 4xxxx as functions 03 and 06, from the reference numbers; only the RTU legacy examples show 03, 06 and 16.'
+- 'A search can''t tell this device from aucom-emx4: that file has the same check on 30600, and these guides offer no maker register.'
+- 'Left out: legacy mode, which copies the older clip-on module (command at 40002 with different values, where 2 means stop rather than reset; status at 40003–40006; a copy of 30600 on at 40600 on). The guides don''t say how the RTU card selects it. Also 30602 and 30603 and bit 8 of 30604, RTU only, because reading 30603 resets the other two. Also the programmable parameters from 40009 on, whose list is in the starter''s manual; changing group 20 can make the starter behave unpredictably, and the TCP guide says the starter can''t start or stop the motor while parameters are being written. Also Modbus exception codes and the TCP card''s web configuration.'

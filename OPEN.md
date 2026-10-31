@@ -36,6 +36,11 @@ The documents leave these open; a reading from a real device settles them.
 | aerl-coolpro | No real device yet. What kind of device it is; whether address and baud rate survive a power cycle. |
 | sentek-probe | No real device yet. Default Modbus address (1 assumed); units of the cooked values (none given); relative address of 30025 (0x0018 by the layout, 0x0019 printed). |
 | energielenker-lobas | No real system yet. Which rows of models 60000 and 60001 can be written; device models 113, 213 and 124 have no fixed address, so they stay in the notes. |
+| navien-nfb700 | No real device yet. Address base (no frame example; references read as 1-based); whether registers follow the C/F display setting; scale of the sub 2–7 current gas (Resolution 1, main and sub 1 have 100); units beyond sub 7 (ranges imply 32, rows stop at 7). |
+| marley-marleygard-cd | No real device yet. Nothing about the protocol is stated: table, 1-based addresses, Short / Long signedness, float word order and alarm bit order are assumed. No units, and nothing can be marked writable from the document. |
+| mccrometer-procomm | No real device yet. The sensor test flags are printed for register 0021 (the sample count) but fit 0032; how the overflow count adds to a total. |
+| benshaw-emx4 | No real device yet. Which value clears a command (bit 15 needed; 0 means legacy mode on TCP); units of current and voltage; whether AuCom's 30621 and 30622, reserved in Benshaw's guides, answer. |
+| Benshaw RSi S, RSi H2 | No file: their Ethernet/IP & Modbus-TCP manuals (890049-09-00, 890053-03-01) give only the frame and function codes, no named register. Needs the drives' own manuals. |
 | abb-b23-b24 | Outage time 0x8A39 (2 registers listed, the layout needs 3); 0x8A50 / 0x8A54 labelled "active", probably reactive. A real B23 with firmware B1.28.0 reads all of 8A30–8A5F as invalid, so another firmware is needed. |
 | carlogavazzi-em24-din | Whether the extra V2R0 registers still exist on current (V4) meters. |
 | deye-p3 | Device type 0x0005 / 0x0006 in the HP3 edition: typo for 0x0500 / 0x0600, or real (accepted in identify). |
