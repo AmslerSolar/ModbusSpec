@@ -186,16 +186,16 @@ points:
   # PV inputs
   - {key: x.pv1_voltage, label: PV1 Voltage, table: holding, address: 35103, type: u16, unit: V, scale: 0.1}
   - {key: x.pv1_current, label: PV1 Current, table: holding, address: 35104, type: u16, unit: A, scale: 0.1}
-  - {key: x.pv1_power, label: PV1 Power, table: holding, address: 35105, type: u32, unit: W}
+  - {key: x.pv1_power, label: PV1 Power, table: holding, address: 35105, type: u32, invalid: [4294967295], unit: W}
   - {key: x.pv2_voltage, label: PV2 Voltage, table: holding, address: 35107, type: u16, unit: V, scale: 0.1}
   - {key: x.pv2_current, label: PV2 Current, table: holding, address: 35108, type: u16, unit: A, scale: 0.1}
-  - {key: x.pv2_power, label: PV2 Power, table: holding, address: 35109, type: u32, unit: W, note: 'See the note on PV power registers: on two-strings-per-MPPT models this is the power of an MPPT, not of string PV2.', verified: false}
+  - {key: x.pv2_power, label: PV2 Power, table: holding, address: 35109, type: u32, invalid: [4294967295], unit: W, note: 'See the note on PV power registers: on two-strings-per-MPPT models this is the power of an MPPT, not of string PV2.', verified: false}
   - {key: x.pv3_voltage, label: PV3 Voltage, table: holding, address: 35111, type: u16, unit: V, scale: 0.1}
   - {key: x.pv3_current, label: PV3 Current, table: holding, address: 35112, type: u16, unit: A, scale: 0.1}
-  - {key: x.pv3_power, label: PV3 Power, table: holding, address: 35113, type: u32, unit: W, note: As PV2 Power., verified: false}
+  - {key: x.pv3_power, label: PV3 Power, table: holding, address: 35113, type: u32, invalid: [4294967295], unit: W, note: As PV2 Power., verified: false}
   - {key: x.pv4_voltage, label: PV4 Voltage, table: holding, address: 35115, type: u16, unit: V, scale: 0.1}
   - {key: x.pv4_current, label: PV4 Current, table: holding, address: 35116, type: u16, unit: A, scale: 0.1}
-  - {key: x.pv4_power, label: PV4 Power, table: holding, address: 35117, type: u32, unit: W, note: As PV2 Power., verified: false}
+  - {key: x.pv4_power, label: PV4 Power, table: holding, address: 35117, type: u32, invalid: [4294967295], unit: W, note: As PV2 Power., verified: false}
   - {key: x.pv_mode, label: PV Mode, table: holding, address: 35119, type: u32, note: 'One byte per input, PV1…PV4, codes in enum pv_mode. Which end byte 0 (PV1) is isn''t stated; taken as the least significant byte.', verified: false}
 
   # Grid side (inverter output per phase)
@@ -261,8 +261,8 @@ points:
   - {key: error_code, label: Error Message, table: holding, address: 35189, type: u32, flags: error_message, note: 'The register row refers to table 8-12 (operation modes), in both languages; the bit table is 8-2.'}
 
   # Energy
-  - {key: pv_energy, label: PV Energy-Total, table: holding, address: 35191, type: u32, unit: kWh, scale: 0.1, poll: slow}
-  - {key: pv_energy_today, label: PV Energy-Day, table: holding, address: 35193, type: u32, unit: kWh, scale: 0.1}
+  - {key: pv_energy, label: PV Energy-Total, table: holding, address: 35191, type: u32, invalid: [4294967295], unit: kWh, scale: 0.1, poll: slow}
+  - {key: pv_energy_today, label: PV Energy-Day, table: holding, address: 35193, type: u32, invalid: [4294967295], unit: kWh, scale: 0.1}
   - {key: x.inverter_output_energy, label: Inverter output energy total, table: holding, address: 35195, type: u32, unit: kWh, scale: 0.1, poll: slow, note: 'Not in Map V1.2. Taken as the lifetime counterpart of 35199 (by analogy, unconfirmed).', verified: false}
   - {key: x.operating_hours, label: Hour-Total, table: holding, address: 35197, type: u32, unit: h, poll: slow}
   - {key: x.inverter_output_energy_today, label: Energy-Day-Sell, table: holding, address: 35199, type: u16, unit: kWh, scale: 0.1, note: 'The Chinese text (authoritative) says the inverter''s AC output energy of the day, not grid export as the English says.'}
@@ -291,7 +291,7 @@ points:
   - {key: x.battery2_mode, label: Battery2 Mode, table: holding, address: 35266, type: u16, enum: battery_mode}
 
   # PV extended (not on every model)
-  - {key: pv_power, label: PV Total Power, table: holding, address: 35301, type: u32, unit: W, note: 'Where missing, the sum of 35105…35117 gives the same total.'}
+  - {key: pv_power, label: PV Total Power, table: holding, address: 35301, type: u32, invalid: [4294967295], unit: W, note: 'Where missing, the sum of 35105…35117 gives the same total.'}
   - {key: x.pv_channels, label: PV channel, table: holding, address: 35303, type: u16, poll: slow}
   - {key: x.pv5_voltage, label: PV5 Voltage, table: holding, address: 35304, type: u16, unit: V, scale: 0.1}
   - {key: x.pv5_current, label: PV5 Current, table: holding, address: 35305, type: u16, unit: A, scale: 0.1}
@@ -1421,6 +1421,9 @@ problems:
   - {when: {key: x.bms_warning, not: 0}, kind: warning, text: 'BMS warning code 0x{value:X}'}
 
 notes:
+- 'All ones means "not available" on the 32-bit PV registers: a real GW29.9K-ET (firmware 04062-13-S00) read 0xFFFFFFFF at night
+  (about 02:20 on 2026-11-02) at 35301 and 35193; marked invalid on 35105, 35109, 35113, 35117, 35191, 35193 and 35301. The
+  document gives no marker for them. The s32 power registers get none either: all ones reads as -1 W there, a possible real value.'
 - 'ESA series (GoodWe ESA 5-30kW, all-in-one; GW5K- to GW29.999K-ETA-G20, all three-phase): the ET register map. On a real
   GW8K-ETA-G20 (2026-11-02) all 167 registers of the Third-Party EMS protocol answered, and 912 of this file''s 1111 holding points;
   those that didn''t are nearly all openems-only grid-code settings (45400-45900), the DC-DC battery block (51000 ff.) and the EV
