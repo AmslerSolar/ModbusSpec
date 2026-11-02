@@ -1,0 +1,107 @@
+# SPDX-License-Identifier: CC0-1.0
+# Copyright (C) 2026 Amsler Solar GmbH
+#
+# The meter read directly on RS485, not through an inverter (for that, see smart-meter.yaml). No Fronius or Carlo Gavazzi document for
+# it: written from a sweep of a real TS 65A-3 and from a published sniff of an inverter polling another one, with the inverter's own
+# readings beside it. What the registers mean is inferred from that comparison.
+
+modbusspec: 0
+id: fronius-smart-meter-ts
+manufacturer: Fronius
+name: Smart Meter TS 65A-3 on RS485
+kind: meter
+
+sources:
+- id: otti
+  title: FroniusModbusRtu, TS65A3 (sniffed inverter traffic and the inverter's readings of the same meter)
+  url: https://github.com/otti/FroniusModbusRtu/tree/main/TS65A3
+  commit: 562108d8890e1805c6ec7c5c715fc3da396807ab
+  path: TS65A3/20230228_record.txt
+
+connection:
+  default_port: 502
+  default_unit: 1
+  transports:
+  - rtu
+  input_equals_holding: true
+  serial:
+    baud: 9600
+    format: 8N1
+  limits:
+    max_registers: 42
+
+encoding:
+  byte_order: big
+  word_order: little
+
+identify:
+  serial:
+    table: input
+    address: 20480
+    type: str
+    length: 7
+    chars: low
+  checks:
+  # model code; read alone, as it reads 0 inside a block on a real meter
+  - table: input
+    address: 11
+    type: u16
+    equals: 731
+
+points:
+  # Identity
+  - {key: x.model_code, label: Model code, table: input, address: 11, type: u16, optional: true, poll: slow, verified: true, note: 'Read 731 on a real meter, alone; read inside a block the same register gave 0.'}
+  - {key: serial, label: Serial number, table: input, address: 20480, type: str, length: 7, chars: low, poll: slow, verified: false, note: 'Seven registers of one character each on a real meter, where Carlo Gavazzi meters keep their serial number; not stated for this meter.'}
+  - {key: x.production_year, label: Production year, table: input, address: 20496, type: u16, poll: slow, verified: false, note: Read 2022 on a real meter; that this is the year is a guess.}
+
+  # System
+  - {key: x.voltage_ln, label: V L-N sys, table: holding, address: 0x0102, type: s32, unit: V, scale: 0.1, sources: [otti], note: The average of the three phases.}
+  - {key: x.voltage_ll, label: V L-L sys, table: holding, address: 0x0104, type: s32, unit: V, scale: 0.1, sources: [otti]}
+  - {key: grid_power, label: W sys, table: holding, address: 0x0106, type: s32, unit: W, scale: 0.1, positive: import, sources: [otti], note: 'Same sign as PowerReal_P_Sum in the inverter''s API; that this means import is assumed, as on Carlo Gavazzi meters.'}
+  - {key: apparent_power, label: VA sys, table: holding, address: 0x0108, type: s32, unit: VA, scale: 0.1, sources: [otti]}
+  - {key: reactive_power, label: var sys, table: holding, address: 0x010A, type: s32, unit: var, scale: 0.1, sources: [otti]}
+  - {key: power_factor, label: PF sys, table: holding, address: 0x010C, type: s32, unit: '', scale: 0.001, sources: [otti]}
+  - {key: frequency, label: Hz, table: holding, address: 0x0110, type: s32, unit: Hz, scale: 0.1, sources: [otti], verified: true, note: Read 50.0 Hz on a real meter.}
+  - {key: x.l1_l2_voltage, label: V L1-L2, table: holding, address: 0x011E, type: s32, unit: V, scale: 0.1, sources: [otti]}
+  - {key: x.l2_l3_voltage, label: V L2-L3, table: holding, address: 0x012C, type: s32, unit: V, scale: 0.1, sources: [otti]}
+  - {key: x.l3_l1_voltage, label: V L3-L1, table: holding, address: 0x013A, type: s32, unit: V, scale: 0.1, sources: [otti]}
+
+  # L1
+  - {key: l1_voltage, label: V L1-N, table: holding, address: 0x120, type: s32, unit: V, scale: 0.1, sources: [otti], verified: true, note: 'Read 235.7 V on a real meter, 2026-11-02; holding 0x0102 read 78.5 V, a third of it, with only L1 live.'}
+  - {key: l1_current, label: A L1, table: holding, address: 0x122, type: s32, unit: A, scale: 0.001, sources: [otti]}
+  - {key: l1_power, label: W L1, table: holding, address: 0x124, type: s32, unit: W, scale: 0.1, positive: import, sources: [otti]}
+  - {key: x.l1_apparent_power, label: VA L1, table: holding, address: 0x126, type: s32, unit: VA, scale: 0.1, sources: [otti]}
+  - {key: x.l1_reactive_power, label: var L1, table: holding, address: 0x128, type: s32, unit: var, scale: 0.1, sources: [otti]}
+  - {key: x.l1_power_factor, label: PF L1, table: holding, address: 0x12a, type: s32, unit: '', scale: 0.001, sources: [otti]}
+
+  # L2
+  - {key: l2_voltage, label: V L2-N, table: holding, address: 0x12e, type: s32, unit: V, scale: 0.1, sources: [otti]}
+  - {key: l2_current, label: A L2, table: holding, address: 0x130, type: s32, unit: A, scale: 0.001, sources: [otti]}
+  - {key: l2_power, label: W L2, table: holding, address: 0x132, type: s32, unit: W, scale: 0.1, positive: import, sources: [otti]}
+  - {key: x.l2_apparent_power, label: VA L2, table: holding, address: 0x134, type: s32, unit: VA, scale: 0.1, sources: [otti]}
+  - {key: x.l2_reactive_power, label: var L2, table: holding, address: 0x136, type: s32, unit: var, scale: 0.1, sources: [otti]}
+  - {key: x.l2_power_factor, label: PF L2, table: holding, address: 0x138, type: s32, unit: '', scale: 0.001, sources: [otti]}
+
+  # L3
+  - {key: l3_voltage, label: V L3-N, table: holding, address: 0x13c, type: s32, unit: V, scale: 0.1, sources: [otti]}
+  - {key: l3_current, label: A L3, table: holding, address: 0x13e, type: s32, unit: A, scale: 0.001, sources: [otti]}
+  - {key: l3_power, label: W L3, table: holding, address: 0x140, type: s32, unit: W, scale: 0.1, positive: import, sources: [otti]}
+  - {key: x.l3_apparent_power, label: VA L3, table: holding, address: 0x142, type: s32, unit: VA, scale: 0.1, sources: [otti]}
+  - {key: x.l3_reactive_power, label: var L3, table: holding, address: 0x144, type: s32, unit: var, scale: 0.1, sources: [otti]}
+  - {key: x.l3_power_factor, label: PF L3, table: holding, address: 0x146, type: s32, unit: '', scale: 0.001, sources: [otti]}
+
+  # Energy: whole units, then the rest in the next register. Sums matched the inverter's API to the digit.
+  - {key: grid_import_energy, label: Energy imported, table: holding, address: 0x0400, type: s32, unit: kWh, sources: [otti]}
+  - {key: x.import_energy_rest, label: Energy imported (rest), table: holding, address: 0x0402, type: s32, unit: Wh, sources: [otti]}
+  - {key: x.reactive_import_energy, label: Reactive energy imported, table: holding, address: 0x0404, type: s32, unit: kvarh, sources: [otti]}
+  - {key: x.reactive_import_energy_rest, label: Reactive energy imported (rest), table: holding, address: 0x0406, type: s32, unit: varh, sources: [otti]}
+  - {key: grid_export_energy, label: Energy exported, table: holding, address: 0x0408, type: s32, unit: kWh, sources: [otti]}
+  - {key: x.export_energy_rest, label: Energy exported (rest), table: holding, address: 0x040A, type: s32, unit: Wh, sources: [otti]}
+  - {key: x.reactive_export_energy, label: Reactive energy exported, table: holding, address: 0x040C, type: s32, unit: kvarh, sources: [otti]}
+  - {key: x.reactive_export_energy_rest, label: Reactive energy exported (rest), table: holding, address: 0x040E, type: s32, unit: varh, sources: [otti]}
+
+notes:
+- 'A real meter (production year 2022): functions 03 and 04 answer the same registers, exception 2 elsewhere, nothing silent. Answering: 0000-0097, 00F8-01B5, 0302-0304, 0400-040F, 0500-0533, 1000, 1002, 1010-1011, 1100-1105, 1200-1201, 2000-2004, 4000-4001, 5000-5008, 5010. Only what the sniff explains is listed here.'
+- 'Function 43/14 (Read Device Identification) got no reply at all on a real meter: 3 streams and objects 0 to 255.'
+- Registers 0000-0097 look like a second copy in the Carlo Gavazzi layout (L1 voltage at 0000 read 235.8 V); not mapped.
+- 'The inverter''s own reads: holding 0x0102 x16, 0x011E x42, 0x0400 x16; so the 42 registers per read are what was seen working, not a stated limit.'

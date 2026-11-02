@@ -599,6 +599,27 @@ def test_identify_tree_sends_serial_devices_to_their_own_root():
     assert it.roots_of({"connection": {"default_port": 1502, "default_unit": 1}}) == ["port:1502"]
 
 
+def test_fronius_smart_meter_ts():
+    """Numbers from a published sniff, with the inverter's own readings: low word first, energy in whole units and the rest."""
+    def words(v):
+        return [v & 0xFFFF, (v >> 16) & 0xFFFF]
+    spec = msp.load(msp.ROOT / "devices/meter/fronius/smart-meter-ts.yaml")
+    holding = {a: 0 for p in spec["points"] if p["table"] == "holding" for a in range(p["address"], p["address"] + msp.registers(p))}
+    put(holding, 0x0120, words(2370) + words(1157) + words(2066))
+    put(holding, 0x0130, words(-418))
+    put(holding, 0x0400, words(987) + words(340))
+    inputs = {a: 0 for p in spec["points"] if p["table"] == "input" for a in range(p["address"], p["address"] + msp.registers(p))}
+    inputs[11] = 731
+    device = FakeDevice(holding=holding, input=inputs)
+    v = msp.read_device(spec, device)["values"]
+    assert v["l1_voltage"] == pytest.approx(237.0) and v["l1_current"] == pytest.approx(1.157)
+    assert v["l2_current"] == pytest.approx(-0.418)
+    assert v["grid_import_energy"] * 1000 + v["x.import_energy_rest"] == 987340  # the inverter's EnergyReal_WAC_Plus_Absolute
+    assert ("input", 11, 1) in device.requests  # the model code alone: in a block it reads 0
+    assert msp.identifies(spec, msp.Image({"input": {11: 731}}), "little")
+    assert not msp.identifies(spec, msp.Image({"input": {11: 72}}), "little")
+
+
 def test_edgetech_evse_c():
     """State and errors share a register, currents are in 1/256 A, and no read touches the registers that may act."""
     spec = msp.load(msp.ROOT / "devices/charger/edgetech/evse-c.yaml")

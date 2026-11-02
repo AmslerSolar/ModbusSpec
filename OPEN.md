@@ -74,7 +74,7 @@ Read on a real device, outside any document of its maker.
 |---|---|
 | goodwe-et | One ET (GW29.9K-ET, firmware 04062-13-S00, 8 battery clusters), two sweeps; holding registers in no GoodWe document: **22000–22164** 8 records of 21 registers, one per cluster (37077 / 37078 read 8): 10 registers ASCII (a module serial number, space padded), then 3, 3, 16, 1000 and counters; **23000–23255** 8 records of 32 registers (values like 0x258, 0x0D30 = 3376, 0x0103–0x0108; meanings unknown); **38000–38051** 4 records of 20 (e.g. 0x096C = 2412, 0x1389 = 5001); **45000–45019** and **45155–45158** ASCII "12345678"; **45075–45110** "tcp.goodwe-power.com" and 0x4E21 (20001), a cloud server setting; **45134** "GW29.9K-ET"; **45203** and **2000–2008** the inverter serial (2008: 0xF7, the unit id); **45361–45371** 1, 3000, 3400, 3800, 4000, 3700, 5000, 3000, 4150, 4350, 4700 (most as at 51001–51007); **32100–32114** (0x0201 at 32100, 1 at 32109, 0x0800 at 32111); **33000–33017** (1000 at 33000 and 33003; 36000 at 33002, 33005 and 33012; 45000 at 33007; 2000 at 33008; 29900 at 33010 and 33017, the rated power; 2 at 33013); **35041** (3); **37079–37094** after the BMS1 block; **48900–48999**, **55250–55316** and **15021–15030** (patterns like 0x5555); the SunSpec chain at **60000–60655** (noted at 45153). Zero and 0xFFFF also stand for "not there" on this inverter. |
 | abb-b23-b24 | One B23 212-100 (firmware B1.28.0): **1002–1047** in no manual (236, 189, 187 at 1003 / 1005 / 1007 and 48, 4, 50 at 1009 / 100B / 100D, the phase and line-to-line voltages in whole V; 3 at 103F; 0x0000C35A = 50010 at 1046, probably the frequency in mHz; the rest 0); **8911** (0x0102); **8966–896D** a 16-character text starting with "ABB" and ending with the serial number. |
-| (none) Fronius Smart Meter TS 65A-3 | One meter (production year 2022) on RS485, unit 1, 9600 8N1; no Fronius or Carlo Gavazzi document for it. Carlo Gavazzi layout: 32-bit values low word first, functions 03 and 04 give the same registers. Answered stretches: 0000–0097, 00F8–01B5, 0400–040F, 0500–0533, 1000, 1010–1011, 1100–1105, 1200–1201, 2000–2004, 4000–4001, 5000–5008, 5010; more single registers answer alone (0302–0303: 1, 4, firmware / revision as on an EM300). Input 000B read alone gives **731**, a model code no Carlo Gavazzi file knows (read in a block it is the high word of V L3-L1, 0). Serial number one character per register at 5000–5006, 2022 at 5010. Unlike the EM300 map, 0031 reads 500 (50.0 Hz?) and 0033 reads 0. |
+| fronius-smart-meter-ts | Written from a sweep of one meter and a sniff of another: meanings are inferred. No document. Direction of power (import assumed); whether the second register of an energy pair is always the rest; what 0000-0097, 0500-0533 and 1000-4001 hold; whether the digits of the serial number encode anything. |
 
 ## From the Home Assistant / evcc check (no document)
 
@@ -127,7 +127,7 @@ Named by documents in the collection but not in it:
 Not named by a document, but missing for a device file:
 
 - Huawei EMMA (SmartHEMS) Modbus interface definitions: huawei-emma is taken from open-source projects only
-- Fronius Smart Meter TS 65A-3 Modbus register list (model code 731): no device file for the meter on RS485
+- Fronius Smart Meter TS 65A-3 Modbus register list (model code 731): fronius-smart-meter-ts is inferred, without a document
 
 ## Not done
 
