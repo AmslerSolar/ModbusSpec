@@ -65,6 +65,7 @@ The documents leave these open; a reading from a real device settles them.
 | socomec-ups | Delphys XM / XL added from their manuals; no real device read. XL S011: 'Temperature' in the manual, taken as a slip for 'Operating'. |
 | socomec-countis-e2x | Read on a real E24 without load: the sign of the powers needs a load. E23, E27 and E28 not read. |
 | kostal-ksem | Signs of inverter AC, PV DC and battery power in the energy-flow block (40974–40984): read 0 at night on a real KSEM (firmware 2.7) without a managed KOSTAL inverter; grid power (40972) is settled. Modbus TLS (port 802) not tested. |
+| goodwe-et | Does Total Load Power (35171) include the back-up loads? GoodWe's map says no, and load_power adds 35169 to it. One report from a GW29.9K-ET says yes (35171 matched 35137 − 35139 with the grid near 0; a tablet reading at 2.4 kW house load came out about 0.45 kW high). The sweeps of 2026-10-28 say no rather than yes: on every phase the on-grid load (35163/65/67) is the inverter phase power (35124/29/34) minus the meter (36019/21/23), and on L1 the back-up load (45 and 48 W) is higher than the inverter's whole L1 power (35 and 45 W), so 35137 seems to leave out the back-up port. Both at about 100 W of back-up load, too little to be sure. Needs reads of 35124–35171 and 36019–36025 with about 1 kW on the back-up port and little else on. |
 
 ## Answers without a document
 
