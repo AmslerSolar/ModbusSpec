@@ -1,14 +1,15 @@
 # ModbusSpec
 
-Machine-readable Modbus register maps for solar inverters, batteries, energy meters, wallboxes and heat pumps.
+Machine-readable Modbus register maps and specifications for all Modbus-capable devices: solar inverters, batteries,
+energy meters, wallboxes and heat pumps, but also ventilation, HVAC, boilers, UPSs, I/O modules and more.
 
 Each device family is one YAML file: registers, data types, scaling, **sign conventions**, models and how to tell
 them apart, identification, request limits, the faults and warnings the device reports, and which settings can be
 written. Any program, in any language, can read and control a device from these files instead of hard-coding
-register lists. The values use one common
-vocabulary (`vocabulary.yaml`), so "grid power" means the same thing — and has the same sign — for every meter.
+register lists, or simulate a device from them, for example to test a program without the hardware. The values use one
+common vocabulary (`vocabulary.yaml`), so "grid power" means the same thing — and has the same sign — for every meter.
 
-Device files are edited by hand. Their facts come from two kinds of source:
+Device files are edited by hand. Their facts come from three kinds of source:
 
 - **Manufacturer documents:** the Modbus documents the makers publish. Each file names its documents with version and
   address.
@@ -16,6 +17,9 @@ Device files are edited by hand. Their facts come from two kinds of source:
   Assistant integrations (core and HACS) and the libraries they use, evcc's device templates and drivers, the mbmd meter
   definitions, and the device drivers of OpenEMS, openWB, openHAB, FHEM, Tasmota and SmartHomeNG. The projects are
   listed in `THIRD_PARTY_NOTICES.md`.
+- **Device sweeps:** read-only sweeps of real devices, each register read and its reply recorded, kept beside the device
+  file in `sweeps/`. They confirm what a document says, or stand in for a missing document, and show how a device
+  really behaves (which registers answer, which exceptions it gives). Serial numbers in them are masked.
 
 SunSpec devices are marked `sunspec: true`: their points are SunSpec models at the usual addresses. Finding the
 models on a particular device (walking the SunSpec chain) is left to SunSpec's own tools.
@@ -29,6 +33,7 @@ models on a particular device (walking the SunSpec chain) is left to SunSpec's o
 | `schema/device.schema.json` | JSON Schema for device files |
 | `vocabulary.yaml` | Standard value keys, units and sign directions |
 | `devices/<kind>/<maker>/<family>.yaml` | The device files, in a folder per `kind` |
+| `devices/<kind>/<maker>/sweeps/*.sweep` | Register sweeps of real devices: every request and reply, in runs (the header says how) |
 | `LICENSE`, `LICENSES/` | CC0 1.0 for the data, MIT for the code |
 | `tools/msp.py` | Reference tool: validate files, and read or write a real device with one (Modbus TCP, TLS, UDP, RTU over TCP/UDP; stdlib only) |
 | `tools/collisions.py` | Which files' identification would take another file's device for theirs |
