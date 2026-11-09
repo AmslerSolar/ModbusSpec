@@ -11,8 +11,8 @@ Checked versions:
 - Home Assistant core `bd8b1bc`, with each integration's library at the version Home Assistant pins.
 - evcc `bf5c276` (2026-10-23), with mbmd `af19f17` (the version in evcc's go.mod).
 
-Private manufacturer documents are cited by title, version and page; `modbus-docs/` is the local folder of those
-documents (not part of this repository).
+Private manufacturer documents are cited by title, version and page; `~/data/modbus-docs/index.csv` lists those
+documents and `~/data/object_storage` holds the files, by SHA-256 (neither is part of this repository).
 
 ## Home Assistant (`home-assistant/`): 21 candidates
 
