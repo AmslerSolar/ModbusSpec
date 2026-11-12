@@ -5,7 +5,7 @@
 # the Chinese is followed. Meter block (36000 ff.), detailed fault words (35250 ff.) and the parallel-system block
 # (10400 ff.) from the ESG2 ET30 map v1.0 and the BESS map V1.1. The ESA series (all-in-one, three-phase, model numbers
 # GW…K-ETA-G20) has the same register map: checked with GoodWe's Third-Party EMS protocol V1.1.1 and a sweep of a real
-# GW8K-ETA-G20 (sweeps/esa-gw8k-eta-g20_2026-11-02.sweep).
+# GW8K-ETA-G20 (sweeps/esa-gw8k-eta-g20_2026-11-02.sweep) and of a real GW15K-ETA-G20 (sweeps/esa-gw15k-eta-g20_2026-11-12.sweep).
 
 modbusspec: 0
 id: goodwe-et
@@ -170,13 +170,13 @@ models:
 
 points:
   # Device info (35000…)
-  - {key: x.rated_power, label: Rate Power, table: holding, address: 35001, type: u16, unit: W, poll: slow, note: The document gives no unit; W is assumed., conflicts: [{sources: [goodwe, openems], label: rated_power}], verified: false}
+  - {key: x.rated_power, label: Rate Power, table: holding, address: 35001, type: u16, unit: W, poll: slow, note: 'The document gives no unit; W is assumed. A real GW29.9K-ET read 29900, but ESA units don''t hold their power here: a GW8K-ETA-G20 read 0 and a GW15K-ETA-G20 24576 (0x6000). On them Ac rate power (33009) gives it.', conflicts: [{sources: [goodwe, openems], label: rated_power}], verified: false}
   - {key: serial, label: Inverter SN, table: holding, address: 35003, type: str, length: 8, poll: slow}
   - {key: x.model_name, label: Model Name, table: holding, address: 35011, type: str, length: 5, poll: slow}
   - {key: x.firmware_dsp_master, label: Firmware Version_DSP_Master, table: holding, address: 35016, type: u16, poll: slow}
   - {key: x.firmware_dsp_slave, label: Firmware Version_DSP_Slave, table: holding, address: 35017, type: u16, poll: slow}
   - {key: x.firmware_arm, label: Firmware Version_ARM, table: holding, address: 35019, type: u16, poll: slow}
-  - {key: x.system_control_mode, label: System control mode, table: holding, address: 35043, type: u16, enum: system_control_mode, optional: true, poll: slow}
+  - {key: x.system_control_mode, label: System control mode, table: holding, address: 35043, type: u16, enum: system_control_mode, invalid: [65535], optional: true, poll: slow, note: 'Read 65535 on two real ESA (GW8K- and GW15K-ETA-G20), 1 on a GW29.9K-ET.'}
   - {key: x.beta_version_dsp_slave, label: Beta Version_DSP_Slave, table: holding, address: 35044, type: u16, optional: true, poll: slow}
   - {key: x.external_model_name, label: Externel Model Name, table: holding, address: 35060, type: str, length: 16, optional: true, poll: slow, note: Read "GW29.9K-ET" on a real ET.}
 
@@ -196,7 +196,7 @@ points:
   - {key: x.pv4_voltage, label: PV4 Voltage, table: holding, address: 35115, type: u16, unit: V, scale: 0.1}
   - {key: x.pv4_current, label: PV4 Current, table: holding, address: 35116, type: u16, unit: A, scale: 0.1}
   - {key: x.pv4_power, label: PV4 Power, table: holding, address: 35117, type: u32, invalid: [4294967295], unit: W, note: As PV2 Power., verified: false}
-  - {key: x.pv_mode, label: PV Mode, table: holding, address: 35119, type: u32, note: 'One byte per input, PV1…PV4, codes in enum pv_mode. Which end byte 0 (PV1) is isn''t stated; taken as the least significant byte.', verified: false}
+  - {key: x.pv_mode, label: PV Mode, table: holding, address: 35119, type: u32, note: 'One byte per input, PV1…PV4, codes in enum pv_mode. Which end byte 0 (PV1) is isn''t stated; it is the least significant byte: a real GW15K-ETA-G20 read 0x00000202 with about 470 V on PV1 and PV2 and 0 V on PV3 and PV4.', verified: true}
 
   # Grid side (inverter output per phase)
   - {key: l1_voltage, label: R Phase Inverter Voltage, table: holding, address: 35121, type: u16, unit: V, scale: 0.1}
@@ -360,8 +360,8 @@ points:
   - {key: x.battery_type_index, label: Battery Type Index, table: holding, address: 37001, type: u16, poll: slow}
   - {key: x.bms_status, label: BMS Status, table: holding, address: 37002, type: u16}
   - {key: battery_temperature, label: BMS Package Temperature, table: holding, address: 37003, type: u16, unit: °C, scale: 0.1, note: Unsigned in the document; a pack below 0 °C would read wrongly if the value is really signed., conflicts: [{sources: [goodwe], type: s16, label: Battery Temperature}]}
-  - {key: x.bms_max_charge_current, label: Max BMS Charge Current, table: holding, address: 37004, type: u16, unit: A}
-  - {key: x.bms_max_discharge_current, label: Max BMS Discharge Current, table: holding, address: 37005, type: u16, unit: A}
+  - {key: x.bms_max_charge_current, label: Max BMS Charge Current, table: holding, address: 37004, type: u16, unit: A, note: 'A real GW29.9K-ET with 8 clusters read 42 and 46. ESA units read 160 (GW15K-ETA-G20, 2 modules) and 240 (GW8K-ETA-G20, 3 modules): impossible in A at their 700-950 V battery, plausibly 0.1 A (16.0 A; the GW15K datasheet gives 20.1 A max charge current). Not confirmed.'}
+  - {key: x.bms_max_discharge_current, label: Max BMS Discharge Current, table: holding, address: 37005, type: u16, unit: A, note: 'As 37004: a GW29.9K-ET read 54 and 58, ESA units 214 (GW15K-ETA-G20) and 307 (GW8K-ETA-G20); for 0.1 A the GW15K datasheet gives 22.1 A max discharge current.'}
   - {key: x.bms_error_low, label: BMS Error Code Low, table: holding, address: 37006, type: u16, note: 'Bits 0–15 of the BMS error code (table 8-7, incomplete in the document).'}
   - {key: battery_soc, label: SOC, table: holding, address: 37007, type: u16, unit: '%', note: Battery 1 only.}
   - {key: battery_soh, label: BMS SOH, table: holding, address: 37008, type: u16, unit: '%'}
@@ -379,9 +379,9 @@ points:
   - {key: x.battery_total_charge, label: Battery Total Charge, table: holding, address: 37056, type: u32, unit: kWh, scale: 0.1, poll: slow}
   - {key: x.battery_total_discharge, label: Battery Total Discharge Energy, table: holding, address: 37058, type: u32, unit: kWh, scale: 0.1, poll: slow}
   - {key: x.battery_serial, label: battery SN, table: holding, address: 37060, type: str, length: 16, poll: slow, note: 'Battery 1; 37024–37055 before it are "BMS1 Pass Information" 1–32, words passed through from the BMS without a meaning in the document.'}
-  - {key: x.bms_rated_capacity, label: BMS1 Rated Capacity, table: holding, address: 37076, type: u16, unit: kWh, scale: 0.1, poll: slow, note: Read 8000 (800.0 kWh by the document's factor) on a real ET with 8 clusters; the factor is unconfirmed., verified: false}
+  - {key: x.bms_rated_capacity, label: BMS1 Rated Capacity, table: holding, address: 37076, type: u16, unit: kWh, scale: 0.1, poll: slow, note: 'Read 1000 per battery module: 8000 on a real ET with 8 clusters, 3000 on a GW8K-ETA-G20 with 3 modules, 2000 on a GW15K-ETA-G20 with 2. By the document''s factor that is 100.0 kWh per module, while ESA modules hold 5.12 or 8.32 kWh: unit or factor is wrong (100 Ah per module would fit, unconfirmed).', verified: false}
   - {key: x.bms_clusters, label: BMS1 Cluster NUM, table: holding, address: 37077, type: u16, poll: slow}
-  - {key: x.bms_clusters_online, label: BMS1 Register Cluster number + BMS1 Online Cluster number, table: holding, address: 37078, type: u16, note: Two counts in one register; which byte holds which is not stated (read 0x0808 with 8 clusters).}
+  - {key: x.bms_clusters_online, label: BMS1 Register Cluster number + BMS1 Online Cluster number, table: holding, address: 37078, type: u16, note: 'Two counts in one register; which byte holds which is not stated (read 0x0808 with 8 clusters, 0x0303 with 3 and 0x0202 with 2 battery modules).'}
 
   # Battery 1 and 2 status (50034 ff.; models with a second battery input)
   # On a real ET, 50034–50042 read exactly the same in two sweeps about two hours apart, while 35180, 35181 and
@@ -438,7 +438,7 @@ points:
   - {key: x.lead_acid_equalization_cycle, label: lead_Acid Battery Equal Charge cycle, table: holding, address: 47771, type: u16, unit: d, writable: true, min: 0, max: 365, persistent: true, optional: true, poll: slow}
   - {key: x.standby_grid_charge_enable, label: Standby mode buy power charging enable flag, table: holding, address: 47870, type: u16, enum: off_on, writable: true, persistent: true, optional: true, poll: slow}
   - {key: x.offgrid_bms_discharge_limit, label: Max BMS Battery Discharge Current (off-grid), table: holding, address: 47936, type: u16, unit: A, scale: 0.1, writable: true, persistent: false, optional: true, poll: slow}
-  - {key: x.ac_rate_power, label: Ac rate power, table: holding, address: 33009, type: u32, unit: W, verified: false, sources: [openems]}
+  - {key: x.ac_rate_power, label: Ac rate power, table: holding, address: 33009, type: u32, unit: W, verified: true, sources: [openems], note: Read 8000 on a GW8K-ETA-G20 and 15000 on a GW15K-ETA-G20; their datasheet gives 8.0 and 15.0 kW.}
   - {key: x.serial_number_33943, label: Serial number, table: holding, address: 33943, type: str, length: 8, verified: false, sources: [openems]}
   - {key: x.modbus_version, label: modbus_version, table: holding, address: 35000, type: u16, sources: [goodwe], verified: false}
   - {key: x.ac_output_type, label: ac_output_type, table: holding, address: 35002, type: u16, sources: [goodwe], verified: false}
@@ -1297,9 +1297,9 @@ points:
   - {key: x.gw_a_48041_generator_operating_mode, label: Gw a 48041 generator operating mode, table: holding, address: 48041, type: u16, verified: false, sources: [openems]}
 
   # From the Third-Party EMS protocol V1.1.1; every register below answered on a real ESA GW8K-ETA-G20 (2026-11-02)
-  - {key: x.rated_max_charge_power, label: Max Charge Power, table: holding, address: 33001, type: u32, unit: W, poll: slow, note: 'Read 12000 on a GW8K-ETA-G20, whose datasheet gives 8.0 kW: what it limits is not known.'}
-  - {key: x.rated_max_discharge_power, label: Max Discharge Power, table: holding, address: 33004, type: u32, unit: W, poll: slow, verified: true, note: Read 8800 on a GW8K-ETA-G20; its datasheet gives 8.8 kW.}
-  - {key: x.rated_max_pv_power, label: Max PV Power, table: holding, address: 33006, type: u32, unit: W, poll: slow, verified: true, note: Read 16000 on a GW8K-ETA-G20; its datasheet gives 16 kW.}
+  - {key: x.rated_max_charge_power, label: Max Charge Power, table: holding, address: 33001, type: u32, unit: W, poll: slow, note: 'Read 12000 on a GW8K-ETA-G20 and 22500 on a GW15K-ETA-G20, whose datasheet gives 8.0 and 15.0 kW max charge power: 1.5 times that on both. What it limits is not known.'}
+  - {key: x.rated_max_discharge_power, label: Max Discharge Power, table: holding, address: 33004, type: u32, unit: W, poll: slow, verified: true, note: Read 8800 on a GW8K-ETA-G20 and 16500 on a GW15K-ETA-G20; their datasheet gives 8.8 and 16.5 kW.}
+  - {key: x.rated_max_pv_power, label: Max PV Power, table: holding, address: 33006, type: u32, unit: W, poll: slow, verified: true, note: Read 16000 on a GW8K-ETA-G20 and 30000 on a GW15K-ETA-G20; their datasheet gives 16 and 30 kW.}
   - {key: x.battery_strings2, label: Battery Strings2, table: holding, address: 35267, type: u16, poll: slow}
   - {key: x.pmppt9, label: PV MPPT9 Power, table: holding, address: 35407, type: u16, unit: W, invalid: [65535]}
   - {key: x.pmppt10, label: PV MPPT10 Power, table: holding, address: 35408, type: u16, unit: W, invalid: [65535]}
@@ -1314,7 +1314,7 @@ points:
   - {key: x.pv20_voltage, label: PV20 Voltage, table: holding, address: 35429, type: u16, unit: V, scale: 0.1, invalid: [65535]}
   - {key: x.pv20_current, label: PV20 Current, table: holding, address: 35430, type: u16, unit: A, scale: 0.1, invalid: [65535]}
   - {key: x.meter_total_power_36133, label: Meter Total Active Power, table: holding, address: 36133, type: s32, unit: W, note: 'The document states no sign. On a real ESA whose meter measured another inverter in the same house, not the grid connection, it read -922 W while 36025 read 0 and AC Active Power (35139) 13 W. So 36133 gives the meter''s own reading; that 36025 stays 0 there, and the sign, are open.'}
-  - {key: x.bms1_power, label: BMS1 Bat power, table: holding, address: 37080, type: s32, unit: W, note: 'GoodWe batteries only. The document says U32, but a real ESA read FFFFFE1A, which is -486 W as S32; the sign is not stated.'}
+  - {key: x.bms1_power, label: BMS1 Bat power, table: holding, address: 37080, type: s32, unit: W, positive: discharge, note: 'GoodWe batteries only. The document says U32 and states no sign. On real ESA units it follows Battery1 Power (35182): a GW8K-ETA-G20 read FFFFFE1A (-486 W) while charging at 394 W, a GW15K-ETA-G20 606 W while discharging at 626 W. A GW29.9K-ET read 30821 and 42914 while charging, so not on ET.'}
   - {key: x.bms2_rated_capacity, label: BMS2 Rated Capacity, table: holding, address: 39074, type: u16, unit: kWh, scale: 0.1, poll: slow, note: GoodWe batteries only.}
   - {key: x.bms2_power, label: BMS2 Bat power, table: holding, address: 39078, type: s32, unit: W, note: 'GoodWe batteries only; U32 in the document, read as BMS1 (37080).'}
   - {key: x.phase_export_limit_ena, label: 3 Phase Export Power Limit Enable, table: holding, address: 47534, type: u16, enum: off_on_47534, invalid: [65535], writable: true, persistent: true, note: 'Stored in flash, yet the document gives a write cycle of 1 s.'}
@@ -1425,7 +1425,9 @@ notes:
   (about 02:20 on 2026-11-02) at 35301 and 35193; marked invalid on 35105, 35109, 35113, 35117, 35191, 35193 and 35301. The
   document gives no marker for them. The s32 power registers get none either: all ones reads as -1 W there, a possible real value.'
 - 'ESA series (GoodWe ESA 5-30kW, all-in-one; GW5K- to GW29.999K-ETA-G20, all three-phase): the ET register map. On a real
-  GW8K-ETA-G20 (2026-11-02) all 167 registers of the Third-Party EMS protocol answered, and 912 of this file''s 1111 holding points;
+  GW8K-ETA-G20 (2026-11-02) all 167 registers of the Third-Party EMS protocol answered, and 912 of this file''s 1111 holding points
+  (910 on a GW15K-ETA-G20 with newer firmware, 04098-01-S51, on 2026-11-12; it also answers more undocumented blocks, nearly all
+  0 or 0xFFFF, but not 60416-60735); neither answered function 04 or Read Device Identification (43/14);
   those that didn''t are nearly all openems-only grid-code settings (45400-45900), the DC-DC battery block (51000 ff.) and the EV
   charger and backup box flags (10600, 10900). Its serial number carries the series tag NBG, which is not in the list (one unit
   only), and 35011 reads GWGWGW, so it is identified by its external model name at 35060.'
